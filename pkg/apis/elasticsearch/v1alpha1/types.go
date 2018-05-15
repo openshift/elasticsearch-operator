@@ -1,8 +1,8 @@
 package v1alpha1
 
 import (
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-        "k8s.io/api/core/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -23,22 +23,21 @@ type Elasticsearch struct {
 }
 
 type ElasticsearchNode struct {
-	NodeRole          string `json:"nodeRole"`
-	Replicas          int32 `json:"replicas"`
-	Resources         v1.ResourceRequirements `json:"resources"`
+	NodeRole  string                  `json:"nodeRole"`
+	Replicas  int32                   `json:"replicas"`
+	Resources v1.ResourceRequirements `json:"resources"`
 }
 
 type ElasticsearchNodeStatus struct {
-	PodName           string `json:"podName"`
-	Status            string `json:"status"`
+	PodName string `json:"podName"`
+	Status  string `json:"status"`
 }
-
 
 type ElasticsearchSpec struct {
 	// Fill me
-        Nodes             []ElasticsearchNode `json:"nodes"`
+	Nodes []ElasticsearchNode `json:"nodes"`
 }
 type ElasticsearchStatus struct {
 	// Fill me
-        Nodes             []ElasticsearchNodeStatus `json:"nodes"`
+	Nodes []ElasticsearchNodeStatus `json:"nodes"`
 }

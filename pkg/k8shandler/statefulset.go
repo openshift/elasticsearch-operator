@@ -2,65 +2,67 @@ package k8shandler
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	apps "k8s.io/api/apps/v1beta2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-//	"encoding/json"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	//	"encoding/json"
 )
 
 const (
-	elasticsearchCertsPath  = "/etc/elasticsearch/secret"
-	clusterHealthURL        = "/_nodes/_local"
-	elasticsearchConfigPath = "/usr/share/java/elasticsearch/config"
-	elasticsearchImage      = "t0ffel/elasticsearch5"
-	defaultMasterCPULimit	= "100m"
-	defaultMasterCPURequest	= "100m"
-	defaultCPULimit			= "4000m"
-	defaultCPURequest		= "100m"
-	defaultMemoryLimit		= "4Gi"
-	defaultMemoryRequest	= "1Gi"
+	elasticsearchCertsPath    = "/etc/elasticsearch/secret"
+	clusterHealthURL          = "/_nodes/_local"
+	elasticsearchConfigPath   = "/usr/share/java/elasticsearch/config"
+	elasticsearchDefaultImage = "docker.io/t0ffel/elasticsearch5"
+	defaultMasterCPULimit     = "100m"
+	defaultMasterCPURequest   = "100m"
+	defaultCPULimit           = "4000m"
+	defaultCPURequest         = "100m"
+	defaultMemoryLimit        = "4Gi"
+	defaultMemoryRequest      = "1Gi"
 )
 
 type ESClusterNodeConfig struct {
-	ClusterName		string
-	StatefulSetName	string
-	NodeType		string
+	ClusterName     string
+	StatefulSetName string
+	NodeType        string
 	// StorageType		string
-	ESNodeSpec		v1alpha1.ElasticsearchNode
+	ESNodeSpec v1alpha1.ElasticsearchNode
 }
 
-func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode) (ESClusterNodeConfig, error){
+func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode) (ESClusterNodeConfig, error) {
 	nodeCfg := ESClusterNodeConfig{}
 	nodeCfg.StatefulSetName = fmt.Sprintf("%s-%s", dpl.Name, esNode.NodeRole)
 	nodeCfg.ClusterName = dpl.Name
 	nodeCfg.NodeType = esNode.NodeRole
 	nodeCfg.ESNodeSpec = esNode
+
 	return nodeCfg, nil
 }
 
-func (cfg *ESClusterNodeConfig) getReplicas() int32{
+func (cfg *ESClusterNodeConfig) getReplicas() int32 {
 	return cfg.ESNodeSpec.Replicas
 }
 
-func (cfg *ESClusterNodeConfig) isNodeMaster() string{
+func (cfg *ESClusterNodeConfig) isNodeMaster() string {
 	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "master" {
 		return "true"
 	}
 	return "false"
 }
 
-func (cfg *ESClusterNodeConfig) isNodeData() string{
+func (cfg *ESClusterNodeConfig) isNodeData() string {
 	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "clientdata" || cfg.NodeType == "data" {
 		return "true"
 	}
 	return "false"
 }
 
-func (cfg *ESClusterNodeConfig) isNodeClient() string{
+func (cfg *ESClusterNodeConfig) isNodeClient() string {
 	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "clientdata" || cfg.NodeType == "client" {
 		return "true"
 	}
@@ -69,12 +71,12 @@ func (cfg *ESClusterNodeConfig) isNodeClient() string{
 
 func (cfg *ESClusterNodeConfig) getLabels() map[string]string {
 	return map[string]string{
-		"component": fmt.Sprintf("elasticsearch-%s", cfg.ClusterName),
-		"es-node-role": cfg.NodeType,
+		"component":      fmt.Sprintf("elasticsearch-%s", cfg.ClusterName),
+		"es-node-role":   cfg.NodeType,
 		"es-node-client": cfg.isNodeClient(),
-		"es-node-data": cfg.isNodeData(),
+		"es-node-data":   cfg.isNodeData(),
 		"es-node-master": cfg.isNodeMaster(),
-		"cluster":   cfg.ClusterName,
+		"cluster":        cfg.ClusterName,
 	}
 }
 
@@ -85,7 +87,7 @@ func (cfg *ESClusterNodeConfig) getReadinessProbe() v1.Probe {
 		FailureThreshold:    15,
 		Handler: v1.Handler{
 			TCPSocket: &v1.TCPSocketAction{
-				Port:   intstr.FromInt(9300),
+				Port: intstr.FromInt(9300),
 			},
 		},
 	}
@@ -130,7 +132,7 @@ func (cfg *ESClusterNodeConfig) getEnvVars() []v1.EnvVar {
 			Value: cfg.ClusterName,
 		},
 		v1.EnvVar{
-			Name:  "NODE_NAME",
+			Name: "NODE_NAME",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					FieldPath: "metadata.name",
@@ -176,7 +178,7 @@ func (cfg *ESClusterNodeConfig) getEnvVars() []v1.EnvVar {
 	}
 }
 
-func (cfg *ESClusterNodeConfig) getInstanceRAM() string{
+func (cfg *ESClusterNodeConfig) getInstanceRAM() string {
 	memory := cfg.ESNodeSpec.Resources.Limits.Memory()
 	if !memory.IsZero() {
 		return memory.String()
@@ -184,17 +186,17 @@ func (cfg *ESClusterNodeConfig) getInstanceRAM() string{
 	return defaultMemoryLimit
 }
 
-func (cfg *ESClusterNodeConfig) getResourceRequirements() v1.ResourceRequirements{
+func (cfg *ESClusterNodeConfig) getResourceRequirements() v1.ResourceRequirements {
 	limitCPU := cfg.ESNodeSpec.Resources.Limits.Cpu()
 	if limitCPU.IsZero() {
-		Cpu, _ := resource.ParseQuantity(defaultCPULimit)
-		limitCPU = &Cpu
+		CPU, _ := resource.ParseQuantity(defaultCPULimit)
+		limitCPU = &CPU
 	}
 	limitMem, _ := resource.ParseQuantity(cfg.getInstanceRAM())
 	requestCPU := cfg.ESNodeSpec.Resources.Requests.Cpu()
 	if requestCPU.IsZero() {
-		Cpu, _ := resource.ParseQuantity(defaultCPURequest)
-		requestCPU = &Cpu
+		CPU, _ := resource.ParseQuantity(defaultCPURequest)
+		requestCPU = &CPU
 	}
 	requestMem := cfg.ESNodeSpec.Resources.Requests.Memory()
 	if requestMem.IsZero() {
@@ -216,13 +218,13 @@ func (cfg *ESClusterNodeConfig) getResourceRequirements() v1.ResourceRequirement
 
 }
 
-func (cfg *ESClusterNodeConfig) getContainer() v1.Container{
+func (cfg *ESClusterNodeConfig) getContainer() v1.Container {
 	probe := cfg.getReadinessProbe()
 	return v1.Container{
-		Name: cfg.StatefulSetName,
-		Image: elasticsearchImage,
+		Name:            cfg.StatefulSetName,
+		Image:           elasticsearchDefaultImage,
 		ImagePullPolicy: "Always",
-		Env: cfg.getEnvVars(),
+		Env:             cfg.getEnvVars(),
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
 				Name:          "cluster",
@@ -267,26 +269,26 @@ func (cfg *ESClusterNodeConfig) constructNodeStatefulSet(namespace string) (*app
 
 	statefulSet := statefulSet(cfg.StatefulSetName, namespace)
 	statefulSet.Spec = apps.StatefulSetSpec{
-		Replicas:             &replicas,
-		ServiceName:          cfg.StatefulSetName,
-		Selector:             &metav1.LabelSelector{
-			MatchLabels:      cfg.getLabels(),
+		Replicas:    &replicas,
+		ServiceName: cfg.StatefulSetName,
+		Selector: &metav1.LabelSelector{
+			MatchLabels: cfg.getLabels(),
 		},
-		Template:             v1.PodTemplateSpec{
-			ObjectMeta:       metav1.ObjectMeta{
-				Labels:       cfg.getLabels(),
+		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: cfg.getLabels(),
 			},
-			Spec:             v1.PodSpec{
-				Affinity:     &affinity,
-				Containers:   []v1.Container{
+			Spec: v1.PodSpec{
+				Affinity: &affinity,
+				Containers: []v1.Container{
 					cfg.getContainer(),
 				},
-				Volumes:      []v1.Volume{
+				Volumes: []v1.Volume{
 					v1.Volume{
-						Name:          "certificates",
-						VolumeSource:  v1.VolumeSource{
-							Secret:     &v1.SecretVolumeSource{
-								SecretName:    secretName,
+						Name: "certificates",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{
+								SecretName: secretName,
 							},
 						},
 					},
@@ -296,11 +298,11 @@ func (cfg *ESClusterNodeConfig) constructNodeStatefulSet(namespace string) (*app
 		},
 		VolumeClaimTemplates: []v1.PersistentVolumeClaim{
 			v1.PersistentVolumeClaim{
-				ObjectMeta:   metav1.ObjectMeta{
-					Name:        "es-data",
-					Labels:      cfg.getLabels(),
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "es-data",
+					Labels: cfg.getLabels(),
 				},
-				Spec:         v1.PersistentVolumeClaimSpec{
+				Spec: v1.PersistentVolumeClaimSpec{
 					AccessModes: []v1.PersistentVolumeAccessMode{
 						v1.ReadWriteOnce,
 					},
@@ -334,7 +336,7 @@ func statefulSet(ssName string, namespace string) *apps.StatefulSet {
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ssName,
+			Name:      ssName,
 			Namespace: namespace,
 		},
 	}
