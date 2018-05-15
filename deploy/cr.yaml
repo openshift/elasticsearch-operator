@@ -1,0 +1,10 @@
+apiVersion: "elasticsearch.redhat.com/v1alpha1"
+kind: "Elasticsearch"
+metadata:
+  name: "elastic1"
+spec:
+  nodes:
+    - nodeRole: master
+      replicas: 2
+#    - nodeRole: clientdata
+#      replicas: 1
