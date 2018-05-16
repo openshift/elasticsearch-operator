@@ -268,6 +268,7 @@ func (cfg *ESClusterNodeConfig) constructNodeStatefulSet(namespace string) (*app
 	replicas := cfg.getReplicas()
 
 	statefulSet := statefulSet(cfg.StatefulSetName, namespace)
+	statefulSet.ObjectMeta.Labels = cfg.getLabels()
 	statefulSet.Spec = apps.StatefulSetSpec{
 		Replicas:    &replicas,
 		ServiceName: cfg.StatefulSetName,

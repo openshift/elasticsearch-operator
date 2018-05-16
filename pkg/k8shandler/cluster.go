@@ -8,11 +8,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	//		"k8s.io/api/core/v1"
+	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
 	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	//		metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // newesDeploy demonstrates how to create a Elasticsearch deployment
@@ -60,6 +61,25 @@ func createOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 			err = action.Update(dep)
 			if err != nil {
 				return fmt.Errorf("Failed to update StatefulSet: %v", err)
+			}
+		}
+	}
+
+	// list existing StatefulSets and delete those unneeded
+	sSetList, err := listStatefulSets(dpl)
+	if err != nil {
+		return fmt.Errorf("Unable to list Elasticsearch's StatefulSets: %v", err)
+	}
+	for _, sSet := range sSetList.Items {
+		logrus.Infof("found statefulset: %v", sSet.ObjectMeta.Name)
+		if !isNodeConfigured(sSet, dpl) {
+			resClient, _, err := k8sclient.GetResourceClient("apps/v1", "StatefulSet", dpl.Namespace)
+			if err != nil {
+				return fmt.Errorf("failed to get resource client: %v", err)
+			}
+			err = resClient.Delete(sSet.ObjectMeta.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				return fmt.Errorf("Unable to delete StatefulSet %v: ", err)
 			}
 		}
 	}
