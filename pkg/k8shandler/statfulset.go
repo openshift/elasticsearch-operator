@@ -22,7 +22,7 @@ func isNodeConfigured(sSet apps.StatefulSet, dpl *v1alpha1.Elasticsearch) bool {
 
 func listStatefulSets(dpl *v1alpha1.Elasticsearch) (*apps.StatefulSetList, error) {
 	list := ssList()
-	labelSelector := labels.SelectorFromSet(labelsForESCluster(dpl.Name)).String()
+	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
 	err := query.List(dpl.Namespace, list, query.WithListOptions(listOps))
 	if err != nil {
@@ -39,4 +39,15 @@ func ssList() *apps.StatefulSetList {
 			APIVersion: "apps/v1",
 		},
 	}
+}
+
+func (cfg *elasticsearchNode) isDifferent(sset *apps.StatefulSet) (bool, error) {
+	// Check replicas number
+	if cfg.getReplicas() != *sset.Spec.Replicas {
+		return true, nil
+	}
+
+	// Check if the Variables are the desired ones
+
+	return false, nil
 }

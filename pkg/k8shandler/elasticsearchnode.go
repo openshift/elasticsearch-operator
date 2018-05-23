@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	//	"encoding/json"
 )
 
 const (
@@ -26,7 +25,7 @@ const (
 	defaultMemoryRequest      = "1Gi"
 )
 
-type ESClusterNodeConfig struct {
+type elasticsearchNode struct {
 	ClusterName     string
 	StatefulSetName string
 	NodeType        string
@@ -34,8 +33,8 @@ type ESClusterNodeConfig struct {
 	ESNodeSpec v1alpha1.ElasticsearchNode
 }
 
-func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode) (ESClusterNodeConfig, error) {
-	nodeCfg := ESClusterNodeConfig{}
+func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode) (elasticsearchNode, error) {
+	nodeCfg := elasticsearchNode{}
 	nodeCfg.StatefulSetName = fmt.Sprintf("%s-%s", dpl.Name, esNode.NodeRole)
 	nodeCfg.ClusterName = dpl.Name
 	nodeCfg.NodeType = esNode.NodeRole
@@ -44,32 +43,32 @@ func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsea
 	return nodeCfg, nil
 }
 
-func (cfg *ESClusterNodeConfig) getReplicas() int32 {
+func (cfg *elasticsearchNode) getReplicas() int32 {
 	return cfg.ESNodeSpec.Replicas
 }
 
-func (cfg *ESClusterNodeConfig) isNodeMaster() string {
+func (cfg *elasticsearchNode) isNodeMaster() string {
 	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "master" {
 		return "true"
 	}
 	return "false"
 }
 
-func (cfg *ESClusterNodeConfig) isNodeData() string {
+func (cfg *elasticsearchNode) isNodeData() string {
 	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "clientdata" || cfg.NodeType == "data" {
 		return "true"
 	}
 	return "false"
 }
 
-func (cfg *ESClusterNodeConfig) isNodeClient() string {
+func (cfg *elasticsearchNode) isNodeClient() string {
 	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "clientdata" || cfg.NodeType == "client" {
 		return "true"
 	}
 	return "false"
 }
 
-func (cfg *ESClusterNodeConfig) getLabels() map[string]string {
+func (cfg *elasticsearchNode) getLabels() map[string]string {
 	return map[string]string{
 		"component":      fmt.Sprintf("elasticsearch-%s", cfg.ClusterName),
 		"es-node-role":   cfg.NodeType,
@@ -80,7 +79,7 @@ func (cfg *ESClusterNodeConfig) getLabels() map[string]string {
 	}
 }
 
-func (cfg *ESClusterNodeConfig) getReadinessProbe() v1.Probe {
+func (cfg *elasticsearchNode) getReadinessProbe() v1.Probe {
 	return v1.Probe{
 		TimeoutSeconds:      30,
 		InitialDelaySeconds: 10,
@@ -93,7 +92,7 @@ func (cfg *ESClusterNodeConfig) getReadinessProbe() v1.Probe {
 	}
 }
 
-func (cfg *ESClusterNodeConfig) getAffinity() v1.Affinity {
+func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
 	return v1.Affinity{
 		PodAntiAffinity: &v1.PodAntiAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
@@ -117,7 +116,7 @@ func (cfg *ESClusterNodeConfig) getAffinity() v1.Affinity {
 	}
 }
 
-func (cfg *ESClusterNodeConfig) getEnvVars() []v1.EnvVar {
+func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 	return []v1.EnvVar{
 		v1.EnvVar{
 			Name: "NAMESPACE",
@@ -178,7 +177,7 @@ func (cfg *ESClusterNodeConfig) getEnvVars() []v1.EnvVar {
 	}
 }
 
-func (cfg *ESClusterNodeConfig) getInstanceRAM() string {
+func (cfg *elasticsearchNode) getInstanceRAM() string {
 	memory := cfg.ESNodeSpec.Resources.Limits.Memory()
 	if !memory.IsZero() {
 		return memory.String()
@@ -186,7 +185,7 @@ func (cfg *ESClusterNodeConfig) getInstanceRAM() string {
 	return defaultMemoryLimit
 }
 
-func (cfg *ESClusterNodeConfig) getResourceRequirements() v1.ResourceRequirements {
+func (cfg *elasticsearchNode) getResourceRequirements() v1.ResourceRequirements {
 	limitCPU := cfg.ESNodeSpec.Resources.Limits.Cpu()
 	if limitCPU.IsZero() {
 		CPU, _ := resource.ParseQuantity(defaultCPULimit)
@@ -218,7 +217,7 @@ func (cfg *ESClusterNodeConfig) getResourceRequirements() v1.ResourceRequirement
 
 }
 
-func (cfg *ESClusterNodeConfig) getContainer() v1.Container {
+func (cfg *elasticsearchNode) getContainer() v1.Container {
 	probe := cfg.getReadinessProbe()
 	return v1.Container{
 		Name:            cfg.StatefulSetName,
@@ -254,7 +253,7 @@ func (cfg *ESClusterNodeConfig) getContainer() v1.Container {
 }
 
 // CreateDataNodeDeployment creates the data node deployment
-func (cfg *ESClusterNodeConfig) constructNodeStatefulSet(namespace string) (*apps.StatefulSet, error) {
+func (cfg *elasticsearchNode) constructNodeStatefulSet(namespace string) (*apps.StatefulSet, error) {
 
 	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
 

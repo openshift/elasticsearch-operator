@@ -34,30 +34,30 @@ func labelsForES(component string, role string, clusterName string) map[string]s
 		isNodeMaster = "false"
 	}
 	return map[string]string{
-		"component": component,
-		"es-node-role": role,
+		"component":      component,
+		"es-node-role":   role,
 		"es-node-client": isNodeClient,
-		"es-node-data": isNodeData,
+		"es-node-data":   isNodeData,
 		"es-node-master": isNodeMaster,
-		"cluster":   clusterName,
+		"cluster":        clusterName,
 	}
 }
 
 func selectorForES(nodeRole string, clusterName string) map[string]string {
 
 	return map[string]string{
-		nodeRole: "true",
-		"cluster":   clusterName,
+		nodeRole:  "true",
+		"cluster": clusterName,
 	}
 }
 
-
-func labelsForESCluster(clusterName string) map[string]string {
+func LabelsForESCluster(clusterName string) map[string]string {
 
 	return map[string]string{
-		"cluster":   clusterName,
+		"cluster": clusterName,
 	}
 }
+
 // asOwner returns an owner reference set as the vault cluster CR
 func asOwner(v *api.Elasticsearch) metav1.OwnerReference {
 	trueVar := true

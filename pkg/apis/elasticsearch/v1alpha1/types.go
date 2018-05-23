@@ -35,8 +35,14 @@ type ElasticsearchNodeStatus struct {
 
 type ElasticsearchSpec struct {
 	// Fill me
-	Nodes []ElasticsearchNode `json:"nodes"`
+	Nodes  []ElasticsearchNode `json:"nodes"`
+	Secure ElasticsearchSecure `json:"secure"`
 }
+
+type ElasticsearchSecure struct {
+	Enabled bool `json:"enabled"`
+}
+
 type ElasticsearchStatus struct {
 	// Fill me
 	Nodes []ElasticsearchNodeStatus `json:"nodes"`

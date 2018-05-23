@@ -71,7 +71,7 @@ func createOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 		return fmt.Errorf("Unable to list Elasticsearch's StatefulSets: %v", err)
 	}
 	for _, sSet := range sSetList.Items {
-		logrus.Infof("found statefulset: %v", sSet.ObjectMeta.Name)
+		//logrus.Infof("found statefulset: %v", sSet.ObjectMeta.Name)
 		if !isNodeConfigured(sSet, dpl) {
 			resClient, _, err := k8sclient.GetResourceClient("apps/v1", "StatefulSet", dpl.Namespace)
 			if err != nil {

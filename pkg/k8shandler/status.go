@@ -1,14 +1,15 @@
 package k8shandler
 
-import(
+import (
 	"fmt"
-	"k8s.io/api/core/v1"
-	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
-//	"github.com/sirupsen/logrus"
+	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	//	"github.com/sirupsen/logrus"
 )
 
 func updateStatus(dpl *v1alpha1.Elasticsearch) error {
@@ -19,7 +20,7 @@ func updateStatus(dpl *v1alpha1.Elasticsearch) error {
 	// TODO: add secrets hash
 
 	podList := podList()
-	labelSelector := labels.SelectorFromSet(labelsForESCluster(dpl.Name)).String()
+	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
 	err := query.List(dpl.Namespace, podList, query.WithListOptions(listOps))
 	if err != nil {
@@ -28,7 +29,7 @@ func updateStatus(dpl *v1alpha1.Elasticsearch) error {
 	//podNames := getPodNames(podList.Items)
 	dpl.Status.Nodes = []v1alpha1.ElasticsearchNodeStatus{}
 	for _, pod := range podList.Items {
-	//	logrus.Infof("Examining pod %v", pod)
+		//	logrus.Infof("Examining pod %v", pod)
 		updatePodStatus(pod, &dpl.Status)
 	}
 	err = action.Update(dpl)
@@ -47,8 +48,8 @@ func updatePodStatus(pod v1.Pod, dpl *v1alpha1.ElasticsearchStatus) error {
 		}
 	}
 	nodeStatus := v1alpha1.ElasticsearchNodeStatus{
-		PodName:	pod.Name,
-		Status:		string(pod.Status.Phase),
+		PodName: pod.Name,
+		Status:  string(pod.Status.Phase),
 	}
 	dpl.Nodes = append(dpl.Nodes, nodeStatus)
 	return nil
