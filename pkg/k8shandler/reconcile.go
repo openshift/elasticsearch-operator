@@ -8,18 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// type ESClusterConfig struct {
-// 	Name			string
-// 	Masters			[]string
-// 	MastersQuorum	int32
-// 	DataNodes 		[]string
-// 	DataNodeQuorum	int32
-// 	ClientNodes		[]string
-// }
-
-// Reconcile reconciles the vault cluster's state to the spec specified by vr
-// by preparing the TLS secrets, deploying the etcd and vault cluster,
-// and finally updating the vault deployment if needed.
+// Reconcile reconciles the cluster's state to the spec specified
 func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 	logrus.Info("Started reconciliation")
 
