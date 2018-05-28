@@ -3,6 +3,8 @@ package k8shandler
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
@@ -35,6 +37,17 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 	actualReplicas := *node.resource.Spec.Replicas
 	if cfg.getReplicas() != actualReplicas {
 		return true, nil
+	}
+
+	// Check image of Elasticsearch container
+	for _, container := range node.resource.Spec.Template.Spec.Containers {
+		if container.Name == "elasticsearch" {
+			if container.Image != cfg.ESNodeSpec.Config.Image {
+				logrus.Infof("Container image '%v' is different that desired, updating..", container.Image)
+				return true, nil
+			}
+			return true, nil
+		}
 	}
 
 	// Check if the Variables are the desired ones
@@ -72,7 +85,7 @@ func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner 
 			Spec: v1.PodSpec{
 				Affinity: &affinity,
 				Containers: []v1.Container{
-					cfg.getContainer(),
+					cfg.getESContainer(),
 				},
 				Volumes: cfg.getVolumes(),
 				// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),

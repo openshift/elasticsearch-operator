@@ -179,11 +179,17 @@ func (cfg *elasticsearchNode) getResourceRequirements() v1.ResourceRequirements 
 
 }
 
-func (cfg *elasticsearchNode) getContainer() v1.Container {
+func (cfg *elasticsearchNode) getESContainer() v1.Container {
+	var image string
+	if cfg.ESNodeSpec.Config.Image == "" {
+		image = elasticsearchDefaultImage
+	} else {
+		image = cfg.ESNodeSpec.Config.Image
+	}
 	probe := getReadinessProbe()
 	return v1.Container{
-		Name:            cfg.DeployName,
-		Image:           elasticsearchDefaultImage,
+		Name:            "elasticsearch",
+		Image:           image,
 		ImagePullPolicy: "Always",
 		Env:             cfg.getEnvVars(),
 		Ports: []v1.ContainerPort{

@@ -77,7 +77,7 @@ func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode, owner
 			Spec: v1.PodSpec{
 				Affinity: &affinity,
 				Containers: []v1.Container{
-					cfg.getContainer(),
+					cfg.getESContainer(),
 				},
 				Volumes: []v1.Volume{
 					v1.Volume{

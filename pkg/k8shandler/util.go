@@ -8,7 +8,9 @@ import (
 
 // addOwnerRefToObject appends the desired OwnerReference to the object
 func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
-	o.SetOwnerReferences(append(o.GetOwnerReferences(), r))
+	if (metav1.OwnerReference{}) != r {
+		o.SetOwnerReferences(append(o.GetOwnerReferences(), r))
+	}
 }
 
 // labelsForES returns the labels for selecting the resources

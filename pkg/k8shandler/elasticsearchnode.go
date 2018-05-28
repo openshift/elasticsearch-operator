@@ -7,14 +7,15 @@ import (
 	"github.com/sirupsen/logrus"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type elasticsearchNode struct {
-	ClusterName string
-	DeployName  string
-	NodeType    string
-	// StorageType		string
-	ESNodeSpec v1alpha1.ElasticsearchNode
+	ClusterName         string
+	DeployName          string
+	NodeType            string
+	ESNodeSpec          v1alpha1.ElasticsearchNode
+	ElasticsearchSecure v1alpha1.ElasticsearchSecure
 }
 
 func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode) (elasticsearchNode, error) {
@@ -23,6 +24,8 @@ func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsea
 	nodeCfg.ClusterName = dpl.Name
 	nodeCfg.NodeType = esNode.NodeRole
 	nodeCfg.ESNodeSpec = esNode
+	nodeCfg.ElasticsearchSecure = dpl.Spec.Secure
+	nodeCfg.ESNodeSpec.Config = dpl.Spec.Config
 
 	return nodeCfg, nil
 }
@@ -93,7 +96,7 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) er
 	}
 
 	if diff {
-		dep, err := node.constructNodeResource(cfg, asOwner(dpl))
+		dep, err := node.constructNodeResource(cfg, metav1.OwnerReference{})
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource for update: %v", err)
 		}

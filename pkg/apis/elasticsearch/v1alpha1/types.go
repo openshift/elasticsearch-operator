@@ -26,6 +26,7 @@ type ElasticsearchNode struct {
 	NodeRole  string                  `json:"nodeRole"`
 	Replicas  int32                   `json:"replicas"`
 	Resources v1.ResourceRequirements `json:"resources"`
+	Config    ElasticsearchConfig     `json:"elasticsearchConfig"`
 }
 
 type ElasticsearchNodeStatus struct {
@@ -36,11 +37,17 @@ type ElasticsearchNodeStatus struct {
 type ElasticsearchSpec struct {
 	// Fill me
 	Nodes  []ElasticsearchNode `json:"nodes"`
-	Secure ElasticsearchSecure `json:"secure"`
+	Config ElasticsearchConfig `json:"elasticsearchConfig"`
+	Secure ElasticsearchSecure `json:"securityConfig"`
+}
+
+type ElasticsearchConfig struct {
+	Image string `json:"image,omitempty"`
 }
 
 type ElasticsearchSecure struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool   `json:"enabled"`
+	Image   string `json:"image,omitempty"`
 }
 
 type ElasticsearchStatus struct {
