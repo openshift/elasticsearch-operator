@@ -15,7 +15,13 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 	// Ensure existence of services
 	err = createOrUpdateServices(es)
 	if err != nil {
-		return fmt.Errorf("Failed to reconcile services for Elasticsearch cluster: %v", err)
+		return fmt.Errorf("Failed to reconcile Services for Elasticsearch cluster: %v", err)
+	}
+
+	// Ensure existence of services
+	err = createOrUpdateConfigMaps(es)
+	if err != nil {
+		return fmt.Errorf("Failed to reconcile ConfigMaps for Elasticsearch cluster: %v", err)
 	}
 
 	// TODO: Ensure existence of storage?

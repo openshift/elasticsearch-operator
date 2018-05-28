@@ -74,11 +74,10 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) er
 	if err != nil {
 		// Node's resource doesn't exist, we can construct one
 		logrus.Infof("Constructing new resource %v", cfg.DeployName)
-		dep, err := node.constructNodeResource(cfg)
+		dep, err := node.constructNodeResource(cfg, asOwner(dpl))
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource: %v", err)
 		}
-		node.addOwnerRefToObject(asOwner(dpl))
 		err = action.Create(dep)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Could not create node resource: %v", err)
@@ -94,11 +93,10 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) er
 	}
 
 	if diff {
-		dep, err := node.constructNodeResource(cfg)
+		dep, err := node.constructNodeResource(cfg, asOwner(dpl))
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource for update: %v", err)
 		}
-		node.addOwnerRefToObject(asOwner(dpl))
 		logrus.Infof("Updating node resource %v", cfg.DeployName)
 		err = action.Update(dep)
 		if err != nil {

@@ -7,18 +7,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// NodeTypeInterface interace represents individual Elasticsearch node
 type NodeTypeInterface interface {
 	getResource() runtime.Object
 	isNodeConfigured(dpl *v1alpha1.Elasticsearch) bool
 	isDifferent(cfg *elasticsearchNode) (bool, error)
-	constructNodeResource(cfg *elasticsearchNode) (runtime.Object, error)
-	addOwnerRefToObject(r metav1.OwnerReference)
+	constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error)
 	delete() error
 	query() error
 }
 
+// NodeTypeFactory is a factory to construct either statefulset or deployment
 type NodeTypeFactory func(name, namespace string) NodeTypeInterface
 
+// NewDeploymentNode constructs deploymentNode struct for data nodes
 func NewDeploymentNode(name, namespace string) NodeTypeInterface {
 	depl := apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -34,6 +36,7 @@ func NewDeploymentNode(name, namespace string) NodeTypeInterface {
 	return &node
 }
 
+// NewStatefulSetNode constructs statefulSetNode struct for non-data nodes
 func NewStatefulSetNode(name, namespace string) NodeTypeInterface {
 	depl := apps.StatefulSet{
 		TypeMeta: metav1.TypeMeta{

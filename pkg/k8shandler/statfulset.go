@@ -47,13 +47,8 @@ func (node *statefulSetNode) query() error {
 	return err
 }
 
-// addOwnerRefToObject appends the desired OwnerReference to the object
-func (node *statefulSetNode) addOwnerRefToObject(r metav1.OwnerReference) {
-	addOwnerRefToObject(&node.resource, r)
-}
-
 // constructNodeStatefulSet creates the StatefulSet for the node
-func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode) (runtime.Object, error) {
+func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error) {
 
 	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
 
@@ -126,6 +121,7 @@ func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode) (runt
 	// s := string(sset[:])
 
 	// logrus.Infof(s)
+	addOwnerRefToObject(&statefulSet, owner)
 
 	return &statefulSet, nil
 }

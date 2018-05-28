@@ -47,13 +47,8 @@ func (node *deploymentNode) query() error {
 	return err
 }
 
-// addOwnerRefToObject appends the desired OwnerReference to the object
-func (node *deploymentNode) addOwnerRefToObject(r metav1.OwnerReference) {
-	addOwnerRefToObject(&node.resource, r)
-}
-
 // constructNodeDeployment creates the deployment for the node
-func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode) (runtime.Object, error) {
+func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error) {
 
 	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
 
@@ -114,6 +109,7 @@ func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode) (runti
 	// s := string(sset[:])
 
 	// logrus.Infof(s)
+	addOwnerRefToObject(&deployment, owner)
 
 	return &deployment, nil
 }

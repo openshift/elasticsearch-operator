@@ -2,34 +2,37 @@ package k8shandler
 
 import (
 	"fmt"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 
-	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
+	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	//"github.com/sirupsen/logrus"
 )
 
 func createOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchClusterSvcName := fmt.Sprintf("%s-%s", dpl.Name, "cluster")
 	elasticsearchRestSvcName := dpl.Name
+	owner := asOwner(dpl)
 
-	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, 9300, selectorForES("es-node-master", dpl.Name))
+	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, 9300, selectorForES("es-node-master", dpl.Name), owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 
-	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, 9200, selectorForES("es-node-client", dpl.Name))
+	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, 9200, selectorForES("es-node-client", dpl.Name), owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 	return nil
 }
 
-func createOrUpdateService(serviceName string, namespace string, clusterName string, port int32, selector map[string]string) error {
+func createOrUpdateService(serviceName string, namespace string, clusterName string, port int32, selector map[string]string, owner metav1.OwnerReference) error {
 	elasticsearchSvc := createService(serviceName, namespace, clusterName, port, selector)
+	addOwnerRefToObject(elasticsearchSvc, owner)
 	err := action.Create(elasticsearchSvc)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch service: %v", err)
@@ -41,7 +44,7 @@ func createOrUpdateService(serviceName string, namespace string, clusterName str
 			return fmt.Errorf("Unable to get Elasticsearch cluster service: %v", err)
 		}
 
-	// Compare existing service labels, selectors and port
+		// TODO: Compare existing service labels, selectors and port
 	}
 	return nil
 }
@@ -52,7 +55,7 @@ func createService(serviceName string, namespace string, clusterName string, por
 		Selector: selector,
 		Ports: []v1.ServicePort{
 			v1.ServicePort{
-				Port: port,
+				Port:     port,
 				Protocol: "TCP",
 			},
 		},
@@ -60,7 +63,7 @@ func createService(serviceName string, namespace string, clusterName string, por
 	return svc
 }
 
-// podList returns a v1.PodList object
+// service returns a v1.Service object
 func service(serviceName string, namespace string) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -68,7 +71,7 @@ func service(serviceName string, namespace string) *v1.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: serviceName,
+			Name:      serviceName,
 			Namespace: namespace,
 		},
 	}
