@@ -7,7 +7,7 @@ import (
 )
 
 // createOrUpdateElasticsearchCluster creates an Elasticsearch deployment
-func createOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 	for _, node := range dpl.Spec.Nodes {
 
 		nodeCfg, err := constructNodeConfig(dpl, node)

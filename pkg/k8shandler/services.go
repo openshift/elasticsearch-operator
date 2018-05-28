@@ -13,7 +13,7 @@ import (
 	//"github.com/sirupsen/logrus"
 )
 
-func createOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchClusterSvcName := fmt.Sprintf("%s-%s", dpl.Name, "cluster")
 	elasticsearchRestSvcName := dpl.Name
 	owner := asOwner(dpl)

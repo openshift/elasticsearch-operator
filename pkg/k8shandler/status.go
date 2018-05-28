@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func updateStatus(dpl *v1alpha1.Elasticsearch) error {
+func UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 	// TODO: add Elasticsearch cluster health
 	// TODO: add Elasticsearch nodes list/roles
 	// TODO: add configmap hash

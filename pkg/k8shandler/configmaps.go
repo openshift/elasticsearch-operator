@@ -14,7 +14,7 @@ import (
 	//"github.com/sirupsen/logrus"
 )
 
-func createOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchCMName := dpl.Name
 	owner := asOwner(dpl)
 
