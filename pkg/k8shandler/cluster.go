@@ -6,7 +6,7 @@ import (
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 )
 
-// createOrUpdateElasticsearchCluster creates an Elasticsearch deployment
+// CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 	for _, node := range dpl.Spec.Nodes {
 

@@ -21,6 +21,8 @@ const (
 	defaultCPURequest         = "100m"
 	defaultMemoryLimit        = "4Gi"
 	defaultMemoryRequest      = "1Gi"
+	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
+	promUser                  = "prometheus"
 )
 
 func getReadinessProbe() v1.Probe {
@@ -63,6 +65,10 @@ func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
 func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 	return []v1.EnvVar{
 		v1.EnvVar{
+			Name:  "Dc_NAME",
+			Value: cfg.DeployName,
+		},
+		v1.EnvVar{
 			Name: "NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
@@ -71,32 +77,24 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 			},
 		},
 		v1.EnvVar{
-			Name:  "CLUSTER_NAME",
-			Value: cfg.ClusterName,
-		},
-		v1.EnvVar{
-			Name: "NODE_NAME",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		},
-		v1.EnvVar{
-			Name:  "IS_MASTER",
-			Value: cfg.isNodeMaster(),
-		},
-		v1.EnvVar{
-			Name:  "HAS_DATA",
-			Value: cfg.isNodeData(),
+			Name:  "KUBERNETES_TRUST_CERT",
+			Value: "true",
 		},
 		v1.EnvVar{
 			Name:  "SERVICE_DNS",
 			Value: fmt.Sprintf("%s-cluster", cfg.ClusterName),
 		},
 		v1.EnvVar{
+			Name:  "CLUSTER_NAME",
+			Value: cfg.ClusterName,
+		},
+		v1.EnvVar{
 			Name:  "INSTANCE_RAM",
 			Value: cfg.getInstanceRAM(),
+		},
+		v1.EnvVar{
+			Name:  "HEAP_DUMP_LOCATION",
+			Value: heapDumpLocation,
 		},
 		v1.EnvVar{
 			Name:  "NODE_QUORUM",
@@ -111,12 +109,32 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 			Value: "5m",
 		},
 		v1.EnvVar{
-			Name:  "KIBANA_INDEX_MODE",
-			Value: "5m",
+			Name:  "READINESS_PROBE_TIMEOUT",
+			Value: "30",
 		},
 		v1.EnvVar{
-			Name:  "ALLOW_CLUSTER_READER",
-			Value: "false",
+			Name:  "POD_LABEL",
+			Value: fmt.Sprintf("cluster=%s", cfg.ClusterName),
+		},
+		v1.EnvVar{
+			Name:  "IS_MASTER",
+			Value: cfg.isNodeMaster(),
+		},
+		v1.EnvVar{
+			Name:  "HAS_DATA",
+			Value: cfg.isNodeData(),
+		},
+		v1.EnvVar{
+			Name:  "PROMETHEUS_USER",
+			Value: promUser,
+		},
+		v1.EnvVar{
+			Name:  "PRIMARY_SHARDS",
+			Value: "1",
+		},
+		v1.EnvVar{
+			Name:  "REPLICA_SHARDS",
+			Value: "0",
 		},
 	}
 }
@@ -184,14 +202,52 @@ func (cfg *elasticsearchNode) getContainer() v1.Container {
 		LivenessProbe:  &probe,
 		VolumeMounts: []v1.VolumeMount{
 			v1.VolumeMount{
-				Name:      "es-data",
+				Name:      "elasticsearch-storage",
 				MountPath: "/elasticsearch/persistent",
 			},
 			v1.VolumeMount{
 				Name:      "certificates",
 				MountPath: elasticsearchCertsPath,
 			},
+			v1.VolumeMount{
+				Name:      "elasticsearch-config",
+				MountPath: elasticsearchConfigPath,
+			},
 		},
 		Resources: cfg.getResourceRequirements(),
+	}
+}
+
+func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
+	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
+
+	return []v1.Volume{
+		v1.Volume{
+			Name: "certificates",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secretName,
+				},
+			},
+		},
+		v1.Volume{
+			Name: "elasticsearch-storage",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "es-data-elastic1-clientdatamaster-0",
+					ReadOnly:  false,
+				},
+			},
+		},
+		v1.Volume{
+			Name: "elasticsearch-config",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: cfg.ClusterName,
+					},
+				},
+			},
+		},
 	}
 }

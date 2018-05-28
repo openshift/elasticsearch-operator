@@ -13,6 +13,7 @@ import (
 	//"github.com/sirupsen/logrus"
 )
 
+// CreateOrUpdateServices ensures the existence of the services for Elasticsearch cluster
 func CreateOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchClusterSvcName := fmt.Sprintf("%s-%s", dpl.Name, "cluster")
 	elasticsearchRestSvcName := dpl.Name

@@ -14,6 +14,7 @@ import (
 	//"github.com/sirupsen/logrus"
 )
 
+// CreateOrUpdateConfigMaps ensures the existens of ConfigMaps with Elasticsearch configuration
 func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchCMName := dpl.Name
 	owner := asOwner(dpl)

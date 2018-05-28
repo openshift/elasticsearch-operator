@@ -50,8 +50,6 @@ func (node *deploymentNode) query() error {
 // constructNodeDeployment creates the deployment for the node
 func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error) {
 
-	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
-
 	// Check if deployment exists
 
 	// FIXME: remove hardcode
@@ -76,25 +74,7 @@ func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner 
 				Containers: []v1.Container{
 					cfg.getContainer(),
 				},
-				Volumes: []v1.Volume{
-					v1.Volume{
-						Name: "certificates",
-						VolumeSource: v1.VolumeSource{
-							Secret: &v1.SecretVolumeSource{
-								SecretName: secretName,
-							},
-						},
-					},
-					v1.Volume{
-						Name: "es-data",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "es-data-elastic1-clientdatamaster-0",
-								ReadOnly:  false,
-							},
-						},
-					},
-				},
+				Volumes: cfg.getVolumes(),
 				// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),
 			},
 		},

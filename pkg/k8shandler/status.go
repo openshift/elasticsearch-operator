@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+// UpdateStatus updates the status of Elasticsearch CRD
 func UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 	// TODO: add Elasticsearch cluster health
 	// TODO: add Elasticsearch nodes list/roles
