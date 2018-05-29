@@ -20,16 +20,16 @@ Make sure certificates are pre-generated and deployed as secret.
 Upload the Custom Resource Definition to your Kubernetes or Openshift cluster:
 
   
-  $ kubectl create -f deploy/crd.yaml
+    $ kubectl create -f deploy/crd.yaml
 
 Deploy the required roles to the cluster:
 
-  $ kubectl create -f deploy/rbac.yaml
+    $ kubectl create -f deploy/rbac.yaml
 
 Deploy custom resource and the Deployment resource of the operator:
 
-  $ kubectl create -f deploy/cr.yaml
-  $ kubectl create -f deploy/operator.yaml
+    $ kubectl create -f deploy/cr.yaml
+    $ kubectl create -f deploy/operator.yaml
 
 ## Customize your cluster
 
