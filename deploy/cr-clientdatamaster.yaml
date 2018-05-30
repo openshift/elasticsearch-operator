@@ -13,3 +13,5 @@ spec:
           memory: 1Gi
         requests:
           memory: 512Mi
+      nodeSelector:
+        kubernetes.io/hostname: minikube

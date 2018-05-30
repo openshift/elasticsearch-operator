@@ -257,3 +257,10 @@ func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 		},
 	}
 }
+
+func (cfg *elasticsearchNode) getSelector() (map[string]string, bool) {
+	if len(cfg.ESNodeSpec.NodeSelector) == 0 {
+		return nil, false
+	}
+	return cfg.ESNodeSpec.NodeSelector, true
+}

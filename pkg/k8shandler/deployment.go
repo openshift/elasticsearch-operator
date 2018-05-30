@@ -93,6 +93,11 @@ func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner 
 		},
 	}
 
+	nodeSelector, ok := cfg.getSelector()
+	if ok {
+		deployment.Spec.Template.Spec.NodeSelector = nodeSelector
+	}
+
 	// if storageClass != "default" {
 	// 	deployment.Spec.VolumeClaimTemplates[0].Annotations = map[string]string{
 	// 		"volume.beta.kubernetes.io/storage-class": storageClass,
