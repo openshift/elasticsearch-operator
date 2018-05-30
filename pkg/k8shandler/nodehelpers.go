@@ -65,7 +65,7 @@ func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
 func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 	return []v1.EnvVar{
 		v1.EnvVar{
-			Name:  "Dc_NAME",
+			Name:  "DC_NAME",
 			Value: cfg.DeployName,
 		},
 		v1.EnvVar{

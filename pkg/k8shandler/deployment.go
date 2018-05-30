@@ -36,6 +36,7 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 	// Check replicas number
 	actualReplicas := *node.resource.Spec.Replicas
 	if cfg.getReplicas() != actualReplicas {
+		logrus.Infof("Different number of replicas detected, updating deployment %v", cfg.DeployName)
 		return true, nil
 	}
 
@@ -46,7 +47,6 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 				logrus.Infof("Container image '%v' is different that desired, updating..", container.Image)
 				return true, nil
 			}
-			return true, nil
 		}
 	}
 
