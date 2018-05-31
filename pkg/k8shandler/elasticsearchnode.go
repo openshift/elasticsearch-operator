@@ -16,11 +16,15 @@ type elasticsearchNode struct {
 	NodeType            string
 	ESNodeSpec          v1alpha1.ElasticsearchNode
 	ElasticsearchSecure v1alpha1.ElasticsearchSecure
+	NodeNum             int32
+	ReplicaNum          int32
 }
 
-func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode) (elasticsearchNode, error) {
+func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, nodeNum int32, replicaNum int32) (elasticsearchNode, error) {
 	nodeCfg := elasticsearchNode{}
-	nodeCfg.DeployName = fmt.Sprintf("%s-%s", dpl.Name, esNode.NodeRole)
+	nodeCfg.NodeNum = nodeNum
+	nodeCfg.ReplicaNum = replicaNum
+	nodeCfg.DeployName = fmt.Sprintf("%s-%s-%d-%d", dpl.Name, esNode.NodeRole, nodeNum, replicaNum)
 	nodeCfg.ClusterName = dpl.Name
 	nodeCfg.NodeType = esNode.NodeRole
 	nodeCfg.ESNodeSpec = esNode
@@ -30,7 +34,13 @@ func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsea
 	return nodeCfg, nil
 }
 
+// getReplicas returns the desired number of replicas in the deployment/statefulset
+// if this is a data deployment, we always want to create separate deployment per replica
+// so we'll return 1. if this is not a data node, we can simply scale existing replica.
 func (cfg *elasticsearchNode) getReplicas() int32 {
+	if cfg.isNodeData() == "true" {
+		return 1
+	}
 	return cfg.ESNodeSpec.Replicas
 }
 

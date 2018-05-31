@@ -8,15 +8,21 @@ import (
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
-	for _, node := range dpl.Spec.Nodes {
+	var i int32
+	for nodeNum, node := range dpl.Spec.Nodes {
 
-		nodeCfg, err := constructNodeConfig(dpl, node)
-		if err != nil {
-			return fmt.Errorf("Unable to construct ES node config %v", err)
+		if node.Replicas < 1 {
+			return fmt.Errorf("Incorrect number of replicas for node %v. Must be >= 1", node)
 		}
-		err = nodeCfg.CreateOrUpdateNode(dpl)
-		if err != nil {
-			return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
+		for i = 1; i <= node.Replicas; i++ {
+			nodeCfg, err := constructNodeConfig(dpl, node, int32(nodeNum), i)
+			if err != nil {
+				return fmt.Errorf("Unable to construct ES node config %v", err)
+			}
+			err = nodeCfg.CreateOrUpdateNode(dpl)
+			if err != nil {
+				return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
+			}
 		}
 	}
 
