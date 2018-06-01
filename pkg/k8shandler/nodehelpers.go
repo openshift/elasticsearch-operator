@@ -206,36 +206,32 @@ func (cfg *elasticsearchNode) getESContainer() v1.Container {
 		},
 		ReadinessProbe: &probe,
 		LivenessProbe:  &probe,
-		VolumeMounts: []v1.VolumeMount{
-			v1.VolumeMount{
-				Name:      "elasticsearch-storage",
-				MountPath: "/elasticsearch/persistent",
-			},
-			v1.VolumeMount{
-				Name:      "certificates",
-				MountPath: elasticsearchCertsPath,
-			},
-			v1.VolumeMount{
-				Name:      "elasticsearch-config",
-				MountPath: elasticsearchConfigPath,
-			},
-		},
-		Resources: cfg.getResourceRequirements(),
+		VolumeMounts:   cfg.getVolumeMounts(),
+		Resources:      cfg.getResourceRequirements(),
 	}
+}
+func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
+	mounts := []v1.VolumeMount{
+		v1.VolumeMount{
+			Name:      "elasticsearch-storage",
+			MountPath: "/elasticsearch/persistent",
+		},
+		v1.VolumeMount{
+			Name:      "elasticsearch-config",
+			MountPath: elasticsearchConfigPath,
+		},
+	}
+	if cfg.ElasticsearchSecure.Enabled {
+		mounts = append(mounts, v1.VolumeMount{
+			Name:      "certificates",
+			MountPath: elasticsearchCertsPath,
+		})
+	}
+	return mounts
 }
 
 func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
-	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
-
-	return []v1.Volume{
-		v1.Volume{
-			Name: "certificates",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: secretName,
-				},
-			},
-		},
+	vols := []v1.Volume{
 		v1.Volume{
 			Name: "elasticsearch-storage",
 			VolumeSource: v1.VolumeSource{
@@ -256,6 +252,20 @@ func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 			},
 		},
 	}
+	if cfg.ElasticsearchSecure.Enabled {
+		secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
+
+		vols = append(vols, v1.Volume{
+			Name: "certificates",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: secretName,
+				},
+			},
+		})
+	}
+	return vols
+
 }
 
 func (cfg *elasticsearchNode) getSelector() (map[string]string, bool) {
