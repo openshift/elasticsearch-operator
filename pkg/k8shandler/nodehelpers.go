@@ -230,16 +230,33 @@ func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
 	return mounts
 }
 
+func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
+	volSource := v1.VolumeSource{}
+	specVol := cfg.ESNodeSpec.Storage
+	switch{
+	case specVol.HostPath != nil:
+		volSource.HostPath = specVol.HostPath
+	case specVol.EmptyDir != nil:
+		volSource.EmptyDir = specVol.EmptyDir
+	case specVol.PersistentVolumeClaim != nil:
+		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
+	case specVol.PersistentVolumeClaimPrefix != nil:
+		claimName := fmt.Sprintf("%s-%s-%s", specVol.PersistentVolumeClaimPrefix.ClaimPrefixName, cfg.NodeNum, cfg.ReplicaNum)
+		volClaim := v1.PersistentVolumeClaimVolumeSource{
+			ClaimName: claimName,
+		}
+		volSource.PersistentVolumeClaim = &volClaim
+	default:
+		logrus.Infof("Unknown volume source")
+	}
+	return volSource
+}
+
 func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 	vols := []v1.Volume{
 		v1.Volume{
 			Name: "elasticsearch-storage",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "es-data-elastic1-clientdatamaster-0",
-					ReadOnly:  false,
-				},
-			},
+			VolumeSource: cfg.generatePersistentStorage(),
 		},
 		v1.Volume{
 			Name: "elasticsearch-config",

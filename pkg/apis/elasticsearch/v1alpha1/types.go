@@ -26,11 +26,24 @@ type Elasticsearch struct {
 
 // ElasticsearchNode struct represents individual node in Elasticsearch cluster
 type ElasticsearchNode struct {
-	NodeRole     string                  `json:"nodeRole"`
-	Replicas     int32                   `json:"replicas"`
-	Resources    v1.ResourceRequirements `json:"resources"`
-	Config       ElasticsearchConfig     `json:"elasticsearchConfig"`
-	NodeSelector map[string]string       `json:"nodeSelector,omitempty"`
+	NodeRole     string                         `json:"nodeRole"`
+	Replicas     int32                          `json:"replicas"`
+	Resources    v1.ResourceRequirements        `json:"resources"`
+	Config       ElasticsearchConfig            `json:"elasticsearchConfig"`
+	NodeSelector map[string]string              `json:"nodeSelector,omitempty"`
+	Storage      ElasticsearchNodeStorageSource `json:"storage"`
+}
+
+type ElasticsearchNodeStorageSource struct {
+//	StorageType                 string                                   `json:storageType`
+	HostPath                    *v1.HostPathVolumeSource                 `json:"hostPath,omitempty"`
+	EmptyDir                    *v1.EmptyDirVolumeSource                 `json:"emptyDir,omitempty"`
+	PersistentVolumeClaim       *v1.PersistentVolumeClaimVolumeSource    `json:"persistentVolumeClaim,omitempty"`
+	PersistentVolumeClaimPrefix *PersistentVolumeClaimPrefixVolumeSource `json:"persistentVolumeClaimPrefix,omitempty"`
+}
+
+type PersistentVolumeClaimPrefixVolumeSource struct {
+	ClaimPrefixName string `json:"prefixName"`
 }
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
