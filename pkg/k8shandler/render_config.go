@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io"
 	"strconv"
+	"strings"
 )
 
 // esYmlStruct is used to render esYmlTmpl to a proper elasticsearch.yml format
@@ -13,13 +14,21 @@ type esYmlStruct struct {
 	PathData           string
 }
 
-func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, pathData string) error {
+
+func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, pathData string, secureCluster bool) error {
 	t := template.New("elasticsearch.yml")
-	t, err := t.Parse(esYmlTmpl)
+
+	var config string
+	if secureCluster {
+		config = strings.Join([]string{esYmlTmpl, secureYmlTmpl}, "")
+	} else {
+		config = esYmlTmpl
+	}
+
+	t, err := t.Parse(config)
 	if err != nil {
 		return err
 	}
-
 	esy := esYmlStruct{
 		AllowClusterReader: strconv.FormatBool(allowClusterReader),
 		KibanaIndexMode:    kibanaIndexMode,
