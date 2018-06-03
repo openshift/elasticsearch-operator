@@ -36,10 +36,17 @@ type ElasticsearchNode struct {
 
 type ElasticsearchNodeStorageSource struct {
 //	StorageType                 string                                   `json:storageType`
-	HostPath                    *v1.HostPathVolumeSource                 `json:"hostPath,omitempty"`
-	EmptyDir                    *v1.EmptyDirVolumeSource                 `json:"emptyDir,omitempty"`
-	PersistentVolumeClaim       *v1.PersistentVolumeClaimVolumeSource    `json:"persistentVolumeClaim,omitempty"`
-	PersistentVolumeClaimPrefix *PersistentVolumeClaimPrefixVolumeSource `json:"persistentVolumeClaimPrefix,omitempty"`
+	HostPath                               *v1.HostPathVolumeSource               `json:"hostPath,omitempty"`
+	EmptyDir                               *v1.EmptyDirVolumeSource               `json:"emptyDir,omitempty"`
+	// VolumeClaimTemplate is supposed to act similarly to VolumeClaimTemplates field
+	// of StatefulSetSpec. Meaning that it'll generate a number of PersistentVolumeClaims
+	// per individual Elasticsearch cluster node. The actual PVC name used will
+	// be constructed from VolumeClaimTemplate name, node type and replica number
+	// for the specific node.
+	VolumeClaimTemplate                    *v1.PersistentVolumeClaim              `json:"volumeClaimTemplate,omitempty"`
+	// PersistentVolumeClaim will not try to regenerate PVC, it will be used
+	// as-is.
+	PersistentVolumeClaim                  *v1.PersistentVolumeClaimVolumeSource  `json:"persistentVolumeClaim,omitempty"`
 }
 
 type PersistentVolumeClaimPrefixVolumeSource struct {

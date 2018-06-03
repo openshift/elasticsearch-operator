@@ -151,21 +151,21 @@ func (in *ElasticsearchNodeStorageSource) DeepCopyInto(out *ElasticsearchNodeSto
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.VolumeClaimTemplate != nil {
+		in, out := &in.VolumeClaimTemplate, &out.VolumeClaimTemplate
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(v1.PersistentVolumeClaim)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	if in.PersistentVolumeClaim != nil {
 		in, out := &in.PersistentVolumeClaim, &out.PersistentVolumeClaim
 		if *in == nil {
 			*out = nil
 		} else {
 			*out = new(v1.PersistentVolumeClaimVolumeSource)
-			**out = **in
-		}
-	}
-	if in.PersistentVolumeClaimPrefix != nil {
-		in, out := &in.PersistentVolumeClaimPrefix, &out.PersistentVolumeClaimPrefix
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(PersistentVolumeClaimPrefixVolumeSource)
 			**out = **in
 		}
 	}

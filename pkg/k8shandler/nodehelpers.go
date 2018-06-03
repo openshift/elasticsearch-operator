@@ -238,14 +238,18 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 		volSource.HostPath = specVol.HostPath
 	case specVol.EmptyDir != nil:
 		volSource.EmptyDir = specVol.EmptyDir
-	case specVol.PersistentVolumeClaim != nil:
-		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
-	case specVol.PersistentVolumeClaimPrefix != nil:
-		claimName := fmt.Sprintf("%s-%s-%s", specVol.PersistentVolumeClaimPrefix.ClaimPrefixName, cfg.NodeNum, cfg.ReplicaNum)
+	case specVol.VolumeClaimTemplate != nil:
+		claimName := fmt.Sprintf("%s-%s", specVol.VolumeClaimTemplate.Name, cfg.DeployName)
 		volClaim := v1.PersistentVolumeClaimVolumeSource{
 			ClaimName: claimName,
 		}
 		volSource.PersistentVolumeClaim = &volClaim
+		err := createOrUpdatePersistentVolumeClaim(specVol.VolumeClaimTemplate.Spec, claimName, cfg.Namespace)
+		if err != nil {
+    		logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
+		}
+	case specVol.PersistentVolumeClaim != nil:
+		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
 	default:
 		logrus.Infof("Unknown volume source")
 	}
