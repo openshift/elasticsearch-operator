@@ -76,13 +76,21 @@ func listNodes(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) {
 
 func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error{
 	deployments, err := listDeployments(dpl)
+	dangDeplList := deploymentList()
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
     for _, node := range cState.Nodes {
-		namePrefix := fmt.Sprintf("%s-%s", node.ClusterName, node.NodeType)
+		deployments, element, ok := pop(deployments, node.Config.DeployName)
+		if ok {
+			node.Deployment = element
+		}
 	}
 	return nil
+}
+
+func pop(deployments []NodeTypeInterface, deployName string) ([]NodeTypeInterface, apps.Deployment, bool) {
+
 }
 
 // podList returns a v1.PodList object
