@@ -79,8 +79,19 @@ type ElasticsearchSecure struct {
 	Image   string `json:"image,omitempty"`
 }
 
+type ElasticsearchK8sHealth string
+
+const (
+	ElasticsearchK8sRollingRestartNeeded ElasticsearchK8sHealth = "RollingRestartNeeded"
+	ElasticsearchK8sFullRestartNeeded    ElasticsearchK8sHealth = "FullRestartNeeded"
+	ElasticsearchK8sInterventionNeeded   ElasticsearchK8sHealth = "InterventionNeeded"
+	ElasticsearchK8sNewClusterNeeded     ElasticsearchK8sHealth = "NewClusterNeeded"
+	ElasticsearchK8sOK                   ElasticsearchK8sHealth = "ClusterOK"
+)
+
 // ElasticsearchStatus represents the status of Elasticsearch cluster
 type ElasticsearchStatus struct {
 	// Fill me
 	Nodes []ElasticsearchNodeStatus `json:"nodes"`
+	K8sState ElasticsearchK8sHealth `json:"clusterState"`
 }

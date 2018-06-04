@@ -7,6 +7,7 @@ import (
 	apps "k8s.io/api/apps/v1beta2"
 
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -71,4 +72,45 @@ func listNodes(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) {
 		return []NodeTypeInterface{}, fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
 	return append(statefulSets, deployments...), nil
+}
+
+func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error{
+	deployments, err := listDeployments(dpl)
+	if err != nil {
+		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
+	}
+    for _, node := range cState.Nodes {
+		namePrefix := fmt.Sprintf("%s-%s", node.ClusterName, node.NodeType)
+	}
+	return nil
+}
+
+// podList returns a v1.PodList object
+func podList() *v1.PodList {
+	return &v1.PodList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+	}
+}
+
+func listPods(dpl *v1alpha1.Elasticsearch) (*v1.PodList, error) {
+	podList := podList()
+	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
+	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
+	err := query.List(dpl.Namespace, podList, query.WithListOptions(listOps))
+	if err != nil {
+		return podList, fmt.Errorf("failed to list pods: %v", err)
+	}
+	return podList, nil
+}
+
+// getPodNames returns the pod names of the array of pods passed in
+func getPodNames(pods []v1.Pod) []string {
+	var podNames []string
+	for _, pod := range pods {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames
 }

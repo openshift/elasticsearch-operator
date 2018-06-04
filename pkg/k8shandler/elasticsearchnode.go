@@ -77,13 +77,15 @@ func (cfg *elasticsearchNode) getLabels() map[string]string {
 	}
 }
 
-func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) error {
-	var node NodeTypeInterface
+func (cfg *elasticsearchNode) getNode() NodeTypeInterface {
 	if cfg.isNodeData() == "true" {
-		node = NewDeploymentNode(cfg.DeployName, dpl.Namespace)
-	} else {
-		node = NewStatefulSetNode(cfg.DeployName, dpl.Namespace)
+		return NewDeploymentNode(cfg.DeployName, cfg.Namespace)
 	}
+	return NewStatefulSetNode(cfg.DeployName, cfg.Namespace)
+}
+
+func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) error {
+	node := cfg.getNode()
 	err := node.query()
 	if err != nil {
 		// Node's resource doesn't exist, we can construct one
@@ -118,4 +120,24 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) er
 		}
 	}
 	return nil
+}
+
+func (cfg *elasticsearchNode) IsUpdateNeeded(dpl *v1alpha1.Elasticsearch) bool {
+	node := cfg.getNode()
+	err := node.query()
+	if err != nil {
+		// resource doesn't exist, so the update is needed
+		return true
+	}
+
+	diff, err := node.isDifferent(cfg)
+	if err != nil {
+		logrus.Errorf("Failed to obtain if there is a significant difference in resources: %v", err)
+		return false
+	}
+
+	if diff {
+		return true
+	}
+	return false
 }
