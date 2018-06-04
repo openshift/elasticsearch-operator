@@ -76,21 +76,36 @@ func listNodes(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) {
 
 func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error{
 	deployments, err := listDeployments(dpl)
-	dangDeplList := deploymentList()
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
     for _, node := range cState.Nodes {
-		deployments, element, ok := pop(deployments, node.Config.DeployName)
+		deployments, element, ok := popDeployment(deployments, node.Config)
 		if ok {
 			node.Deployment = element
 		}
 	}
+	cState.DanglingDeployments = deployments
 	return nil
 }
 
-func pop(deployments []NodeTypeInterface, deployName string) ([]NodeTypeInterface, apps.Deployment, bool) {
-
+func popDeployment(deployments apps.DeploymentList, cfg elasticearchNode) (apps.DeploymentList, apps.Deployment, bool) {
+	var deployment apps.Deployment
+	var index int = -1
+	for i, dpl := range deployments.Items {
+		if dpl.Name == cfg.DeployName {
+			deployment = dpl
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return deployments, deployment, false
+	}
+	dpls := deploymentList()
+	deployments.Items[index] = deployments.Items[len(deployments) - 1]
+	dpls.Items := deployments.Items[:len(deployments) - 1]
+	return dpls, deployment, true
 }
 
 // podList returns a v1.PodList object

@@ -69,12 +69,14 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
 			cState.Nodes = append(cState.Nodes, node)
 		}
 	}
+
+	cState.amendDeployments(dpl)
 	return cState
 }
 
 // getClusterState checks the desired state against what's present in current
 // deployments/statefulsets/pods
-func getClusterState(dpl *v1alpha1.Elasticsearch) (v1alpha1.ElasticsearchK8sHealth, error) {
+func (cState *clusterState) getClusterRequiredAction() (v1alpha1.ElasticsearchK8sHealth, error) {
 	nodeList, err := listNodes(dpl)
 	if err != nil {
 		return v1alpha1.ElasticsearchK8sInterventionNeeded, fmt.Errorf("Unable to list Elasticsearch's nodes: %v", err)
