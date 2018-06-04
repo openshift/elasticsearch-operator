@@ -84,13 +84,13 @@ func (cfg *elasticsearchNode) getNode() NodeTypeInterface {
 	return NewStatefulSetNode(cfg.DeployName, cfg.Namespace)
 }
 
-func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) error {
+func (cfg *elasticsearchNode) CreateOrUpdateNode(owner metav1.OwnerReference) error {
 	node := cfg.getNode()
 	err := node.query()
 	if err != nil {
 		// Node's resource doesn't exist, we can construct one
 		logrus.Infof("Constructing new resource %v", cfg.DeployName)
-		dep, err := node.constructNodeResource(cfg, asOwner(dpl))
+		dep, err := node.constructNodeResource(cfg, owner)
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource: %v", err)
 		}

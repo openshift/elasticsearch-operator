@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"fmt"
+	//"github.com/sirupsen/logrus"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
 	apps "k8s.io/api/apps/v1beta2"
@@ -37,20 +38,16 @@ func ssList() *apps.StatefulSetList {
 	}
 }
 
-func listDeployments(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) {
+func listDeployments(dpl *v1alpha1.Elasticsearch) (*apps.DeploymentList, error) {
 	list := deploymentList()
 	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
 	err := query.List(dpl.Namespace, list, query.WithListOptions(listOps))
 	if err != nil {
-		return []NodeTypeInterface{}, fmt.Errorf("Unable to list deployments: %v", err)
-	}
-	nodeList := []NodeTypeInterface{}
-	for _, res := range list.Items {
-		nodeList = append(nodeList, &deploymentNode{resource: res})
+		return list, fmt.Errorf("Unable to list deployments: %v", err)
 	}
 
-	return nodeList, nil
+	return list, nil
 }
 
 func deploymentList() *apps.DeploymentList {
@@ -67,29 +64,34 @@ func listNodes(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) {
 	if err != nil {
 		return []NodeTypeInterface{}, fmt.Errorf("Unable to list Elasticsearch's StatefulSets: %v", err)
 	}
-	deployments, err := listDeployments(dpl)
-	if err != nil {
-		return []NodeTypeInterface{}, fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
-	}
-	return append(statefulSets, deployments...), nil
+	//deployments, err := listDeployments(dpl)
+	//if err != nil {
+	//	return []NodeTypeInterface{}, fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
+	//}
+	//return append(statefulSets, deployments...), nil
+	return statefulSets, nil
 }
 
 func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error{
 	deployments, err := listDeployments(dpl)
+	var element apps.Deployment
+	var ok bool
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
     for _, node := range cState.Nodes {
-		deployments, element, ok := popDeployment(deployments, node.Config)
+		deployments, element, ok = popDeployment(deployments, node.Config)
 		if ok {
-			node.Deployment = element
+			node.setDeployment(element)
 		}
 	}
-	cState.DanglingDeployments = deployments
+	if len(deployments.Items) != 0 {
+		cState.DanglingDeployments = deployments
+	}
 	return nil
 }
 
-func popDeployment(deployments apps.DeploymentList, cfg elasticearchNode) (apps.DeploymentList, apps.Deployment, bool) {
+func popDeployment(deployments *apps.DeploymentList, cfg elasticsearchNode) (*apps.DeploymentList, apps.Deployment, bool) {
 	var deployment apps.Deployment
 	var index int = -1
 	for i, dpl := range deployments.Items {
@@ -103,8 +105,8 @@ func popDeployment(deployments apps.DeploymentList, cfg elasticearchNode) (apps.
 		return deployments, deployment, false
 	}
 	dpls := deploymentList()
-	deployments.Items[index] = deployments.Items[len(deployments) - 1]
-	dpls.Items := deployments.Items[:len(deployments) - 1]
+	deployments.Items[index] = deployments.Items[len(deployments.Items) - 1]
+	dpls.Items = deployments.Items[:len(deployments.Items) - 1]
 	return dpls, deployment, true
 }
 
