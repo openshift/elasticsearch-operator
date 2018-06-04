@@ -8,7 +8,7 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
-    "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newName string, namespace string) error {
@@ -28,7 +28,7 @@ func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newNa
 	return nil
 }
 
-func createPersistentVolumeClaim(pvcName, namespace string, volSpec v1.PersistentVolumeClaimSpec) *v1.PersistentVolumeClaim{
+func createPersistentVolumeClaim(pvcName, namespace string, volSpec v1.PersistentVolumeClaimSpec) *v1.PersistentVolumeClaim {
 	pvc := persistentVolumeClaim(pvcName, namespace)
 	pvc.Spec = volSpec
 	return pvc

@@ -31,7 +31,7 @@ func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsea
 	nodeCfg.ESNodeSpec = esNode
 	nodeCfg.ElasticsearchSecure = dpl.Spec.Secure
 	nodeCfg.ESNodeSpec.Config = dpl.Spec.Config
-    nodeCfg.Namespace = dpl.Namespace
+	nodeCfg.Namespace = dpl.Namespace
 	return nodeCfg, nil
 }
 

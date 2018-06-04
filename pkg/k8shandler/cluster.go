@@ -2,17 +2,18 @@ package k8shandler
 
 import (
 	"fmt"
+
+	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 
 	"github.com/sirupsen/logrus"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 )
 
 type clusterState struct {
-	Nodes []*nodeState
+	Nodes                []*nodeState
 	DanglingStatefulSets *apps.StatefulSetList
 	DanglingDeployments  *apps.DeploymentList
 }
@@ -26,11 +27,6 @@ type nodeState struct {
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
-
-	//err := removeStaleNodes(dpl)
-	//if err != nil {
-	//	return fmt.Errorf("Unable to remove some stale nodes: %v", err)
-	//}
 
 	cState := NewClusterState(dpl)
 	action, err := cState.getClusterRequiredAction()
@@ -116,15 +112,15 @@ func (cState *clusterState) buildNewCluster(owner metav1.OwnerReference) error {
 func (cState *clusterState) removeStaleNodes() error {
 	for _, node := range cState.DanglingDeployments.Items {
 		//logrus.Infof("found statefulset: %v", node.getResource().ObjectMeta.Name)
-			// the returned statefulset doesn't have TypeMeta, so we're adding it.
-			// node.TypeMeta = metav1.TypeMeta{
-			// 	Kind:       "StatefulSet",
-			// 	APIVersion: "apps/v1",
-			// }
-			err := action.Delete(&node)
-			if err != nil {
-				return fmt.Errorf("Unable to delete resource %v: ", err)
-			}
+		// the returned statefulset doesn't have TypeMeta, so we're adding it.
+		// node.TypeMeta = metav1.TypeMeta{
+		// 	Kind:       "StatefulSet",
+		// 	APIVersion: "apps/v1",
+		// }
+		err := action.Delete(&node)
+		if err != nil {
+			return fmt.Errorf("Unable to delete resource %v: ", err)
+		}
 	}
 	return nil
 }

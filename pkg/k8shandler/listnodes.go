@@ -64,22 +64,17 @@ func listNodes(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) {
 	if err != nil {
 		return []NodeTypeInterface{}, fmt.Errorf("Unable to list Elasticsearch's StatefulSets: %v", err)
 	}
-	//deployments, err := listDeployments(dpl)
-	//if err != nil {
-	//	return []NodeTypeInterface{}, fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
-	//}
-	//return append(statefulSets, deployments...), nil
 	return statefulSets, nil
 }
 
-func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error{
+func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
 	deployments, err := listDeployments(dpl)
 	var element apps.Deployment
 	var ok bool
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
-    for _, node := range cState.Nodes {
+	for _, node := range cState.Nodes {
 		deployments, element, ok = popDeployment(deployments, node.Config)
 		if ok {
 			node.setDeployment(element)
@@ -105,8 +100,8 @@ func popDeployment(deployments *apps.DeploymentList, cfg elasticsearchNode) (*ap
 		return deployments, deployment, false
 	}
 	dpls := deploymentList()
-	deployments.Items[index] = deployments.Items[len(deployments.Items) - 1]
-	dpls.Items = deployments.Items[:len(deployments.Items) - 1]
+	deployments.Items[index] = deployments.Items[len(deployments.Items)-1]
+	dpls.Items = deployments.Items[:len(deployments.Items)-1]
 	return dpls, deployment, true
 }
 

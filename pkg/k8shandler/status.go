@@ -4,11 +4,8 @@ import (
 	"fmt"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-//	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/api/core/v1"
-//	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-//	"k8s.io/apimachinery/pkg/labels"
 )
 
 // UpdateStatus updates the status of Elasticsearch CRD
@@ -19,7 +16,7 @@ func UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 	// TODO: add status of the cluster: i.e. is cluster restart in progress?
 	// TODO: add secrets hash
 
-	podList,err := listPods(dpl)
+	podList, err := listPods(dpl)
 	//podList := podList()
 	//labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	//listOps := &metav1.ListOptions{LabelSelector: labelSelector}
@@ -55,4 +52,3 @@ func updatePodStatus(pod v1.Pod, dpl *v1alpha1.ElasticsearchStatus) error {
 	dpl.Nodes = append(dpl.Nodes, nodeStatus)
 	return nil
 }
-
