@@ -35,22 +35,29 @@ type ElasticsearchNode struct {
 }
 
 type ElasticsearchNodeStorageSource struct {
-//	StorageType                 string                                   `json:storageType`
-	HostPath                               *v1.HostPathVolumeSource               `json:"hostPath,omitempty"`
-	EmptyDir                               *v1.EmptyDirVolumeSource               `json:"emptyDir,omitempty"`
+	// HostPath option will mount directory from the host.
+	// Cluster administrator must grant `hostaccess` scc to the service account.
+	// Cluster admin also must set appropriate SELINUX labels and perissions
+	// for the directory on the host.
+	HostPath *v1.HostPathVolumeSource `json:"hostPath,omitempty"`
+
+	// EmptyDir should be only used for testing purposes and not in production.
+	// This option will use temporary directory for data storage. Data will be lost
+	// when Pod is regenerated.
+	EmptyDir *v1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
+
 	// VolumeClaimTemplate is supposed to act similarly to VolumeClaimTemplates field
 	// of StatefulSetSpec. Meaning that it'll generate a number of PersistentVolumeClaims
 	// per individual Elasticsearch cluster node. The actual PVC name used will
 	// be constructed from VolumeClaimTemplate name, node type and replica number
 	// for the specific node.
-	VolumeClaimTemplate                    *v1.PersistentVolumeClaim              `json:"volumeClaimTemplate,omitempty"`
-	// PersistentVolumeClaim will not try to regenerate PVC, it will be used
-	// as-is.
-	PersistentVolumeClaim                  *v1.PersistentVolumeClaimVolumeSource  `json:"persistentVolumeClaim,omitempty"`
-}
+	VolumeClaimTemplate *v1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 
-type PersistentVolumeClaimPrefixVolumeSource struct {
-	ClaimPrefixName string `json:"prefixName"`
+	// PersistentVolumeClaim will NOT try to regenerate PVC, it will be used
+	// as-is. You may want to use it instead of VolumeClaimTemplate in case
+	// you already have bounded PersistentVolumeClaims you want to use, and the names
+	// of these PersistentVolumeClaims doesn't follow the naming convention.
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
@@ -79,8 +86,20 @@ type ElasticsearchSecure struct {
 	Image   string `json:"image,omitempty"`
 }
 
+type ElasticsearchRequiredAction string
+
+const (
+	ElasticsearchActionRollingRestartNeeded ElasticsearchRequiredAction = "RollingRestartNeeded"
+	ElasticsearchActionFullRestartNeeded    ElasticsearchRequiredAction = "FullRestartNeeded"
+	ElasticsearchActionInterventionNeeded   ElasticsearchRequiredAction = "InterventionNeeded"
+	ElasticsearchActionNewClusterNeeded     ElasticsearchRequiredAction = "NewClusterNeeded"
+	ElasticsearchActionNone                 ElasticsearchRequiredAction = "ClusterOK"
+	ElasticsearchActionScaleDownNeeded      ElasticsearchRequiredAction = "ScaleDownNeeded"
+)
+
 // ElasticsearchStatus represents the status of Elasticsearch cluster
 type ElasticsearchStatus struct {
 	// Fill me
-	Nodes []ElasticsearchNodeStatus `json:"nodes"`
+	Nodes    []ElasticsearchNodeStatus   `json:"nodes"`
+	K8sState ElasticsearchRequiredAction `json:"clusterState"`
 }

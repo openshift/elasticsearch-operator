@@ -233,7 +233,7 @@ func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
 func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 	volSource := v1.VolumeSource{}
 	specVol := cfg.ESNodeSpec.Storage
-	switch{
+	switch {
 	case specVol.HostPath != nil:
 		volSource.HostPath = specVol.HostPath
 	case specVol.EmptyDir != nil:
@@ -246,7 +246,7 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 		volSource.PersistentVolumeClaim = &volClaim
 		err := createOrUpdatePersistentVolumeClaim(specVol.VolumeClaimTemplate.Spec, claimName, cfg.Namespace)
 		if err != nil {
-    		logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
+			logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
 		}
 	case specVol.PersistentVolumeClaim != nil:
 		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
@@ -259,7 +259,7 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 	vols := []v1.Volume{
 		v1.Volume{
-			Name: "elasticsearch-storage",
+			Name:         "elasticsearch-storage",
 			VolumeSource: cfg.generatePersistentStorage(),
 		},
 		v1.Volume{
