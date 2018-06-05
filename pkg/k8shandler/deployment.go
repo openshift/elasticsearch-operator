@@ -50,8 +50,33 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 		}
 	}
 
-	// Check if the Variables are the desired ones
+	// TODO: Check if the Variables are the desired ones
 
+	// Check that storage configuration is the same
+	// Maybe this needs to be split into a separate method since this
+	// may indicate that we need a new cluster spin up, not rolling restart
+	for _, volume := range node.resource.Spec.Template.Spec.Volumes {
+		if volume.Name == "elasticsearch-storage" {
+			switch {
+			case volume.PersistentVolumeClaim != nil && cfg.ESNodeSpec.Storage.PersistentVolumeClaim != nil:
+				if volume.PersistentVolumeClaim.ClaimName == cfg.ESNodeSpec.Storage.PersistentVolumeClaim.ClaimName {
+					return false, nil
+				}
+			case volume.PersistentVolumeClaim != nil && cfg.ESNodeSpec.Storage.VolumeClaimTemplate != nil:
+				// FIXME: don't forget to fix this
+				if volume.PersistentVolumeClaim.ClaimName == cfg.ESNodeSpec.Storage.PersistentVolumeClaim.ClaimName {
+					return false, nil
+				}
+			case volume.HostPath != nil && cfg.ESNodeSpec.Storage.HostPath != nil:
+				return false, nil
+			case volume.EmptyDir != nil && cfg.ESNodeSpec.Storage.EmptyDir != nil:
+				return false, nil
+			default:
+				logrus.Infof("Detected change in storage")
+				return true, nil
+			}
+		}
+	}
 	return false, nil
 }
 

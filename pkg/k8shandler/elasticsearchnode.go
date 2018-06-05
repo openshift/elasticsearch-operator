@@ -122,7 +122,9 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(owner metav1.OwnerReference) er
 	return nil
 }
 
-func (cfg *elasticsearchNode) IsUpdateNeeded(dpl *v1alpha1.Elasticsearch) bool {
+func (cfg *elasticsearchNode) IsUpdateNeeded() bool {
+	// FIXME: to be refactored. query() must not exist here, since
+	// we already have information in clusterState
 	node := cfg.getNode()
 	err := node.query()
 	if err != nil {

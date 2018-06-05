@@ -29,7 +29,7 @@ type nodeState struct {
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 
 	cState := NewClusterState(dpl)
-	action, err := cState.getClusterRequiredAction()
+	action, err := cState.getRequiredAction()
 	if err != nil {
 		return err
 	}
@@ -46,6 +46,17 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 		if err != nil {
 			return err
 		}
+	case action == v1alpha1.ElasticsearchActionRollingRestartNeeded:
+		// TODO: change this to do the actual rolling restart
+		err = cState.buildNewCluster(asOwner(dpl))
+		if err != nil {
+			return err
+		}
+	case action == v1alpha1.ElasticsearchActionNone:
+		// No action is requested
+		return nil
+	default:
+		return fmt.Errorf("Unknown cluster action requested: %v", action)
 	}
 	return nil
 }
@@ -77,9 +88,9 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
 	return cState
 }
 
-// getClusterRequiredAction checks the desired state against what's present in current
+// getRequiredAction checks the desired state against what's present in current
 // deployments/statefulsets/pods
-func (cState *clusterState) getClusterRequiredAction() (v1alpha1.ElasticsearchRequiredAction, error) {
+func (cState *clusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredAction, error) {
 	// TODO: Add condition that if an operation is currently in progress
 	// not to try to queue another action. Instead return ElasticsearchActionInProgress which
 	// is noop.
@@ -98,6 +109,11 @@ func (cState *clusterState) getClusterRequiredAction() (v1alpha1.ElasticsearchRe
 
 	// TODO: implement rolling restart action if any deployment/configmap actually deployed
 	// is different from the desired.
+	for _, node := range cState.Nodes {
+		if node.Config.IsUpdateNeeded() {
+			return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
+		}
+	}
 
 	// If some deployments exist that are not specified in CR, they'll be in DanglingDeployments
 	// we need to remove those to comply with the desired cluster structure.
