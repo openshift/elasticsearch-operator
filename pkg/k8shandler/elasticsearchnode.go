@@ -31,7 +31,7 @@ func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsea
 	nodeCfg.ESNodeSpec = esNode
 	nodeCfg.ElasticsearchSecure = dpl.Spec.Secure
 	nodeCfg.ESNodeSpec.Config = dpl.Spec.Config
-    nodeCfg.Namespace = dpl.Namespace
+	nodeCfg.Namespace = dpl.Namespace
 	return nodeCfg, nil
 }
 
@@ -77,18 +77,20 @@ func (cfg *elasticsearchNode) getLabels() map[string]string {
 	}
 }
 
-func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) error {
-	var node NodeTypeInterface
+func (cfg *elasticsearchNode) getNode() NodeTypeInterface {
 	if cfg.isNodeData() == "true" {
-		node = NewDeploymentNode(cfg.DeployName, dpl.Namespace)
-	} else {
-		node = NewStatefulSetNode(cfg.DeployName, dpl.Namespace)
+		return NewDeploymentNode(cfg.DeployName, cfg.Namespace)
 	}
+	return NewStatefulSetNode(cfg.DeployName, cfg.Namespace)
+}
+
+func (cfg *elasticsearchNode) CreateOrUpdateNode(owner metav1.OwnerReference) error {
+	node := cfg.getNode()
 	err := node.query()
 	if err != nil {
 		// Node's resource doesn't exist, we can construct one
 		logrus.Infof("Constructing new resource %v", cfg.DeployName)
-		dep, err := node.constructNodeResource(cfg, asOwner(dpl))
+		dep, err := node.constructNodeResource(cfg, owner)
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource: %v", err)
 		}
@@ -118,4 +120,24 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(dpl *v1alpha1.Elasticsearch) er
 		}
 	}
 	return nil
+}
+
+func (cfg *elasticsearchNode) IsUpdateNeeded(dpl *v1alpha1.Elasticsearch) bool {
+	node := cfg.getNode()
+	err := node.query()
+	if err != nil {
+		// resource doesn't exist, so the update is needed
+		return true
+	}
+
+	diff, err := node.isDifferent(cfg)
+	if err != nil {
+		logrus.Errorf("Failed to obtain if there is a significant difference in resources: %v", err)
+		return false
+	}
+
+	if diff {
+		return true
+	}
+	return false
 }

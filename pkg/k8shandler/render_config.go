@@ -14,7 +14,6 @@ type esYmlStruct struct {
 	PathData           string
 }
 
-
 func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, pathData string, secureCluster bool) error {
 	t := template.New("elasticsearch.yml")
 

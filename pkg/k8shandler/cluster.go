@@ -3,55 +3,142 @@ package k8shandler
 import (
 	"fmt"
 
+	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
+	apps "k8s.io/api/apps/v1beta2"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/sirupsen/logrus"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 )
 
+type clusterState struct {
+	Nodes                []*nodeState
+	DanglingStatefulSets *apps.StatefulSetList
+	DanglingDeployments  *apps.DeploymentList
+}
+
+type nodeState struct {
+	Config      elasticsearchNode
+	StatefulSet *apps.StatefulSet
+	Deployment  *apps.Deployment
+	Pods        *v1.Pod
+}
+
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
+
+	cState := NewClusterState(dpl)
+	action, err := cState.getClusterRequiredAction()
+	if err != nil {
+		return err
+	}
+	logrus.Infof("cluster required action is: %v", action)
+
+	switch {
+	case action == v1alpha1.ElasticsearchActionNewClusterNeeded:
+		err = cState.buildNewCluster(asOwner(dpl))
+		if err != nil {
+			return err
+		}
+	case action == v1alpha1.ElasticsearchActionScaleDownNeeded:
+		err = cState.removeStaleNodes()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
+	nodes := []*nodeState{}
+	cState := clusterState{
+		Nodes: nodes,
+	}
 	var i int32
 	for nodeNum, node := range dpl.Spec.Nodes {
 
-		if node.Replicas < 1 {
-			return fmt.Errorf("Incorrect number of replicas for node %v. Must be >= 1", node)
-		}
 		for i = 1; i <= node.Replicas; i++ {
 			nodeCfg, err := constructNodeConfig(dpl, node, int32(nodeNum), i)
 			if err != nil {
-				return fmt.Errorf("Unable to construct ES node config %v", err)
+				logrus.Errorf("Unable to construct ES node config %v", err)
 			}
-			err = nodeCfg.CreateOrUpdateNode(dpl)
-			if err != nil {
-				return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
+
+			node := nodeState{
+				Config: nodeCfg,
 			}
+			cState.Nodes = append(cState.Nodes, &node)
 		}
 	}
 
-	err := removeStaleNodes(dpl)
-	if err != nil {
-		return fmt.Errorf("Unable to remove some stale nodes: %v", err)
+	cState.amendDeployments(dpl)
+	// TODO: add amendStatefulSets
+	// TODO: add amendPods
+	return cState
+}
+
+// getClusterRequiredAction checks the desired state against what's present in current
+// deployments/statefulsets/pods
+func (cState *clusterState) getClusterRequiredAction() (v1alpha1.ElasticsearchRequiredAction, error) {
+	// TODO: Add condition that if an operation is currently in progress
+	// not to try to queue another action. Instead return ElasticsearchActionInProgress which
+	// is noop.
+
+	// TODO: Handle failures. Maybe introduce some ElasticsearchCondition which says
+	// what action was attempted last, when, how many tries and what the result is.
+
+	// TODO: implement better logic to understand when new cluster is needed
+	// maybe RequiredAction ElasticsearchActionNewClusterNeeded should be renamed to
+	// ElasticsearchActionAddNewNodes - will blindly add new nodes to the cluster.
+	for _, node := range cState.Nodes {
+		if node.Deployment == nil {
+			return v1alpha1.ElasticsearchActionNewClusterNeeded, nil
+		}
+	}
+
+	// TODO: implement rolling restart action if any deployment/configmap actually deployed
+	// is different from the desired.
+
+	// If some deployments exist that are not specified in CR, they'll be in DanglingDeployments
+	// we need to remove those to comply with the desired cluster structure.
+	if cState.DanglingDeployments != nil {
+		return v1alpha1.ElasticsearchActionScaleDownNeeded, nil
+	}
+	//podList, err := listPods(dpl)
+	//if err != nil {
+	//	return v1alpha1.ElasticsearchK8sInterventionNeeded, fmt.Errorf("Unable to list Elasticsearch pods: %v", err)
+	//}
+
+	return v1alpha1.ElasticsearchActionNone, nil
+}
+
+func (cState *clusterState) buildNewCluster(owner metav1.OwnerReference) error {
+	for _, node := range cState.Nodes {
+		err := node.Config.CreateOrUpdateNode(owner)
+		if err != nil {
+			return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
+		}
 	}
 	return nil
 }
 
 // list existing StatefulSets and delete those unmanaged by the operator
-func removeStaleNodes(dpl *v1alpha1.Elasticsearch) error {
-	nodeList, err := listNodes(dpl)
-	if err != nil {
-		return fmt.Errorf("Unable to list Elasticsearch's nodes: %v", err)
-	}
-	for _, node := range nodeList {
+func (cState *clusterState) removeStaleNodes() error {
+	for _, node := range cState.DanglingDeployments.Items {
 		//logrus.Infof("found statefulset: %v", node.getResource().ObjectMeta.Name)
-		if !node.isNodeConfigured(dpl) {
-			// the returned statefulset doesn't have TypeMeta, so we're adding it.
-			// node.TypeMeta = metav1.TypeMeta{
-			// 	Kind:       "StatefulSet",
-			// 	APIVersion: "apps/v1",
-			// }
-			err = node.delete()
-			if err != nil {
-				return fmt.Errorf("Unable to delete resource %v: ", err)
-			}
+		// the returned statefulset doesn't have TypeMeta, so we're adding it.
+		// node.TypeMeta = metav1.TypeMeta{
+		// 	Kind:       "StatefulSet",
+		// 	APIVersion: "apps/v1",
+		// }
+		err := action.Delete(&node)
+		if err != nil {
+			return fmt.Errorf("Unable to delete resource %v: ", err)
 		}
 	}
 	return nil
+}
+
+func (node *nodeState) setDeployment(deployment apps.Deployment) {
+	node.Deployment = &deployment
 }
