@@ -5,6 +5,7 @@ This guide walks through an example of building a simple memcached-operator usin
 ## Prerequisites
 
 - [dep][dep_tool] version v0.4.1+.
+- [git][git_tool]
 - [go][go_tool] version v1.10+.
 - [docker][docker_tool] version 17.03+.
 - [kubectl][kubectl_tool] version v1.9.0+.
@@ -21,8 +22,8 @@ Checkout the desired release tag and install the SDK CLI tool:
 ```sh
 $ cd $GOPATH/src/github.com/operator-framework/operator-sdk
 $ git checkout master
-$ dep ensure
-$ go install github.com/operator-framework/operator-sdk/commands/operator-sdk
+$ make dep
+$ make install
 ```
 
 This installs the CLI binary `operator-sdk` at `$GOPATH/bin`.
@@ -90,6 +91,15 @@ Replace the default handler with the reference [memcached handler][memcached_han
 
 ### Build and run the operator
 
+There is two ways to run the operator:
+
+- As pod inside Kubernetes cluster
+- As go program outside cluster
+
+#### 1. Run as pod inside a Kubernetes cluster
+
+Run as pod inside a Kubernetes cluster is preferred for production use.
+
 Build the memcached-operator image and push it to a registry:
 ```
 $ operator-sdk build quay.io/example/memcached-operator:v0.0.1
@@ -112,6 +122,28 @@ Verify that the memcached-operator is up and running:
 $ kubectl get deployment
 NAME                     DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 memcached-operator       1         1         1            1           1m
+```
+
+#### 2. Run outside the cluster
+
+This method is preferred during development cycle to deploy and test faster.
+
+Run the operator locally with the default kubernetes config file present at `$HOME/.kube/config`:
+
+```sh
+$ operator-sdk up local
+INFO[0000] Go Version: go1.10
+INFO[0000] Go OS/Arch: darwin/amd64
+INFO[0000] operator-sdk Version: 0.0.5+git
+```
+
+Run the operator locally with a provided kubernetes config file:
+
+```sh
+$ operator-sdk up local --kubeconfig=config
+INFO[0000] Go Version: go1.10
+INFO[0000] Go OS/Arch: darwin/amd64
+INFO[0000] operator-sdk Version: 0.0.5+git
 ```
 
 ### Create a Memcached CR
@@ -208,6 +240,7 @@ $ kubectl delete -f deploy/operator.yaml
 [memcached_handler]: ../example/memcached-operator/handler.go.tmpl
 [layout_doc]:./project_layout.md
 [dep_tool]:https://golang.github.io/dep/docs/installation.html
+[git_tool]:https://git-scm.com/downloads
 [go_tool]:https://golang.org/dl/
 [docker_tool]:https://docs.docker.com/install/
 [kubectl_tool]:https://kubernetes.io/docs/tasks/tools/install-kubectl/

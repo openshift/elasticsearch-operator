@@ -3,11 +3,11 @@ package k8shandler
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 )
@@ -147,7 +147,7 @@ func (cState *clusterState) removeStaleNodes() error {
 		// 	Kind:       "StatefulSet",
 		// 	APIVersion: "apps/v1",
 		// }
-		err := action.Delete(&node)
+		err := sdk.Delete(&node)
 		if err != nil {
 			return fmt.Errorf("Unable to delete resource %v: ", err)
 		}

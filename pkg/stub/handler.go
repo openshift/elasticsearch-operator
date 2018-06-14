@@ -1,17 +1,17 @@
 package stub
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/t0ffel/elasticsearch-operator/pkg/k8shandler"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/handler"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/types"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 )
 
-func NewHandler() handler.Handler {
+func NewHandler() sdk.Handler {
 	return &Handler{}
 }
 
@@ -19,7 +19,7 @@ type Handler struct {
 	// Fill me
 }
 
-func (h *Handler) Handle(ctx types.Context, event types.Event) error {
+func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	if event.Deleted {
 		return nil
 	}

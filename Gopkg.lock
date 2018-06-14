@@ -25,8 +25,8 @@
     ".",
     "log"
   ]
-  revision = "2810ccc68e0ca445fa81ebfa03fbf70aca5c41ae"
-  version = "v2.7.0"
+  revision = "3658237ded108b4134956c1b3050349d93e7b895"
+  version = "v2.7.1"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -104,8 +104,8 @@
     "compiler",
     "extensions"
   ]
-  revision = "ee43cbb60db7bd22502942cccbc39059117352ab"
-  version = "v0.1.0"
+  revision = "7c663266750e7d82587642f65e60bc4083f1f84e"
+  version = "v0.2.0"
 
 [[projects]]
   branch = "master"
@@ -134,8 +134,8 @@
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "9d5f1277e9a8ed20c3684bda8fde67c05628518c"
-  version = "v0.3.4"
+  revision = "9316a62528ac99aaecb4e47eadd6dc8aa6533d58"
+  version = "v0.3.5"
 
 [[projects]]
   name = "github.com/json-iterator/go"
@@ -157,7 +157,7 @@
     "jlexer",
     "jwriter"
   ]
-  revision = "8b799c424f57fa123fc63a99d6383bc6e4c02578"
+  revision = "3fdea8d05856a0c8df22ed4bc71b3219245e4485"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
@@ -177,15 +177,10 @@
   packages = [
     "pkg/k8sclient",
     "pkg/sdk",
-    "pkg/sdk/action",
-    "pkg/sdk/handler",
-    "pkg/sdk/informer",
-    "pkg/sdk/query",
-    "pkg/sdk/types",
     "pkg/util/k8sutil",
     "version"
   ]
-  revision = "8aeaff32fc9c9e8d27f0bf99b5105fe7db09548a"
+  revision = "5db5df0d8841adfff3a05aa7a2a686c7b579521f"
 
 [[projects]]
   branch = "master"
@@ -215,7 +210,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "425cc7d9a76e079f290e1d4bd1250d7b5b235cfa"
+  revision = "37a17fe027db43f76fd88b056ddf588563fc8722"
 
 [[projects]]
   branch = "master"
@@ -227,7 +222,7 @@
     "http2/hpack",
     "idna"
   ]
-  revision = "2491c5de3490fced2f6cff376127c667efeed857"
+  revision = "db08ff08e8622530d9ed3a0e8ac279f6d4c02196"
 
 [[projects]]
   branch = "master"
@@ -236,7 +231,7 @@
     "unix",
     "windows"
   ]
-  revision = "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b"
+  revision = "56ede360ec1c541828fb88741b3f1049406d28f5"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -415,11 +410,11 @@
   branch = "master"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/common"]
-  revision = "b3f03f55328800731ce03a164b80973014ecd455"
+  revision = "bf40560368791a7dddfeea9b3cfcf89b34139f44"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "20c849f258c58a2367f619faa476532dc7cda8583c15dfd5737c181683aba82a"
+  inputs-digest = "fb8cd1800f2a5c2acb7cbe08bf82d7c8667b8f6c52666cb33ad0fb0daee5c593"
   solver-name = "gps-cdcl"
   solver-version = 1

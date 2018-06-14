@@ -8,8 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	//"github.com/sirupsen/logrus"
 )
@@ -34,13 +33,13 @@ func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexM
 		return err
 	}
 	addOwnerRefToObject(elasticsearchCM, owner)
-	err = action.Create(elasticsearchCM)
+	err = sdk.Create(elasticsearchCM)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
 	} else if errors.IsAlreadyExists(err) {
 		// Get existing configMap to check if it is same as what we want
 		existingCM := configMap(configMapName, namespace)
-		err = query.Get(existingCM)
+		err = sdk.Get(existingCM)
 		if err != nil {
 			return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
 		}

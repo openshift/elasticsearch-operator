@@ -3,8 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
@@ -43,7 +42,7 @@ func (node *statefulSetNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 }
 
 func (node *statefulSetNode) query() error {
-	err := query.Get(&node.resource)
+	err := sdk.Get(&node.resource)
 	return err
 }
 
@@ -127,7 +126,7 @@ func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode, owner
 }
 
 func (node *statefulSetNode) delete() error {
-	err := action.Delete(&node.resource)
+	err := sdk.Delete(&node.resource)
 	if err != nil {
 		return fmt.Errorf("Unable to delete StatefulSet %v: ", err)
 	}

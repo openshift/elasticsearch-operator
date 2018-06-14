@@ -7,8 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	//"github.com/sirupsen/logrus"
 )
@@ -34,13 +33,13 @@ func CreateOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 func createOrUpdateService(serviceName string, namespace string, clusterName string, port int32, selector map[string]string, owner metav1.OwnerReference) error {
 	elasticsearchSvc := createService(serviceName, namespace, clusterName, port, selector)
 	addOwnerRefToObject(elasticsearchSvc, owner)
-	err := action.Create(elasticsearchSvc)
+	err := sdk.Create(elasticsearchSvc)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch service: %v", err)
 	} else if errors.IsAlreadyExists(err) {
 		// Get existing service to check if it is same as what we want
 		existingSvc := service(serviceName, namespace)
-		err = query.Get(existingSvc)
+		err = sdk.Get(existingSvc)
 		if err != nil {
 			return fmt.Errorf("Unable to get Elasticsearch cluster service: %v", err)
 		}

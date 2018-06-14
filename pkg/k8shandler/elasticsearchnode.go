@@ -3,7 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +94,7 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(owner metav1.OwnerReference) er
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource: %v", err)
 		}
-		err = action.Create(dep)
+		err = sdk.Create(dep)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Could not create node resource: %v", err)
 		}
@@ -114,7 +114,7 @@ func (cfg *elasticsearchNode) CreateOrUpdateNode(owner metav1.OwnerReference) er
 			return fmt.Errorf("Could not construct node resource for update: %v", err)
 		}
 		logrus.Infof("Updating node resource %v", cfg.DeployName)
-		err = action.Update(dep)
+		err = sdk.Update(dep)
 		if err != nil {
 			return fmt.Errorf("Failed to update node resource: %v", err)
 		}
