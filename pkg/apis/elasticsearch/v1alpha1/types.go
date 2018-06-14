@@ -28,7 +28,6 @@ type Elasticsearch struct {
 type ElasticsearchNode struct {
 	NodeRole     string                         `json:"nodeRole"`
 	Replicas     int32                          `json:"replicas"`
-	Resources    v1.ResourceRequirements        `json:"resources"`
 	Config       ElasticsearchConfig            `json:"elasticsearchConfig"`
 	NodeSelector map[string]string              `json:"nodeSelector,omitempty"`
 	Storage      ElasticsearchNodeStorageSource `json:"storage"`
@@ -76,7 +75,8 @@ type ElasticsearchSpec struct {
 
 // ElasticsearchConfig represents configuration of an individual Elasticsearch node
 type ElasticsearchConfig struct {
-	Image string `json:"image,omitempty"`
+	Image     string                  `json:"image,omitempty"`
+	Resources v1.ResourceRequirements `json:"resources"`
 }
 
 // ElasticsearchSecure struct represents security configuration of the cluster

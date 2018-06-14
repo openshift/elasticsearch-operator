@@ -30,9 +30,23 @@ func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsea
 	nodeCfg.NodeType = esNode.NodeRole
 	nodeCfg.ESNodeSpec = esNode
 	nodeCfg.ElasticsearchSecure = dpl.Spec.Secure
-	nodeCfg.ESNodeSpec.Config = dpl.Spec.Config
+	nodeCfg.ESNodeSpec.Config = reconcileNodeConfig(dpl.Spec.Config, esNode.Config)
 	nodeCfg.Namespace = dpl.Namespace
 	return nodeCfg, nil
+}
+
+func reconcileNodeConfig(commonConfig, nodeConfig v1alpha1.ElasticsearchConfig) v1alpha1.ElasticsearchConfig {
+	var image string
+	if nodeConfig.Image == "" {
+		image = commonConfig.Image
+	} else {
+		image = nodeConfig.Image
+	}
+	nodeConfig = v1alpha1.ElasticsearchConfig{
+		Image:     image,
+		Resources: getResourceRequirements(commonConfig.Resources, nodeConfig.Resources),
+	}
+	return nodeConfig
 }
 
 // getReplicas returns the desired number of replicas in the deployment/statefulset

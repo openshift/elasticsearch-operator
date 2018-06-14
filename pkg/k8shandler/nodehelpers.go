@@ -140,36 +140,56 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 }
 
 func (cfg *elasticsearchNode) getInstanceRAM() string {
-	memory := cfg.ESNodeSpec.Resources.Limits.Memory()
+	memory := cfg.ESNodeSpec.Config.Resources.Limits.Memory()
 	if !memory.IsZero() {
 		return memory.String()
 	}
 	return defaultMemoryLimit
 }
 
-func (cfg *elasticsearchNode) getResourceRequirements() v1.ResourceRequirements {
-	limitCPU := cfg.ESNodeSpec.Resources.Limits.Cpu()
+func getResourceRequirements(commonResRequirements, nodeResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
+	limitCPU := nodeResRequirements.Limits.Cpu()
 	if limitCPU.IsZero() {
-		CPU, _ := resource.ParseQuantity(defaultCPULimit)
-		limitCPU = &CPU
+		if commonResRequirements.Limits.Cpu().IsZero() {
+			CPU, _ := resource.ParseQuantity(defaultCPULimit)
+			limitCPU = &CPU
+		} else {
+			limitCPU = commonResRequirements.Limits.Cpu()
+		}
 	}
-	limitMem, _ := resource.ParseQuantity(cfg.getInstanceRAM())
-	requestCPU := cfg.ESNodeSpec.Resources.Requests.Cpu()
+	limitMem := nodeResRequirements.Limits.Memory()
+	if limitMem.IsZero() {
+		if commonResRequirements.Limits.Memory().IsZero() {
+			Mem, _ := resource.ParseQuantity(defaultMemoryLimit)
+			limitMem = &Mem
+		} else {
+			limitMem = commonResRequirements.Limits.Memory()
+		}
+
+	}
+	requestCPU := nodeResRequirements.Requests.Cpu()
 	if requestCPU.IsZero() {
-		CPU, _ := resource.ParseQuantity(defaultCPURequest)
-		requestCPU = &CPU
+		if commonResRequirements.Requests.Cpu().IsZero() {
+			CPU, _ := resource.ParseQuantity(defaultCPURequest)
+			requestCPU = &CPU
+		} else {
+			requestCPU = commonResRequirements.Requests.Cpu()
+		}
 	}
-	requestMem := cfg.ESNodeSpec.Resources.Requests.Memory()
+	requestMem := nodeResRequirements.Requests.Memory()
 	if requestMem.IsZero() {
-		Mem, _ := resource.ParseQuantity(defaultMemoryRequest)
-		requestMem = &Mem
+		if commonResRequirements.Requests.Memory().IsZero() {
+			Mem, _ := resource.ParseQuantity(defaultMemoryRequest)
+			requestMem = &Mem
+		} else {
+			requestMem = commonResRequirements.Requests.Memory()
+		}
 	}
-	logrus.Infof("Using  memory limit: %v, for node %v", limitMem.String(), cfg.DeployName)
 
 	return v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu":    *limitCPU,
-			"memory": limitMem,
+			"memory": *limitMem,
 		},
 		Requests: v1.ResourceList{
 			"cpu":    *requestCPU,
@@ -207,7 +227,7 @@ func (cfg *elasticsearchNode) getESContainer() v1.Container {
 		ReadinessProbe: &probe,
 		LivenessProbe:  &probe,
 		VolumeMounts:   cfg.getVolumeMounts(),
-		Resources:      cfg.getResourceRequirements(),
+		Resources:      cfg.ESNodeSpec.Config.Resources,
 	}
 }
 func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
@@ -251,6 +271,7 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 	case specVol.PersistentVolumeClaim != nil:
 		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
 	default:
+		// TODO: assume EmptyDir/update to emptyDir?
 		logrus.Infof("Unknown volume source")
 	}
 	return volSource

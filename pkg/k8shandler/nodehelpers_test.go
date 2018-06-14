@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -59,6 +60,103 @@ func TestGetAffinity(t *testing.T) {
 		}
 		if !reflect.DeepEqual(goodAffinities[i], cfg.getAffinity()) {
 			t.Errorf("Incorrect v1.Affinity constructed for role: %v", role)
+
+		}
+	}
+}
+
+func TestGetResourceRequirements(t *testing.T) {
+	CPU1, _ := resource.ParseQuantity("110m")
+	CPU2, _ := resource.ParseQuantity("210m")
+	Mem1, _ := resource.ParseQuantity("257Mi")
+	Mem2, _ := resource.ParseQuantity("513Mi")
+	defMemLim, _ := resource.ParseQuantity(defaultMemoryLimit)
+	defCpuReq, _ := resource.ParseQuantity(defaultCPURequest)
+	defMemReq, _ := resource.ParseQuantity(defaultMemoryRequest)
+	defCpuLim, _ := resource.ParseQuantity(defaultCPULimit)
+
+	resList1 := v1.ResourceList{
+		"cpu": CPU1,
+	}
+	resList2 := v1.ResourceList{
+		"memory": Mem1,
+	}
+	resList3 := v1.ResourceList{
+		"cpu":    CPU2,
+		"memory": Mem2,
+	}
+	req1 := v1.ResourceRequirements{
+		Limits:   resList1,
+		Requests: resList2,
+	}
+	req2 := v1.ResourceRequirements{
+		Limits:   resList2,
+		Requests: resList1,
+	}
+	req3 := v1.ResourceRequirements{
+		Limits:   resList3,
+		Requests: resList3,
+	}
+	req4 := v1.ResourceRequirements{}
+	resReq1 := v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu":    CPU1,
+			"memory": Mem1,
+		},
+		Requests: v1.ResourceList{
+			"cpu":    CPU1,
+			"memory": Mem1,
+		},
+	}
+	resReq2 := v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu":    CPU1,
+			"memory": Mem2,
+		},
+		Requests: v1.ResourceList{
+			"cpu":    CPU2,
+			"memory": Mem1,
+		},
+	}
+	resReq3 := v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu":    CPU1,
+			"memory": defMemLim,
+		},
+		Requests: v1.ResourceList{
+			"cpu":    defCpuReq,
+			"memory": Mem1,
+		},
+	}
+	resReq4 := v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu":    defCpuLim,
+			"memory": Mem1,
+		},
+		Requests: v1.ResourceList{
+			"cpu":    CPU1,
+			"memory": defMemReq,
+		},
+	}
+
+	var table = []struct {
+		commonRequirements v1.ResourceRequirements
+		nodeRequirements   v1.ResourceRequirements
+		result             v1.ResourceRequirements
+	}{
+		{req1, req2, resReq1},
+		{req2, req1, resReq1},
+		{req1, req3, req3},
+		{req3, req1, resReq2},
+		{req1, req4, resReq3},
+		{req4, req1, resReq3},
+		{req2, req4, resReq4},
+	}
+
+	for _, tt := range table {
+		actual := getResourceRequirements(tt.commonRequirements, tt.nodeRequirements)
+		if !reflect.DeepEqual(actual, tt.result) {
+			t.Errorf("Incorrect v1.ResourceRequirements constructed: %v, should be: %v", actual, tt.result)
 
 		}
 	}
