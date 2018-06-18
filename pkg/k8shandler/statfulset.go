@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -14,16 +13,6 @@ import (
 
 type statefulSetNode struct {
 	resource apps.StatefulSet
-}
-
-func (node *statefulSetNode) isNodeConfigured(dpl *v1alpha1.Elasticsearch) bool {
-	label := node.resource.ObjectMeta.Labels["es-node-role"]
-	for _, cmpNode := range dpl.Spec.Nodes {
-		if cmpNode.NodeRole == label {
-			return true
-		}
-	}
-	return false
 }
 
 func (node *statefulSetNode) getResource() runtime.Object {

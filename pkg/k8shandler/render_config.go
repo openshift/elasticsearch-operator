@@ -14,11 +14,11 @@ type esYmlStruct struct {
 	PathData           string
 }
 
-func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, pathData string, secureCluster bool) error {
+func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, pathData string, insecureCluster bool) error {
 	t := template.New("elasticsearch.yml")
 
 	var config string
-	if secureCluster {
+	if !insecureCluster {
 		config = strings.Join([]string{esYmlTmpl, secureYmlTmpl}, "")
 	} else {
 		config = esYmlTmpl

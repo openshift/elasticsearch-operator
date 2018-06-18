@@ -3,11 +3,14 @@ kind: Elasticsearch
 metadata:
   name: elastic1
 spec:
-  elasticsearchConfig:
+  nodeSpec:
     image: docker.io/t0ffel/logging-insecure-elasticsearch5
   nodes:
-  - elasticsearchConfig: {}
-    nodeRole: clientdatamaster
+  - nodeSpec: {}
+    roles:
+    - client
+    - data
+    - master
     replicas: 1
     resources:
       limits:
@@ -17,4 +20,4 @@ spec:
     storage:
       emptyDir: {}
   securityConfig:
-    enabled: false
+    disabled: true

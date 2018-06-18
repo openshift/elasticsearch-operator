@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -39,6 +40,29 @@ func getReadinessProbe() v1.Probe {
 }
 
 func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
+	labelSelectorReqs := []metav1.LabelSelectorRequirement{}
+	if cfg.isNodeClient() {
+		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+			Key:      "es-node-client",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		})
+	}
+	if cfg.isNodeData() {
+		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+			Key:      "es-node-data",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		})
+	}
+	if cfg.isNodeMaster() {
+		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+			Key:      "es-node-master",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		})
+	}
+
 	return v1.Affinity{
 		PodAntiAffinity: &v1.PodAntiAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
@@ -46,13 +70,7 @@ func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
 					Weight: 100,
 					PodAffinityTerm: v1.PodAffinityTerm{
 						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{
-									Key:      "role",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{cfg.NodeType},
-								},
-							},
+							MatchExpressions: labelSelectorReqs,
 						},
 						TopologyKey: "kubernetes.io/hostname",
 					},
@@ -118,11 +136,11 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 		},
 		v1.EnvVar{
 			Name:  "IS_MASTER",
-			Value: cfg.isNodeMaster(),
+			Value: strconv.FormatBool(cfg.isNodeMaster()),
 		},
 		v1.EnvVar{
 			Name:  "HAS_DATA",
-			Value: cfg.isNodeData(),
+			Value: strconv.FormatBool(cfg.isNodeData()),
 		},
 		v1.EnvVar{
 			Name:  "PROMETHEUS_USER",
@@ -140,7 +158,7 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 }
 
 func (cfg *elasticsearchNode) getInstanceRAM() string {
-	memory := cfg.ESNodeSpec.Config.Resources.Limits.Memory()
+	memory := cfg.ESNodeSpec.Spec.Resources.Limits.Memory()
 	if !memory.IsZero() {
 		return memory.String()
 	}
@@ -201,10 +219,10 @@ func getResourceRequirements(commonResRequirements, nodeResRequirements v1.Resou
 
 func (cfg *elasticsearchNode) getESContainer() v1.Container {
 	var image string
-	if cfg.ESNodeSpec.Config.Image == "" {
+	if cfg.ESNodeSpec.Spec.Image == "" {
 		image = elasticsearchDefaultImage
 	} else {
-		image = cfg.ESNodeSpec.Config.Image
+		image = cfg.ESNodeSpec.Spec.Image
 	}
 	probe := getReadinessProbe()
 	return v1.Container{
@@ -227,9 +245,10 @@ func (cfg *elasticsearchNode) getESContainer() v1.Container {
 		ReadinessProbe: &probe,
 		LivenessProbe:  &probe,
 		VolumeMounts:   cfg.getVolumeMounts(),
-		Resources:      cfg.ESNodeSpec.Config.Resources,
+		Resources:      cfg.ESNodeSpec.Spec.Resources,
 	}
 }
+
 func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
 	mounts := []v1.VolumeMount{
 		v1.VolumeMount{
@@ -241,7 +260,7 @@ func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
 			MountPath: elasticsearchConfigPath,
 		},
 	}
-	if cfg.ElasticsearchSecure.Enabled {
+	if !cfg.ElasticsearchSecure.Disabled {
 		mounts = append(mounts, v1.VolumeMount{
 			Name:      "certificates",
 			MountPath: elasticsearchCertsPath,
@@ -294,7 +313,7 @@ func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 			},
 		},
 	}
-	if cfg.ElasticsearchSecure.Enabled {
+	if !cfg.ElasticsearchSecure.Disabled {
 		secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
 
 		vols = append(vols, v1.Volume{

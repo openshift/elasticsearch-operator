@@ -26,9 +26,9 @@ type Elasticsearch struct {
 
 // ElasticsearchNode struct represents individual node in Elasticsearch cluster
 type ElasticsearchNode struct {
-	NodeRole     string                         `json:"nodeRole"`
+	Roles        []ElasticsearchNodeRole        `json:"roles"`
 	Replicas     int32                          `json:"replicas"`
-	Config       ElasticsearchConfig            `json:"elasticsearchConfig"`
+	Spec         ElasticsearchNodeSpec          `json:"nodeSpec"`
 	NodeSelector map[string]string              `json:"nodeSelector,omitempty"`
 	Storage      ElasticsearchNodeStorageSource `json:"storage"`
 }
@@ -68,13 +68,13 @@ type ElasticsearchNodeStatus struct {
 // ElasticsearchSpec struct represents the Spec of Elasticsearch cluster CRD
 type ElasticsearchSpec struct {
 	// Fill me
-	Nodes  []ElasticsearchNode `json:"nodes"`
-	Config ElasticsearchConfig `json:"elasticsearchConfig"`
-	Secure ElasticsearchSecure `json:"securityConfig"`
+	Nodes  []ElasticsearchNode   `json:"nodes"`
+	Spec   ElasticsearchNodeSpec `json:"nodeSpec"`
+	Secure ElasticsearchSecure   `json:"securityConfig"`
 }
 
-// ElasticsearchConfig represents configuration of an individual Elasticsearch node
-type ElasticsearchConfig struct {
+// ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
+type ElasticsearchNodeSpec struct {
 	Image     string                  `json:"image,omitempty"`
 	Resources v1.ResourceRequirements `json:"resources"`
 }
@@ -82,8 +82,8 @@ type ElasticsearchConfig struct {
 // ElasticsearchSecure struct represents security configuration of the cluster
 // whether SearchGuard is enabled along with oauth-proxy sidecar
 type ElasticsearchSecure struct {
-	Enabled bool   `json:"enabled"`
-	Image   string `json:"image,omitempty"`
+	Disabled bool   `json:"disabled"`
+	Image    string `json:"image,omitempty"`
 }
 
 type ElasticsearchRequiredAction string
@@ -95,6 +95,14 @@ const (
 	ElasticsearchActionNewClusterNeeded     ElasticsearchRequiredAction = "NewClusterNeeded"
 	ElasticsearchActionNone                 ElasticsearchRequiredAction = "ClusterOK"
 	ElasticsearchActionScaleDownNeeded      ElasticsearchRequiredAction = "ScaleDownNeeded"
+)
+
+type ElasticsearchNodeRole string
+
+const (
+	ElasticsearchRoleClient ElasticsearchNodeRole = "client"
+	ElasticsearchRoleData   ElasticsearchNodeRole = "data"
+	ElasticsearchRoleMaster ElasticsearchNodeRole = "master"
 )
 
 // ElasticsearchStatus represents the status of Elasticsearch cluster

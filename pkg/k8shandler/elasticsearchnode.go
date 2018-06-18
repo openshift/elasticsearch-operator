@@ -2,6 +2,9 @@ package k8shandler
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
@@ -14,85 +17,114 @@ type elasticsearchNode struct {
 	ClusterName         string
 	Namespace           string
 	DeployName          string
-	NodeType            string
+	Roles               []v1alpha1.ElasticsearchNodeRole
 	ESNodeSpec          v1alpha1.ElasticsearchNode
 	ElasticsearchSecure v1alpha1.ElasticsearchSecure
 	NodeNum             int32
 	ReplicaNum          int32
 }
 
-func constructNodeConfig(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, nodeNum int32, replicaNum int32) (elasticsearchNode, error) {
+func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, nodeNum int32, replicaNum int32) (elasticsearchNode, error) {
 	nodeCfg := elasticsearchNode{}
 	nodeCfg.NodeNum = nodeNum
 	nodeCfg.ReplicaNum = replicaNum
-	nodeCfg.DeployName = fmt.Sprintf("%s-%s-%d-%d", dpl.Name, esNode.NodeRole, nodeNum, replicaNum)
+	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
+	if err != nil {
+		return nodeCfg, err
+	}
+	nodeCfg.DeployName = deployName
+
+	//fmt.Sprintf("%s-%s-%d-%d", dpl.Name, esNode.NodeRole, nodeNum, replicaNum)
 	nodeCfg.ClusterName = dpl.Name
-	nodeCfg.NodeType = esNode.NodeRole
+	nodeCfg.Roles = esNode.Roles
 	nodeCfg.ESNodeSpec = esNode
 	nodeCfg.ElasticsearchSecure = dpl.Spec.Secure
-	nodeCfg.ESNodeSpec.Config = reconcileNodeConfig(dpl.Spec.Config, esNode.Config)
+	nodeCfg.ESNodeSpec.Spec = reconcileNodeSpec(dpl.Spec.Spec, esNode.Spec)
 	nodeCfg.Namespace = dpl.Namespace
 	return nodeCfg, nil
 }
 
-func reconcileNodeConfig(commonConfig, nodeConfig v1alpha1.ElasticsearchConfig) v1alpha1.ElasticsearchConfig {
+func constructDeployName(name string, roles []v1alpha1.ElasticsearchNodeRole, nodeNum int32, replicaNum int32) (string, error) {
+	if len(roles) == 0 {
+		return "", fmt.Errorf("No node roles specified for a node in cluster %s", name)
+	}
+	var nodeType []string
+	for _, role := range roles {
+		if role != "client" && role != "data" && role != "master" {
+			return "", fmt.Errorf("Unknown node's role: %s", role)
+		}
+		nodeType = append(nodeType, string(role))
+	}
+
+	sort.Strings(nodeType)
+
+	return fmt.Sprintf("%s-%s-%d-%d", name, strings.Join(nodeType, ""), nodeNum, replicaNum), nil
+}
+
+func reconcileNodeSpec(commonSpec, nodeSpec v1alpha1.ElasticsearchNodeSpec) v1alpha1.ElasticsearchNodeSpec {
 	var image string
-	if nodeConfig.Image == "" {
-		image = commonConfig.Image
+	if nodeSpec.Image == "" {
+		image = commonSpec.Image
 	} else {
-		image = nodeConfig.Image
+		image = nodeSpec.Image
 	}
-	nodeConfig = v1alpha1.ElasticsearchConfig{
+	nodeSpec = v1alpha1.ElasticsearchNodeSpec{
 		Image:     image,
-		Resources: getResourceRequirements(commonConfig.Resources, nodeConfig.Resources),
+		Resources: getResourceRequirements(commonSpec.Resources, nodeSpec.Resources),
 	}
-	return nodeConfig
+	return nodeSpec
 }
 
 // getReplicas returns the desired number of replicas in the deployment/statefulset
 // if this is a data deployment, we always want to create separate deployment per replica
 // so we'll return 1. if this is not a data node, we can simply scale existing replica.
 func (cfg *elasticsearchNode) getReplicas() int32 {
-	if cfg.isNodeData() == "true" {
+	if cfg.isNodeData() {
 		return 1
 	}
 	return cfg.ESNodeSpec.Replicas
 }
 
-func (cfg *elasticsearchNode) isNodeMaster() string {
-	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "master" {
-		return "true"
+func (cfg *elasticsearchNode) isNodeMaster() bool {
+	for _, role := range cfg.Roles {
+		if role == "master" {
+			return true
+		}
 	}
-	return "false"
+	return false
 }
 
-func (cfg *elasticsearchNode) isNodeData() string {
-	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "clientdata" || cfg.NodeType == "data" {
-		return "true"
+func (cfg *elasticsearchNode) isNodeData() bool {
+	for _, role := range cfg.Roles {
+		if role == "data" {
+			return true
+		}
 	}
-	return "false"
+	return false
 }
 
-func (cfg *elasticsearchNode) isNodeClient() string {
-	if cfg.NodeType == "clientdatamaster" || cfg.NodeType == "clientdata" || cfg.NodeType == "client" {
-		return "true"
+func (cfg *elasticsearchNode) isNodeClient() bool {
+	for _, role := range cfg.Roles {
+		if role == "client" {
+			return true
+		}
 	}
-	return "false"
+	return false
 }
 
 func (cfg *elasticsearchNode) getLabels() map[string]string {
 	return map[string]string{
-		"component":      fmt.Sprintf("elasticsearch-%s", cfg.ClusterName),
-		"es-node-role":   cfg.NodeType,
-		"es-node-client": cfg.isNodeClient(),
-		"es-node-data":   cfg.isNodeData(),
-		"es-node-master": cfg.isNodeMaster(),
+		"component": fmt.Sprintf("elasticsearch-%s", cfg.ClusterName),
+		//"es-node-role":   cfg.NodeType,
+		"es-node-client": strconv.FormatBool(cfg.isNodeClient()),
+		"es-node-data":   strconv.FormatBool(cfg.isNodeData()),
+		"es-node-master": strconv.FormatBool(cfg.isNodeMaster()),
 		"cluster":        cfg.ClusterName,
 	}
 }
 
 func (cfg *elasticsearchNode) getNode() NodeTypeInterface {
-	if cfg.isNodeData() == "true" {
+	if cfg.isNodeData() {
 		return NewDeploymentNode(cfg.DeployName, cfg.Namespace)
 	}
 	return NewStatefulSetNode(cfg.DeployName, cfg.Namespace)

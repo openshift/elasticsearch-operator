@@ -40,10 +40,13 @@ objects:
     name: ${ELASTICSEARCH_CLUSTER_NAME}
     namespace: ${NAMESPACE}
   spec:
-    elasticsearchConfig:
+    nodeSpec:
       image: docker.io/openshift/logging-elasticsearch5
     nodes:
-      - nodeRole: clientdatamaster
+      - roles:
+        - client
+        - data
+        - master
         replicas: 1
         resources:
           limits:

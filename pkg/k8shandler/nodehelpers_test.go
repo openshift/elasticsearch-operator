@@ -1,9 +1,11 @@
 package k8shandler
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
+	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +29,18 @@ func TestGetReadinessProbe(t *testing.T) {
 }
 
 func TestGetAffinity(t *testing.T) {
-	roles := []string{"master", "clientdatamaster", "clientdata", "data", "client"}
+	rolesArray := [][]string{{"master"}, {"client", "data", "master"},
+		{"client", "data"}, {"data"}, {"client"}}
 	goodAffinities := []v1.Affinity{}
-	for _, role := range roles {
+	for _, roles := range rolesArray {
+		labelSelectorReqs := []metav1.LabelSelectorRequirement{}
+		for _, role := range roles {
+			labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+				Key:      fmt.Sprintf("es-node-%s", role),
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{"true"},
+			})
+		}
 		aff := v1.Affinity{
 			PodAntiAffinity: &v1.PodAntiAffinity{
 				PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
@@ -37,13 +48,7 @@ func TestGetAffinity(t *testing.T) {
 						Weight: 100,
 						PodAffinityTerm: v1.PodAffinityTerm{
 							LabelSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{
-										Key:      "role",
-										Operator: metav1.LabelSelectorOpIn,
-										Values:   []string{role},
-									},
-								},
+								MatchExpressions: labelSelectorReqs,
 							},
 							TopologyKey: "kubernetes.io/hostname",
 						},
@@ -54,12 +59,16 @@ func TestGetAffinity(t *testing.T) {
 		goodAffinities = append(goodAffinities, aff)
 	}
 
-	for i, role := range roles {
+	for i, roles := range rolesArray {
+		ndRoles := []v1alpha1.ElasticsearchNodeRole{}
+		for _, role := range roles {
+			ndRoles = append(ndRoles, v1alpha1.ElasticsearchNodeRole(role))
+		}
 		cfg := elasticsearchNode{
-			NodeType: role,
+			Roles: ndRoles,
 		}
 		if !reflect.DeepEqual(goodAffinities[i], cfg.getAffinity()) {
-			t.Errorf("Incorrect v1.Affinity constructed for role: %v", role)
+			t.Errorf("Incorrect v1.Affinity constructed for role setb: %v", roles)
 
 		}
 	}

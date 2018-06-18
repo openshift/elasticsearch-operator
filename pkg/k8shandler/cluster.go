@@ -28,7 +28,11 @@ type nodeState struct {
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 
-	cState := NewClusterState(dpl)
+	cState, err := NewClusterState(dpl)
+	if err != nil {
+		return err
+	}
+
 	action, err := cState.getRequiredAction()
 	if err != nil {
 		return err
@@ -61,7 +65,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 	return nil
 }
 
-func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
+func NewClusterState(dpl *v1alpha1.Elasticsearch) (clusterState, error) {
 	nodes := []*nodeState{}
 	cState := clusterState{
 		Nodes: nodes,
@@ -70,9 +74,9 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
 	for nodeNum, node := range dpl.Spec.Nodes {
 
 		for i = 1; i <= node.Replicas; i++ {
-			nodeCfg, err := constructNodeConfig(dpl, node, int32(nodeNum), i)
+			nodeCfg, err := constructNodeSpec(dpl, node, int32(nodeNum), i)
 			if err != nil {
-				logrus.Errorf("Unable to construct ES node config %v", err)
+				return cState, fmt.Errorf("Unable to construct ES node config %v", err)
 			}
 
 			node := nodeState{
@@ -85,7 +89,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
 	cState.amendDeployments(dpl)
 	// TODO: add amendStatefulSets
 	// TODO: add amendPods
-	return cState
+	return cState, nil
 }
 
 // getRequiredAction checks the desired state against what's present in current
