@@ -3,11 +3,11 @@ package k8shandler
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 )
@@ -28,7 +28,11 @@ type nodeState struct {
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 
-	cState := NewClusterState(dpl)
+	cState, err := NewClusterState(dpl)
+	if err != nil {
+		return err
+	}
+
 	action, err := cState.getRequiredAction()
 	if err != nil {
 		return err
@@ -61,7 +65,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch) error {
 	return nil
 }
 
-func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
+func NewClusterState(dpl *v1alpha1.Elasticsearch) (clusterState, error) {
 	nodes := []*nodeState{}
 	cState := clusterState{
 		Nodes: nodes,
@@ -70,9 +74,9 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
 	for nodeNum, node := range dpl.Spec.Nodes {
 
 		for i = 1; i <= node.Replicas; i++ {
-			nodeCfg, err := constructNodeConfig(dpl, node, int32(nodeNum), i)
+			nodeCfg, err := constructNodeSpec(dpl, node, int32(nodeNum), i)
 			if err != nil {
-				logrus.Errorf("Unable to construct ES node config %v", err)
+				return cState, fmt.Errorf("Unable to construct ES node config %v", err)
 			}
 
 			node := nodeState{
@@ -85,7 +89,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch) clusterState {
 	cState.amendDeployments(dpl)
 	// TODO: add amendStatefulSets
 	// TODO: add amendPods
-	return cState
+	return cState, nil
 }
 
 // getRequiredAction checks the desired state against what's present in current
@@ -147,7 +151,7 @@ func (cState *clusterState) removeStaleNodes() error {
 		// 	Kind:       "StatefulSet",
 		// 	APIVersion: "apps/v1",
 		// }
-		err := action.Delete(&node)
+		err := sdk.Delete(&node)
 		if err != nil {
 			return fmt.Errorf("Unable to delete resource %v: ", err)
 		}

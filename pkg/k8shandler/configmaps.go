@@ -8,8 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	//"github.com/sirupsen/logrus"
 )
@@ -21,26 +20,26 @@ func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) error {
 
 	// TODO: take all vars from CRD
 	pathData := "- /elasticsearch/persistent/"
-	err := createOrUpdateConfigMap(elasticsearchCMName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Enabled, owner)
+	err := createOrUpdateConfigMap(elasticsearchCMName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Disabled, owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating ConfigMap %v", err)
 	}
 	return nil
 }
 
-func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string, allowClusterReader bool, secureCluster bool, owner metav1.OwnerReference) error {
-	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData, allowClusterReader, secureCluster)
+func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string, allowClusterReader bool, insecureCluster bool, owner metav1.OwnerReference) error {
+	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData, allowClusterReader, insecureCluster)
 	if err != nil {
 		return err
 	}
 	addOwnerRefToObject(elasticsearchCM, owner)
-	err = action.Create(elasticsearchCM)
+	err = sdk.Create(elasticsearchCM)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
 	} else if errors.IsAlreadyExists(err) {
 		// Get existing configMap to check if it is same as what we want
 		existingCM := configMap(configMapName, namespace)
-		err = query.Get(existingCM)
+		err = sdk.Get(existingCM)
 		if err != nil {
 			return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
 		}
@@ -50,11 +49,11 @@ func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexM
 	return nil
 }
 
-func createConfigMap(configMapName string, namespace string, clusterName string, kibanaIndexMode string, pathData string, allowClusterReader bool, secureCluster bool) (*v1.ConfigMap, error) {
+func createConfigMap(configMapName string, namespace string, clusterName string, kibanaIndexMode string, pathData string, allowClusterReader bool, insecureCluster bool) (*v1.ConfigMap, error) {
 	cm := configMap(configMapName, namespace)
 	cm.Data = map[string]string{}
 	buf := &bytes.Buffer{}
-	if err := renderEsYml(buf, allowClusterReader, kibanaIndexMode, pathData, secureCluster); err != nil {
+	if err := renderEsYml(buf, allowClusterReader, kibanaIndexMode, pathData, insecureCluster); err != nil {
 		return cm, err
 	}
 	cm.Data["elasticsearch.yml"] = buf.String()

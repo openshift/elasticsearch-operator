@@ -3,9 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
-	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -15,16 +13,6 @@ import (
 
 type statefulSetNode struct {
 	resource apps.StatefulSet
-}
-
-func (node *statefulSetNode) isNodeConfigured(dpl *v1alpha1.Elasticsearch) bool {
-	label := node.resource.ObjectMeta.Labels["es-node-role"]
-	for _, cmpNode := range dpl.Spec.Nodes {
-		if cmpNode.NodeRole == label {
-			return true
-		}
-	}
-	return false
 }
 
 func (node *statefulSetNode) getResource() runtime.Object {
@@ -43,7 +31,7 @@ func (node *statefulSetNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 }
 
 func (node *statefulSetNode) query() error {
-	err := query.Get(&node.resource)
+	err := sdk.Get(&node.resource)
 	return err
 }
 
@@ -127,7 +115,7 @@ func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode, owner
 }
 
 func (node *statefulSetNode) delete() error {
-	err := action.Delete(&node.resource)
+	err := sdk.Delete(&node.resource)
 	if err != nil {
 		return fmt.Errorf("Unable to delete StatefulSet %v: ", err)
 	}

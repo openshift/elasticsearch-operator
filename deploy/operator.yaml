@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: elasticsearch-operator
-          image: t0ffel/es-operator
+          image: quay.io/t0ffel/elasticsearch-operator
           command:
           - elasticsearch-operator
           imagePullPolicy: Always

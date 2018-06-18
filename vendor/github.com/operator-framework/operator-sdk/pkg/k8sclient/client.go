@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 
@@ -35,16 +36,19 @@ import (
 var (
 	restMapper *discovery.DeferredDiscoveryRESTMapper
 	clientPool dynamic.ClientPool
+	kubeClient kubernetes.Interface
+	kubeConfig *rest.Config
 )
 
 // init initializes the restMapper and clientPool needed to create a resource client dynamically
 func init() {
-	kubeClient, kubeConfig := mustNewKubeClientAndConfig()
+	kubeClient, kubeConfig = mustNewKubeClientAndConfig()
 	cachedDiscoveryClient := cached.NewMemCacheClient(kubeClient.Discovery())
 	restMapper = discovery.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient, meta.InterfacesForUnstructured)
 	restMapper.Reset()
 	kubeConfig.ContentConfig = dynamic.ContentConfig()
 	clientPool = dynamic.NewClientPool(kubeConfig, restMapper, dynamic.LegacyAPIPathResolverFunc)
+	runBackgroundCacheReset(1 * time.Minute)
 }
 
 // GetResourceClient returns the dynamic client and pluralName for the resource specified by the apiVersion and kind
@@ -70,6 +74,11 @@ func GetResourceClient(apiVersion, kind, namespace string) (dynamic.ResourceInte
 	pluralName := resource.Name
 	resourceClient := client.Resource(resource, namespace)
 	return resourceClient, pluralName, nil
+}
+
+// GetKubeClient returns the kubernetes client used to create the dynamic client
+func GetKubeClient() kubernetes.Interface {
+	return kubeClient
 }
 
 // apiResource consults the REST mapper to translate an <apiVersion, kind, namespace> tuple to a metav1.APIResource struct.
@@ -123,4 +132,15 @@ func outOfClusterConfig() (*rest.Config, error) {
 	kubeconfig := os.Getenv(k8sutil.KubeConfigEnvVar)
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	return config, err
+}
+
+// runBackgroundCacheReset - Starts the rest mapper cache reseting
+// at a duration given.
+func runBackgroundCacheReset(duration time.Duration) {
+	ticker := time.NewTicker(duration)
+	go func() {
+		for range ticker.C {
+			restMapper.Reset()
+		}
+	}()
 }

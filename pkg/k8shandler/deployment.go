@@ -5,9 +5,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/action"
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
-	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,16 +14,6 @@ import (
 
 type deploymentNode struct {
 	resource apps.Deployment
-}
-
-func (node *deploymentNode) isNodeConfigured(dpl *v1alpha1.Elasticsearch) bool {
-	label := node.resource.ObjectMeta.Labels["es-node-role"]
-	for _, cmpNode := range dpl.Spec.Nodes {
-		if cmpNode.NodeRole == label {
-			return true
-		}
-	}
-	return false
 }
 
 func (node *deploymentNode) getResource() runtime.Object {
@@ -43,7 +31,7 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 	// Check image of Elasticsearch container
 	for _, container := range node.resource.Spec.Template.Spec.Containers {
 		if container.Name == "elasticsearch" {
-			if container.Image != cfg.ESNodeSpec.Config.Image {
+			if container.Image != cfg.ESNodeSpec.Spec.Image {
 				logrus.Infof("Container image '%v' is different that desired, updating..", container.Image)
 				return true, nil
 			}
@@ -64,7 +52,8 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 				}
 			case volume.PersistentVolumeClaim != nil && cfg.ESNodeSpec.Storage.VolumeClaimTemplate != nil:
 				// FIXME: don't forget to fix this
-				if volume.PersistentVolumeClaim.ClaimName == cfg.ESNodeSpec.Storage.PersistentVolumeClaim.ClaimName {
+				desiredClaimName := fmt.Sprintf("%s-%s", cfg.ESNodeSpec.Storage.VolumeClaimTemplate.Name, node.resource.Name)
+				if volume.PersistentVolumeClaim.ClaimName == desiredClaimName {
 					return false, nil
 				}
 			case volume.HostPath != nil && cfg.ESNodeSpec.Storage.HostPath != nil:
@@ -81,7 +70,7 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 }
 
 func (node *deploymentNode) query() error {
-	err := query.Get(&node.resource)
+	err := sdk.Get(&node.resource)
 	return err
 }
 
@@ -138,7 +127,7 @@ func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner 
 }
 
 func (node *deploymentNode) delete() error {
-	err := action.Delete(&node.resource)
+	err := sdk.Delete(&node.resource)
 	if err != nil {
 		return fmt.Errorf("Unable to delete Deployment %v: ", err)
 	}

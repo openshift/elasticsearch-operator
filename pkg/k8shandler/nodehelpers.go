@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -39,6 +40,29 @@ func getReadinessProbe() v1.Probe {
 }
 
 func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
+	labelSelectorReqs := []metav1.LabelSelectorRequirement{}
+	if cfg.isNodeClient() {
+		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+			Key:      "es-node-client",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		})
+	}
+	if cfg.isNodeData() {
+		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+			Key:      "es-node-data",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		})
+	}
+	if cfg.isNodeMaster() {
+		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
+			Key:      "es-node-master",
+			Operator: metav1.LabelSelectorOpIn,
+			Values:   []string{"true"},
+		})
+	}
+
 	return v1.Affinity{
 		PodAntiAffinity: &v1.PodAntiAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
@@ -46,13 +70,7 @@ func (cfg *elasticsearchNode) getAffinity() v1.Affinity {
 					Weight: 100,
 					PodAffinityTerm: v1.PodAffinityTerm{
 						LabelSelector: &metav1.LabelSelector{
-							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{
-									Key:      "role",
-									Operator: metav1.LabelSelectorOpIn,
-									Values:   []string{cfg.NodeType},
-								},
-							},
+							MatchExpressions: labelSelectorReqs,
 						},
 						TopologyKey: "kubernetes.io/hostname",
 					},
@@ -118,11 +136,11 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 		},
 		v1.EnvVar{
 			Name:  "IS_MASTER",
-			Value: cfg.isNodeMaster(),
+			Value: strconv.FormatBool(cfg.isNodeMaster()),
 		},
 		v1.EnvVar{
 			Name:  "HAS_DATA",
-			Value: cfg.isNodeData(),
+			Value: strconv.FormatBool(cfg.isNodeData()),
 		},
 		v1.EnvVar{
 			Name:  "PROMETHEUS_USER",
@@ -140,36 +158,56 @@ func (cfg *elasticsearchNode) getEnvVars() []v1.EnvVar {
 }
 
 func (cfg *elasticsearchNode) getInstanceRAM() string {
-	memory := cfg.ESNodeSpec.Resources.Limits.Memory()
+	memory := cfg.ESNodeSpec.Spec.Resources.Limits.Memory()
 	if !memory.IsZero() {
 		return memory.String()
 	}
 	return defaultMemoryLimit
 }
 
-func (cfg *elasticsearchNode) getResourceRequirements() v1.ResourceRequirements {
-	limitCPU := cfg.ESNodeSpec.Resources.Limits.Cpu()
+func getResourceRequirements(commonResRequirements, nodeResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
+	limitCPU := nodeResRequirements.Limits.Cpu()
 	if limitCPU.IsZero() {
-		CPU, _ := resource.ParseQuantity(defaultCPULimit)
-		limitCPU = &CPU
+		if commonResRequirements.Limits.Cpu().IsZero() {
+			CPU, _ := resource.ParseQuantity(defaultCPULimit)
+			limitCPU = &CPU
+		} else {
+			limitCPU = commonResRequirements.Limits.Cpu()
+		}
 	}
-	limitMem, _ := resource.ParseQuantity(cfg.getInstanceRAM())
-	requestCPU := cfg.ESNodeSpec.Resources.Requests.Cpu()
+	limitMem := nodeResRequirements.Limits.Memory()
+	if limitMem.IsZero() {
+		if commonResRequirements.Limits.Memory().IsZero() {
+			Mem, _ := resource.ParseQuantity(defaultMemoryLimit)
+			limitMem = &Mem
+		} else {
+			limitMem = commonResRequirements.Limits.Memory()
+		}
+
+	}
+	requestCPU := nodeResRequirements.Requests.Cpu()
 	if requestCPU.IsZero() {
-		CPU, _ := resource.ParseQuantity(defaultCPURequest)
-		requestCPU = &CPU
+		if commonResRequirements.Requests.Cpu().IsZero() {
+			CPU, _ := resource.ParseQuantity(defaultCPURequest)
+			requestCPU = &CPU
+		} else {
+			requestCPU = commonResRequirements.Requests.Cpu()
+		}
 	}
-	requestMem := cfg.ESNodeSpec.Resources.Requests.Memory()
+	requestMem := nodeResRequirements.Requests.Memory()
 	if requestMem.IsZero() {
-		Mem, _ := resource.ParseQuantity(defaultMemoryRequest)
-		requestMem = &Mem
+		if commonResRequirements.Requests.Memory().IsZero() {
+			Mem, _ := resource.ParseQuantity(defaultMemoryRequest)
+			requestMem = &Mem
+		} else {
+			requestMem = commonResRequirements.Requests.Memory()
+		}
 	}
-	logrus.Infof("Using  memory limit: %v, for node %v", limitMem.String(), cfg.DeployName)
 
 	return v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu":    *limitCPU,
-			"memory": limitMem,
+			"memory": *limitMem,
 		},
 		Requests: v1.ResourceList{
 			"cpu":    *requestCPU,
@@ -181,10 +219,10 @@ func (cfg *elasticsearchNode) getResourceRequirements() v1.ResourceRequirements 
 
 func (cfg *elasticsearchNode) getESContainer() v1.Container {
 	var image string
-	if cfg.ESNodeSpec.Config.Image == "" {
+	if cfg.ESNodeSpec.Spec.Image == "" {
 		image = elasticsearchDefaultImage
 	} else {
-		image = cfg.ESNodeSpec.Config.Image
+		image = cfg.ESNodeSpec.Spec.Image
 	}
 	probe := getReadinessProbe()
 	return v1.Container{
@@ -207,9 +245,10 @@ func (cfg *elasticsearchNode) getESContainer() v1.Container {
 		ReadinessProbe: &probe,
 		LivenessProbe:  &probe,
 		VolumeMounts:   cfg.getVolumeMounts(),
-		Resources:      cfg.getResourceRequirements(),
+		Resources:      cfg.ESNodeSpec.Spec.Resources,
 	}
 }
+
 func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
 	mounts := []v1.VolumeMount{
 		v1.VolumeMount{
@@ -221,7 +260,7 @@ func (cfg *elasticsearchNode) getVolumeMounts() []v1.VolumeMount {
 			MountPath: elasticsearchConfigPath,
 		},
 	}
-	if cfg.ElasticsearchSecure.Enabled {
+	if !cfg.ElasticsearchSecure.Disabled {
 		mounts = append(mounts, v1.VolumeMount{
 			Name:      "certificates",
 			MountPath: elasticsearchCertsPath,
@@ -251,6 +290,7 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 	case specVol.PersistentVolumeClaim != nil:
 		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
 	default:
+		// TODO: assume EmptyDir/update to emptyDir?
 		logrus.Infof("Unknown volume source")
 	}
 	return volSource
@@ -273,7 +313,7 @@ func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 			},
 		},
 	}
-	if cfg.ElasticsearchSecure.Enabled {
+	if !cfg.ElasticsearchSecure.Disabled {
 		secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
 
 		vols = append(vols, v1.Volume{

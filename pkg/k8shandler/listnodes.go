@@ -4,7 +4,7 @@ import (
 	"fmt"
 	//"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk/query"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1beta2"
 
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
@@ -17,7 +17,7 @@ func listStatefulSets(dpl *v1alpha1.Elasticsearch) ([]NodeTypeInterface, error) 
 	list := ssList()
 	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := query.List(dpl.Namespace, list, query.WithListOptions(listOps))
+	err := sdk.List(dpl.Namespace, list, sdk.WithListOptions(listOps))
 	if err != nil {
 		return []NodeTypeInterface{}, fmt.Errorf("Unable to list StatefulSets: %v", err)
 	}
@@ -42,7 +42,7 @@ func listDeployments(dpl *v1alpha1.Elasticsearch) (*apps.DeploymentList, error) 
 	list := deploymentList()
 	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := query.List(dpl.Namespace, list, query.WithListOptions(listOps))
+	err := sdk.List(dpl.Namespace, list, sdk.WithListOptions(listOps))
 	if err != nil {
 		return list, fmt.Errorf("Unable to list deployments: %v", err)
 	}
@@ -119,7 +119,7 @@ func listPods(dpl *v1alpha1.Elasticsearch) (*v1.PodList, error) {
 	podList := podList()
 	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := query.List(dpl.Namespace, podList, query.WithListOptions(listOps))
+	err := sdk.List(dpl.Namespace, podList, sdk.WithListOptions(listOps))
 	if err != nil {
 		return podList, fmt.Errorf("failed to list pods: %v", err)
 	}

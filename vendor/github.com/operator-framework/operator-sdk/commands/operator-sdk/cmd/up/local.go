@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/operator-framework/operator-sdk/commands/operator-sdk/cmd/cmdutil"
 	cmdError "github.com/operator-framework/operator-sdk/commands/operator-sdk/error"
@@ -18,20 +19,24 @@ func NewLocalCmd() *cobra.Command {
 	upLocalCmd := &cobra.Command{
 		Use:   "local",
 		Short: "Launches the operator locally",
-		Long: `The operator-sdk up local command launches the operator on the local machine 
-by building the operator binary with the ability to access a 
+		Long: `The operator-sdk up local command launches the operator on the local machine
+by building the operator binary with the ability to access a
 kubernetes cluster using a kubeconfig file.
 `,
 		Run: upLocalFunc,
 	}
 
 	upLocalCmd.Flags().StringVar(&kubeConfig, "kubeconfig", "", "The file path to kubernetes configuration file; defaults to $HOME/.kube/config")
+	upLocalCmd.Flags().StringVar(&operatorFlags, "operator-flags", "", "The flags that the operator needs. Example: \"--flag1 value1 --flag2=value2\"")
+	upLocalCmd.Flags().StringVar(&namespace, "namespace", "default", "The namespace where the operator watches for changes.")
 
 	return upLocalCmd
 }
 
 var (
-	kubeConfig string
+	kubeConfig    string
+	operatorFlags string
+	namespace     string
 )
 
 const (
@@ -67,10 +72,15 @@ func mustKubeConfig() {
 }
 
 func upLocal(projectName string) {
-	dc := exec.Command(gocmd, run, filepath.Join(cmd, projectName, main))
+	args := []string{run, filepath.Join(cmd, projectName, main)}
+	if operatorFlags != "" {
+		extraArgs := strings.Split(operatorFlags, " ")
+		args = append(args, extraArgs...)
+	}
+	dc := exec.Command(gocmd, args...)
 	dc.Stdout = os.Stdout
 	dc.Stderr = os.Stderr
-	dc.Env = append(os.Environ(), fmt.Sprintf("%v=%v", k8sutil.KubeConfigEnvVar, kubeConfig))
+	dc.Env = append(os.Environ(), fmt.Sprintf("%v=%v", k8sutil.KubeConfigEnvVar, kubeConfig), fmt.Sprintf("%v=%v", k8sutil.WatchNamespaceEnvVar, namespace))
 	err := dc.Run()
 	if err != nil {
 		cmdError.ExitWithError(cmdError.ExitError, fmt.Errorf("failed to run operator locally: %v", err))
