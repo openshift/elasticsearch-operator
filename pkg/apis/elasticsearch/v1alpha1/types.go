@@ -68,9 +68,10 @@ type ElasticsearchNodeStatus struct {
 // ElasticsearchSpec struct represents the Spec of Elasticsearch cluster CRD
 type ElasticsearchSpec struct {
 	// Fill me
-	Nodes  []ElasticsearchNode   `json:"nodes"`
-	Spec   ElasticsearchNodeSpec `json:"nodeSpec"`
-	Secure ElasticsearchSecure   `json:"securityConfig"`
+	Nodes              []ElasticsearchNode   `json:"nodes"`
+	Spec               ElasticsearchNodeSpec `json:"nodeSpec"`
+	Secure             ElasticsearchSecure   `json:"securityConfig"`
+	ServiceAccountName string                `json:"serviceAccountName,omitempty"`
 }
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node

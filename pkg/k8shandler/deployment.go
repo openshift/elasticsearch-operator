@@ -104,6 +104,7 @@ func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner 
 				},
 				Volumes: cfg.getVolumes(),
 				// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),
+				ServiceAccountName: cfg.ServiceAccountName,
 			},
 		},
 	}

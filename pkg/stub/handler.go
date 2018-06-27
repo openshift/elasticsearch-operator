@@ -41,6 +41,12 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 		return fmt.Errorf("Failed to reconcile Services for Elasticsearch cluster: %v", err)
 	}
 
+	// Ensure existence of servicesaccount
+	err = k8shandler.CreateOrUpdateServiceAccount(es)
+	if err != nil {
+		return fmt.Errorf("Failed to reconcile ServiceAccount for Elasticsearch cluster: %v", err)
+	}
+
 	// Ensure existence of services
 	err = k8shandler.CreateOrUpdateConfigMaps(es)
 	if err != nil {

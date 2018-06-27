@@ -22,25 +22,27 @@ type elasticsearchNode struct {
 	ElasticsearchSecure v1alpha1.ElasticsearchSecure
 	NodeNum             int32
 	ReplicaNum          int32
+	ServiceAccountName  string
 }
 
 func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, nodeNum int32, replicaNum int32) (elasticsearchNode, error) {
-	nodeCfg := elasticsearchNode{}
-	nodeCfg.NodeNum = nodeNum
-	nodeCfg.ReplicaNum = replicaNum
+	nodeCfg := elasticsearchNode{
+		ClusterName:         dpl.Name,
+		Namespace:           dpl.Namespace,
+		Roles:               esNode.Roles,
+		ESNodeSpec:          esNode,
+		ElasticsearchSecure: dpl.Spec.Secure,
+		NodeNum:             nodeNum,
+		ReplicaNum:          replicaNum,
+		ServiceAccountName:  dpl.Spec.ServiceAccountName,
+	}
 	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
 	if err != nil {
 		return nodeCfg, err
 	}
 	nodeCfg.DeployName = deployName
 
-	//fmt.Sprintf("%s-%s-%d-%d", dpl.Name, esNode.NodeRole, nodeNum, replicaNum)
-	nodeCfg.ClusterName = dpl.Name
-	nodeCfg.Roles = esNode.Roles
-	nodeCfg.ESNodeSpec = esNode
-	nodeCfg.ElasticsearchSecure = dpl.Spec.Secure
 	nodeCfg.ESNodeSpec.Spec = reconcileNodeSpec(dpl.Spec.Spec, esNode.Spec)
-	nodeCfg.Namespace = dpl.Namespace
 	return nodeCfg, nil
 }
 
