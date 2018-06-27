@@ -146,11 +146,11 @@ func (cState *clusterState) buildNewCluster(owner metav1.OwnerReference) error {
 func (cState *clusterState) removeStaleNodes() error {
 	for _, node := range cState.DanglingDeployments.Items {
 		//logrus.Infof("found statefulset: %v", node.getResource().ObjectMeta.Name)
-		// the returned statefulset doesn't have TypeMeta, so we're adding it.
-		// node.TypeMeta = metav1.TypeMeta{
-		// 	Kind:       "StatefulSet",
-		// 	APIVersion: "apps/v1",
-		// }
+		// the returned deployment doesn't have TypeMeta, so we're adding it.
+		node.TypeMeta = metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		}
 		err := sdk.Delete(&node)
 		if err != nil {
 			return fmt.Errorf("Unable to delete resource %v: ", err)

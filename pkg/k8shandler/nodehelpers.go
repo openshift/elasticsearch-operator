@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/sirupsen/logrus"
+	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -275,7 +276,7 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 	switch {
 	case specVol.HostPath != nil:
 		volSource.HostPath = specVol.HostPath
-	case specVol.EmptyDir != nil:
+	case specVol.EmptyDir != nil || specVol == v1alpha1.ElasticsearchNodeStorageSource{}:
 		volSource.EmptyDir = specVol.EmptyDir
 	case specVol.VolumeClaimTemplate != nil:
 		claimName := fmt.Sprintf("%s-%s", specVol.VolumeClaimTemplate.Name, cfg.DeployName)
@@ -291,7 +292,7 @@ func (cfg *elasticsearchNode) generatePersistentStorage() v1.VolumeSource {
 		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
 	default:
 		// TODO: assume EmptyDir/update to emptyDir?
-		logrus.Infof("Unknown volume source")
+		logrus.Infof("Unknown volume source: %s", specVol)
 	}
 	return volSource
 }

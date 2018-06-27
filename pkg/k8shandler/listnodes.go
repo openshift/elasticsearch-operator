@@ -88,7 +88,7 @@ func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error 
 
 func popDeployment(deployments *apps.DeploymentList, cfg elasticsearchNode) (*apps.DeploymentList, apps.Deployment, bool) {
 	var deployment apps.Deployment
-	var index int = -1
+	var index = -1
 	for i, dpl := range deployments.Items {
 		if dpl.Name == cfg.DeployName {
 			deployment = dpl

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1beta2"
@@ -58,7 +59,7 @@ func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
 				}
 			case volume.HostPath != nil && cfg.ESNodeSpec.Storage.HostPath != nil:
 				return false, nil
-			case volume.EmptyDir != nil && cfg.ESNodeSpec.Storage.EmptyDir != nil:
+			case volume.EmptyDir != nil && (cfg.ESNodeSpec.Storage.EmptyDir != nil || cfg.ESNodeSpec.Storage == v1alpha1.ElasticsearchNodeStorageSource{}):
 				return false, nil
 			default:
 				logrus.Infof("Detected change in storage")
