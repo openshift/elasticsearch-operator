@@ -315,7 +315,12 @@ func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 		},
 	}
 	if !cfg.ElasticsearchSecure.Disabled {
-		secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
+		var secretName string
+		if cfg.ElasticsearchSecure.CertificatesSecret == "" {
+			secretName = fmt.Sprintf("%s-certs", cfg.ClusterName)
+		} else {
+			secretName = cfg.ElasticsearchSecure.CertificatesSecret
+		}
 
 		vols = append(vols, v1.Volume{
 			Name: "certificates",

@@ -83,8 +83,9 @@ type ElasticsearchNodeSpec struct {
 // ElasticsearchSecure struct represents security configuration of the cluster
 // whether SearchGuard is enabled along with oauth-proxy sidecar
 type ElasticsearchSecure struct {
-	Disabled bool   `json:"disabled"`
-	Image    string `json:"image,omitempty"`
+	Disabled           bool   `json:"disabled"`
+	Image              string `json:"image,omitempty"`
+	CertificatesSecret string `json:"certificatesSecret,omitempty"`
 }
 
 type ElasticsearchRequiredAction string
