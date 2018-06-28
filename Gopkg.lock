@@ -256,6 +256,16 @@
   version = "v0.3.0"
 
 [[projects]]
+  branch = "master"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "imports",
+    "internal/fastwalk"
+  ]
+  revision = "16699b2d33e2654d743c50b4525ab7e73e346238"
+
+[[projects]]
   name = "gopkg.in/inf.v0"
   packages = ["."]
   revision = "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
@@ -300,7 +310,6 @@
     "storage/v1beta1"
   ]
   revision = "acf347b865f29325eb61f4cd2df11e86e073a5ee"
-  version = "kubernetes-1.9.3"
 
 [[projects]]
   name = "k8s.io/apimachinery"
@@ -345,7 +354,6 @@
     "third_party/forked/golang/reflect"
   ]
   revision = "19e3f5aa3adca672c153d324e6b7d82ff8935f03"
-  version = "kubernetes-1.9.3"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -404,17 +412,57 @@
     "util/workqueue"
   ]
   revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
-  version = "kubernetes-1.9.3"
+
+[[projects]]
+  name = "k8s.io/code-generator"
+  packages = [
+    "cmd/client-gen",
+    "cmd/client-gen/args",
+    "cmd/client-gen/generators",
+    "cmd/client-gen/generators/fake",
+    "cmd/client-gen/generators/scheme",
+    "cmd/client-gen/generators/util",
+    "cmd/client-gen/path",
+    "cmd/client-gen/types",
+    "cmd/conversion-gen",
+    "cmd/conversion-gen/generators",
+    "cmd/deepcopy-gen",
+    "cmd/defaulter-gen",
+    "cmd/informer-gen",
+    "cmd/informer-gen/generators",
+    "cmd/lister-gen",
+    "cmd/lister-gen/generators",
+    "cmd/openapi-gen"
+  ]
+  revision = "91d3f6a57905178524105a085085901bb73bd3dc"
+
+[[projects]]
+  branch = "master"
+  name = "k8s.io/gengo"
+  packages = [
+    "args",
+    "examples/deepcopy-gen/generators",
+    "examples/defaulter-gen/generators",
+    "examples/set-gen/sets",
+    "generator",
+    "namer",
+    "parser",
+    "types"
+  ]
+  revision = "f659ec9d5207b3bf034eb9b7e22720d360d28712"
 
 [[projects]]
   branch = "master"
   name = "k8s.io/kube-openapi"
-  packages = ["pkg/common"]
+  packages = [
+    "pkg/common",
+    "pkg/generators"
+  ]
   revision = "bf40560368791a7dddfeea9b3cfcf89b34139f44"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "fb8cd1800f2a5c2acb7cbe08bf82d7c8667b8f6c52666cb33ad0fb0daee5c593"
+  inputs-digest = "b459126566be5c4187c64a6b21d4f5e5c4e09ff096a3deabd7dec31ed2985e59"
   solver-name = "gps-cdcl"
   solver-version = 1
