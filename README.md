@@ -1,5 +1,7 @@
 # elasticsearch-operator
 
+[![Build Status](https://travis-ci.org/t0ffel/elasticsearch-operator.svg?branch=master)](https://travis-ci.org/t0ffel/elasticsearch-operator)
+
 *WORK IN PROGRESS*
 
 Elasticsearch operator to run Elasticsearch cluster on top of Openshift and Kubernetes.
