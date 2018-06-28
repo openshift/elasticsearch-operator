@@ -1,51 +1,36 @@
 sudo: required
 language: go
 go:
-- "1.10"
+- '1.10'
 services:
 - docker
-
 env:
-- CHANGE_MINIKUBE_NONE_USER=true
-
+  global:
+  - secure: VPl3TGj9cNWdsOIpvUHva1cp8gjlzL2T2ZASlf2RLpFnHn8ggCRhFc9QkSLxz6wLv155nCeLCkW3Pp7OZOXH9Q4EZDX3kBzuQisDaUNuzpaXz0w9XWE5U/SW4uGGpN2p1EZH61FW0Mi2o+vHp79gS+cdfa2fnNy1uz+4u57Ij3HbQeN28vETe9QNHu9VhS7vHMqOEBUTEaXTZGUgZ56bA9uQfudYZymN+EFPrWjGrMGNSnzEPoNq8yEoEqsGbZbdaKXWP9RCdcM4huWytme3EN775jWzt8TTPtPbNQJKiD1tiDToz0dCCvn0i4G/cuJa3NgBSi08f3JfC2ekKKTzpWdtoh8nsLvnPw1lpMZzNoTXY4yHffraat7i9kxaXa45PzM5w8t0HWzaMgY0IU3hVA6ot2eu9r8h7d77KvedluWHqjq7ATCr6QzWWMZAd7GVOmM/j10usOeKHZlvQtUsBCoghKN78qAqJdfPwtPQqsJ4RY42XPoQjRVAwzhTzTWsfdryDim+120wrDKBp5k8/6ugJMebz1PM1U1BjTvNN4RLCkimkjWRkKzZRId3mcsa9e5vke6wkXg/swRge0X4Wtdlxp2N7cIkuKy2F3LA5U8b+qvDwn/SzGPo5DAILQchC4bm1VIdxF7h305F/dtqdSpCoj9rkNKI+kGVLF27a0k=
+  - secure: DEg+zxj3dVyK/iT42tUO1IjctDUJ67ts3XKSGDRE7xOd5K6anIVjb4kf3OIuhB3UOGYJnRmpo3y74Tml1S5dTFcu2hYCf7+KMv9Tzwzp7SDZ2P7Y9S8iA0fdz+gCI8dsNEoRBKVYtWktq+D3SZxPit+Tw3QxA+XubrV1CSlf++SCOYrjSahA75BCdMer+g2BL382zB0y4rvdQ+qTYAk37BdyyA55P2XjcwhrzyclDcSf+ZtVYYIl8mIqvDNBCMeFz7dy6UJrF6NYcwTUybl7IrL2CzAgQDrFwgmb72kqqYbrnWUG9TVY9UPY0D6/fM9kZMc4tk7y9q8E67cLE3lHp3aOluI22OjWyAX+oekkUVv3mC0MbuXlDn75bhDIHSXzlsycwfOX8f9b0o3K1HtU9SrfkCx9HfLBOeF6GJcGDPLBhq3l1kf/pO+O+ruAU21jzIQkx8QFfwQMIhVMMFObb86CF5JiapfMCh2Cbo5ztwNj/IVduCRO6AILJc9NwV7vojcs+xB8exB0W2Fk8r+HIAfE8Q76qgu5IHGDrQsWb8Kb62AU2pkOh8ToaTd9elK7QFgxLO66ctduAuGfbfUk2JhsLhaBYUZNPAYBKTCMVdA3NTS6pn/Dh+++0osxdTc18ulreo4Uzks+fgWwdw0j21dt8XS3p8r137a1avSyMqw=
+  matrix:
+  - CHANGE_MINIKUBE_NONE_USER=true
 before_script:
 - go get -u github.com/golang/dep/cmd/dep
 - dep ensure
-# Download kubectl, which is a requirement for using minikube.
-- curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-# Download minikube.
-- curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.2/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+- curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kubectl
+  && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+- curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.25.2/minikube-linux-amd64
+  && chmod +x minikube && sudo mv minikube /usr/local/bin/
 - sudo minikube start --vm-driver=none --kubernetes-version=v1.9.0
-# install operator-sdk
 - go get -u github.com/operator-framework/operator-sdk/commands/operator-sdk
-# Fix the kubectl context, as it's often stale.
 - minikube update-context
 - export KUBERNETES_CONFIG=${HOME}/.kube/config
-# Wait for Kubernetes to be up and ready.
-- JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
-
+- JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}';
+  until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do
+  sleep 1; done
 install:
 - go get -t -d ./...
-
 script:
-# Unit test and verify formatting
 - go test ./...
 - go vet ./...
-#- make install
-# Create example operator
-#- cd $GOPATH/src/github.com/example-inc
-#- operator-sdk new memcached-operator --api-version=cache.example.com/v1alpha1 --kind=Memcached
-#- cd memcached-operator
-#- rm -rf vendor/github.com/operator-framework/operator-sdk/pkg
-#- ln -s ${TRAVIS_BUILD_DIR}/pkg vendor/github.com/operator-framework/operator-sdk/pkg
-#- curl https://raw.githubusercontent.com/operator-framework/operator-sdk/master/example/memcached-operator/handler.go.tmpl -o pkg/stub/handler.go
-#- head -n -6 pkg/apis/cache/v1alpha1/types.go > tmp.txt
-#- mv tmp.txt pkg/apis/cache/v1alpha1/types.go
-#- echo 'type MemcachedSpec struct {	Size int32 `json:"size"`}' >> pkg/apis/cache/v1alpha1/types.go
-#- echo 'type MemcachedStatus struct {Nodes []string `json:"nodes"`}' >> pkg/apis/cache/v1alpha1/types.go
-#- operator-sdk generate k8s
 - operator-sdk build quay.io/t0ffel/elasticsearch-operator
-- "sed -i -e 's/imagePullPolicy: Always/imagePullPolicy: Never/g' deploy/operator.yaml"
+- 'sed -i -e ''s/imagePullPolicy: Always/imagePullPolicy: Never/g'' deploy/operator.yaml'
 - kubectl create -f deploy/rbac.yaml
 - kubectl create -f deploy/crd.yaml
 - kubectl create -f deploy/operator.yaml
@@ -55,10 +40,11 @@ script:
 - kubectl get po
 - kubectl delete -f deploy/cr.yaml
 - kubectl delete -f deploy/operator.yaml
-
+- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin quay.io
+- docker push quay.io/t0ffel/elasticsearch-operator
 after_success:
-- echo 'Build succeeded, Elasticsearch operator is running on minikube, and unit/integration tests pass'
-
+- echo 'Build succeeded, Elasticsearch operator is running on minikube, and unit/integration
+  tests pass'
 after_failure:
-- echo 'Build failed, Elasticsearch operator is not running on minikube, or unit/integration tests failed'
-
+- echo 'Build failed, Elasticsearch operator is not running on minikube, or unit/integration
+  tests failed'
