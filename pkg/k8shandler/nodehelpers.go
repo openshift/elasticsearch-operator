@@ -25,7 +25,6 @@ const (
 	defaultMemoryRequest      = "1Gi"
 	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
 	promUser                  = "prometheus"
-	defaultCertSecretName     = "logging-elasticsearch"
 )
 
 func getReadinessProbe() v1.Probe {
@@ -318,7 +317,7 @@ func (cfg *elasticsearchNode) getVolumes() []v1.Volume {
 	if !cfg.ElasticsearchSecure.Disabled {
 		var secretName string
 		if cfg.ElasticsearchSecure.CertificatesSecret == "" {
-			secretName = defaultCertSecretName
+			secretName = cfg.ClusterName
 		} else {
 			secretName = cfg.ElasticsearchSecure.CertificatesSecret
 		}
