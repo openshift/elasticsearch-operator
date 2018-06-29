@@ -16,7 +16,7 @@ const (
 )
 
 // CreateOrUpdateServiceAccount ensures the existence of the serviceaccount for Elasticsearch cluster
-func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) (string, error) {
 	// In case no serviceaccount is specified in the spec, we'll use the default name for service account
 	var serviceAccountName string
 	if dpl.Spec.ServiceAccountName == "" {
@@ -29,10 +29,10 @@ func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) error {
 
 	err := createOrUpdateServiceAccount(serviceAccountName, dpl.Namespace, owner)
 	if err != nil {
-		return fmt.Errorf("Failure creating ServiceAccount %v", err)
+		return serviceAccountName, fmt.Errorf("Failure creating ServiceAccount %v", err)
 	}
 
-	return nil
+	return serviceAccountName, nil
 }
 
 func createOrUpdateServiceAccount(serviceAccountName, namespace string, owner metav1.OwnerReference) error {

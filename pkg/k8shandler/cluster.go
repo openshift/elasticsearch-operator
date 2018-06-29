@@ -26,9 +26,9 @@ type nodeState struct {
 }
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
-func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapName string) error {
+func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) error {
 
-	cState, err := NewClusterState(dpl, configMapName)
+	cState, err := NewClusterState(dpl, configMapName, serviceAccountName)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	return nil
 }
 
-func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName string) (clusterState, error) {
+func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) (clusterState, error) {
 	nodes := []*nodeState{}
 	cState := clusterState{
 		Nodes: nodes,
@@ -74,7 +74,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName string) (cluster
 	for nodeNum, node := range dpl.Spec.Nodes {
 
 		for i = 1; i <= node.Replicas; i++ {
-			nodeCfg, err := constructNodeSpec(dpl, node, configMapName, int32(nodeNum), i)
+			nodeCfg, err := constructNodeSpec(dpl, node, configMapName, serviceAccountName, int32(nodeNum), i)
 			if err != nil {
 				return cState, fmt.Errorf("Unable to construct ES node config %v", err)
 			}

@@ -42,7 +42,7 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 	}
 
 	// Ensure existence of servicesaccount
-	err = k8shandler.CreateOrUpdateServiceAccount(es)
+	serviceAccountName, err := k8shandler.CreateOrUpdateServiceAccount(es)
 	if err != nil {
 		return fmt.Errorf("Failed to reconcile ServiceAccount for Elasticsearch cluster: %v", err)
 	}
@@ -56,7 +56,7 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 	// TODO: Ensure existence of storage?
 
 	// Ensure Elasticsearch cluster itself is up to spec
-	err = k8shandler.CreateOrUpdateElasticsearchCluster(es, configMapName)
+	err = k8shandler.CreateOrUpdateElasticsearchCluster(es, configMapName, serviceAccountName)
 	if err != nil {
 		return fmt.Errorf("Failed to reconcile Elasticsearch deployment spec: %v", err)
 	}
