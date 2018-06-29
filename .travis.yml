@@ -39,7 +39,7 @@ jobs:
 stages:
   - build and test
   - name: push to quay.io
-    if: branch = master
+    if: branch = master AND type != pull_request
 after_success:
 - echo 'Build succeeded, Elasticsearch operator is running on minikube, and unit/integration
   tests pass'
