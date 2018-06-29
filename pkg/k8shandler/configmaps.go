@@ -13,16 +13,12 @@ import (
 	//"github.com/sirupsen/logrus"
 )
 
-const (
-	defaultConfigMapName = "logging-elasticsearch"
-)
-
 // CreateOrUpdateConfigMaps ensures the existens of ConfigMaps with Elasticsearch configuration
 func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
 	owner := asOwner(dpl)
 	var configMapName string
 	if dpl.Spec.ConfigMapName == "" {
-		configMapName = defaultConfigMapName
+		configMapName = dpl.Name
 	} else {
 		configMapName = dpl.Spec.ConfigMapName
 	}
