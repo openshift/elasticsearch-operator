@@ -48,7 +48,7 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 	}
 
 	// Ensure existence of services
-	err = k8shandler.CreateOrUpdateConfigMaps(es)
+	configMapName, err := k8shandler.CreateOrUpdateConfigMaps(es)
 	if err != nil {
 		return fmt.Errorf("Failed to reconcile ConfigMaps for Elasticsearch cluster: %v", err)
 	}
@@ -56,7 +56,7 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 	// TODO: Ensure existence of storage?
 
 	// Ensure Elasticsearch cluster itself is up to spec
-	err = k8shandler.CreateOrUpdateElasticsearchCluster(es)
+	err = k8shandler.CreateOrUpdateElasticsearchCluster(es, configMapName)
 	if err != nil {
 		return fmt.Errorf("Failed to reconcile Elasticsearch deployment spec: %v", err)
 	}

@@ -72,6 +72,7 @@ type ElasticsearchSpec struct {
 	Spec               ElasticsearchNodeSpec `json:"nodeSpec"`
 	Secure             ElasticsearchSecure   `json:"securityConfig"`
 	ServiceAccountName string                `json:"serviceAccountName,omitempty"`
+	ConfigMapName      string                `json:"configMapName,omitempty"`
 }
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
