@@ -23,9 +23,10 @@ type elasticsearchNode struct {
 	NodeNum             int32
 	ReplicaNum          int32
 	ServiceAccountName  string
+	ConfigMapName       string
 }
 
-func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, nodeNum int32, replicaNum int32) (elasticsearchNode, error) {
+func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, configMapName, serviceAccountName string, nodeNum int32, replicaNum int32) (elasticsearchNode, error) {
 	nodeCfg := elasticsearchNode{
 		ClusterName:         dpl.Name,
 		Namespace:           dpl.Namespace,
@@ -34,7 +35,8 @@ func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsearc
 		ElasticsearchSecure: dpl.Spec.Secure,
 		NodeNum:             nodeNum,
 		ReplicaNum:          replicaNum,
-		ServiceAccountName:  dpl.Spec.ServiceAccountName,
+		ServiceAccountName:  serviceAccountName,
+		ConfigMapName:       configMapName,
 	}
 	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
 	if err != nil {

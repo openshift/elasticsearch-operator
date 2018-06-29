@@ -13,18 +13,27 @@ import (
 	//"github.com/sirupsen/logrus"
 )
 
+const (
+	defaultConfigMapName = "logging-elasticsearch"
+)
+
 // CreateOrUpdateConfigMaps ensures the existens of ConfigMaps with Elasticsearch configuration
-func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) error {
-	elasticsearchCMName := dpl.Name
+func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
 	owner := asOwner(dpl)
+	var configMapName string
+	if dpl.Spec.ConfigMapName == "" {
+		configMapName = defaultConfigMapName
+	} else {
+		configMapName = dpl.Spec.ConfigMapName
+	}
 
 	// TODO: take all vars from CRD
 	pathData := "- /elasticsearch/persistent/"
-	err := createOrUpdateConfigMap(elasticsearchCMName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Disabled, owner)
+	err := createOrUpdateConfigMap(configMapName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Disabled, owner)
 	if err != nil {
-		return fmt.Errorf("Failure creating ConfigMap %v", err)
+		return configMapName, fmt.Errorf("Failure creating ConfigMap %v", err)
 	}
-	return nil
+	return configMapName, nil
 }
 
 func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string, allowClusterReader bool, insecureCluster bool, owner metav1.OwnerReference) error {
