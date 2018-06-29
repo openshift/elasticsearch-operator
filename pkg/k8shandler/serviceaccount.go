@@ -11,16 +11,23 @@ import (
 	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 )
 
+const (
+	defaultServiceAccountName = "aggregated-logging-elasticsearch"
+)
+
 // CreateOrUpdateServiceAccount ensures the existence of the serviceaccount for Elasticsearch cluster
 func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) error {
-	// In case no serviceaccount is specified in the spec, we'll use the namespace's default service account
+	// In case no serviceaccount is specified in the spec, we'll use the default name for service account
+	var serviceAccountName string
 	if dpl.Spec.ServiceAccountName == "" {
-		return nil
+		serviceAccountName = defaultServiceAccountName
+	} else {
+		serviceAccountName = dpl.Spec.ServiceAccountName
 	}
 
 	owner := asOwner(dpl)
 
-	err := createOrUpdateServiceAccount(dpl.Spec.ServiceAccountName, dpl.Namespace, owner)
+	err := createOrUpdateServiceAccount(serviceAccountName, dpl.Namespace, owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating ServiceAccount %v", err)
 	}
