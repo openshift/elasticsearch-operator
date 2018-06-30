@@ -1,7 +1,7 @@
 package k8shandler
 
 import (
-	api "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	api "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

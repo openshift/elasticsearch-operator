@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/ViaQ/elasticsearch-operator/pkg/k8shandler"
 	"github.com/sirupsen/logrus"
-	"github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/t0ffel/elasticsearch-operator/pkg/k8shandler"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 )

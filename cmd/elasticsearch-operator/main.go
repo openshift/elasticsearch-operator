@@ -4,7 +4,7 @@ import (
 	"context"
 	"runtime"
 
-	stub "github.com/t0ffel/elasticsearch-operator/pkg/stub"
+	stub "github.com/ViaQ/elasticsearch-operator/pkg/stub"
 	sdk "github.com/operator-framework/operator-sdk/pkg/sdk"
 	k8sutil "github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
