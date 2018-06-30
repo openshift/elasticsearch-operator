@@ -3,8 +3,8 @@ package k8shandler
 import (
 	"fmt"
 
+	v1alpha1 "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	v1alpha1 "github.com/t0ffel/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/api/core/v1"
 )
 

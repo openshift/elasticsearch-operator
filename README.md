@@ -1,6 +1,6 @@
 # elasticsearch-operator
 
-[![Build Status](https://travis-ci.org/t0ffel/elasticsearch-operator.svg?branch=master)](https://travis-ci.org/t0ffel/elasticsearch-operator)
+[![Build Status](https://travis-ci.org/ViaQ/elasticsearch-operator.svg?branch=master)](https://travis-ci.org/ViaQ/elasticsearch-operator)
 
 *WORK IN PROGRESS*
 
@@ -104,14 +104,14 @@ Kubernetes TBD+ and OpenShift TBD+ are supported.
 
 - [x] SSL-secured deployment (using Searchguard)
 - [x] Insecure deployment (requires different image)
-- [ ] Index per tenant
-- [ ] Logging to a file or to console
+- [x] Index per tenant
+- [x] Logging to a file or to console
 - [ ] Elasticsearch 6.x support
 - [x] Elasticsearch 5.6.x support
-- [ ] Master role
-- [ ] Client role
-- [ ] Data role
-- [ ] Clientdata role
+- [x] Master role
+- [x] Client role
+- [x] Data role
+- [x] Clientdata role
 - [x] Clientdatamaster role
 - [ ] Elasticsearch snapshots
 - [ ] Prometheus monitoring
