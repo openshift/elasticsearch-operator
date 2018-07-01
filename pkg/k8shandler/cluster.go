@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	apps "k8s.io/api/apps/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1alpha1 "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
@@ -16,6 +17,8 @@ type ClusterState struct {
 	Nodes                []*nodeState
 	DanglingStatefulSets *apps.StatefulSetList
 	DanglingDeployments  *apps.DeploymentList
+	DanglingReplicaSets  *apps.ReplicaSetList
+	DanglingPods         *v1.PodList
 }
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
@@ -26,7 +29,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 		return err
 	}
 
-	action, err := cState.getRequiredAction()
+	action, err := cState.getRequiredAction(dpl.Status)
 	if err != nil {
 		return err
 	}
@@ -46,6 +49,11 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	case action == v1alpha1.ElasticsearchActionRollingRestartNeeded:
 		// TODO: change this to do the actual rolling restart
 		err = cState.buildNewCluster(asOwner(dpl))
+		if err != nil {
+			return err
+		}
+	case action == v1alpha1.ElasticsearchActionStatusUpdateNeeded:
+		err = cState.UpdateStatus(dpl)
 		if err != nil {
 			return err
 		}
@@ -80,15 +88,27 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 		}
 	}
 
-	cState.amendDeployments(dpl)
+	err := cState.amendDeployments(dpl)
+	if err != nil {
+		return cState, fmt.Errorf("Unable to amend Deployments to status: %v", err)
+	}
+
+	err = cState.amendReplicaSets(dpl)
+	if err != nil {
+		return cState, fmt.Errorf("Unable to amend ReplicaSets to status: %v", err)
+	}
+
+	err = cState.amendPods(dpl)
+	if err != nil {
+		return cState, fmt.Errorf("Unable to amend Pods to status: %v", err)
+	}
 	// TODO: add amendStatefulSets
-	// TODO: add amendPods
 	return cState, nil
 }
 
 // getRequiredAction checks the desired state against what's present in current
 // deployments/statefulsets/pods
-func (cState *ClusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredAction, error) {
+func (cState *ClusterState) getRequiredAction(status v1alpha1.ElasticsearchStatus) (v1alpha1.ElasticsearchRequiredAction, error) {
 	// TODO: Add condition that if an operation is currently in progress
 	// not to try to queue another action. Instead return ElasticsearchActionInProgress which
 	// is noop.
@@ -118,10 +138,16 @@ func (cState *ClusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredA
 	if cState.DanglingDeployments != nil {
 		return v1alpha1.ElasticsearchActionScaleDownNeeded, nil
 	}
-	//podList, err := listPods(dpl)
-	//if err != nil {
-	//	return v1alpha1.ElasticsearchK8sInterventionNeeded, fmt.Errorf("Unable to list Elasticsearch pods: %v", err)
-	//}
+
+	for _, node := range cState.Nodes {
+		if node.Actual.isStatusUpdateNeeded(status) {
+			return v1alpha1.ElasticsearchActionStatusUpdateNeeded, nil
+		}
+	}
+
+	if len(cState.Nodes) != len(status.Nodes) {
+		return v1alpha1.ElasticsearchActionStatusUpdateNeeded, nil
+	}
 
 	return v1alpha1.ElasticsearchActionNone, nil
 }
@@ -168,6 +194,48 @@ func (cState *ClusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error 
 	}
 	if len(deployments.Items) != 0 {
 		cState.DanglingDeployments = deployments
+	}
+	return nil
+}
+
+func (cState *ClusterState) amendReplicaSets(dpl *v1alpha1.Elasticsearch) error {
+	replicaSets, err := listReplicaSets(dpl.Name, dpl.Namespace)
+	if err != nil {
+		return fmt.Errorf("Unable to list Elasticsearch's ReplicaSets: %v", err)
+	}
+	var replicaSet apps.ReplicaSet
+
+	for _, node := range cState.Nodes {
+		var ok bool
+		replicaSets, replicaSet, ok = popReplicaSet(replicaSets, node.Actual)
+		if ok {
+			node.setReplicaSet(replicaSet)
+		}
+	}
+
+	if len(replicaSets.Items) != 0 {
+		cState.DanglingReplicaSets = replicaSets
+	}
+	return nil
+}
+
+func (cState *ClusterState) amendPods(dpl *v1alpha1.Elasticsearch) error {
+	pods, err := listPods(dpl.Name, dpl.Namespace)
+	if err != nil {
+		return fmt.Errorf("Unable to list Elasticsearch's Pods: %v", err)
+	}
+	var pod v1.Pod
+
+	for _, node := range cState.Nodes {
+		var ok bool
+		pods, pod, ok = popPod(pods, node.Actual)
+		if ok {
+			node.setPod(pod)
+		}
+	}
+
+	if len(pods.Items) != 0 {
+		cState.DanglingPods = pods
 	}
 	return nil
 }

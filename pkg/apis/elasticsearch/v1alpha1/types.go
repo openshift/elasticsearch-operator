@@ -61,8 +61,10 @@ type ElasticsearchNodeStorageSource struct {
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
 type ElasticsearchNodeStatus struct {
-	PodName string `json:"podName"`
-	Status  string `json:"status"`
+	DeploymentName string `json:"deploymentName"`
+	ReplicaSetName string `json:"replicaSetName"`
+	PodName        string `json:"podName"`
+	Status         string `json:"status"`
 }
 
 // ElasticsearchSpec struct represents the Spec of Elasticsearch cluster CRD
@@ -98,6 +100,7 @@ const (
 	ElasticsearchActionNewClusterNeeded     ElasticsearchRequiredAction = "NewClusterNeeded"
 	ElasticsearchActionNone                 ElasticsearchRequiredAction = "ClusterOK"
 	ElasticsearchActionScaleDownNeeded      ElasticsearchRequiredAction = "ScaleDownNeeded"
+	ElasticsearchActionStatusUpdateNeeded   ElasticsearchRequiredAction = "StatusUpdateNeeded"
 )
 
 type ElasticsearchNodeRole string

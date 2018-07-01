@@ -61,11 +61,6 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 		return fmt.Errorf("Failed to reconcile Elasticsearch deployment spec: %v", err)
 	}
 
-	// Update Status section with pod names
-	err = k8shandler.UpdateStatus(es)
-	if err != nil {
-		return fmt.Errorf("Failed to update Elasticsearch status: %v", err)
-	}
 	return nil
 
 }
