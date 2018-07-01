@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1alpha1 "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
@@ -17,13 +16,6 @@ type clusterState struct {
 	Nodes                []*nodeState
 	DanglingStatefulSets *apps.StatefulSetList
 	DanglingDeployments  *apps.DeploymentList
-}
-
-type nodeState struct {
-	Config      elasticsearchNode
-	StatefulSet *apps.StatefulSet
-	Deployment  *apps.Deployment
-	Pods        *v1.Pod
 }
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
@@ -81,7 +73,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 			}
 
 			node := nodeState{
-				Config: nodeCfg,
+				Desired: nodeCfg,
 			}
 			cState.Nodes = append(cState.Nodes, &node)
 		}
@@ -107,7 +99,7 @@ func (cState *clusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredA
 	// maybe RequiredAction ElasticsearchActionNewClusterNeeded should be renamed to
 	// ElasticsearchActionAddNewNodes - will blindly add new nodes to the cluster.
 	for _, node := range cState.Nodes {
-		if node.Deployment == nil {
+		if node.Actual.Deployment == nil {
 			return v1alpha1.ElasticsearchActionNewClusterNeeded, nil
 		}
 	}
@@ -115,7 +107,7 @@ func (cState *clusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredA
 	// TODO: implement rolling restart action if any deployment/configmap actually deployed
 	// is different from the desired.
 	for _, node := range cState.Nodes {
-		if node.Config.IsUpdateNeeded() {
+		if node.Desired.IsUpdateNeeded() {
 			return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
 		}
 	}
@@ -135,7 +127,7 @@ func (cState *clusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredA
 
 func (cState *clusterState) buildNewCluster(owner metav1.OwnerReference) error {
 	for _, node := range cState.Nodes {
-		err := node.Config.CreateOrUpdateNode(owner)
+		err := node.Desired.CreateOrUpdateNode(owner)
 		if err != nil {
 			return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
 		}
@@ -160,6 +152,21 @@ func (cState *clusterState) removeStaleNodes() error {
 	return nil
 }
 
-func (node *nodeState) setDeployment(deployment apps.Deployment) {
-	node.Deployment = &deployment
+func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
+	deployments, err := listDeployments(dpl)
+	var element apps.Deployment
+	var ok bool
+	if err != nil {
+		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
+	}
+	for _, node := range cState.Nodes {
+		deployments, element, ok = popDeployment(deployments, node.Desired)
+		if ok {
+			node.setDeployment(element)
+		}
+	}
+	if len(deployments.Items) != 0 {
+		cState.DanglingDeployments = deployments
+	}
+	return nil
 }

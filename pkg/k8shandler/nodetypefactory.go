@@ -9,8 +9,8 @@ import (
 // NodeTypeInterface interace represents individual Elasticsearch node
 type NodeTypeInterface interface {
 	getResource() runtime.Object
-	isDifferent(cfg *elasticsearchNode) (bool, error)
-	constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error)
+	isDifferent(cfg *desiredNodeState) (bool, error)
+	constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error)
 	delete() error
 	query() error
 }

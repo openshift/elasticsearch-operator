@@ -21,7 +21,7 @@ func (node *deploymentNode) getResource() runtime.Object {
 	return &node.resource
 }
 
-func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
+func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	// Check replicas number
 	actualReplicas := *node.resource.Spec.Replicas
 	if cfg.getReplicas() != actualReplicas {
@@ -76,7 +76,7 @@ func (node *deploymentNode) query() error {
 }
 
 // constructNodeDeployment creates the deployment for the node
-func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error) {
+func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error) {
 
 	// Check if deployment exists
 

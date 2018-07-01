@@ -64,7 +64,7 @@ func TestGetAffinity(t *testing.T) {
 		for _, role := range roles {
 			ndRoles = append(ndRoles, v1alpha1.ElasticsearchNodeRole(role))
 		}
-		cfg := elasticsearchNode{
+		cfg := desiredNodeState{
 			Roles: ndRoles,
 		}
 		if !reflect.DeepEqual(goodAffinities[i], cfg.getAffinity()) {
