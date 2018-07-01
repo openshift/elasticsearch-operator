@@ -24,11 +24,7 @@ jobs:
     - kubectl create -f deploy/rbac.yaml
     - kubectl create -f deploy/crd.yaml
     - kubectl create -f deploy/operator.yaml
-    - kubectl create -f deploy/cr.yaml
-    - timeout 20m ./.travis/wait-for-container.sh elastic1-clientdatamaster
-    - kubectl get deployment
-    - kubectl get po
-    - kubectl delete -f deploy/cr.yaml
+    - CLUSTER_NAME=elastic1 ./tests/test-insecure-cdm.sh
     - kubectl delete -f deploy/operator.yaml
   - stage: push to quay.io
     script:
