@@ -30,6 +30,15 @@ func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 	}
 }
 
+func isOwner(subject metav1.ObjectMeta, ownerMeta metav1.ObjectMeta) bool {
+	for _, ref := range subject.GetOwnerReferences() {
+		if ref.UID == ownerMeta.UID {
+			return true
+		}
+	}
+	return false
+}
+
 func selectorForES(nodeRole string, clusterName string) map[string]string {
 
 	return map[string]string{
@@ -134,6 +143,18 @@ func listDeployments(clusterName, namespace string) (*apps.DeploymentList, error
 	return list, nil
 }
 
+func listReplicaSets(clusterName, namespace string) (*apps.ReplicaSetList, error) {
+	list := replicaSetList()
+	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName)).String()
+	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
+	err := sdk.List(namespace, list, sdk.WithListOptions(listOps))
+	if err != nil {
+		return list, fmt.Errorf("Unable to list ReplicaSets: %v", err)
+	}
+
+	return list, nil
+}
+
 func deploymentList() *apps.DeploymentList {
 	return &apps.DeploymentList{
 		TypeMeta: metav1.TypeMeta{
@@ -160,6 +181,59 @@ func popDeployment(deployments *apps.DeploymentList, cfg desiredNodeState) (*app
 	deployments.Items[index] = deployments.Items[len(deployments.Items)-1]
 	dpls.Items = deployments.Items[:len(deployments.Items)-1]
 	return dpls, deployment, true
+}
+
+func replicaSetList() *apps.ReplicaSetList {
+	return &apps.ReplicaSetList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ReplicaSet",
+			APIVersion: "apps/v1",
+		},
+	}
+}
+
+func popReplicaSet(replicaSets *apps.ReplicaSetList, cfg actualNodeState) (*apps.ReplicaSetList, apps.ReplicaSet, bool) {
+	var replicaSet apps.ReplicaSet
+	var index = -1
+	if cfg.Deployment == nil {
+		return replicaSets, replicaSet, false
+	}
+	for i, rsItem := range replicaSets.Items {
+		if isOwner(rsItem.ObjectMeta, cfg.Deployment.ObjectMeta) {
+			replicaSet = rsItem
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return replicaSets, replicaSet, false
+	}
+	rsList := replicaSetList()
+	replicaSets.Items[index] = replicaSets.Items[len(replicaSets.Items)-1]
+	rsList.Items = replicaSets.Items[:len(replicaSets.Items)-1]
+	return rsList, replicaSet, true
+}
+
+func popPod(pods *v1.PodList, cfg actualNodeState) (*v1.PodList, v1.Pod, bool) {
+	var pod v1.Pod
+	var index = -1
+	if cfg.ReplicaSet == nil {
+		return pods, pod, false
+	}
+	for i, podItem := range pods.Items {
+		if isOwner(podItem.ObjectMeta, cfg.ReplicaSet.ObjectMeta) {
+			pod = podItem
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return pods, pod, false
+	}
+	podList := podList()
+	pods.Items[index] = pods.Items[len(pods.Items)-1]
+	podList.Items = pods.Items[:len(pods.Items)-1]
+	return podList, pod, true
 }
 
 // podList returns a v1.PodList object

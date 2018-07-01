@@ -44,7 +44,8 @@ type desiredNodeState struct {
 type actualNodeState struct {
 	StatefulSet *apps.StatefulSet
 	Deployment  *apps.Deployment
-	Pods        *v1.Pod
+	ReplicaSet  *apps.ReplicaSet
+	Pod         *v1.Pod
 }
 
 func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, configMapName, serviceAccountName string, nodeNum int32, replicaNum int32) (desiredNodeState, error) {
@@ -217,6 +218,14 @@ func (cfg *desiredNodeState) IsUpdateNeeded() bool {
 
 func (node *nodeState) setDeployment(deployment apps.Deployment) {
 	node.Actual.Deployment = &deployment
+}
+
+func (node *nodeState) setReplicaSet(replicaSet apps.ReplicaSet) {
+	node.Actual.ReplicaSet = &replicaSet
+}
+
+func (node *nodeState) setPod(pod v1.Pod) {
+	node.Actual.Pod = &pod
 }
 
 func (cfg *desiredNodeState) getAffinity() v1.Affinity {
@@ -467,4 +476,34 @@ func (cfg *desiredNodeState) getSelector() (map[string]string, bool) {
 		return nil, false
 	}
 	return cfg.ESNodeSpec.NodeSelector, true
+}
+
+func (actualState *actualNodeState) isStatusUpdateNeeded(nodesInStatus v1alpha1.ElasticsearchStatus) bool {
+	if actualState.Deployment == nil {
+		return false
+	}
+	for _, node := range nodesInStatus.Nodes {
+		if actualState.Deployment.Name == node.DeploymentName {
+			if actualState.ReplicaSet == nil {
+				return false
+			}
+			// This is the proper item in the array of node statuses
+			if actualState.ReplicaSet.Name != node.ReplicaSetName {
+				return true
+			}
+
+			if actualState.Pod == nil {
+				return false
+			}
+
+			if actualState.Pod.Name != node.PodName || string(actualState.Pod.Status.Phase) != node.Status {
+				return true
+			}
+			return false
+
+		}
+	}
+
+	// no corresponding nodes in status
+	return true
 }
