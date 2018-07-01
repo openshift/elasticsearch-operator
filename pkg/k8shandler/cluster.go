@@ -153,7 +153,7 @@ func (cState *clusterState) removeStaleNodes() error {
 }
 
 func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
-	deployments, err := listDeployments(dpl)
+	deployments, err := listDeployments(dpl.Name, dpl.Namespace)
 	var element apps.Deployment
 	var ok bool
 	if err != nil {

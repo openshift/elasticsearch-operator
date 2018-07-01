@@ -7,17 +7,16 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1"
 
-	v1alpha1 "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func listDeployments(dpl *v1alpha1.Elasticsearch) (*apps.DeploymentList, error) {
+func listDeployments(clusterName, namespace string) (*apps.DeploymentList, error) {
 	list := deploymentList()
-	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
+	labelSelector := labels.SelectorFromSet(LabelsForESCluster(clusterName)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := sdk.List(dpl.Namespace, list, sdk.WithListOptions(listOps))
+	err := sdk.List(namespace, list, sdk.WithListOptions(listOps))
 	if err != nil {
 		return list, fmt.Errorf("Unable to list deployments: %v", err)
 	}
@@ -63,11 +62,11 @@ func podList() *v1.PodList {
 	}
 }
 
-func listPods(dpl *v1alpha1.Elasticsearch) (*v1.PodList, error) {
+func listPods(clusterName, namespace string) (*v1.PodList, error) {
 	podList := podList()
-	labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
+	labelSelector := labels.SelectorFromSet(LabelsForESCluster(clusterName)).String()
 	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := sdk.List(dpl.Namespace, podList, sdk.WithListOptions(listOps))
+	err := sdk.List(namespace, podList, sdk.WithListOptions(listOps))
 	if err != nil {
 		return podList, fmt.Errorf("failed to list pods: %v", err)
 	}
