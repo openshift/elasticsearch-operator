@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	apps "k8s.io/api/apps/v1beta2"
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,7 +21,7 @@ func (node *deploymentNode) getResource() runtime.Object {
 	return &node.resource
 }
 
-func (node *deploymentNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
+func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	// Check replicas number
 	actualReplicas := *node.resource.Spec.Replicas
 	if cfg.getReplicas() != actualReplicas {
@@ -76,7 +76,7 @@ func (node *deploymentNode) query() error {
 }
 
 // constructNodeDeployment creates the deployment for the node
-func (node *deploymentNode) constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error) {
+func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error) {
 
 	// Check if deployment exists
 

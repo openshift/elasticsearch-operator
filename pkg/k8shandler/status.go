@@ -16,7 +16,7 @@ func UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 	// TODO: add status of the cluster: i.e. is cluster restart in progress?
 	// TODO: add secrets hash
 
-	podList, err := listPods(dpl)
+	podList, err := listPods(dpl.Name, dpl.Namespace)
 	//podList := podList()
 	//labelSelector := labels.SelectorFromSet(LabelsForESCluster(dpl.Name)).String()
 	//listOps := &metav1.ListOptions{LabelSelector: labelSelector}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	apps "k8s.io/api/apps/v1beta2"
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +19,7 @@ func (node *statefulSetNode) getResource() runtime.Object {
 	return &node.resource
 }
 
-func (node *statefulSetNode) isDifferent(cfg *elasticsearchNode) (bool, error) {
+func (node *statefulSetNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	// Check replicas number
 	if cfg.getReplicas() != *node.resource.Spec.Replicas {
 		return true, nil
@@ -36,7 +36,7 @@ func (node *statefulSetNode) query() error {
 }
 
 // constructNodeStatefulSet creates the StatefulSet for the node
-func (node *statefulSetNode) constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error) {
+func (node *statefulSetNode) constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error) {
 
 	secretName := fmt.Sprintf("%s-certs", cfg.ClusterName)
 

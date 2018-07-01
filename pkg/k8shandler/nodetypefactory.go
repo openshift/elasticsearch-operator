@@ -1,7 +1,7 @@
 package k8shandler
 
 import (
-	apps "k8s.io/api/apps/v1beta2"
+	apps "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -9,8 +9,8 @@ import (
 // NodeTypeInterface interace represents individual Elasticsearch node
 type NodeTypeInterface interface {
 	getResource() runtime.Object
-	isDifferent(cfg *elasticsearchNode) (bool, error)
-	constructNodeResource(cfg *elasticsearchNode, owner metav1.OwnerReference) (runtime.Object, error)
+	isDifferent(cfg *desiredNodeState) (bool, error)
+	constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error)
 	delete() error
 	query() error
 }
