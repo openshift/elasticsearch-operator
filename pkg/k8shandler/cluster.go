@@ -11,8 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// clusterState struct represents the state of the cluster
-type clusterState struct {
+// ClusterState struct represents the state of the cluster
+type ClusterState struct {
 	Nodes                []*nodeState
 	DanglingStatefulSets *apps.StatefulSetList
 	DanglingDeployments  *apps.DeploymentList
@@ -58,9 +58,10 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	return nil
 }
 
-func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) (clusterState, error) {
+// NewClusterState func generates ClusterState for the current cluster
+func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) (ClusterState, error) {
 	nodes := []*nodeState{}
-	cState := clusterState{
+	cState := ClusterState{
 		Nodes: nodes,
 	}
 	var i int32
@@ -87,7 +88,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 
 // getRequiredAction checks the desired state against what's present in current
 // deployments/statefulsets/pods
-func (cState *clusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredAction, error) {
+func (cState *ClusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredAction, error) {
 	// TODO: Add condition that if an operation is currently in progress
 	// not to try to queue another action. Instead return ElasticsearchActionInProgress which
 	// is noop.
@@ -125,7 +126,7 @@ func (cState *clusterState) getRequiredAction() (v1alpha1.ElasticsearchRequiredA
 	return v1alpha1.ElasticsearchActionNone, nil
 }
 
-func (cState *clusterState) buildNewCluster(owner metav1.OwnerReference) error {
+func (cState *ClusterState) buildNewCluster(owner metav1.OwnerReference) error {
 	for _, node := range cState.Nodes {
 		err := node.Desired.CreateOrUpdateNode(owner)
 		if err != nil {
@@ -136,7 +137,7 @@ func (cState *clusterState) buildNewCluster(owner metav1.OwnerReference) error {
 }
 
 // list existing StatefulSets and delete those unmanaged by the operator
-func (cState *clusterState) removeStaleNodes() error {
+func (cState *ClusterState) removeStaleNodes() error {
 	for _, node := range cState.DanglingDeployments.Items {
 		//logrus.Infof("found statefulset: %v", node.getResource().ObjectMeta.Name)
 		// the returned deployment doesn't have TypeMeta, so we're adding it.
@@ -152,7 +153,7 @@ func (cState *clusterState) removeStaleNodes() error {
 	return nil
 }
 
-func (cState *clusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
+func (cState *ClusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
 	deployments, err := listDeployments(dpl.Name, dpl.Namespace)
 	var element apps.Deployment
 	var ok bool

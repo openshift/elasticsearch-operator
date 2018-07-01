@@ -80,9 +80,9 @@ func TestGetResourceRequirements(t *testing.T) {
 	Mem1, _ := resource.ParseQuantity("257Mi")
 	Mem2, _ := resource.ParseQuantity("513Mi")
 	defMemLim, _ := resource.ParseQuantity(defaultMemoryLimit)
-	defCpuReq, _ := resource.ParseQuantity(defaultCPURequest)
+	defCPUReq, _ := resource.ParseQuantity(defaultCPURequest)
 	defMemReq, _ := resource.ParseQuantity(defaultMemoryRequest)
-	defCpuLim, _ := resource.ParseQuantity(defaultCPULimit)
+	defCPULim, _ := resource.ParseQuantity(defaultCPULimit)
 
 	resList1 := v1.ResourceList{
 		"cpu": CPU1,
@@ -133,13 +133,13 @@ func TestGetResourceRequirements(t *testing.T) {
 			"memory": defMemLim,
 		},
 		Requests: v1.ResourceList{
-			"cpu":    defCpuReq,
+			"cpu":    defCPUReq,
 			"memory": Mem1,
 		},
 	}
 	resReq4 := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu":    defCpuLim,
+			"cpu":    defCPULim,
 			"memory": Mem1,
 		},
 		Requests: v1.ResourceList{
