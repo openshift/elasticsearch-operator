@@ -18,15 +18,15 @@
 # storage mouted
 # secret created (if needed)
 
-# Variant1(done):
+# Variant2:
 # kubectl
-# insecure: True
+# insecure: False
 # roles: [master, data, client]
 # replicas: 1
 # nodeSelector: n/a
 # storage: EmptyDir
-# configMapName: n/a
-# serviceAccountName: n/a
+# configMapName: logging-elasticsearch
+# serviceAccountName: logging-elasticsearch
 
 set -x
 set -o errexit
@@ -39,7 +39,14 @@ SERVICEACCOUNT_NAME="${SERVICEACCOUNT_NAME:-aggregated-logging-elasticsearch}"
 
 . "./tests/utils.sh"
 
-kubectl create -f deploy/cr.yaml
+# Modify the CR to use secure image and enable secure Elasticsearch config
+sed -i -e 's#image: docker.io/t0ffel/logging-insecure-elasticsearch5#image: registry.access.redhat.com/openshift3/logging-elasticsearch:v3.9#g' deploy/cr.yaml
+sed -i -e "s/disabled: true/disabled: false/g" deploy/cr.yaml
+
+# Create secret
+kubectl create -n ${NAMESPACE} -f tests/test-secret.yaml
+
+kubectl create -n ${NAMESPACE} -f deploy/cr.yaml
 timeout 20m "./tests/wait-for-container.sh" elastic1-clientdatamaster
 kubectl get deployment
 kubectl get po

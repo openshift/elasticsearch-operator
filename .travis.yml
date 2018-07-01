@@ -25,6 +25,7 @@ jobs:
     - kubectl create -f deploy/crd.yaml
     - kubectl create -f deploy/operator.yaml
     - CLUSTER_NAME=elastic1 ./tests/test-insecure-cdm.sh
+    - CLUSTER_NAME=elastic1 ./tests/test-secure-cdm.sh
     - kubectl delete -f deploy/operator.yaml
   - stage: push to quay.io
     script:
