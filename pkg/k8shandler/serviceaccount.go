@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1alpha1 "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
@@ -38,9 +37,12 @@ func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) (string, error) {
 func createOrUpdateServiceAccount(serviceAccountName, namespace string, owner metav1.OwnerReference) error {
 	elasticsearchSA := serviceAccount(serviceAccountName, namespace)
 	addOwnerRefToObject(elasticsearchSA, owner)
-	err := sdk.Create(elasticsearchSA)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure constructing serviceaccount for the Elasticsearch cluster: %v", err)
+	err := sdk.Get(elasticsearchSA)
+	if err != nil {
+		err = sdk.Create(elasticsearchSA)
+		if err != nil {
+			return fmt.Errorf("Failure constructing serviceaccount for the Elasticsearch cluster: %v", err)
+		}
 	}
 	return nil
 }
