@@ -365,7 +365,7 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 	return v1.Container{
 		Name:            "elasticsearch",
 		Image:           image,
-		ImagePullPolicy: "Always",
+		ImagePullPolicy: "IfNotPresent",
 		Env:             cfg.getEnvVars(),
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
