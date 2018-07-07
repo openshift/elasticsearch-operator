@@ -4,6 +4,8 @@ set -x
 set -o errexit
 set -o nounset
 
+sudo sysctl -w vm.max_map_count=262144
+
 go get -u github.com/golang/dep/cmd/dep
 dep ensure
 curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.9.0/bin/linux/amd64/kubectl

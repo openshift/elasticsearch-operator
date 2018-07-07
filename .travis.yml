@@ -23,7 +23,7 @@ jobs:
     - 'sed -i -e ''s/imagePullPolicy: Always/imagePullPolicy: Never/g'' deploy/operator.yaml'
     - kubectl create -f deploy/rbac.yaml
     - kubectl create -f deploy/crd.yaml
-    - kubectl create -f deploy/operator.yaml
+    - ./tests/wait-for-operator.sh
     - CLUSTER_NAME=elastic1 ./tests/test-insecure-cdm.sh
     - CLUSTER_NAME=elastic1 ./tests/test-secure-cdm.sh
     - kubectl delete -f deploy/operator.yaml
