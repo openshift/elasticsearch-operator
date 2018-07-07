@@ -25,15 +25,16 @@ func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
 
 	// TODO: take all vars from CRD
 	pathData := "- /elasticsearch/persistent/"
-	err := createOrUpdateConfigMap(configMapName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Disabled, owner)
+	err := createOrUpdateConfigMap(configMapName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Disabled, owner, dpl.Labels)
 	if err != nil {
 		return configMapName, fmt.Errorf("Failure creating ConfigMap %v", err)
 	}
 	return configMapName, nil
 }
 
-func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string, allowClusterReader bool, insecureCluster bool, owner metav1.OwnerReference) error {
-	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData, allowClusterReader, insecureCluster)
+func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string,
+	allowClusterReader bool, insecureCluster bool, owner metav1.OwnerReference, labels map[string]string) error {
+	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData, allowClusterReader, insecureCluster, labels)
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexM
 		return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
 	} else if errors.IsAlreadyExists(err) {
 		// Get existing configMap to check if it is same as what we want
-		existingCM := configMap(configMapName, namespace)
+		existingCM := configMap(configMapName, namespace, labels)
 		err = sdk.Get(existingCM)
 		if err != nil {
 			return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
@@ -54,8 +55,9 @@ func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexM
 	return nil
 }
 
-func createConfigMap(configMapName string, namespace string, clusterName string, kibanaIndexMode string, pathData string, allowClusterReader bool, insecureCluster bool) (*v1.ConfigMap, error) {
-	cm := configMap(configMapName, namespace)
+func createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string,
+	allowClusterReader bool, insecureCluster bool, labels map[string]string) (*v1.ConfigMap, error) {
+	cm := configMap(configMapName, namespace, labels)
 	cm.Data = map[string]string{}
 	buf := &bytes.Buffer{}
 	if err := renderEsYml(buf, allowClusterReader, kibanaIndexMode, pathData, insecureCluster); err != nil {
@@ -73,7 +75,7 @@ func createConfigMap(configMapName string, namespace string, clusterName string,
 }
 
 // configMap returns a v1.ConfigMap object
-func configMap(configMapName string, namespace string) *v1.ConfigMap {
+func configMap(configMapName string, namespace string, labels map[string]string) *v1.ConfigMap {
 	return &v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -82,6 +84,7 @@ func configMap(configMapName string, namespace string) *v1.ConfigMap {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configMapName,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 	}
 }
