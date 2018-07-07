@@ -152,6 +152,15 @@ func (cfg *desiredNodeState) getLabels() map[string]string {
 	return labels
 }
 
+func (cfg *desiredNodeState) getLabelSelector() map[string]string {
+	return map[string]string{
+		"es-node-client": strconv.FormatBool(cfg.isNodeClient()),
+		"es-node-data":   strconv.FormatBool(cfg.isNodeData()),
+		"es-node-master": strconv.FormatBool(cfg.isNodeMaster()),
+		"cluster":        cfg.ClusterName,
+	}
+}
+
 func (cfg *desiredNodeState) getNode() NodeTypeInterface {
 	if cfg.isNodeData() {
 		return NewDeploymentNode(cfg.DeployName, cfg.Namespace)

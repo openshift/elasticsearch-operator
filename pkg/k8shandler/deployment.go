@@ -39,6 +39,15 @@ func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 		}
 	}
 
+	// Check if labels are correct
+	for label, value := range cfg.Labels {
+		val, ok := node.resource.Labels[label]
+		if !ok || val != value {
+			logrus.Infof("Labels on deployment '%v' need updating..", node.resource.GetName())
+			return true, nil
+		}
+	}
+
 	// TODO: Check if the Variables are the desired ones
 
 	// Check that storage configuration is the same
@@ -91,7 +100,10 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
-			MatchLabels: cfg.getLabels(),
+			MatchLabels: cfg.getLabelSelector(),
+		},
+		Strategy: apps.DeploymentStrategy{
+			Type: "Recreate",
 		},
 		Template: v1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
