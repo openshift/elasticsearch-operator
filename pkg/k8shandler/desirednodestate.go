@@ -39,6 +39,7 @@ type desiredNodeState struct {
 	ReplicaNum          int32
 	ServiceAccountName  string
 	ConfigMapName       string
+	Labels              map[string]string
 }
 
 type actualNodeState struct {
@@ -59,6 +60,7 @@ func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsearc
 		ReplicaNum:          replicaNum,
 		ServiceAccountName:  serviceAccountName,
 		ConfigMapName:       configMapName,
+		Labels:              dpl.Labels,
 	}
 	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
 	if err != nil {
@@ -139,9 +141,19 @@ func (cfg *desiredNodeState) isNodeClient() bool {
 }
 
 func (cfg *desiredNodeState) getLabels() map[string]string {
+	labels := cfg.Labels
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels["es-node-client"] = strconv.FormatBool(cfg.isNodeClient())
+	labels["es-node-data"] = strconv.FormatBool(cfg.isNodeData())
+	labels["es-node-master"] = strconv.FormatBool(cfg.isNodeMaster())
+	labels["cluster"] = cfg.ClusterName
+	return labels
+}
+
+func (cfg *desiredNodeState) getLabelSelector() map[string]string {
 	return map[string]string{
-		"component": fmt.Sprintf("elasticsearch-%s", cfg.ClusterName),
-		//"es-node-role":   cfg.NodeType,
 		"es-node-client": strconv.FormatBool(cfg.isNodeClient()),
 		"es-node-data":   strconv.FormatBool(cfg.isNodeData()),
 		"es-node-master": strconv.FormatBool(cfg.isNodeMaster()),

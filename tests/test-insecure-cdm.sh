@@ -61,4 +61,25 @@ fi
 echo "ServiceAccount: OK"
 
 
+echo "*** Test changing deployment by changing a label"
+# Save name of the current pod, to know what to delete later
+old_pod=$(kubectl get po | awk '/elastic1-.*/{print $1}')
+
+# Add label and see that deployment is respawned
+kubectl patch elasticsearch/elastic1 --type=merge --patch '{"metadata": {"labels": {"testlabel": "addedvalue" }}}'
+
+# Old pod must be disposed
+wait_pod_completion $old_pod
+
+# new pod must be created
+timeout 20m "./tests/wait-for-container.sh" elastic1-clientdatamaster
+
+pod=$(kubectl get po -n $NAMESPACE -l testlabel=addedvalue -o name)
+
+if [ -z "$pod" ]; then
+  echo "No pod found via label.."
+  exit 1
+fi
+echo "Pod successfully found via label"
+
 kubectl delete -f deploy/cr.yaml

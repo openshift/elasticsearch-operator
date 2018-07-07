@@ -18,20 +18,20 @@ func CreateOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchRestSvcName := dpl.Name
 	owner := asOwner(dpl)
 
-	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, 9300, selectorForES("es-node-master", dpl.Name), owner)
+	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, 9300, selectorForES("es-node-master", dpl.Name), dpl.Labels, owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 
-	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, 9200, selectorForES("es-node-client", dpl.Name), owner)
+	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, 9200, selectorForES("es-node-client", dpl.Name), dpl.Labels, owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 	return nil
 }
 
-func createOrUpdateService(serviceName string, namespace string, clusterName string, port int32, selector map[string]string, owner metav1.OwnerReference) error {
-	elasticsearchSvc := createService(serviceName, namespace, clusterName, port, selector)
+func createOrUpdateService(serviceName, namespace, clusterName string, port int32, selector, labels map[string]string, owner metav1.OwnerReference) error {
+	elasticsearchSvc := createService(serviceName, namespace, clusterName, port, selector, labels)
 	addOwnerRefToObject(elasticsearchSvc, owner)
 	err := sdk.Create(elasticsearchSvc)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -49,8 +49,9 @@ func createOrUpdateService(serviceName string, namespace string, clusterName str
 	return nil
 }
 
-func createService(serviceName string, namespace string, clusterName string, port int32, selector map[string]string) *v1.Service {
+func createService(serviceName, namespace, clusterName string, port int32, selector, labels map[string]string) *v1.Service {
 	svc := service(serviceName, namespace)
+	svc.Labels = labels
 	svc.Spec = v1.ServiceSpec{
 		Selector: selector,
 		Ports: []v1.ServicePort{
