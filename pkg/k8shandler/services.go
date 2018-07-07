@@ -9,6 +9,7 @@ import (
 
 	v1alpha1 "github.com/ViaQ/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	//"github.com/sirupsen/logrus"
 )
 
@@ -18,20 +19,20 @@ func CreateOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchRestSvcName := dpl.Name
 	owner := asOwner(dpl)
 
-	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, 9300, selectorForES("es-node-master", dpl.Name), dpl.Labels, owner)
+	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, "cluster", 9300, selectorForES("es-node-master", dpl.Name), dpl.Labels, owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 
-	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, 9200, selectorForES("es-node-client", dpl.Name), dpl.Labels, owner)
+	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, "restapi", 9200, selectorForES("es-node-client", dpl.Name), dpl.Labels, owner)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 	return nil
 }
 
-func createOrUpdateService(serviceName, namespace, clusterName string, port int32, selector, labels map[string]string, owner metav1.OwnerReference) error {
-	elasticsearchSvc := createService(serviceName, namespace, clusterName, port, selector, labels)
+func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, labels map[string]string, owner metav1.OwnerReference) error {
+	elasticsearchSvc := createService(serviceName, namespace, clusterName, targetPortName, port, selector, labels)
 	addOwnerRefToObject(elasticsearchSvc, owner)
 	err := sdk.Create(elasticsearchSvc)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -49,15 +50,16 @@ func createOrUpdateService(serviceName, namespace, clusterName string, port int3
 	return nil
 }
 
-func createService(serviceName, namespace, clusterName string, port int32, selector, labels map[string]string) *v1.Service {
+func createService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, labels map[string]string) *v1.Service {
 	svc := service(serviceName, namespace)
 	svc.Labels = labels
 	svc.Spec = v1.ServiceSpec{
 		Selector: selector,
 		Ports: []v1.ServicePort{
 			v1.ServicePort{
-				Port:     port,
-				Protocol: "TCP",
+				Port:       port,
+				Protocol:   "TCP",
+				TargetPort: intstr.FromString(targetPortName),
 			},
 		},
 	}
