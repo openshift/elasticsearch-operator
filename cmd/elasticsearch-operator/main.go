@@ -21,6 +21,8 @@ func printVersion() {
 func main() {
 	printVersion()
 
+	sdk.ExposeMetricsPort()
+
 	resource := "elasticsearch.redhat.com/v1alpha1"
 	kind := "Elasticsearch"
 	namespace, err := k8sutil.GetWatchNamespace()
