@@ -93,6 +93,11 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 		return cState, fmt.Errorf("Unable to amend Deployments to status: %v", err)
 	}
 
+	err = cState.amendStatefulSets(dpl)
+	if err != nil {
+		return cState, fmt.Errorf("Unable to amend StatefulSets to status: %v", err)
+	}
+
 	err = cState.amendReplicaSets(dpl)
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend ReplicaSets to status: %v", err)
@@ -102,7 +107,6 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend Pods to status: %v", err)
 	}
-	// TODO: add amendStatefulSets
 	return cState, nil
 }
 
@@ -120,7 +124,7 @@ func (cState *ClusterState) getRequiredAction(status v1alpha1.ElasticsearchStatu
 	// maybe RequiredAction ElasticsearchActionNewClusterNeeded should be renamed to
 	// ElasticsearchActionAddNewNodes - will blindly add new nodes to the cluster.
 	for _, node := range cState.Nodes {
-		if node.Actual.Deployment == nil {
+		if node.Actual.Deployment == nil && node.Actual.StatefulSet == nil {
 			return v1alpha1.ElasticsearchActionNewClusterNeeded, nil
 		}
 	}
@@ -179,13 +183,36 @@ func (cState *ClusterState) removeStaleNodes() error {
 	return nil
 }
 
+func (cState *ClusterState) amendStatefulSets(dpl *v1alpha1.Elasticsearch) error {
+	statefulSets, err := listStatefulSets(dpl.Name, dpl.Namespace)
+	if err != nil {
+		return fmt.Errorf("Unable to list Elasticsearch's StatefulSets: %v", err)
+	}
+
+	var element apps.StatefulSet
+	var ok bool
+
+	for _, node := range cState.Nodes {
+		statefulSets, element, ok = popStatefulSet(statefulSets, node.Desired)
+		if ok {
+			node.setStatefulSet(element)
+		}
+	}
+	if len(statefulSets.Items) != 0 {
+		cState.DanglingStatefulSets = statefulSets
+	}
+	return nil
+}
+
 func (cState *ClusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
 	deployments, err := listDeployments(dpl.Name, dpl.Namespace)
-	var element apps.Deployment
-	var ok bool
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
+
+	var element apps.Deployment
+	var ok bool
+
 	for _, node := range cState.Nodes {
 		deployments, element, ok = popDeployment(deployments, node.Desired)
 		if ok {

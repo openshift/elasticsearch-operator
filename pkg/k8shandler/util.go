@@ -42,15 +42,15 @@ func isOwner(subject metav1.ObjectMeta, ownerMeta metav1.ObjectMeta) bool {
 func selectorForES(nodeRole string, clusterName string) map[string]string {
 
 	return map[string]string{
-		nodeRole:  "true",
-		"cluster": clusterName,
+		nodeRole:       "true",
+		"cluster-name": clusterName,
 	}
 }
 
 func labelsForESCluster(clusterName string) map[string]string {
 
 	return map[string]string{
-		"cluster": clusterName,
+		"cluster-name": clusterName,
 	}
 }
 
@@ -155,6 +155,27 @@ func listReplicaSets(clusterName, namespace string) (*apps.ReplicaSetList, error
 	return list, nil
 }
 
+func listStatefulSets(clusterName, namespace string) (*apps.StatefulSetList, error) {
+	list := statefulSetList()
+	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName)).String()
+	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
+	err := sdk.List(namespace, list, sdk.WithListOptions(listOps))
+	if err != nil {
+		return list, fmt.Errorf("Unable to list StatefulSets: %v", err)
+	}
+
+	return list, nil
+}
+
+func statefulSetList() *apps.StatefulSetList {
+	return &apps.StatefulSetList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "StatefulSet",
+			APIVersion: "apps/v1",
+		},
+	}
+}
+
 func deploymentList() *apps.DeploymentList {
 	return &apps.DeploymentList{
 		TypeMeta: metav1.TypeMeta{
@@ -215,13 +236,20 @@ func popReplicaSet(replicaSets *apps.ReplicaSetList, cfg actualNodeState) (*apps
 }
 
 func popPod(pods *v1.PodList, cfg actualNodeState) (*v1.PodList, v1.Pod, bool) {
-	var pod v1.Pod
-	var index = -1
-	if cfg.ReplicaSet == nil {
+	var (
+		pod              v1.Pod
+		index            = -1
+		parentObjectMeta metav1.ObjectMeta
+	)
+	if cfg.ReplicaSet != nil {
+		parentObjectMeta = cfg.ReplicaSet.ObjectMeta
+	} else if cfg.StatefulSet != nil {
+		parentObjectMeta = cfg.StatefulSet.ObjectMeta
+	} else {
 		return pods, pod, false
 	}
 	for i, podItem := range pods.Items {
-		if isOwner(podItem.ObjectMeta, cfg.ReplicaSet.ObjectMeta) {
+		if isOwner(podItem.ObjectMeta, parentObjectMeta) {
 			pod = podItem
 			index = i
 			break
@@ -234,6 +262,7 @@ func popPod(pods *v1.PodList, cfg actualNodeState) (*v1.PodList, v1.Pod, bool) {
 	pods.Items[index] = pods.Items[len(pods.Items)-1]
 	podList.Items = pods.Items[:len(pods.Items)-1]
 	return podList, pod, true
+
 }
 
 // podList returns a v1.PodList object
@@ -264,4 +293,23 @@ func getPodNames(pods []v1.Pod) []string {
 		podNames = append(podNames, pod.Name)
 	}
 	return podNames
+}
+
+func popStatefulSet(statefulSets *apps.StatefulSetList, cfg desiredNodeState) (*apps.StatefulSetList, apps.StatefulSet, bool) {
+	var statefulSet apps.StatefulSet
+	var index = -1
+	for i, ss := range statefulSets.Items {
+		if ss.Name == cfg.DeployName {
+			statefulSet = ss
+			index = i
+			break
+		}
+	}
+	if index == -1 {
+		return statefulSets, statefulSet, false
+	}
+	dpls := statefulSetList()
+	statefulSets.Items[index] = statefulSets.Items[len(statefulSets.Items)-1]
+	dpls.Items = statefulSets.Items[:len(statefulSets.Items)-1]
+	return dpls, statefulSet, true
 }

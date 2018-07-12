@@ -30,11 +30,22 @@ func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 
 func updateNodeStatus(node *nodeState, dpl *v1alpha1.ElasticsearchStatus) {
 
-	nodeStatus := v1alpha1.ElasticsearchNodeStatus{
-		DeploymentName: node.Actual.Deployment.Name,
-		ReplicaSetName: node.Actual.ReplicaSet.Name,
-		PodName:        node.Actual.Pod.Name,
-		Status:         string(node.Actual.Pod.Status.Phase),
+	nodeStatus := v1alpha1.ElasticsearchNodeStatus{}
+	if node.Actual.Deployment != nil {
+		nodeStatus.DeploymentName = node.Actual.Deployment.Name
+	}
+
+	if node.Actual.ReplicaSet != nil {
+		nodeStatus.ReplicaSetName = node.Actual.ReplicaSet.Name
+	}
+
+	if node.Actual.Pod != nil {
+		nodeStatus.PodName = node.Actual.Pod.Name
+		nodeStatus.Status = string(node.Actual.Pod.Status.Phase)
+	}
+
+	if node.Actual.StatefulSet != nil {
+		nodeStatus.StatefulSetName = node.Actual.StatefulSet.Name
 	}
 	dpl.Nodes = append(dpl.Nodes, nodeStatus)
 }

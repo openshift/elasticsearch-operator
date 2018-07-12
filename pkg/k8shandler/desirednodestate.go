@@ -77,6 +77,9 @@ func constructDeployName(name string, roles []v1alpha1.ElasticsearchNodeRole, no
 	if len(roles) == 0 {
 		return "", fmt.Errorf("No node roles specified for a node in cluster %s", name)
 	}
+	if len(roles) == 1 && roles[0] == "master" {
+		return fmt.Sprintf("%s-master-%d", name, nodeNum), nil
+	}
 	var nodeType []string
 	for _, role := range roles {
 		if role != "client" && role != "data" && role != "master" {
@@ -128,7 +131,7 @@ func (cfg *desiredNodeState) isNodePureMaster() bool {
 		return false
 	}
 	for _, role := range cfg.Roles {
-		if role != "master" {
+		if role != v1alpha1.ElasticsearchRoleMaster {
 			return false
 		}
 	}
@@ -170,7 +173,7 @@ func (cfg *desiredNodeState) getLabelSelector() map[string]string {
 		"es-node-client": strconv.FormatBool(cfg.isNodeClient()),
 		"es-node-data":   strconv.FormatBool(cfg.isNodeData()),
 		"es-node-master": strconv.FormatBool(cfg.isNodeMaster()),
-		"cluster":        cfg.ClusterName,
+		"cluster-name":   cfg.ClusterName,
 	}
 }
 
@@ -239,6 +242,10 @@ func (cfg *desiredNodeState) IsUpdateNeeded() bool {
 		return true
 	}
 	return false
+}
+
+func (node *nodeState) setStatefulSet(statefulSet apps.StatefulSet) {
+	node.Actual.StatefulSet = &statefulSet
 }
 
 func (node *nodeState) setDeployment(deployment apps.Deployment) {

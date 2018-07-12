@@ -61,10 +61,11 @@ type ElasticsearchNodeStorageSource struct {
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
 type ElasticsearchNodeStatus struct {
-	DeploymentName string `json:"deploymentName"`
-	ReplicaSetName string `json:"replicaSetName"`
-	PodName        string `json:"podName"`
-	Status         string `json:"status"`
+	DeploymentName  string `json:"deploymentName,omitempty"`
+	ReplicaSetName  string `json:"replicaSetName,omitempty"`
+	StatefulSetName string `json:"statefulSetName,omitempty"`
+	PodName         string `json:"podName,omitempty"`
+	Status          string `json:"status,omitempty"`
 }
 
 // ElasticsearchSpec struct represents the Spec of Elasticsearch cluster CRD
