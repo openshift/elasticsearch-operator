@@ -12,6 +12,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -122,6 +123,18 @@ func (cfg *desiredNodeState) isNodeMaster() bool {
 	return false
 }
 
+func (cfg *desiredNodeState) isNodePureMaster() bool {
+	if len(cfg.Roles) > 1 {
+		return false
+	}
+	for _, role := range cfg.Roles {
+		if role != "master" {
+			return false
+		}
+	}
+	return true
+}
+
 func (cfg *desiredNodeState) isNodeData() bool {
 	for _, role := range cfg.Roles {
 		if role == "data" {
@@ -148,7 +161,7 @@ func (cfg *desiredNodeState) getLabels() map[string]string {
 	labels["es-node-client"] = strconv.FormatBool(cfg.isNodeClient())
 	labels["es-node-data"] = strconv.FormatBool(cfg.isNodeData())
 	labels["es-node-master"] = strconv.FormatBool(cfg.isNodeMaster())
-	labels["cluster"] = cfg.ClusterName
+	labels["cluster-name"] = cfg.ClusterName
 	return labels
 }
 
@@ -418,6 +431,40 @@ func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
 	return mounts
 }
 
+// generateMasterPVC method builds PVC for pure master nodes to be used in
+// volumeClaimTemplate in StatefulSet spec
+func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool, error) {
+	specVol := cfg.ESNodeSpec.Storage
+	if specVol.VolumeClaimTemplate != nil {
+		// The only supported option to specify own volumeClaimTemplate for masters
+		return *specVol.VolumeClaimTemplate, true, nil
+	} else if specVol.EmptyDir != nil {
+		return v1.PersistentVolumeClaim{}, false, nil
+	} else if (specVol == v1alpha1.ElasticsearchNodeStorageSource{}) {
+		// This is the default option, try to construct small 1Gi PVC
+		volumeSize, _ := resource.ParseQuantity("1Gi")
+		pvc := v1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "elasticsearch-storage",
+				Labels: cfg.getLabels(),
+			},
+			Spec: v1.PersistentVolumeClaimSpec{
+				AccessModes: []v1.PersistentVolumeAccessMode{
+					v1.ReadWriteOnce,
+				},
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceStorage: volumeSize,
+					},
+				},
+			},
+		}
+		return pvc, true, nil
+	} else {
+		return v1.PersistentVolumeClaim{}, false, fmt.Errorf("Unsupported volume configuration for master in cluster %s", cfg.ClusterName)
+	}
+}
+
 func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 	volSource := v1.VolumeSource{}
 	specVol := cfg.ESNodeSpec.Storage
@@ -448,10 +495,6 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 	vols := []v1.Volume{
 		v1.Volume{
-			Name:         "elasticsearch-storage",
-			VolumeSource: cfg.generatePersistentStorage(),
-		},
-		v1.Volume{
 			Name: "elasticsearch-config",
 			VolumeSource: v1.VolumeSource{
 				ConfigMap: &v1.ConfigMapVolumeSource{
@@ -462,6 +505,14 @@ func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 			},
 		},
 	}
+
+	if !cfg.isNodePureMaster() {
+		vols = append(vols, v1.Volume{
+			Name:         "elasticsearch-storage",
+			VolumeSource: cfg.generatePersistentStorage(),
+		})
+	}
+
 	if !cfg.ElasticsearchSecure.Disabled {
 		var secretName string
 		if cfg.ElasticsearchSecure.CertificatesSecret == "" {
@@ -480,7 +531,6 @@ func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 		})
 	}
 	return vols
-
 }
 
 func (cfg *desiredNodeState) getSelector() (map[string]string, bool) {
@@ -518,4 +568,28 @@ func (actualState *actualNodeState) isStatusUpdateNeeded(nodesInStatus v1alpha1.
 
 	// no corresponding nodes in status
 	return true
+}
+
+func (cfg *desiredNodeState) constructPodTemplateSpec() v1.PodTemplateSpec {
+	affinity := cfg.getAffinity()
+
+	template := v1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: cfg.getLabels(),
+		},
+		Spec: v1.PodSpec{
+			Affinity: &affinity,
+			Containers: []v1.Container{
+				cfg.getESContainer(),
+			},
+			Volumes: cfg.getVolumes(),
+			// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),
+			ServiceAccountName: cfg.ServiceAccountName,
+		},
+	}
+	nodeSelector, ok := cfg.getSelector()
+	if ok {
+		template.Spec.NodeSelector = nodeSelector
+	}
+	return template
 }
