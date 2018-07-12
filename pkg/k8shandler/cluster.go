@@ -33,7 +33,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	if err != nil {
 		return err
 	}
-	logrus.Infof("cluster required action is: %v", action)
+	logrus.Infof("cluster %s required action is: %v", dpl.Name, action)
 
 	switch {
 	case action == v1alpha1.ElasticsearchActionNewClusterNeeded:
