@@ -8,7 +8,6 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -91,7 +90,6 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 
 	// FIXME: remove hardcode
 
-	affinity := cfg.getAffinity()
 	replicas := cfg.getReplicas()
 
 	deployment := node.resource
@@ -105,25 +103,7 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 		Strategy: apps.DeploymentStrategy{
 			Type: "Recreate",
 		},
-		Template: v1.PodTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: cfg.getLabels(),
-			},
-			Spec: v1.PodSpec{
-				Affinity: &affinity,
-				Containers: []v1.Container{
-					cfg.getESContainer(),
-				},
-				Volumes: cfg.getVolumes(),
-				// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),
-				ServiceAccountName: cfg.ServiceAccountName,
-			},
-		},
-	}
-
-	nodeSelector, ok := cfg.getSelector()
-	if ok {
-		deployment.Spec.Template.Spec.NodeSelector = nodeSelector
+		Template: cfg.constructPodTemplateSpec(),
 	}
 
 	// if storageClass != "default" {
