@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"go/build"
 	"io"
 	"io/ioutil"
 	"net"
@@ -53,20 +54,10 @@ func buildGodoc(t *testing.T) (bin string, cleanup func()) {
 	return bin, func() { os.RemoveAll(tmp) }
 }
 
-var isGo19 bool // godoc19_test.go sets it to true.
-
 // Basic regression test for godoc command-line tool.
 func TestCLI(t *testing.T) {
 	bin, cleanup := buildGodoc(t)
 	defer cleanup()
-
-	// condStr returns s if cond is true, otherwise empty string.
-	condStr := func(cond bool, s string) string {
-		if !cond {
-			return ""
-		}
-		return s
-	}
 
 	tests := []struct {
 		args      []string
@@ -90,13 +81,7 @@ func TestCLI(t *testing.T) {
 		{
 			args: []string{"nonexistingpkg"},
 			matches: []string{
-				`cannot find package` +
-					// TODO: Remove this when support for Go 1.8 is dropped.
-					condStr(!isGo19,
-						// For Go 1.8 and older, because it doesn't have CL 33158 change applied to go/build.
-						// The last pattern (does not e) is for plan9:
-						// http://build.golang.org/log/2d8e5e14ed365bfa434b37ec0338cd9e6f8dd9bf
-						`|no such file or directory|does not exist|cannot find the file|(?:' does not e)`),
+				`cannot find package`,
 			},
 		},
 		{
@@ -202,6 +187,17 @@ func waitForServer(t *testing.T, url, match string, timeout time.Duration, rever
 	t.Fatalf("Server failed to respond in %v", timeout)
 }
 
+// hasTag checks whether a given release tag is contained in the current version
+// of the go binary.
+func hasTag(t string) bool {
+	for _, v := range build.Default.ReleaseTags {
+		if t == v {
+			return true
+		}
+	}
+	return false
+}
+
 func killAndWait(cmd *exec.Cmd) {
 	cmd.Process.Kill()
 	cmd.Wait()
@@ -260,6 +256,7 @@ func testWeb(t *testing.T, withIndex bool) {
 		match       []string // regexp
 		notContains []string
 		needIndex   bool
+		releaseTag  string // optional release tag that must be in go/build.ReleaseTags
 	}{
 		{
 			path:     "/",
@@ -338,6 +335,7 @@ func testWeb(t *testing.T, withIndex bool) {
 			match: []string{
 				`Got1xxResponse.*// Go 1\.11`,
 			},
+			releaseTag: "go1.11",
 		},
 		// Verify we don't add version info to a struct field added the same time
 		// as the struct itself:
@@ -354,6 +352,7 @@ func testWeb(t *testing.T, withIndex bool) {
 				"The number of connections currently in use; added in Go 1.11",
 				"The number of idle connections; added in Go 1.11",
 			},
+			releaseTag: "go1.11",
 		},
 	}
 	for _, test := range tests {
@@ -374,12 +373,18 @@ func testWeb(t *testing.T, withIndex bool) {
 		}
 		isErr := false
 		for _, substr := range test.contains {
+			if test.releaseTag != "" && !hasTag(test.releaseTag) {
+				continue
+			}
 			if !bytes.Contains(body, []byte(substr)) {
 				t.Errorf("GET %s: wanted substring %q in body", url, substr)
 				isErr = true
 			}
 		}
 		for _, re := range test.match {
+			if test.releaseTag != "" && !hasTag(test.releaseTag) {
+				continue
+			}
 			if ok, err := regexp.MatchString(re, strBody); !ok || err != nil {
 				if err != nil {
 					t.Fatalf("Bad regexp %q: %v", re, err)

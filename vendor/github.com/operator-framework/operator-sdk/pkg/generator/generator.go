@@ -24,13 +24,15 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/operator-framework/operator-sdk/pkg/test"
+
 	k8sutil "github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 )
 
 const (
 	defaultDirFileMode  = 0750
 	defaultFileMode     = 0644
-	defaultExecFileMode = 0744
+	defaultExecFileMode = 0755
 	// dirs
 	cmdDir        = "cmd"
 	deployDir     = "deploy"
@@ -39,6 +41,7 @@ const (
 	tmpDir        = "tmp"
 	buildDir      = tmpDir + "/build"
 	codegenDir    = tmpDir + "/codegen"
+	dockerTestDir = buildDir + "/test-framework"
 	pkgDir        = "pkg"
 	apisDir       = pkgDir + "/apis"
 	stubDir       = pkgDir + "/stub"
@@ -51,16 +54,17 @@ const (
 	register           = "register.go"
 	types              = "types.go"
 	build              = "build.sh"
-	dockerBuild        = "docker_build.sh"
 	dockerfile         = "Dockerfile"
+	testingDockerfile  = "Dockerfile"
+	goTest             = "go-test.sh"
 	boilerplate        = "boilerplate.go.txt"
 	updateGenerated    = "update-generated.sh"
 	gopkgtoml          = "Gopkg.toml"
 	gopkglock          = "Gopkg.lock"
 	config             = "config.yaml"
-	operatorYaml       = deployDir + "/operator.yaml"
 	rbacYaml           = "rbac.yaml"
 	crYaml             = "cr.yaml"
+	saYaml             = "sa.yaml"
 	catalogPackageYaml = "package.yaml"
 	catalogCSVYaml     = "csv.yaml"
 	crdYaml            = "crd.yaml"
@@ -77,6 +81,8 @@ const (
 	operatorTmplName   = "deploy/operator.yaml"
 	rbacTmplName       = "deploy/rbac.yaml"
 	crTmplName         = "deploy/cr.yaml"
+	testYamlName       = "deploy/test-pod.yaml"
+	saTmplName         = "deploy/sa.yaml"
 	pluralSuffix       = "s"
 )
 
@@ -233,19 +239,34 @@ func renderDeployFiles(deployDir, projectName, apiVersion, kind string) error {
 		APIVersion: apiVersion,
 		Kind:       kind,
 	}
-	return renderWriteFile(filepath.Join(deployDir, crYaml), crTmplName, crYamlTmpl, crTd)
-}
+	if err := renderWriteFile(filepath.Join(deployDir, crYaml), crTmplName, crYamlTmpl, crTd); err != nil {
+		return err
+	}
 
-// RenderOperatorYaml generates "deploy/operator.yaml"
-func RenderOperatorYaml(c *Config, image string) error {
-	td := tmplData{
-		ProjectName:     c.ProjectName,
-		Image:           image,
+	saTd := tmplData{
+		ProjectName: projectName,
+	}
+	if err := renderWriteFile(filepath.Join(deployDir, saYaml), saTmplName, saYamlTmpl, saTd); err != nil {
+		return err
+	}
+
+	opTd := tmplData{
+		ProjectName:     projectName,
+		Image:           "REPLACE_IMAGE",
 		MetricsPort:     k8sutil.PrometheusMetricsPort,
 		MetricsPortName: k8sutil.PrometheusMetricsPortName,
 		OperatorNameEnv: k8sutil.OperatorNameEnvVar,
 	}
-	return renderWriteFile(operatorYaml, operatorTmplName, operatorYamlTmpl, td)
+	return renderWriteFile(filepath.Join(deployDir, "operator.yaml"), operatorTmplName, operatorYamlTmpl, opTd)
+}
+
+func RenderTestYaml(c *Config, image string) error {
+	opTd := tmplData{
+		ProjectName:      c.ProjectName,
+		Image:            image,
+		TestNamespaceEnv: test.TestNamespaceEnv,
+	}
+	return renderWriteFile(filepath.Join(deployDir, "test-pod.yaml"), testYamlName, testYamlTmpl, opTd)
 }
 
 // RenderOlmCatalog generates catalog manifests "deploy/olm-catalog/*"
@@ -334,26 +355,23 @@ func renderBuildFiles(buildDir, repoPath, projectName string) error {
 		return err
 	}
 
-	buf = &bytes.Buffer{}
-	if err := renderDockerBuildFile(buf); err != nil {
-		return err
-	}
-	if err := writeFileAndPrint(filepath.Join(buildDir, dockerBuild), buf.Bytes(), defaultExecFileMode); err != nil {
-		return err
-	}
-
 	dTd := tmplData{
 		ProjectName: projectName,
 	}
-	if err := renderFile(buf, "tmp/build/Dockerfile", dockerFileTmpl, dTd); err != nil {
+
+	if err := renderWriteFile(filepath.Join(buildDir, dockerfile), "tmp/build/Dockerfile", dockerFileTmpl, dTd); err != nil {
 		return err
 	}
-	return renderWriteFile(filepath.Join(buildDir, dockerfile), "tmp/build/Dockerfile", dockerFileTmpl, dTd)
-}
 
-func renderDockerBuildFile(w io.Writer) error {
-	_, err := w.Write([]byte(dockerBuildTmpl))
-	return err
+	if err := renderWriteFile(filepath.Join(buildDir, "test-framework", testingDockerfile), "tmp/build/test-framework/Dockerfile", testingDockerFileTmpl, dTd); err != nil {
+		return err
+	}
+
+	buf = &bytes.Buffer{}
+	if err := renderFile(buf, filepath.Join(buildDir, goTest), goTestScript, tmplData{}); err != nil {
+		return err
+	}
+	return writeFileAndPrint(filepath.Join(buildDir, goTest), buf.Bytes(), defaultExecFileMode)
 }
 
 func renderCodegenFiles(codegenDir, repoPath, apiDirName, version, projectName string) error {
@@ -461,6 +479,9 @@ type tmplData struct {
 	CRDVersion     string
 	CSVName        string
 	CatalogVersion string
+
+	// for test framework
+	TestNamespaceEnv string
 }
 
 // Creates all the necesary directories for the generated files
@@ -473,6 +494,7 @@ func (g *Generator) generateDirStructure() error {
 		filepath.Join(g.projectName, olmCatalogDir),
 		filepath.Join(g.projectName, buildDir),
 		filepath.Join(g.projectName, codegenDir),
+		filepath.Join(g.projectName, dockerTestDir),
 		filepath.Join(g.projectName, versionDir),
 		filepath.Join(g.projectName, apisDir, apiDirName(g.apiVersion), version(g.apiVersion)),
 		filepath.Join(g.projectName, stubDir),
@@ -520,6 +542,9 @@ func apiDirName(apiVersion string) string {
 
 // Writes file to a given path and data buffer, as well as prints out a message confirming creation of a file
 func writeFileAndPrint(filePath string, data []byte, fileMode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(filePath), defaultDirFileMode); err != nil {
+		return err
+	}
 	if err := ioutil.WriteFile(filePath, data, fileMode); err != nil {
 		return err
 	}
