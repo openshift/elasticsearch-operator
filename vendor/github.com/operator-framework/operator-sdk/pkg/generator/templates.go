@@ -42,8 +42,8 @@ spec:
   version: {{.Version}}
 `
 
-const catalogCSVTmpl = `apiVersion: app.coreos.com/v1alpha1
-kind: ClusterServiceVersion-v1
+const catalogCSVTmpl = `apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
 metadata:
   name: {{.CSVName}}
   namespace: placeholder
@@ -132,6 +132,7 @@ const mainTmpl = `package main
 import (
 	"context"
 	"runtime"
+	"time"
 
 	stub "{{.StubImport}}"
 	sdk "{{.OperatorSDKImport}}"
@@ -139,6 +140,7 @@ import (
 	sdkVersion "{{.SDKVersionImport}}"
 
 	"github.com/sirupsen/logrus"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 func printVersion() {
@@ -156,9 +158,9 @@ func main() {
 	kind := "{{.Kind}}"
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		logrus.Fatalf("Failed to get watch namespace: %v", err)
+		logrus.Fatalf("failed to get watch namespace: %v", err)
 	}
-	resyncPeriod := 5
+	resyncPeriod := time.Duration(5) * time.Second
 	logrus.Infof("Watching %s, %s, %s, %d", resource, kind, namespace, resyncPeriod)
 	sdk.Watch(resource, kind, namespace, resyncPeriod)
 	sdk.Handle(stub.NewHandler())
@@ -195,7 +197,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	case *{{.Version}}.{{.Kind}}:
 		err := sdk.Create(newbusyBoxPod(o))
 		if err != nil && !errors.IsAlreadyExists(err) {
-			logrus.Errorf("Failed to create busybox pod : %v", err)
+			logrus.Errorf("failed to create busybox pod : %v", err)
 			return err
 		}
 	}
@@ -228,7 +230,7 @@ func newbusyBoxPod(cr *{{.Version}}.{{.Kind}}) *corev1.Pod {
 			Containers: []corev1.Container{
 				{
 					Name:    "busybox",
-					Image:   "busybox",
+					Image:   "docker.io/busybox",
 					Command: []string{"sleep", "3600"},
 				},
 			},
@@ -253,29 +255,48 @@ required = [
 
 [[override]]
   name = "k8s.io/code-generator"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "91d3f6a57905178524105a085085901bb73bd3dc"
+  # revision for tag "kubernetes-1.11.2"
+  revision = "6702109cc68eb6fe6350b83e14407c8d7309fd1a"
 
 [[override]]
   name = "k8s.io/api"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "acf347b865f29325eb61f4cd2df11e86e073a5ee"
+  # revision for tag "kubernetes-1.11.2"
+  revision = "2d6f90ab1293a1fb871cf149423ebb72aa7423aa"
+
+[[override]]
+  name = "k8s.io/apiextensions-apiserver"
+  # revision for tag "kubernetes-1.11.2"
+  revision = "408db4a50408e2149acbd657bceb2480c13cb0a4"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "19e3f5aa3adca672c153d324e6b7d82ff8935f03"
+  # revision for tag "kubernetes-1.11.2"
+  revision = "103fd098999dc9c0c88536f5c9ad2e5da39373ae"
 
 [[override]]
   name = "k8s.io/client-go"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
+  # revision for tag "kubernetes-1.11.2"
+  revision = "1f13a808da65775f22cbf47862c4e5898d8f4ca1"
+
+[[override]]
+  name = "sigs.k8s.io/controller-runtime"
+  version = "v0.1.3"
+
+[prune]
+  go-tests = true
+  non-go = true
+  unused-packages = true
+
+  [[prune.project]]
+    name = "k8s.io/code-generator"
+    non-go = false
+    unused-packages = false
 
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"
   # The version rule is used for a specific release and the master branch for in between releases.
   branch = "master"
-  # version = "=v0.0.5"
+  # version = "=v0.0.6"
 `
 
 const projectGitignoreTmpl = `
@@ -403,6 +424,24 @@ spec:
   version: {{.Version}}
 `
 
+const testYamlTmpl = `apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.ProjectName}}-test
+spec:
+  restartPolicy: Never
+  containers:
+  - name: {{.ProjectName}}-test
+    image: {{.Image}}
+    imagePullPolicy: Always
+    command: ["/go-test.sh"]
+    env:
+      - name: {{.TestNamespaceEnv}}
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+`
+
 const operatorYamlTmpl = `apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -417,6 +456,7 @@ spec:
       labels:
         name: {{.ProjectName}}
     spec:
+      serviceAccountName: {{.ProjectName}}
       containers:
         - name: {{.ProjectName}}
           image: {{.Image}}
@@ -473,14 +513,20 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: default-account-{{.ProjectName}}
+  name: {{.ProjectName}}
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: {{.ProjectName}}
 roleRef:
   kind: Role
   name: {{.ProjectName}}
   apiGroup: rbac.authorization.k8s.io
+`
+
+const saYamlTmpl = `apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.ProjectName}}
 `
 
 const crYamlTmpl = `apiVersion: "{{.APIVersion}}"
@@ -520,21 +566,18 @@ mkdir -p ${BIN_DIR}
 PROJECT_NAME="{{.ProjectName}}"
 REPO_PATH="{{.RepoPath}}"
 BUILD_PATH="${REPO_PATH}/cmd/${PROJECT_NAME}"
+TEST_PATH="${REPO_PATH}/${TEST_LOCATION}"
 echo "building "${PROJECT_NAME}"..."
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ${BIN_DIR}/${PROJECT_NAME} $BUILD_PATH
+if $ENABLE_TESTS ; then
+	echo "building "${PROJECT_NAME}-test"..."
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c -o ${BIN_DIR}/${PROJECT_NAME}-test $TEST_PATH
+fi
 `
 
-const dockerBuildTmpl = `#!/usr/bin/env bash
+const goTestScript = `#!/bin/sh
 
-if ! which docker > /dev/null; then
-	echo "docker needs to be installed"
-	exit 1
-fi
-
-: ${IMAGE:?"Need to set IMAGE, e.g. gcr.io/<repo>/<your>-operator"}
-
-echo "building container ${IMAGE}..."
-docker build -t "${IMAGE}" -f tmp/build/Dockerfile .
+memcached-operator-test -test.parallel=1 -test.failfast -root=/ -kubeconfig=incluster -namespacedMan=namespaced.yaml -test.v
 `
 
 const dockerFileTmpl = `FROM alpine:3.6
@@ -543,6 +586,16 @@ RUN adduser -D {{.ProjectName}}
 USER {{.ProjectName}}
 
 ADD tmp/_output/bin/{{.ProjectName}} /usr/local/bin/{{.ProjectName}}
+`
+
+const testingDockerFileTmpl = `ARG BASEIMAGE
+
+FROM ${BASEIMAGE}
+
+ADD tmp/_output/bin/memcached-operator-test /usr/local/bin/memcached-operator-test
+ARG NAMESPACEDMAN
+ADD $NAMESPACEDMAN /namespaced.yaml
+ADD tmp/build/go-test.sh /go-test.sh
 `
 
 // apiDocTmpl is the template for apis/../doc.go
