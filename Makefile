@@ -5,6 +5,7 @@ GOBUILD=go build
 GOPATH=$(TARGET_DIR):$(TARGET_DIR)/vendor:$(CURPATH)/cmd
 
 DOCKER_OPTS=
+IMAGE_BUILD=docker build
 
 APP_NAME=elasticsearch-operator
 APP_REPO=github.com/openshift/$(APP_NAME)
@@ -38,7 +39,7 @@ clean:
 	@rm -rf $(TARGET_DIR)
 
 image:
-	@docker build -t $(DOCKER_TAG) . $(DOCKER_OPTS)
+	$(IMAGE_BUILD) -t $(DOCKER_TAG) . $(DOCKER_OPTS)
 
 #install:
 #	@go install $(LDFLAGS)
