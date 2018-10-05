@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	stub "github.com/ViaQ/elasticsearch-operator/pkg/stub"
+	stub "github.com/openshift/elasticsearch-operator/pkg/stub"
 	sdk "github.com/operator-framework/operator-sdk/pkg/sdk"
 	k8sutil "github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("Failed to get watch namespace: %v", err)
 	}
-	resyncPeriod := time.Duration(5)*time.Second
+	resyncPeriod := time.Duration(5) * time.Second
 	logrus.Infof("Watching %s, %s, %s, %d", resource, kind, namespace, resyncPeriod)
 	sdk.Watch(resource, kind, namespace, resyncPeriod)
 	sdk.Handle(stub.NewHandler())

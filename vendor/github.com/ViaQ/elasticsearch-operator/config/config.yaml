@@ -1,3 +1,0 @@
-apiVersion: elasticsearch.redhat.com/v1alpha1
-kind: Elasticsearch
-projectName: elasticsearch-operator
