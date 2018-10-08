@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	elasticsearchCertsPath    = "/etc/elasticsearch/secret"
+	elasticsearchCertsPath    = "/etc/openshift/elasticsearch/secret"
 	elasticsearchConfigPath   = "/usr/share/java/elasticsearch/config"
 	elasticsearchDefaultImage = "docker.io/t0ffel/elasticsearch5"
 	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
