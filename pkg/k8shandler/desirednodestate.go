@@ -30,17 +30,17 @@ type nodeState struct {
 }
 
 type desiredNodeState struct {
-	ClusterName         string
-	Namespace           string
-	DeployName          string
-	Roles               []v1alpha1.ElasticsearchNodeRole
-	ESNodeSpec          v1alpha1.ElasticsearchNode
-	ElasticsearchSecure v1alpha1.ElasticsearchSecure
-	NodeNum             int32
-	ReplicaNum          int32
-	ServiceAccountName  string
-	ConfigMapName       string
-	Labels              map[string]string
+	ClusterName        string
+	Namespace          string
+	DeployName         string
+	Roles              []v1alpha1.ElasticsearchNodeRole
+	ESNodeSpec         v1alpha1.ElasticsearchNode
+	CertificatesSecret string
+	NodeNum            int32
+	ReplicaNum         int32
+	ServiceAccountName string
+	ConfigMapName      string
+	Labels             map[string]string
 }
 
 type actualNodeState struct {
@@ -52,16 +52,16 @@ type actualNodeState struct {
 
 func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, configMapName, serviceAccountName string, nodeNum int32, replicaNum int32) (desiredNodeState, error) {
 	nodeCfg := desiredNodeState{
-		ClusterName:         dpl.Name,
-		Namespace:           dpl.Namespace,
-		Roles:               esNode.Roles,
-		ESNodeSpec:          esNode,
-		ElasticsearchSecure: dpl.Spec.Secure,
-		NodeNum:             nodeNum,
-		ReplicaNum:          replicaNum,
-		ServiceAccountName:  serviceAccountName,
-		ConfigMapName:       configMapName,
-		Labels:              dpl.Labels,
+		ClusterName:        dpl.Name,
+		Namespace:          dpl.Namespace,
+		Roles:              esNode.Roles,
+		ESNodeSpec:         esNode,
+		CertificatesSecret: dpl.Spec.CertificatesSecret,
+		NodeNum:            nodeNum,
+		ReplicaNum:         replicaNum,
+		ServiceAccountName: serviceAccountName,
+		ConfigMapName:      configMapName,
+		Labels:             dpl.Labels,
 	}
 	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
 	if err != nil {
@@ -429,12 +429,10 @@ func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
 			MountPath: elasticsearchConfigPath,
 		},
 	}
-	if !cfg.ElasticsearchSecure.Disabled {
-		mounts = append(mounts, v1.VolumeMount{
-			Name:      "certificates",
-			MountPath: elasticsearchCertsPath,
-		})
-	}
+	mounts = append(mounts, v1.VolumeMount{
+		Name:      "certificates",
+		MountPath: elasticsearchCertsPath,
+	})
 	return mounts
 }
 
@@ -520,23 +518,18 @@ func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 		})
 	}
 
-	if !cfg.ElasticsearchSecure.Disabled {
-		var secretName string
-		if cfg.ElasticsearchSecure.CertificatesSecret == "" {
-			secretName = cfg.ClusterName
-		} else {
-			secretName = cfg.ElasticsearchSecure.CertificatesSecret
-		}
-
-		vols = append(vols, v1.Volume{
-			Name: "certificates",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: secretName,
-				},
-			},
-		})
+	secretName := cfg.CertificatesSecret
+	if cfg.CertificatesSecret == "" {
+		secretName = cfg.ClusterName
 	}
+	vols = append(vols, v1.Volume{
+		Name: "certificates",
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: secretName,
+			},
+		},
+	})
 	return vols
 }
 

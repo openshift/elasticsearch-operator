@@ -25,7 +25,7 @@ func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
 
 	// TODO: take all vars from CRD
 	pathData := "- /elasticsearch/persistent/"
-	err := createOrUpdateConfigMap(configMapName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, dpl.Spec.Secure.Disabled, owner, dpl.Labels)
+	err := createOrUpdateConfigMap(configMapName, dpl.Namespace, dpl.Name, defaultKibanaIndexMode, pathData, false, owner, dpl.Labels)
 	if err != nil {
 		return configMapName, fmt.Errorf("Failure creating ConfigMap %v", err)
 	}
@@ -33,8 +33,8 @@ func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
 }
 
 func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string,
-	allowClusterReader bool, insecureCluster bool, owner metav1.OwnerReference, labels map[string]string) error {
-	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData, allowClusterReader, insecureCluster, labels)
+	allowClusterReader bool, owner metav1.OwnerReference, labels map[string]string) error {
+	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData, allowClusterReader, labels)
 	if err != nil {
 		return err
 	}
@@ -56,11 +56,11 @@ func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexM
 }
 
 func createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, pathData string,
-	allowClusterReader bool, insecureCluster bool, labels map[string]string) (*v1.ConfigMap, error) {
+	allowClusterReader bool, labels map[string]string) (*v1.ConfigMap, error) {
 	cm := configMap(configMapName, namespace, labels)
 	cm.Data = map[string]string{}
 	buf := &bytes.Buffer{}
-	if err := renderEsYml(buf, allowClusterReader, kibanaIndexMode, pathData, insecureCluster); err != nil {
+	if err := renderEsYml(buf, allowClusterReader, kibanaIndexMode, pathData); err != nil {
 		return cm, err
 	}
 	cm.Data["elasticsearch.yml"] = buf.String()
