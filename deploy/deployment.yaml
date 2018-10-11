@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,16 +13,16 @@ spec:
       labels:
         name: elasticsearch-operator
     spec:
-      serviceAccountName: aggregated-logging-elasticsearch-operator
+      serviceAccountName: elasticsearch-operator
       containers:
         - name: elasticsearch-operator
-          image: quay.io/t0ffel/elasticsearch-operator
+          image: quay.io/openshift/origin-elasticsearch-operator:latest
+          imagePullPolicy: IfNotPresent
+          command:
+          - elasticsearch-operator
           ports:
           - containerPort: 60000
             name: metrics
-          command:
-          - elasticsearch-operator
-          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
