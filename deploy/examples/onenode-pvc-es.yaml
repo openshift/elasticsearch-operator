@@ -1,10 +1,10 @@
-apiVersion: elasticsearch.redhat.com/v1alpha1
+apiVersion: logging.openshift.io/v1alpha1
 kind: Elasticsearch
 metadata:
   name: elastic1
 spec:
   nodeSpec:
-    image: docker.io/t0ffel/logging-insecure-elasticsearch5
+    image: quay.io/openshift/origin-logging-elasticsearch5:latest
   nodes:
   - nodeSpec: {}
     roles:
@@ -27,5 +27,3 @@ spec:
           resources:
             requests:
               storage: 1Gi
-  securityConfig:
-    disabled: true

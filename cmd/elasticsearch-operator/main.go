@@ -24,7 +24,7 @@ func main() {
 
 	sdk.ExposeMetricsPort()
 
-	resource := "elasticsearch.redhat.com/v1alpha1"
+	resource := "logging.openshift.io/v1alpha1"
 	kind := "Elasticsearch"
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
