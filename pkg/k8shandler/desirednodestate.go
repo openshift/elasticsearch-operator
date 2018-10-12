@@ -19,7 +19,7 @@ import (
 const (
 	elasticsearchCertsPath    = "/etc/elasticsearch/secret"
 	elasticsearchConfigPath   = "/usr/share/java/elasticsearch/config"
-	elasticsearchDefaultImage = "docker.io/t0ffel/elasticsearch5"
+	elasticsearchDefaultImage = "quay.io/openshift/logging-elasticsearch5"
 	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
 	promUser                  = "prometheus"
 )
