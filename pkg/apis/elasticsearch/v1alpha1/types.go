@@ -73,23 +73,15 @@ type ElasticsearchSpec struct {
 	// Fill me
 	Nodes              []ElasticsearchNode   `json:"nodes"`
 	Spec               ElasticsearchNodeSpec `json:"nodeSpec"`
-	Secure             ElasticsearchSecure   `json:"securityConfig"`
 	ServiceAccountName string                `json:"serviceAccountName,omitempty"`
 	ConfigMapName      string                `json:"configMapName,omitempty"`
+	CertificatesSecret string                `json:"certificatesSecret"`
 }
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
 type ElasticsearchNodeSpec struct {
 	Image     string                  `json:"image,omitempty"`
 	Resources v1.ResourceRequirements `json:"resources"`
-}
-
-// ElasticsearchSecure struct represents security configuration of the cluster
-// whether SearchGuard is enabled along with oauth-proxy sidecar
-type ElasticsearchSecure struct {
-	Disabled           bool   `json:"disabled"`
-	Image              string `json:"image,omitempty"`
-	CertificatesSecret string `json:"certificatesSecret,omitempty"`
 }
 
 type ElasticsearchRequiredAction string
