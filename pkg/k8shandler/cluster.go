@@ -21,9 +21,7 @@ type ClusterState struct {
 	DanglingPods         *v1.PodList
 }
 
-const (
-	messageMaxMasters = "Cluster unchanged: Maximum number of masters exceeded"
-)
+var wrongConfig bool
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) error {
@@ -35,21 +33,20 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 
 	// Verify that we didn't scale up too many masters
 	if !isValidMasterCount(dpl) {
-		if dpl.Status.Message != messageMaxMasters {
-			AddStatusMessage(messageMaxMasters, dpl)
-			return fmt.Errorf("Invalid master count. Please ensure there are no more than %v total nodes with master roles", MAX_MASTER_COUNT)
+		if wrongConfig {
+			return nil
 		}
-		return nil
+		wrongConfig = true
+		return fmt.Errorf("Invalid master count. Please ensure there are no more than %v total nodes with master roles", MAX_MASTER_COUNT)
 	} else {
-		if dpl.Status.Message == messageMaxMasters {
-			AddStatusMessage("", dpl)
-		}
+		wrongConfig = false
 	}
 
 	action, err := cState.getRequiredAction(dpl.Status)
 	if err != nil {
 		return err
 	}
+	// TODO: get rid of this message as part of LOG-206
 	logrus.Infof("cluster %s required action is: %v", dpl.Name, action)
 
 	switch {
@@ -69,16 +66,15 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 		if err != nil {
 			return err
 		}
-	case action == v1alpha1.ElasticsearchActionStatusUpdateNeeded:
-		err = cState.UpdateStatus(dpl)
-		if err != nil {
-			return err
-		}
 	case action == v1alpha1.ElasticsearchActionNone:
-		// No action is requested
-		return nil
+		break
 	default:
 		return fmt.Errorf("Unknown cluster action requested: %v", action)
+	}
+	// Scrape cluster health from elasticsearch every time
+	err = cState.UpdateStatus(dpl)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -128,6 +124,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend Pods to status: %v", err)
 	}
+
 	return cState, nil
 }
 
@@ -162,16 +159,6 @@ func (cState *ClusterState) getRequiredAction(status v1alpha1.ElasticsearchStatu
 	// we need to remove those to comply with the desired cluster structure.
 	if cState.DanglingDeployments != nil {
 		return v1alpha1.ElasticsearchActionScaleDownNeeded, nil
-	}
-
-	for _, node := range cState.Nodes {
-		if node.Actual.isStatusUpdateNeeded(status) {
-			return v1alpha1.ElasticsearchActionStatusUpdateNeeded, nil
-		}
-	}
-
-	if len(cState.Nodes) != len(status.Nodes) {
-		return v1alpha1.ElasticsearchActionStatusUpdateNeeded, nil
 	}
 
 	return v1alpha1.ElasticsearchActionNone, nil

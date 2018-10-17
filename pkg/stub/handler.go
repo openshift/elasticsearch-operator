@@ -33,6 +33,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 
 // Reconcile reconciles the cluster's state to the spec specified
 func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
+	// TODO: get rid of this message as part of LOG-206
 	logrus.Info("Started reconciliation")
 
 	// Ensure existence of services
