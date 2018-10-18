@@ -3,17 +3,15 @@ package k8shandler
 import (
 	"html/template"
 	"io"
-	"strconv"
 )
 
 // esYmlStruct is used to render esYmlTmpl to a proper elasticsearch.yml format
 type esYmlStruct struct {
-	AllowClusterReader string
-	KibanaIndexMode    string
-	PathData           string
+	KibanaIndexMode string
+	EsUnicastHost   string
 }
 
-func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, pathData string) error {
+func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost string) error {
 	t := template.New("elasticsearch.yml")
 	config := esYmlTmpl
 	t, err := t.Parse(config)
@@ -21,9 +19,8 @@ func renderEsYml(w io.Writer, allowClusterReader bool, kibanaIndexMode string, p
 		return err
 	}
 	esy := esYmlStruct{
-		AllowClusterReader: strconv.FormatBool(allowClusterReader),
-		KibanaIndexMode:    kibanaIndexMode,
-		PathData:           pathData,
+		KibanaIndexMode: kibanaIndexMode,
+		EsUnicastHost:   esUnicastHost,
 	}
 
 	return t.Execute(w, esy)

@@ -35,7 +35,7 @@ type desiredNodeState struct {
 	DeployName         string
 	Roles              []v1alpha1.ElasticsearchNodeRole
 	ESNodeSpec         v1alpha1.ElasticsearchNode
-	CertificatesSecret string
+	SecretName         string
 	NodeNum            int32
 	ReplicaNum         int32
 	ServiceAccountName string
@@ -56,7 +56,7 @@ func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsearc
 		Namespace:          dpl.Namespace,
 		Roles:              esNode.Roles,
 		ESNodeSpec:         esNode,
-		CertificatesSecret: dpl.Spec.CertificatesSecret,
+		SecretName:         dpl.Spec.SecretName,
 		NodeNum:            nodeNum,
 		ReplicaNum:         replicaNum,
 		ServiceAccountName: serviceAccountName,
@@ -518,8 +518,8 @@ func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 		})
 	}
 
-	secretName := cfg.CertificatesSecret
-	if cfg.CertificatesSecret == "" {
+	secretName := cfg.SecretName
+	if cfg.SecretName == "" {
 		secretName = cfg.ClusterName
 	}
 	vols = append(vols, v1.Volume{
