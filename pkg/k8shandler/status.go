@@ -49,3 +49,13 @@ func updateNodeStatus(node *nodeState, dpl *v1alpha1.ElasticsearchStatus) {
 	}
 	dpl.Nodes = append(dpl.Nodes, nodeStatus)
 }
+
+func AddStatusMessage(message string, dpl *v1alpha1.Elasticsearch) error {
+	dpl.Status.Message = message
+	err := sdk.Update(dpl)
+	if err != nil {
+		return fmt.Errorf("failed to update Elasticsearch status: %v", err)
+	}
+
+	return nil
+}

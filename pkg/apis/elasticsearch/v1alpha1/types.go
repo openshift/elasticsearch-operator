@@ -109,4 +109,5 @@ type ElasticsearchStatus struct {
 	// Fill me
 	Nodes    []ElasticsearchNodeStatus   `json:"nodes"`
 	K8sState ElasticsearchRequiredAction `json:"clusterState"`
+	Message  string                      `json:"message"`
 }

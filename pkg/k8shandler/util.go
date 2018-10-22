@@ -6,6 +6,7 @@ import (
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 
+	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,6 +22,7 @@ const (
 	defaultCPURequest       = "100m"
 	defaultMemoryLimit      = "4Gi"
 	defaultMemoryRequest    = "1Gi"
+	MAX_MASTER_COUNT        = 3
 )
 
 // addOwnerRefToObject appends the desired OwnerReference to the object
@@ -312,4 +314,67 @@ func popStatefulSet(statefulSets *apps.StatefulSetList, cfg desiredNodeState) (*
 	statefulSets.Items[index] = statefulSets.Items[len(statefulSets.Items)-1]
 	dpls.Items = statefulSets.Items[:len(statefulSets.Items)-1]
 	return dpls, statefulSet, true
+}
+
+func getMasterCount(dpl *v1alpha1.Elasticsearch) int32 {
+	masterCount := int32(0)
+
+	for _, node := range dpl.Spec.Nodes {
+		if isNodeMaster(node) {
+			masterCount = masterCount + node.Replicas
+		}
+	}
+
+	return masterCount
+}
+
+func getDataCount(dpl *v1alpha1.Elasticsearch) int32 {
+	dataCount := int32(0)
+
+	for _, node := range dpl.Spec.Nodes {
+		if isNodeData(node) {
+			dataCount = dataCount + node.Replicas
+		}
+	}
+
+	return dataCount
+}
+
+func isNodeMaster(node v1alpha1.ElasticsearchNode) bool {
+	for _, role := range node.Roles {
+		if role == v1alpha1.ElasticsearchRoleMaster {
+			return true
+		}
+	}
+	return false
+}
+
+func isNodeData(node v1alpha1.ElasticsearchNode) bool {
+	for _, role := range node.Roles {
+		if role == v1alpha1.ElasticsearchRoleData {
+			return true
+		}
+	}
+	return false
+}
+
+func isNodeClient(node *v1alpha1.ElasticsearchNode) bool {
+	for _, role := range node.Roles {
+		if role == v1alpha1.ElasticsearchRoleClient {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidMasterCount(cluster *v1alpha1.Elasticsearch) bool {
+	masterCount := int32(0)
+
+	for _, node := range cluster.Spec.Nodes {
+		if isNodeMaster(node) {
+			masterCount = masterCount + node.Replicas
+		}
+	}
+
+	return (masterCount <= MAX_MASTER_COUNT)
 }
