@@ -41,6 +41,9 @@ type desiredNodeState struct {
 	ServiceAccountName string
 	ConfigMapName      string
 	Labels             map[string]string
+	MasterNum          int32
+	DataNum            int32
+	EnvVars            []v1.EnvVar
 }
 
 type actualNodeState struct {
@@ -50,7 +53,7 @@ type actualNodeState struct {
 	Pod         *v1.Pod
 }
 
-func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, configMapName, serviceAccountName string, nodeNum int32, replicaNum int32) (desiredNodeState, error) {
+func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, configMapName, serviceAccountName string, nodeNum int32, replicaNum int32, masterNum, dataNum int32) (desiredNodeState, error) {
 	nodeCfg := desiredNodeState{
 		ClusterName:        dpl.Name,
 		Namespace:          dpl.Namespace,
@@ -62,12 +65,15 @@ func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsearc
 		ServiceAccountName: serviceAccountName,
 		ConfigMapName:      configMapName,
 		Labels:             dpl.Labels,
+		MasterNum:          masterNum,
+		DataNum:            dataNum,
 	}
 	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
 	if err != nil {
 		return nodeCfg, err
 	}
 	nodeCfg.DeployName = deployName
+	nodeCfg.EnvVars = nodeCfg.getEnvVars()
 
 	nodeCfg.ESNodeSpec.Spec = reconcileNodeSpec(dpl.Spec.Spec, esNode.Spec)
 	return nodeCfg, nil
@@ -337,11 +343,11 @@ func (cfg *desiredNodeState) getEnvVars() []v1.EnvVar {
 		},
 		v1.EnvVar{
 			Name:  "NODE_QUORUM",
-			Value: "1",
+			Value: strconv.Itoa(int(cfg.MasterNum/2 + 1)),
 		},
 		v1.EnvVar{
 			Name:  "RECOVER_EXPECTED_NODES",
-			Value: "1",
+			Value: strconv.Itoa(int(cfg.DataNum)),
 		},
 		v1.EnvVar{
 			Name:  "RECOVER_AFTER_TIME",
@@ -369,7 +375,7 @@ func (cfg *desiredNodeState) getEnvVars() []v1.EnvVar {
 		},
 		v1.EnvVar{
 			Name:  "PRIMARY_SHARDS",
-			Value: "1",
+			Value: strconv.Itoa(int(cfg.DataNum)),
 		},
 		v1.EnvVar{
 			Name:  "REPLICA_SHARDS",

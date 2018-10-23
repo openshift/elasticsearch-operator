@@ -21,12 +21,29 @@ type ClusterState struct {
 	DanglingPods         *v1.PodList
 }
 
+const (
+	messageMaxMasters = "Cluster unchanged: Maximum number of masters exceeded"
+)
+
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) error {
 
 	cState, err := NewClusterState(dpl, configMapName, serviceAccountName)
 	if err != nil {
 		return err
+	}
+
+	// Verify that we didn't scale up too many masters
+	if !isValidMasterCount(dpl) {
+		if dpl.Status.Message != messageMaxMasters {
+			AddStatusMessage(messageMaxMasters, dpl)
+			return fmt.Errorf("Invalid master count. Please ensure there are no more than %v total nodes with master roles", MAX_MASTER_COUNT)
+		}
+		return nil
+	} else {
+		if dpl.Status.Message == messageMaxMasters {
+			AddStatusMessage("", dpl)
+		}
 	}
 
 	action, err := cState.getRequiredAction(dpl.Status)
@@ -72,11 +89,15 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 	cState := ClusterState{
 		Nodes: nodes,
 	}
+
+	numMasters := getMasterCount(dpl)
+	numDatas := getDataCount(dpl)
+
 	var i int32
 	for nodeNum, node := range dpl.Spec.Nodes {
 
 		for i = 1; i <= node.Replicas; i++ {
-			nodeCfg, err := constructNodeSpec(dpl, node, configMapName, serviceAccountName, int32(nodeNum), i)
+			nodeCfg, err := constructNodeSpec(dpl, node, configMapName, serviceAccountName, int32(nodeNum), i, numMasters, numDatas)
 			if err != nil {
 				return cState, fmt.Errorf("Unable to construct ES node config %v", err)
 			}
