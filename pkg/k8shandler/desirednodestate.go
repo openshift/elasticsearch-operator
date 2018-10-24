@@ -418,7 +418,6 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 			},
 		},
 		ReadinessProbe: &probe,
-		LivenessProbe:  &probe,
 		VolumeMounts:   cfg.getVolumeMounts(),
 		Resources:      cfg.ESNodeSpec.Spec.Resources,
 	}
