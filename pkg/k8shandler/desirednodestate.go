@@ -21,7 +21,6 @@ const (
 	elasticsearchConfigPath   = "/usr/share/java/elasticsearch/config"
 	elasticsearchDefaultImage = "quay.io/openshift/logging-elasticsearch5"
 	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
-	promUser                  = "prometheus"
 )
 
 type nodeState struct {
@@ -368,10 +367,6 @@ func (cfg *desiredNodeState) getEnvVars() []v1.EnvVar {
 		v1.EnvVar{
 			Name:  "HAS_DATA",
 			Value: strconv.FormatBool(cfg.isNodeData()),
-		},
-		v1.EnvVar{
-			Name:  "PROMETHEUS_USER",
-			Value: promUser,
 		},
 		v1.EnvVar{
 			Name:  "PRIMARY_SHARDS",
