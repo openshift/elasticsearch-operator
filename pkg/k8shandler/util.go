@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"fmt"
+	"os"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -377,4 +378,11 @@ func isValidMasterCount(cluster *v1alpha1.Elasticsearch) bool {
 	}
 
 	return (masterCount <= MAX_MASTER_COUNT)
+}
+
+func LookupEnvWithDefault(envName, defaultValue string) string {
+	if value, ok := os.LookupEnv(envName); ok {
+		return value
+	}
+	return defaultValue
 }

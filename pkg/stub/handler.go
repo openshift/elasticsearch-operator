@@ -53,6 +53,11 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 		return fmt.Errorf("Failed to reconcile ConfigMaps for Elasticsearch cluster: %v", err)
 	}
 
+	// Ensure existence of prometheus rules
+	if err = k8shandler.CreateOrUpdatePrometheusRules(es); err != nil {
+		return fmt.Errorf("Failed to reconcile PrometheusRules for Elasticsearch cluster: %v", err)
+	}
+
 	// TODO: Ensure existence of storage?
 
 	// Ensure Elasticsearch cluster itself is up to spec
