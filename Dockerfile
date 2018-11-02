@@ -15,8 +15,11 @@ RUN make
 FROM openshift/origin-base
 
 ENV PATH="/usr/local/bin:${PATH}"
+ENV ALERTS_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_alerts.yml"
+ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/Prometheus_rules.yml"
 
 COPY --from=builder /tmp/elasticsearch-operator/_output/bin/elasticsearch-operator /usr/local/bin/
+COPY files/ /etc/elasticsearch-operator/files/
 
 WORKDIR /usr/local/bin
 ENTRYPOINT ["elasticsearch-operator"]

@@ -20,6 +20,12 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  name = "github.com/coreos/prometheus-operator"
+  packages = ["pkg/client/monitoring/v1"]
+  revision = "82a6ad2071ff653e38b3b4719ecb789d73f3ab05"
+  version = "v0.25.0"
+
+[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
@@ -56,7 +62,7 @@
   name = "github.com/go-openapi/spec"
   packages = ["."]
   revision = "5bae59e25b21498baea7f9d46e9c147ec106a42e"
-  version = "v0.17.1"
+  version = "v0.17.2"
 
 [[projects]]
   name = "github.com/go-openapi/swag"
@@ -202,6 +208,12 @@
   packages = ["."]
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
@@ -424,6 +436,7 @@
 [[projects]]
   name = "k8s.io/client-go"
   packages = [
+    "deprecated-dynamic",
     "discovery",
     "discovery/cached",
     "dynamic",
@@ -535,7 +548,6 @@
   revision = "7338e4bfd6915369a1375890db1bbda0158c9863"
 
 [[projects]]
-  branch = "master"
   name = "k8s.io/kube-openapi"
   packages = [
     "cmd/openapi-gen/args",
@@ -544,7 +556,7 @@
     "pkg/generators/rules",
     "pkg/util/sets"
   ]
-  revision = "96e8bb74ecdddb93a882ef95d2b8ec49e93168ee"
+  revision = "0cf8f7e6ed1d2e3d47d02e3b6e559369af24d803"
 
 [[projects]]
   name = "sigs.k8s.io/controller-runtime"
@@ -552,12 +564,12 @@
     "pkg/client",
     "pkg/client/apiutil"
   ]
-  revision = "53fc44b56078cd095b11bd44cfa0288ee4cf718f"
-  version = "v0.1.4"
+  revision = "5fd1e9e9fac5261e9ad9d47c375afc014fc31d21"
+  version = "v0.1.7"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "50986d8f99f2c507547c5f03cc031fb27ea99209f07a85f8e802e318c7650c18"
+  inputs-digest = "20a880019c6407f178d137ab7ac34300bb3ad014288b68231e9212d080b8359c"
   solver-name = "gps-cdcl"
   solver-version = 1
