@@ -50,6 +50,7 @@ type actualNodeState struct {
 	Deployment  *apps.Deployment
 	ReplicaSet  *apps.ReplicaSet
 	Pod         *v1.Pod
+	// Roles       []v1alpha1.ElasticsearchNodeRole
 }
 
 func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.ElasticsearchNode, configMapName, serviceAccountName string, nodeNum int32, replicaNum int32, masterNum, dataNum int32) (desiredNodeState, error) {
@@ -170,6 +171,7 @@ func (cfg *desiredNodeState) getLabels() map[string]string {
 	labels["es-node-data"] = strconv.FormatBool(cfg.isNodeData())
 	labels["es-node-master"] = strconv.FormatBool(cfg.isNodeMaster())
 	labels["cluster-name"] = cfg.ClusterName
+	labels["component"] = cfg.ClusterName
 	return labels
 }
 

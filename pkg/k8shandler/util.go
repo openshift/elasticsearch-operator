@@ -289,6 +289,23 @@ func listPods(clusterName, namespace string) (*v1.PodList, error) {
 	return podList, nil
 }
 
+func listRunningPods(clusterName, namespace string) (*v1.PodList, error) {
+	pods, err := listPods(clusterName, namespace)
+	if err != nil {
+		return nil, err
+	}
+	// empty slice with memory allocated for len(pods.Items) v1.Pod objects
+	runningPods := make([]v1.Pod, 0, len(pods.Items))
+	for _, pod := range pods.Items {
+		if pod.Status.Phase == v1.PodRunning {
+			runningPods = append(runningPods, pod)
+		}
+	}
+	result := podList()
+	result.Items = runningPods
+	return result, nil
+}
+
 // getPodNames returns the pod names of the array of pods passed in
 func getPodNames(pods []v1.Pod) []string {
 	var podNames []string
@@ -380,7 +397,7 @@ func isValidMasterCount(cluster *v1alpha1.Elasticsearch) bool {
 	return (masterCount <= MAX_MASTER_COUNT)
 }
 
-func LookupEnvWithDefault(envName, defaultValue string) string {
+func lookupEnvWithDefault(envName, defaultValue string) string {
 	if value, ok := os.LookupEnv(envName); ok {
 		return value
 	}

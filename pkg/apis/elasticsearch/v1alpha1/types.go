@@ -61,11 +61,12 @@ type ElasticsearchNodeStorageSource struct {
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
 type ElasticsearchNodeStatus struct {
-	DeploymentName  string `json:"deploymentName,omitempty"`
-	ReplicaSetName  string `json:"replicaSetName,omitempty"`
-	StatefulSetName string `json:"statefulSetName,omitempty"`
-	PodName         string `json:"podName,omitempty"`
-	Status          string `json:"status,omitempty"`
+	DeploymentName  string                  `json:"deploymentName,omitempty"`
+	ReplicaSetName  string                  `json:"replicaSetName,omitempty"`
+	StatefulSetName string                  `json:"statefulSetName,omitempty"`
+	PodName         string                  `json:"podName,omitempty"`
+	Status          string                  `json:"status,omitempty"`
+	Roles           []ElasticsearchNodeRole `json:"roles,omitempty"`
 }
 
 // ElasticsearchSpec struct represents the Spec of Elasticsearch cluster CRD
@@ -93,7 +94,6 @@ const (
 	ElasticsearchActionNewClusterNeeded     ElasticsearchRequiredAction = "NewClusterNeeded"
 	ElasticsearchActionNone                 ElasticsearchRequiredAction = "ClusterOK"
 	ElasticsearchActionScaleDownNeeded      ElasticsearchRequiredAction = "ScaleDownNeeded"
-	ElasticsearchActionStatusUpdateNeeded   ElasticsearchRequiredAction = "StatusUpdateNeeded"
 )
 
 type ElasticsearchNodeRole string
@@ -107,7 +107,6 @@ const (
 // ElasticsearchStatus represents the status of Elasticsearch cluster
 type ElasticsearchStatus struct {
 	// Fill me
-	Nodes    []ElasticsearchNodeStatus   `json:"nodes"`
-	K8sState ElasticsearchRequiredAction `json:"clusterState"`
-	Message  string                      `json:"message"`
+	Nodes         []ElasticsearchNodeStatus `json:"nodes"`
+	ClusterHealth string                    `json:"clusterHealth"`
 }

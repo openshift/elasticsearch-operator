@@ -41,11 +41,11 @@ func CreateOrUpdatePrometheusRules(dpl *v1alpha1.Elasticsearch) error {
 }
 
 func buildPrometheusRule(ruleName string, namespace string, labels map[string]string) (*monitoringv1.PrometheusRule, error) {
-	alertsRuleSpec, err := ruleSpec(LookupEnvWithDefault("ALERTS_FILE_PATH", alertsFilePath))
+	alertsRuleSpec, err := ruleSpec(lookupEnvWithDefault("ALERTS_FILE_PATH", alertsFilePath))
 	if err != nil {
 		return nil, err
 	}
-	rulesRuleSpec, err := ruleSpec(LookupEnvWithDefault("RULES_FILE_PATH", rulesFilePath))
+	rulesRuleSpec, err := ruleSpec(lookupEnvWithDefault("RULES_FILE_PATH", rulesFilePath))
 	if err != nil {
 		return nil, err
 	}
