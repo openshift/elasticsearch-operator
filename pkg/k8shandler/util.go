@@ -57,6 +57,17 @@ func labelsForESCluster(clusterName string) map[string]string {
 	}
 }
 
+func appendDefaultLabel(clusterName string, labels map[string]string) map[string]string {
+	if _, ok := labels["cluster-name"]; ok {
+		return labels
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels["cluster-name"] = clusterName
+	return labels
+}
+
 // asOwner returns an owner reference set as the vault cluster CR
 func asOwner(v *api.Elasticsearch) metav1.OwnerReference {
 	trueVar := true

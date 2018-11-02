@@ -59,6 +59,11 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 		return fmt.Errorf("Failed to reconcile PrometheusRules for Elasticsearch cluster: %v", err)
 	}
 
+	// Ensure existence of service monitors
+	if err = k8shandler.CreateOrUpdateServiceMonitors(es); err != nil {
+		return fmt.Errorf("Failed to reconcile Service Monitors for Elasticsearch cluster: %v", err)
+	}
+
 	// TODO: Ensure existence of storage?
 
 	// Ensure Elasticsearch cluster itself is up to spec
