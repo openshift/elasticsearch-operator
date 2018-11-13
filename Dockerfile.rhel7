@@ -6,7 +6,7 @@ RUN make
 FROM registry.svc.ci.openshift.org/ocp/4.0:base
 
 ENV ALERTS_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_alerts.yml"
-ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/Prometheus_rules.yml"
+ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_rules.yml"
 
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/_output/bin/elasticsearch-operator /usr/bin/
 COPY files/ /etc/elasticsearch-operator/files/
