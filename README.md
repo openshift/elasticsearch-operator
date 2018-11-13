@@ -7,7 +7,7 @@
 Elasticsearch operator to run Elasticsearch cluster on top of Openshift and Kubernetes.
 Operator uses [Operator Framework SDK](https://github.com/operator-framework/operator-sdk).
 
-## Why use operator?
+## Why Use An Operator?
 
 Operator is designed to provide self-service for the Elasticsearch cluster operations. See the [diagram](https://github.com/operator-framework/operator-sdk/blob/master/doc/images/Operator-Maturity-Model.png) on operator maturity model.
 
@@ -22,7 +22,7 @@ Operator is designed to provide self-service for the Elasticsearch cluster opera
 
 - Cluster administrator must set `vm.max_map_count` sysctl to 262144 on the host level of each node in your cluster prior to running the operator.
 - In case hostmounted volume is used, the directory on the host must have 777 permissions and the following selinux labels (TODO).
-- In case secure cluster is used the certificates must be pre-generated and uploaded to the secret `<elasticsearch_cluster_name>-certs`
+- In case secure cluster is used, the certificates must be pre-generated and uploaded to the secret `<elasticsearch_cluster_name>-certs`
 
 ### Kubernetes
 
@@ -55,7 +55,7 @@ For example:
 
     $ oc process NAMESPACE=myproject ELASTICSEARCH_ADMIN_USER=developer -f deploy/openshift/admin-elasticsearch-template.yaml | oc apply -f -
 
-In case later-on grant permissions to extra users by giving them the role `elasticsearch-operator`.
+Grant permissions to extra users by giving them the role `elasticsearch-operator`.
 
 As the user which was specified as `ELASTICSEARCH_ADMIN_USER` on previous step:
 
@@ -74,11 +74,27 @@ For example:
 
     $ oc process NAMESPACE=myproject ELASTICSEARCH_CLUSTER_NAME=elastic1 -f deploy/openshift/elasticsearch-template.yaml | oc apply -f -
 
+### Openshift Alternatives - Make targets
+It is additionally possible to deploy the operator to an Openshift cluster using the provided make targets.  These
+targets assume you have cluster admin access. Following are a few of these targets:
+
+#### deploy
+Deploy the resources for the operator, build the operator image, push the image to the Openshift registry
+
+#### deploy-setup
+Deploy the pre-requirements for the operator to function (i.e. CRD, RBAC, sample secret)
+
+#### deploy-example
+Deploy an example custom resource for a single node Elasticsearch cluster
+
+#### deploy-undeploy
+Remove all deployed resources
+
 ## Customize your cluster
 
 ### Image customization
 
-The operator is designed to work with `openshift/origin-aggregated-logging` image.
+The operator is designed to work with `openshift/logging-elasticsearch5` image.
 
 ### Storage configuration
 
@@ -114,7 +130,7 @@ Kubernetes TBD+ and OpenShift TBD+ are supported.
 - [x] Clientdata role
 - [x] Clientdatamaster role
 - [ ] Elasticsearch snapshots
-- [ ] Prometheus monitoring
+- [x] Prometheus monitoring
 - [ ] Status monitoring
 - [ ] Rolling restarts
 
@@ -122,11 +138,9 @@ Kubernetes TBD+ and OpenShift TBD+ are supported.
 
 In a real deployment OpenShift monitoring will be installed.  However
 for testing purposes, you should install the monitoring CRDs:
-
-    oc create -n openshift-logging -f \
-    https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/prometheusrule.crd.yaml
-    oc create -n openshift-logging -f \
-    https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/servicemonitor.crd.yaml
+```
+make deploy-setup
+```
 
 ### E2E Testing
 To run the e2e tests, from the repo directory, run:
@@ -141,22 +155,20 @@ To set up your local environment based on what will be provided by OLM, run:
 ```
 sudo sysctl -w vm.max_map_count=262144
 ELASTICSEARCH_OPERATOR=$GOPATH/src/github.com/openshift/elasticsearch-operator
-
-oc create -n openshift-logging -f $ELASTICSEARCH_OPERATOR/deploy/service_account.yaml
-oc create -n openshift-logging -f $ELASTICSEARCH_OPERATOR/deploy/role.yaml
-oc create -n openshift-logging -f $ELASTICSEARCH_OPERATOR/deploy/role_binding.yaml
-oc create -n openshift-logging -f $ELASTICSEARCH_OPERATOR/deploy/crds/crd.yaml
-
-oc create -n openshift-logging -f $ELASTICSEARCH_OPERATOR/deploy/cr.yaml
+make deploy-setup
+make deploy-example
 ```
 
 To test on an OCP cluster, you can run:
 
-    ALERTS_FILE_PATH=files/prometheus_alerts.yml RULES_FILE_PATH=files/prometheus_rules.yml \
+    ALERTS_FILE_PATH=files/prometheus_alerts.yml \
+    RULES_FILE_PATH=files/prometheus_rules.yml \
     OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
     KUBERNETES_CONFIG=/etc/origin/master/admin.kubeconfig \
     go run cmd/elasticsearch-operator/main.go
 
 
 To remove created API objects:
-`oc delete Elasticsearch elasticsearch -n openshift-logging`
+```
+make undeploy
+```
