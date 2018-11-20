@@ -357,14 +357,6 @@ func (cfg *desiredNodeState) getEnvVars() []v1.EnvVar {
 			Value: heapDumpLocation,
 		},
 		v1.EnvVar{
-			Name:  "NODE_QUORUM",
-			Value: strconv.Itoa(int(cfg.MasterNum/2 + 1)),
-		},
-		v1.EnvVar{
-			Name:  "RECOVER_EXPECTED_NODES",
-			Value: strconv.Itoa(int(cfg.DataNum)),
-		},
-		v1.EnvVar{
 			Name:  "RECOVER_AFTER_TIME",
 			Value: "5m",
 		},
@@ -383,14 +375,6 @@ func (cfg *desiredNodeState) getEnvVars() []v1.EnvVar {
 		v1.EnvVar{
 			Name:  "HAS_DATA",
 			Value: strconv.FormatBool(cfg.isNodeData()),
-		},
-		v1.EnvVar{
-			Name:  "PRIMARY_SHARDS",
-			Value: strconv.Itoa(int(cfg.DataNum)),
-		},
-		v1.EnvVar{
-			Name:  "REPLICA_SHARDS",
-			Value: "0",
 		},
 	}
 }
@@ -481,9 +465,8 @@ func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool
 			},
 		}
 		return pvc, true, nil
-	} else {
-		return v1.PersistentVolumeClaim{}, false, fmt.Errorf("Unsupported volume configuration for master in cluster %s", cfg.ClusterName)
 	}
+	return v1.PersistentVolumeClaim{}, false, fmt.Errorf("Unsupported volume configuration for master in cluster %s", cfg.ClusterName)
 }
 
 func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
