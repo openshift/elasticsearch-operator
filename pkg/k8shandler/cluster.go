@@ -88,6 +88,20 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	return nil
 }
 
+// func lockCluster(cState *ClusterState, isLocked bool) {
+// 	fmt.Printf("Changing cluster lock to: %t...\n", isLocked)
+// 	for _, node := range cState.Nodes {
+// 		deployment := node.Actual.Deployment
+// 		if deployment != nil {
+// 			deployment.Spec.Paused = isLocked
+// 			if err := sdk.Update(deployment); err != nil {
+// 				fmt.Printf("couldnt lock deployment: %v\n", err)
+// 			}
+// 		}
+// 	}
+
+// }
+
 // NewClusterState func generates ClusterState for the current cluster
 func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) (ClusterState, error) {
 	nodes := []*nodeState{}
