@@ -129,7 +129,7 @@ for testing purposes, you should install the monitoring CRDs:
     https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/servicemonitor.crd.yaml
 
 ### E2E Testing
-To run the e2e tests, from the repo directory, run:
+To run the e2e tests, install the above CRDs and from the repo directory, run:
 ```
 sudo sysctl -w vm.max_map_count=262144
 imagebuilder -t quay.io/openshift/elasticsearch-operator .
