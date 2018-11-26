@@ -172,6 +172,7 @@ func (cfg *desiredNodeState) getLabels() map[string]string {
 	labels["es-node-master"] = strconv.FormatBool(cfg.isNodeMaster())
 	labels["cluster-name"] = cfg.ClusterName
 	labels["component"] = cfg.ClusterName
+	labels["tuned.openshift.io/elasticsearch"] = "true"
 	return labels
 }
 
