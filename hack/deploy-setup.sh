@@ -3,7 +3,7 @@
 # to deploy an Elasticsearch cluster.  It assumes it is capable of login as a
 # user who has the cluster-admin role
 
-set -e
+set -euxo pipefail
 
 source "$(dirname $0)/common"
 
