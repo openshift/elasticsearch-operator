@@ -9,7 +9,6 @@ import (
 
 	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	"github.com/sirupsen/logrus"
 )
 
 // ClusterState struct represents the state of the cluster
@@ -46,8 +45,6 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	if err != nil {
 		return err
 	}
-	// TODO: get rid of this message as part of LOG-206
-	logrus.Infof("cluster %s required action is: %v", dpl.Name, action)
 
 	switch {
 	case action == v1alpha1.ElasticsearchActionNewClusterNeeded:
@@ -177,7 +174,6 @@ func (cState *ClusterState) buildNewCluster(owner metav1.OwnerReference) error {
 // list existing StatefulSets and delete those unmanaged by the operator
 func (cState *ClusterState) removeStaleNodes() error {
 	for _, node := range cState.DanglingDeployments.Items {
-		//logrus.Infof("found statefulset: %v", node.getResource().ObjectMeta.Name)
 		// the returned deployment doesn't have TypeMeta, so we're adding it.
 		node.TypeMeta = metav1.TypeMeta{
 			Kind:       "Deployment",
