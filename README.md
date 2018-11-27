@@ -158,9 +158,7 @@ make deploy-setup
 ### E2E Testing
 To run the e2e tests, install the above CRDs and from the repo directory, run:
 ```
-sudo sysctl -w vm.max_map_count=262144
-imagebuilder -t quay.io/openshift/elasticsearch-operator .
-operator-sdk test local --namespace openshift-logging ./test/e2e/
+make test-e2e
 ```
 
 ### Dev Testing
