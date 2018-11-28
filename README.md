@@ -75,6 +75,10 @@ For example:
     $ oc process NAMESPACE=myproject ELASTICSEARCH_CLUSTER_NAME=elastic1 -f deploy/openshift/elasticsearch-template.yaml | oc apply -f -
 
 ### Openshift Alternatives - Make targets
+If you are using an image built in a different node, you can specify to use a remote registry by setting
+the environment variable `REMOTE_REGISTRY=true` before running any of the targets below.  See `hack/deploy-image.sh`
+and `hack/deploy.sh` for more details.
+
 It is additionally possible to deploy the operator to an Openshift cluster using the provided make targets.  These
 targets assume you have cluster admin access. Following are a few of these targets:
 
@@ -90,11 +94,20 @@ Deploy an example custom resource for a single node Elasticsearch cluster
 #### deploy-undeploy
 Remove all deployed resources
 
+#### go-run
+Deploy the example cluster and start running the operator.  The end result is that there will be an
+`elasticsearch` custom resource, and an elasticsearch pod running.  You can view the operator log by
+looking at the log file specified by `$(RUN_LOG)` (default `elasticsearch-operator.log`).  The command
+is run in the background - when finished, kill the process by killing the pid, which is written to the
+file `$(RUN_PID)` (default `elasticsearch-operator.pid`) e.g. `kill $(cat elasticsearch-operator.pid)`
+
 ## Customize your cluster
 
 ### Image customization
 
-The operator is designed to work with `openshift/logging-elasticsearch5` image.
+The operator is designed to work with `openshift/origin-logging-elasticsearch5` image.  To use
+a different image, edit `manifests/image-references` before deployment, or edit the elasticsearch
+cr after deployment e.g. `oc edit elasticsearch elasticsearch`.
 
 ### Storage configuration
 
@@ -151,6 +164,9 @@ operator-sdk test local --namespace openshift-logging ./test/e2e/
 ```
 
 ### Dev Testing
+You should first ensure that you have commands such as `imagebuilder` and `operator-sdk`
+available by using something like `https://github.com/openshift/origin-aggregated-logging/blob/master/hack/sdk_setup.sh`.
+
 To set up your local environment based on what will be provided by OLM, run:
 ```
 sudo sysctl -w vm.max_map_count=262144
@@ -161,12 +177,7 @@ make deploy-example
 
 To test on an OCP cluster, you can run:
 
-    ALERTS_FILE_PATH=files/prometheus_alerts.yml \
-    RULES_FILE_PATH=files/prometheus_rules.yml \
-    OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
-    KUBERNETES_CONFIG=/etc/origin/master/admin.kubeconfig \
-    go run cmd/elasticsearch-operator/main.go
-
+    make go-run
 
 To remove created API objects:
 ```

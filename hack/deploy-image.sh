@@ -1,6 +1,10 @@
 #!/bin/bash
 
-set -e
+if [ "${REMOTE_REGISTRY:-false}" = false ] ; then
+    exit 0
+fi
+
+set -euxo pipefail
 
 source "$(dirname $0)/common"
 
