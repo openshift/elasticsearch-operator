@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -23,34 +24,22 @@ const (
 	logFormatLogfmt = "logfmt"
 	logFormatJSON   = "json"
 
-	// supported log levels
-	logLevelPanic = "panic"
-	logLevelFatal = "fatal"
-	logLevelError = "error"
-	logLevelWarn  = "warn"
-	logLevelInfo  = "info"
-	logLevelDebug = "debug"
-
 	// env vars
 	logLevelEnv  = "LOG_LEVEL"
 	logFormatEnv = "LOG_FORMAT"
 )
 
 var (
-	logLevel           string
-	logFormat          string
-	availableLogLevels = []string{
-		logLevelPanic,
-		logLevelFatal,
-		logLevelError,
-		logLevelWarn,
-		logLevelInfo,
-		logLevelDebug,
-	}
+	logLevel            string
+	logFormat           string
+	availableLogLevels  string
 	availableLogFormats = []string{
 		logFormatLogfmt,
 		logFormatJSON,
 	}
+	// this is a constant, but can't be in the `const` section because
+	// the value is a runtime function return value
+	defaultLogLevel = logrus.InfoLevel.String()
 )
 
 func printVersion() {
@@ -60,11 +49,20 @@ func printVersion() {
 }
 
 func init() {
+	// create availableLogLevels
+	buf := &bytes.Buffer{}
+	comma := ""
+	for _, logrusLevel := range logrus.AllLevels {
+		buf.WriteString(comma)
+		buf.WriteString(logrusLevel.String())
+		comma = ", "
+	}
+	availableLogLevels = buf.String()
 	// default values are ""
 	// that means that if no arguments are provided env variables take precedence
 	// otherwise command-line arguments take precendence
 	flagset := flag.CommandLine
-	flagset.StringVar(&logLevel, "log-level", "", fmt.Sprintf("Log level to use. Possible values: %s", strings.Join(availableLogLevels, ", ")))
+	flagset.StringVar(&logLevel, "log-level", "", fmt.Sprintf("Log level to use. Possible values: %s", availableLogLevels))
 	flagset.StringVar(&logFormat, "log-format", "", fmt.Sprintf("Log format to use. Possible values: %s", strings.Join(availableLogFormats, ", ")))
 	flagset.Parse(os.Args[1:])
 }
@@ -72,7 +70,7 @@ func init() {
 func initLogger() error {
 	// first check cmd arguments, then environment variables
 	if logLevel == "" {
-		logLevel = utils.LookupEnvWithDefault(logLevelEnv, logLevelInfo)
+		logLevel = utils.LookupEnvWithDefault(logLevelEnv, defaultLogLevel)
 	}
 	if logFormat == "" {
 		logFormat = utils.LookupEnvWithDefault(logFormatEnv, logFormatLogfmt)
@@ -81,7 +79,7 @@ func initLogger() error {
 	// set log level, default to info level
 	level, err := logrus.ParseLevel(logLevel)
 	if err != nil {
-		return fmt.Errorf("log level '%s' unknown, %v are possible values", logLevel, availableLogLevels)
+		return fmt.Errorf("log level '%s' unknown.  Possible values: %v", logLevel, availableLogLevels)
 	}
 	logrus.SetLevel(level)
 
