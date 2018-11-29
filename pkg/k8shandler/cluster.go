@@ -41,7 +41,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 		wrongConfig = false
 	}
 
-	action, err := cState.getRequiredAction(dpl.Status)
+	action, err := cState.getRequiredAction(dpl)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 
 // getRequiredAction checks the desired state against what's present in current
 // deployments/statefulsets/pods
-func (cState *ClusterState) getRequiredAction(status v1alpha1.ElasticsearchStatus) (v1alpha1.ElasticsearchRequiredAction, error) {
+func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1alpha1.ElasticsearchRequiredAction, error) {
 	// TODO: Add condition that if an operation is currently in progress
 	// not to try to queue another action. Instead return ElasticsearchActionInProgress which
 	// is noop.
@@ -138,24 +138,28 @@ func (cState *ClusterState) getRequiredAction(status v1alpha1.ElasticsearchStatu
 	// TODO: implement better logic to understand when new cluster is needed
 	// maybe RequiredAction ElasticsearchActionNewClusterNeeded should be renamed to
 	// ElasticsearchActionAddNewNodes - will blindly add new nodes to the cluster.
-	for _, node := range cState.Nodes {
-		if node.Actual.Deployment == nil && node.Actual.StatefulSet == nil {
-			return v1alpha1.ElasticsearchActionNewClusterNeeded, nil
-		}
-	}
 
-	// TODO: implement rolling restart action if any deployment/configmap actually deployed
-	// is different from the desired.
-	for _, node := range cState.Nodes {
-		if node.Desired.IsUpdateNeeded() {
-			return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
-		}
-	}
+	if dpl.Spec.ManagementState == v1alpha1.ManagementStateManaged {
 
-	// If some deployments exist that are not specified in CR, they'll be in DanglingDeployments
-	// we need to remove those to comply with the desired cluster structure.
-	if cState.DanglingDeployments != nil {
-		return v1alpha1.ElasticsearchActionScaleDownNeeded, nil
+		for _, node := range cState.Nodes {
+			if node.Actual.Deployment == nil && node.Actual.StatefulSet == nil {
+				return v1alpha1.ElasticsearchActionNewClusterNeeded, nil
+			}
+		}
+
+		// TODO: implement rolling restart action if any deployment/configmap actually deployed
+		// is different from the desired.
+		for _, node := range cState.Nodes {
+			if node.Desired.IsUpdateNeeded() {
+				return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
+			}
+		}
+
+		// If some deployments exist that are not specified in CR, they'll be in DanglingDeployments
+		// we need to remove those to comply with the desired cluster structure.
+		if cState.DanglingDeployments != nil {
+			return v1alpha1.ElasticsearchActionScaleDownNeeded, nil
+		}
 	}
 
 	return v1alpha1.ElasticsearchActionNone, nil
