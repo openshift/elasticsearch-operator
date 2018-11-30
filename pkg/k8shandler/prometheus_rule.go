@@ -35,7 +35,7 @@ func CreateOrUpdatePrometheusRules(dpl *v1alpha1.Elasticsearch) error {
 		return err
 	}
 
-	//TODO: handle update
+	//TODO: handle update - use retry.RetryOnConflict
 
 	return nil
 }
