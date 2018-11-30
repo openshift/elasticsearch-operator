@@ -45,9 +45,16 @@ func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 	return nil
 }
 
-func updateNodeStatus(node *nodeState, status *v1alpha1.ElasticsearchStatus) {
+func updateNodeStatus(node *nodeState, status *v1alpha1.ElasticsearchStatus) *v1alpha1.ElasticsearchNodeStatus {
+	if status.Nodes == nil {
+		status.Nodes = []v1alpha1.ElasticsearchNodeStatus{}
+	}
 
-	nodeStatus := v1alpha1.ElasticsearchNodeStatus{}
+	_, nodeStatus := statusExists(node, status)
+	if nodeStatus == nil {
+		nodeStatus = &v1alpha1.ElasticsearchNodeStatus{}
+		nodeStatus.UnderUpgrade = v1alpha1.UnderUpgradeFalse
+	}
 	if node.Actual.Deployment != nil {
 		nodeStatus.DeploymentName = node.Actual.Deployment.Name
 	}
@@ -68,7 +75,28 @@ func updateNodeStatus(node *nodeState, status *v1alpha1.ElasticsearchStatus) {
 	if node.Desired.Roles != nil {
 		nodeStatus.Roles = node.Desired.Roles
 	}
-	status.Nodes = append(status.Nodes, nodeStatus)
+	return nodeStatus
+}
+
+func statusExists(node *nodeState, status *v1alpha1.ElasticsearchStatus) (int, *v1alpha1.ElasticsearchNodeStatus) {
+	var deploymentName string
+	if node.Actual.Deployment != nil {
+		deploymentName = node.Actual.Deployment.Name
+	}
+	if node.Actual.StatefulSet != nil {
+		deploymentName = node.Actual.StatefulSet.Name
+	}
+	if deploymentName == "" {
+		return -1, nil
+	}
+
+	for index, nodeStatus := range status.Nodes {
+		if deploymentName == nodeStatus.DeploymentName ||
+			deploymentName == nodeStatus.StatefulSetName {
+			return index, &nodeStatus
+		}
+	}
+	return -1, nil
 }
 
 func updateStatusConditions(status *v1alpha1.ElasticsearchStatus) {

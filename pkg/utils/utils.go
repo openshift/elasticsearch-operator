@@ -1,11 +1,8 @@
 package utils
 
 import (
-	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -169,59 +166,4 @@ func IsRestarting(status *api.ElasticsearchStatus) bool {
 		return true
 	}
 	return false
-}
-
-func UpdateClusterSettings(pod *v1.Pod, quorum int) error {
-	command := []string{"sh", "-c",
-		fmt.Sprintf("es_util --query=_cluster/settings -H 'Content-Type: application/json' -X PUT -d '{\"persistent\":{%s}}'",
-			minimumMasterNodesCommand(quorum))}
-
-	_, _, err := ElasticsearchExec(pod, command)
-
-	return err
-}
-
-func ClusterHealth(pod *v1.Pod) (map[string]interface{}, error) {
-	command := []string{"es_util", "--query=_cluster/health?pretty=true"}
-	execOut, _, err := ElasticsearchExec(pod, command)
-	if err != nil {
-		logrus.Debug(err)
-		return nil, err
-	}
-
-	var result map[string]interface{}
-
-	err = json.Unmarshal(execOut.Bytes(), &result)
-	if err != nil {
-		logrus.Debug("could not unmarshal: %v", err)
-		return nil, err
-	}
-	return result, nil
-}
-
-func NumberOfNodes(pod *v1.Pod) int {
-	healthResponse, err := ClusterHealth(pod)
-	if err != nil {
-		return -1
-	}
-
-	// is it present?
-	value, present := healthResponse["number_of_nodes"]
-	if !present {
-		return -1
-	}
-
-	// json numbers are represented as floats
-	// so let's convert from type interface{} to float
-	numberofNodes, ok := value.(float64)
-	if !ok {
-		return -1
-	}
-
-	// wow that's a lot of boilerplate...
-	return int(numberofNodes)
-}
-
-func minimumMasterNodesCommand(nodes int) string {
-	return fmt.Sprintf("%s:%d", strconv.Quote("discovery.zen.minimum_master_nodes"), nodes)
 }

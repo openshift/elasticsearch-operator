@@ -89,6 +89,7 @@ type ElasticsearchNodeStatus struct {
 	StatefulSetName string                  `json:"statefulSetName,omitempty"`
 	PodName         string                  `json:"podName,omitempty"`
 	Status          string                  `json:"status,omitempty"`
+	UnderUpgrade    UpgradeStatus           `json:"underUpgrade,omitempty"`
 	Roles           []ElasticsearchNodeRole `json:"roles,omitempty"`
 }
 
@@ -97,6 +98,13 @@ type ElasticsearchNodeSpec struct {
 	Image     string                  `json:"image,omitempty"`
 	Resources v1.ResourceRequirements `json:"resources"`
 }
+
+type UpgradeStatus string
+
+const (
+	UnderUpgradeTrue  UpgradeStatus = "True"
+	UnderUpgradeFalse UpgradeStatus = "False"
+)
 
 type ElasticsearchRequiredAction string
 
@@ -119,10 +127,11 @@ const (
 
 // ElasticsearchStatus represents the status of Elasticsearch cluster
 type ElasticsearchStatus struct {
-	Nodes         []ElasticsearchNodeStatus             `json:"nodes"`
-	ClusterHealth string                                `json:"clusterHealth"`
-	Pods          map[ElasticsearchNodeRole]PodStateMap `json:"pods"`
-	Conditions    []ClusterCondition                    `json:"conditions"`
+	Nodes                  []ElasticsearchNodeStatus             `json:"nodes"`
+	ClusterHealth          string                                `json:"clusterHealth"`
+	ShardAllocationEnabled bool                                  `json:"shardAllocationEnabled"`
+	Pods                   map[ElasticsearchNodeRole]PodStateMap `json:"pods"`
+	Conditions             []ClusterCondition                    `json:"conditions"`
 }
 
 type PodStateMap map[PodStateType][]string

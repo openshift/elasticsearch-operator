@@ -233,6 +233,12 @@ func popReplicaSet(replicaSets *apps.ReplicaSetList, cfg actualNodeState) (*apps
 		return replicaSets, replicaSet, false
 	}
 	for i, rsItem := range replicaSets.Items {
+		// multiple ReplicaSets managed by single Deployment can exist, before they're GC'd
+		desiredReplicas := *rsItem.Spec.Replicas
+		if desiredReplicas == 0 {
+			// ignore old ReplicaSets
+			continue
+		}
 		if isOwner(rsItem.ObjectMeta, cfg.Deployment.ObjectMeta) {
 			replicaSet = rsItem
 			index = i
@@ -332,6 +338,17 @@ func listRunningMasterPods(clusterName, namespace string) (*v1.PodList, error) {
 	result := podList()
 	result.Items = masterPods
 	return result, nil
+}
+
+func getRunningMasterPod(clusterName, namespace string) (*v1.Pod, error) {
+	pods, err := listRunningMasterPods(clusterName, namespace)
+	if err != nil {
+		return nil, err
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("no running master pods found")
+	}
+	return &pods.Items[0], nil
 }
 
 // getPodNames returns the pod names of the array of pods passed in

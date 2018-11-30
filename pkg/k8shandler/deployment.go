@@ -111,8 +111,19 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 
 	replicas := cfg.getReplicas()
 
-	deployment := node.resource
-	//deployment(cfg.DeployName, node.resource.ObjectMeta.Namespace)
+	fmt.Printf("creating deployment: %s\n", cfg.DeployName)
+	// deployment := node.resource
+	deployment := apps.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfg.DeployName,
+			Namespace: cfg.Namespace,
+		},
+	}
+
 	deployment.ObjectMeta.Labels = cfg.getLabels()
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
