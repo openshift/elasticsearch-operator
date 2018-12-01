@@ -68,13 +68,21 @@ func clusterHealth(dpl *v1alpha1.Elasticsearch) string {
 
 	// use arbitrary pod
 	pod := pods.Items[0]
+	// when running in a pod, use the values provided for the sa
+	// this is primarily used when testing
+	kubeConfigPath := lookupEnvWithDefault("KUBERNETES_CONFIG", "")
+	masterURL := "https://kubernetes.default.svc"
+	if kubeConfigPath == "" {
+		// ExecConfig requires both are "", or both have a real value
+		masterURL = ""
+	}
 
 	config := &ExecConfig{
 		pod:            &pod,
 		containerName:  "elasticsearch",
 		command:        []string{"es_util", "--query=_cluster/health?pretty=true"},
-		kubeConfigPath: lookupEnvWithDefault("KUBERNETES_CONFIG", "/etc/origin/master/admin.kubeconfig"),
-		masterURL:      "https://kubernetes.default.svc",
+		kubeConfigPath: kubeConfigPath,
+		masterURL:      masterURL,
 		stdOut:         true,
 		stdErr:         true,
 		tty:            false,
