@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -217,15 +218,27 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 	}
 
 	if diff {
-		dep, err := node.constructNodeResource(cfg, metav1.OwnerReference{})
-		if err != nil {
-			return fmt.Errorf("Could not construct node resource for update: %v", err)
+		nretries := -1
+		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			nretries++
+			if getErr := node.query(); getErr != nil {
+				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
+				return getErr
+			}
+			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			if updateErr != nil {
+				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
+			}
+			logrus.Infof("Updating node resource %v", cfg.DeployName)
+			if updateErr = sdk.Update(dep); updateErr != nil {
+				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
+			}
+			return updateErr
+		})
+		if retryErr != nil {
+			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cfg.DeployName, nretries, retryErr)
 		}
-		logrus.Infof("Updating node resource %v", cfg.DeployName)
-		err = sdk.Update(dep)
-		if err != nil {
-			return fmt.Errorf("Failed to update node resource: %v", err)
-		}
+		logrus.Debugf("Updated Elasticsearch %v after %v retries", cfg.DeployName, nretries)
 	}
 	return nil
 }

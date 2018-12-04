@@ -51,6 +51,7 @@ func createOrUpdateConfigMap(configMapName, namespace, clusterName, kibanaIndexM
 		}
 
 		// TODO: Compare existing configMap labels, selectors and port
+		// TODO: And remember to wrap the Get/Update in a retry.RetryOnConflict
 	}
 	return nil
 }

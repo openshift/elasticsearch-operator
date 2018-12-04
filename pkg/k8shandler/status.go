@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/client-go/util/retry"
+
 	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
@@ -14,18 +16,31 @@ const healthUnknown = "cluster health unknown"
 
 // UpdateStatus updates the status of Elasticsearch CRD
 func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
-	dpl.Status.ClusterHealth = clusterHealth(dpl)
-	dpl.Status.Nodes = []v1alpha1.ElasticsearchNodeStatus{}
-	for _, node := range cState.Nodes {
-		updateNodeStatus(node, &dpl.Status)
-	}
+	nretries := -1
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		nretries++
+		if getErr := sdk.Get(dpl); getErr != nil {
+			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
+			return getErr
+		}
+		dpl.Status.ClusterHealth = clusterHealth(dpl)
+		dpl.Status.Nodes = []v1alpha1.ElasticsearchNodeStatus{}
+		for _, node := range cState.Nodes {
+			updateNodeStatus(node, &dpl.Status)
+		}
 
-	dpl.Status.Pods = rolePodStateMap(dpl.Namespace, dpl.Name)
-	err := sdk.Update(dpl)
-	if err != nil {
-		return fmt.Errorf("failed to update Elasticsearch status: %v", err)
-	}
+		dpl.Status.Pods = rolePodStateMap(dpl.Namespace, dpl.Name)
+		if updateErr := sdk.Update(dpl); updateErr != nil {
+			logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
+			return updateErr
+		}
+		return nil
+	})
 
+	if retryErr != nil {
+		return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", dpl.Name, nretries, retryErr)
+	}
+	logrus.Debugf("Updated Elasticsearch %v after %v retries", dpl.Name, nretries)
 	return nil
 }
 
