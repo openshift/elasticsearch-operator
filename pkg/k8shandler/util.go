@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -83,10 +82,12 @@ func getReadinessProbe() v1.Probe {
 	return v1.Probe{
 		TimeoutSeconds:      30,
 		InitialDelaySeconds: 10,
-		FailureThreshold:    15,
+		PeriodSeconds:       5,
 		Handler: v1.Handler{
-			TCPSocket: &v1.TCPSocketAction{
-				Port: intstr.FromInt(9300),
+			Exec: &v1.ExecAction{
+				Command: []string{
+					"/usr/share/elasticsearch/probe/readiness.sh",
+				},
 			},
 		},
 	}
