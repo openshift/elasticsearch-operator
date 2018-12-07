@@ -29,17 +29,13 @@ func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	}
 
 	// Check image of Elasticsearch container
-	isImageDifferent := false
 	for _, container := range node.resource.Spec.Template.Spec.Containers {
 		if container.Name == "elasticsearch" {
 			if container.Image != cfg.ESNodeSpec.Spec.Image {
-				isImageDifferent = true
 				logrus.Debugf("Resource '%s' has different container image than desired", node.resource.Name)
+				return true, nil
 			}
 		}
-	}
-	if isImageDifferent {
-		return true, nil
 	}
 
 	// Check if labels are correct

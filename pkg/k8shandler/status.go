@@ -24,11 +24,12 @@ func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 			return getErr
 		}
 		dpl.Status.ClusterHealth = clusterHealth(dpl)
-		dpl.Status.Nodes = []v1alpha1.ElasticsearchNodeStatus{}
-		for _, node := range cState.Nodes {
-			updateNodeStatus(node, &dpl.Status)
-		}
+		nodes := []v1alpha1.ElasticsearchNodeStatus{}
 
+		for _, node := range cState.Nodes {
+			nodes = append(nodes, *updateNodeStatus(node, &dpl.Status))
+		}
+		dpl.Status.Nodes = nodes
 		updateStatusConditions(&dpl.Status)
 		dpl.Status.Pods = rolePodStateMap(dpl.Namespace, dpl.Name)
 		if updateErr := sdk.Update(dpl); updateErr != nil {
