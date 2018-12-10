@@ -21,6 +21,12 @@ func (node *deploymentNode) getResource() runtime.Object {
 }
 
 func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
+
+	if node.resource.Spec.Paused == false {
+		logrus.Debugf("Deployment %v is not currently paused.", node.resource.Name)
+		return true, nil
+	}
+
 	// Check replicas number
 	actualReplicas := *node.resource.Spec.Replicas
 	if cfg.getReplicas() != actualReplicas {
@@ -123,6 +129,7 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 			Type: "Recreate",
 		},
 		Template: cfg.constructPodTemplateSpec(),
+		Paused:   cfg.Paused,
 	}
 
 	// if storageClass != "default" {
