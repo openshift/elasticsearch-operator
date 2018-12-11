@@ -84,19 +84,44 @@ type ElasticsearchNodeStorageSource struct {
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
 type ElasticsearchNodeStatus struct {
-	DeploymentName  string                  `json:"deploymentName,omitempty"`
-	ReplicaSetName  string                  `json:"replicaSetName,omitempty"`
-	StatefulSetName string                  `json:"statefulSetName,omitempty"`
-	PodName         string                  `json:"podName,omitempty"`
-	Status          string                  `json:"status,omitempty"`
-	Roles           []ElasticsearchNodeRole `json:"roles,omitempty"`
+	DeploymentName  string `json:"deploymentName,omitempty"`
+	ReplicaSetName  string `json:"replicaSetName,omitempty"`
+	StatefulSetName string `json:"statefulSetName,omitempty"`
+	PodName         string `json:"podName,omitempty"`
+	Status          string `json:"status,omitempty"`
+	// UnderUpgrade    UpgradeStatus              `json:"underUpgrade,omitempty"`
+	UpgradeStatus ElasticsearchNodeUpgradeStatus `json:"upgradeStatus,omitempty"`
+	Roles         []ElasticsearchNodeRole        `json:"roles,omitempty"`
 }
+
+type ElasticsearchNodeUpgradeStatus struct {
+	UnderUpgrade UpgradeStatus             `json:"underUpgrade,omitempty"`
+	UpgradePhase ElasticsearchUpgradePhase `json:"upgradePhase,omitempty"`
+}
+
+type ElasticsearchUpgradePhase string
+
+const (
+	NodeRestarting    ElasticsearchUpgradePhase = "nodeRestarting"
+	RecoveringData    ElasticsearchUpgradePhase = "recoveringData"
+	ControllerUpdated ElasticsearchUpgradePhase = "controllerUpdated"
+	// UpgradeInitializing    ElasticsearchUpgradePhase = "upgradeInitializing"
+	// NodeRejoined   ElasticsearchUpgradePhase = "nodeRejoined"
+	// ShardAllocationEnabled ElasticsearchUpgradePhase = "shardAllocationEnabled"
+)
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
 type ElasticsearchNodeSpec struct {
 	Image     string                  `json:"image,omitempty"`
 	Resources v1.ResourceRequirements `json:"resources"`
 }
+
+type UpgradeStatus string
+
+const (
+	UnderUpgradeTrue  UpgradeStatus = "True"
+	UnderUpgradeFalse UpgradeStatus = "False"
+)
 
 type ElasticsearchRequiredAction string
 
@@ -117,12 +142,20 @@ const (
 	ElasticsearchRoleMaster ElasticsearchNodeRole = "master"
 )
 
+type ShardAllocationState string
+
+const (
+	ShardAllocationTrue  ShardAllocationState = "True"
+	ShardAllocationFalse ShardAllocationState = "False"
+)
+
 // ElasticsearchStatus represents the status of Elasticsearch cluster
 type ElasticsearchStatus struct {
-	Nodes         []ElasticsearchNodeStatus             `json:"nodes"`
-	ClusterHealth string                                `json:"clusterHealth"`
-	Pods          map[ElasticsearchNodeRole]PodStateMap `json:"pods"`
-	Conditions    []ClusterCondition                    `json:"conditions"`
+	Nodes                  []ElasticsearchNodeStatus             `json:"nodes"`
+	ClusterHealth          string                                `json:"clusterHealth"`
+	ShardAllocationEnabled ShardAllocationState                  `json:"shardAllocationEnabled"`
+	Pods                   map[ElasticsearchNodeRole]PodStateMap `json:"pods"`
+	Conditions             []ClusterCondition                    `json:"conditions"`
 }
 
 type PodStateMap map[PodStateType][]string
