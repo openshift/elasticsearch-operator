@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )
@@ -92,7 +93,7 @@ func PerformSyncedFlush(pod *v1.Pod) error {
 	return err
 }
 
-func SetShardAllocation(pod *v1.Pod, enabled bool) error {
+func SetShardAllocation(pod *v1.Pod, enabled v1alpha1.ShardAllocationState) error {
 	command := []string{"sh", "-c",
 		fmt.Sprintf("es_util --query=_cluster/settings -H 'Content-Type: application/json' -X PUT -d '{\"transient\":{%s}}'",
 			shardAllocationCommand(enabled))}
@@ -102,12 +103,8 @@ func SetShardAllocation(pod *v1.Pod, enabled bool) error {
 	return err
 }
 
-func shardAllocationCommand(enabled bool) string {
-	shardAllocation := "none"
-	if enabled {
-		shardAllocation = "all"
-	}
-	return fmt.Sprintf("%s:%s", strconv.Quote("cluster.routing.allocation.enable"), strconv.Quote(shardAllocation))
+func shardAllocationCommand(shardAllocation v1alpha1.ShardAllocationState) string {
+	return fmt.Sprintf("%s:%s", strconv.Quote("cluster.routing.allocation.enable"), strconv.Quote(string(shardAllocation)))
 }
 
 func minimumMasterNodesCommand(nodes int) string {

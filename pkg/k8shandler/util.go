@@ -314,7 +314,16 @@ func listRunningPods(clusterName, namespace string) (*v1.PodList, error) {
 	runningPods := make([]v1.Pod, 0, len(pods.Items))
 	for _, pod := range pods.Items {
 		if pod.Status.Phase == v1.PodRunning {
-			runningPods = append(runningPods, pod)
+			podReady := true
+			for _, cs := range pod.Status.ContainerStatuses {
+				if !cs.Ready {
+					podReady = false
+					break
+				}
+			}
+			if podReady {
+				runningPods = append(runningPods, pod)
+			}
 		}
 	}
 	result := podList()

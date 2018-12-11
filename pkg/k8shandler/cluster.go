@@ -229,24 +229,35 @@ func (cState *ClusterState) removeStaleNodes(dpl *v1alpha1.Elasticsearch) error 
 
 func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
 	nodeUnderUpgrade := upgradeInProgress(dpl)
-	var err error
-	if nodeUnderUpgrade == nil {
-		// don't attempt to restart the cluster unless cluster health is green
-		if ok := canRestartCluster(dpl); !ok {
-			return fmt.Errorf("Cluster Rolling Restart requested but cluster isn't ready")
-		}
-		nodeUnderUpgrade, err = cState.beginUpgrade(dpl, owner)
-		logrus.Infof("rolling upgrade: began upgrading node: %v", nodeUnderUpgrade)
-	}
 	// find a pod that can handle requests
 	// in a single-master deployment the operator will complain about not having any master pods
 	masterPod, err := getRunningMasterPod(dpl.Name, dpl.Namespace)
 	if err != nil {
 		return nil
 	}
+	if nodeUnderUpgrade == nil {
+		// don't attempt to restart the cluster unless cluster health is green
+		if ok := canRestartCluster(dpl); !ok {
+			logrus.Warnf("Cluster Rolling Restart requested but cluster isn't ready.")
+			return nil
+		}
+		nodeUnderUpgrade, err = cState.beginUpgrade(dpl, owner)
+		if err != nil {
+			// try to revert shard allocation settings, best-effort operation
+			_ = enableShardAllocation(dpl, masterPod)
+			return err
+		}
+		logrus.Infof("Rolling upgrade: began upgrading node: %v", nodeUnderUpgrade.DeploymentName)
+	}
+
 	// wait for node to start and rejoin the cluster
 	if rejoined := nodeRejoinedCluster(dpl, masterPod); !rejoined {
-		logrus.Infof("rolling upgrade: waiting for node '%s' to rejoin the cluster...", nodeUnderUpgrade.PodName)
+		if nodeUnderUpgrade.UpgradeStatus.UpgradePhase != v1alpha1.NodeRestarting {
+			logrus.Infof("Rolling upgrade: waiting for node '%s' to rejoin the cluster...", nodeUnderUpgrade.PodName)
+			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRestarting()); retryErr != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	// enable shard allocation
@@ -254,29 +265,18 @@ func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner me
 		return err
 	}
 	// wait for rebalancing to finish
-	health := clusterHealth(dpl)
-	if health != "green" {
-		logrus.Infof("rolling upgrade: node '%s' rejoined cluster, recovering its data...", nodeUnderUpgrade.PodName)
+	if health := clusterHealth(dpl); health != "green" {
+		if nodeUnderUpgrade.UpgradeStatus.UpgradePhase != v1alpha1.RecoveringData {
+			logrus.Infof("Rolling upgrade: node '%s' rejoined cluster, recovering its data...", nodeUnderUpgrade.PodName)
+			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRecoveringData()); retryErr != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	// node upgraded
-	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// get the latest Elasticsearch resource
-		if getErr := sdk.Get(dpl); getErr != nil {
-			return getErr
-		}
-		// dpl updated - order of ElasticsearchNodeStatus might have changed
-		// we can't rely on array indices
-		for index, newNodeStatus := range dpl.Status.Nodes {
-			if isManagedBy(&newNodeStatus, nodeUnderUpgrade) {
-				logrus.Debugf("Rolling restart: marked node %s as upgraded", dpl.Status.Nodes[index].DeploymentName)
-				dpl.Status.Nodes[index].UnderUpgrade = v1alpha1.UnderUpgradeFalse
-				break
-			}
-		}
-		return sdk.Update(dpl)
-	})
-	return retryErr
+	logrus.Debugf("Rolling restart: marked node %s as upgraded", nodeUnderUpgrade.DeploymentName)
+	return utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeNormalOperation())
 }
 
 func canRestartCluster(dpl *v1alpha1.Elasticsearch) bool {
@@ -290,7 +290,7 @@ func canRestartCluster(dpl *v1alpha1.Elasticsearch) bool {
 func nodeRejoinedCluster(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) bool {
 	desiredNumberOfNodes := int(getNodeCount(dpl))
 	actualNumberOfNodes := utils.NumberOfNodes(masterPod)
-	logrus.Debugf("nodeRejoinedCluster = desired: %d, actual %d", desiredNumberOfNodes, actualNumberOfNodes)
+	logrus.Debugf("NodeRejoinedCluster = desired: %d, actual %d", desiredNumberOfNodes, actualNumberOfNodes)
 	return desiredNumberOfNodes == actualNumberOfNodes
 }
 
@@ -380,7 +380,7 @@ func (cState *ClusterState) amendPods(dpl *v1alpha1.Elasticsearch) error {
 
 func upgradeInProgress(dpl *v1alpha1.Elasticsearch) *v1alpha1.ElasticsearchNodeStatus {
 	for _, node := range dpl.Status.Nodes {
-		if node.UnderUpgrade == v1alpha1.UnderUpgradeTrue {
+		if node.UpgradeStatus.UnderUpgrade == v1alpha1.UnderUpgradeTrue {
 			return &node
 		}
 	}
@@ -390,15 +390,10 @@ func upgradeInProgress(dpl *v1alpha1.Elasticsearch) *v1alpha1.ElasticsearchNodeS
 func (cState *ClusterState) selectNodeForUpgrade(dpl *v1alpha1.Elasticsearch) (*desiredNodeState, *v1alpha1.ElasticsearchNodeStatus) {
 	for _, nodeStatus := range dpl.Status.Nodes {
 		// find a node which isn't under upgrade right now
-		if nodeStatus.UnderUpgrade == v1alpha1.UnderUpgradeFalse {
+		if nodeStatus.UpgradeStatus.UnderUpgrade == v1alpha1.UnderUpgradeFalse {
 			// check if the node has old image
 			for _, currentNode := range cState.Nodes {
-				// node can either be managed by Deployment or StatefulSet
-				nodeName := nodeStatus.DeploymentName
-				if nodeName == "" {
-					nodeName = nodeStatus.StatefulSetName
-				}
-				if currentNode.Desired.DeployName == nodeName {
+				if currentNode.Desired.DeployName == nodeStatus.DeploymentName {
 					if currentNode.Desired.IsUpdateNeeded() {
 						return &currentNode.Desired, &nodeStatus
 					}
@@ -420,11 +415,7 @@ func (cState *ClusterState) beginUpgrade(dpl *v1alpha1.Elasticsearch, owner meta
 	if err = utils.PerformSyncedFlush(masterPod); err != nil {
 		return nil, err
 	}
-	node, err := cState.upgradeNode(dpl, owner)
-	if err != nil {
-		return nil, err
-	}
-	return node, nil
+	return cState.upgradeNode(dpl, owner)
 }
 
 func (cState *ClusterState) upgradeNode(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) (*v1alpha1.ElasticsearchNodeStatus, error) {
@@ -438,35 +429,36 @@ func (cState *ClusterState) upgradeNode(dpl *v1alpha1.Elasticsearch, owner metav
 	if err := nodeForUpgrade.CreateOrUpdateNode(owner); err != nil {
 		return nil, fmt.Errorf("Unable to create Elasticsearch node: %v", err)
 	}
-	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// get the latest Elasticsearch resource
-		if getErr := sdk.Get(dpl); getErr != nil {
-			return getErr
+	if err := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeForUpgrade.DeployName, utils.NodeControllerUpdated()); err != nil {
+		return nil, err
+	}
+	nodeStatus = nil
+	for i, node := range dpl.Status.Nodes {
+		if node.DeploymentName == nodeForUpgrade.DeployName {
+			nodeStatus = &dpl.Status.Nodes[i]
+			logrus.Debugf("Rolling restart: marked node %s as under upgrade", node.DeploymentName)
+			break
 		}
-		// dpl updated - order of ElasticsearchNodeStatus might have changed
-		// we can't rely on array indices, have go through the array again
-		for index, newNodeStatus := range dpl.Status.Nodes {
-			if isManagedBy(&newNodeStatus, nodeStatus) {
-				logrus.Debugf("Rolling restart: marked node %s as under upgrade", newNodeStatus.DeploymentName)
-				dpl.Status.Nodes[index].UnderUpgrade = v1alpha1.UnderUpgradeTrue
-				nodeStatus = &dpl.Status.Nodes[index]
-				break
-			}
-		}
-		return sdk.Update(dpl)
-	})
-	return nodeStatus, retryErr
+	}
+	if nodeStatus == nil {
+		// Deployment controller was deleted (not by this operator, but let's be prepared for it)
+		return nil, fmt.Errorf("Couldn't find Deployment %s", nodeForUpgrade.DeployName)
+	}
+	return nodeStatus, nil
 }
 
 func disableShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) error {
-	return setShardAllocation(dpl, masterPod, false)
+	return setShardAllocation(dpl, masterPod, v1alpha1.ShardAllocationFalse)
 }
 
 func enableShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) error {
-	return setShardAllocation(dpl, masterPod, true)
+	return setShardAllocation(dpl, masterPod, v1alpha1.ShardAllocationTrue)
 }
 
-func setShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled bool) error {
+func setShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled v1alpha1.ShardAllocationState) error {
+	if enabled == dpl.Status.ShardAllocationEnabled {
+		return nil
+	}
 	if err := utils.SetShardAllocation(masterPod, enabled); err != nil {
 		return err
 	}
@@ -486,18 +478,8 @@ func setShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled 
 	// 		return err
 	// 	}
 	// }
-	logrus.Debugf("set cluster shard allocation to: %t", enabled)
+	logrus.Debugf("Set cluster shard allocation to: %s", enabled)
 	return retryErr
-}
-
-func isManagedBy(new *v1alpha1.ElasticsearchNodeStatus, old *v1alpha1.ElasticsearchNodeStatus) bool {
-	oldDeploymentName := old.DeploymentName
-	newDeploymentName := new.DeploymentName
-	if oldDeploymentName == "" {
-		oldDeploymentName = old.StatefulSetName
-		newDeploymentName = new.StatefulSetName
-	}
-	return oldDeploymentName == newDeploymentName
 }
 
 func updateClusterSettings(dpl *v1alpha1.Elasticsearch) error {

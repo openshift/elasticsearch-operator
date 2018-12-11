@@ -167,3 +167,52 @@ func IsRestarting(status *api.ElasticsearchStatus) bool {
 	}
 	return false
 }
+
+func UpdateNodeUpgradeStatusWithRetry(dpl *api.Elasticsearch, deployName string, value *api.ElasticsearchNodeUpgradeStatus) error {
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if getErr := sdk.Get(dpl); getErr != nil {
+			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
+			return getErr
+		}
+
+		for i, node := range dpl.Status.Nodes {
+			if node.DeploymentName == deployName {
+				dpl.Status.Nodes[i].UpgradeStatus = *value
+			}
+		}
+
+		if updateErr := sdk.Update(dpl); updateErr != nil {
+			logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
+			return updateErr
+		}
+		return nil
+	})
+	return retryErr
+}
+
+func NodeRestarting() *api.ElasticsearchNodeUpgradeStatus {
+	return &api.ElasticsearchNodeUpgradeStatus{
+		UnderUpgrade: api.UnderUpgradeTrue,
+		UpgradePhase: api.NodeRestarting,
+	}
+}
+
+func NodeRecoveringData() *api.ElasticsearchNodeUpgradeStatus {
+	return &api.ElasticsearchNodeUpgradeStatus{
+		UnderUpgrade: api.UnderUpgradeTrue,
+		UpgradePhase: api.RecoveringData,
+	}
+}
+
+func NodeControllerUpdated() *api.ElasticsearchNodeUpgradeStatus {
+	return &api.ElasticsearchNodeUpgradeStatus{
+		UnderUpgrade: api.UnderUpgradeTrue,
+		UpgradePhase: api.ControllerUpdated,
+	}
+}
+
+func NodeNormalOperation() *api.ElasticsearchNodeUpgradeStatus {
+	return &api.ElasticsearchNodeUpgradeStatus{
+		UnderUpgrade: api.UnderUpgradeFalse,
+	}
+}

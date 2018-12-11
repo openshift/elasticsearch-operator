@@ -107,7 +107,6 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 
 	replicas := cfg.getReplicas()
 
-	fmt.Printf("creating deployment: %s\n", cfg.DeployName)
 	// deployment := node.resource
 	deployment := apps.Deployment{
 		TypeMeta: metav1.TypeMeta{

@@ -24,8 +24,11 @@ func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 			return getErr
 		}
 		dpl.Status.ClusterHealth = clusterHealth(dpl)
-		nodes := []v1alpha1.ElasticsearchNodeStatus{}
+		if dpl.Status.ShardAllocationEnabled == "" {
+			dpl.Status.ShardAllocationEnabled = v1alpha1.ShardAllocationTrue
+		}
 
+		nodes := []v1alpha1.ElasticsearchNodeStatus{}
 		for _, node := range cState.Nodes {
 			nodes = append(nodes, *updateNodeStatus(node, &dpl.Status))
 		}
@@ -33,7 +36,7 @@ func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 		updateStatusConditions(&dpl.Status)
 		dpl.Status.Pods = rolePodStateMap(dpl.Namespace, dpl.Name)
 		if updateErr := sdk.Update(dpl); updateErr != nil {
-			logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
+			logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", dpl.Name, updateErr)
 			return updateErr
 		}
 		return nil
@@ -54,7 +57,7 @@ func updateNodeStatus(node *nodeState, status *v1alpha1.ElasticsearchStatus) *v1
 	_, nodeStatus := statusExists(node, status)
 	if nodeStatus == nil {
 		nodeStatus = &v1alpha1.ElasticsearchNodeStatus{}
-		nodeStatus.UnderUpgrade = v1alpha1.UnderUpgradeFalse
+		nodeStatus.UpgradeStatus = *utils.NodeNormalOperation()
 	}
 	if node.Actual.Deployment != nil {
 		nodeStatus.DeploymentName = node.Actual.Deployment.Name
