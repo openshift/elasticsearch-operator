@@ -119,6 +119,7 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 		},
 	}
 
+	progressDeadlineSeconds := int32(1800)
 	deployment.ObjectMeta.Labels = cfg.getLabels()
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
@@ -128,6 +129,7 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 		Strategy: apps.DeploymentStrategy{
 			Type: "Recreate",
 		},
+		ProgressDeadlineSeconds: &progressDeadlineSeconds,
 		Template: cfg.constructPodTemplateSpec(),
 	}
 
