@@ -44,6 +44,7 @@ type desiredNodeState struct {
 	MasterNum          int32
 	DataNum            int32
 	EnvVars            []v1.EnvVar
+	Paused             bool
 }
 
 type actualNodeState struct {
@@ -68,6 +69,7 @@ func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsearc
 		Labels:             dpl.Labels,
 		MasterNum:          masterNum,
 		DataNum:            dataNum,
+		Paused:             true,
 	}
 	deployName, err := constructDeployName(dpl.Name, esNode.Roles, nodeNum, replicaNum)
 	if err != nil {
@@ -198,6 +200,7 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 	err := node.query()
 	if err != nil {
 		// Node's resource doesn't exist, we can construct one
+		cfg.Paused = false
 		logrus.Infof("Constructing new resource %v", cfg.DeployName)
 		dep, err := node.constructNodeResource(cfg, owner)
 		if err != nil {
@@ -207,6 +210,33 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Could not create node resource: %v", err)
 		}
+
+		// set it back to being paused
+		cfg.Paused = true
+		nretries := -1
+		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			nretries++
+			if getErr := node.query(); getErr != nil {
+				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
+				return getErr
+			}
+			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			if updateErr != nil {
+				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
+			}
+			if nretries == 0 {
+				logrus.Infof("Updating node resource %v", cfg.DeployName)
+			}
+			if updateErr = sdk.Update(dep); updateErr != nil {
+				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
+			}
+			return updateErr
+		})
+		if retryErr != nil {
+			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cfg.DeployName, nretries, retryErr)
+		}
+		logrus.Debugf("Updated Elasticsearch %v after %v retries", cfg.DeployName, nretries)
+
 		return nil
 	}
 
@@ -218,6 +248,7 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 	}
 
 	if diff {
+		cfg.Paused = false
 		nretries := -1
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			nretries++
@@ -230,6 +261,31 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
 			logrus.Infof("Updating node resource %v", cfg.DeployName)
+			if updateErr = sdk.Update(dep); updateErr != nil {
+				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
+			}
+			return updateErr
+		})
+		if retryErr != nil {
+			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cfg.DeployName, nretries, retryErr)
+		}
+		logrus.Debugf("Updated Elasticsearch %v after %v retries", cfg.DeployName, nretries)
+
+		// set it back to being paused
+		cfg.Paused = true
+		retryErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			nretries++
+			if getErr := node.query(); getErr != nil {
+				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
+				return getErr
+			}
+			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			if updateErr != nil {
+				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
+			}
+			if nretries == 0 {
+				logrus.Infof("Updating node resource %v", cfg.DeployName)
+			}
 			if updateErr = sdk.Update(dep); updateErr != nil {
 				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
 			}
