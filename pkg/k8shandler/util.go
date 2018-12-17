@@ -78,21 +78,6 @@ func asOwner(v *api.Elasticsearch) metav1.OwnerReference {
 	}
 }
 
-func getReadinessProbe() v1.Probe {
-	return v1.Probe{
-		TimeoutSeconds:      30,
-		InitialDelaySeconds: 10,
-		PeriodSeconds:       5,
-		Handler: v1.Handler{
-			Exec: &v1.ExecAction{
-				Command: []string{
-					"/usr/share/elasticsearch/probe/readiness.sh",
-				},
-			},
-		},
-	}
-}
-
 func getResourceRequirements(commonResRequirements, nodeResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
 	limitCPU := nodeResRequirements.Limits.Cpu()
 	if limitCPU.IsZero() {

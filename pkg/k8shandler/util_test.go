@@ -9,24 +9,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-func TestGetReadinessProbe(t *testing.T) {
-	goodProbe := v1.Probe{
-		TimeoutSeconds:      30,
-		InitialDelaySeconds: 10,
-		FailureThreshold:    15,
-		Handler: v1.Handler{
-			TCPSocket: &v1.TCPSocketAction{
-				Port: intstr.FromInt(9300),
-			},
-		},
-	}
-	if !reflect.DeepEqual(goodProbe, getReadinessProbe()) {
-		t.Errorf("Probe was incorrect: %v", getReadinessProbe())
-	}
-}
 
 func TestGetAffinity(t *testing.T) {
 	rolesArray := [][]string{{"master"}, {"client", "data", "master"},

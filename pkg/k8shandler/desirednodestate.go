@@ -450,7 +450,6 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 	} else {
 		image = cfg.ESNodeSpec.Spec.Image
 	}
-	probe := getReadinessProbe()
 	return v1.Container{
 		Name:            "elasticsearch",
 		Image:           image,
@@ -468,9 +467,8 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
-		ReadinessProbe: &probe,
-		VolumeMounts:   cfg.getVolumeMounts(),
-		Resources:      cfg.ESNodeSpec.Spec.Resources,
+		VolumeMounts: cfg.getVolumeMounts(),
+		Resources:    cfg.ESNodeSpec.Spec.Resources,
 	}
 }
 
