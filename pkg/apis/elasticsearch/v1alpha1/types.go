@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,37 +50,28 @@ type ElasticsearchSpec struct {
 
 // ElasticsearchNode struct represents individual node in Elasticsearch cluster
 type ElasticsearchNode struct {
-	Roles        []ElasticsearchNodeRole        `json:"roles"`
-	Replicas     int32                          `json:"replicas"`
-	Spec         ElasticsearchNodeSpec          `json:"nodeSpec"`
-	NodeSelector map[string]string              `json:"nodeSelector,omitempty"`
-	Storage      ElasticsearchNodeStorageSource `json:"storage"`
+	Roles        []ElasticsearchNodeRole  `json:"roles"`
+	Replicas     int32                    `json:"replicas"`
+	Spec         ElasticsearchNodeSpec    `json:"nodeSpec"`
+	NodeSelector map[string]string        `json:"nodeSelector,omitempty"`
+	Storage      ElasticsearchStorageSpec `json:"storage"`
 }
 
-type ElasticsearchNodeStorageSource struct {
-	// HostPath option will mount directory from the host.
-	// Cluster administrator must grant `hostaccess` scc to the service account.
-	// Cluster admin also must set appropriate SELINUX labels and perissions
-	// for the directory on the host.
-	HostPath *v1.HostPathVolumeSource `json:"hostPath,omitempty"`
-
-	// EmptyDir should be only used for testing purposes and not in production.
-	// This option will use temporary directory for data storage. Data will be lost
-	// when Pod is regenerated.
-	EmptyDir *v1.EmptyDirVolumeSource `json:"emptyDir,omitempty"`
-
-	// VolumeClaimTemplate is supposed to act similarly to VolumeClaimTemplates field
-	// of StatefulSetSpec. Meaning that it'll generate a number of PersistentVolumeClaims
-	// per individual Elasticsearch cluster node. The actual PVC name used will
-	// be constructed from VolumeClaimTemplate name, node type and replica number
-	// for the specific node.
-	VolumeClaimTemplate *v1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
+type ElasticsearchStorageSpec struct {
+	StorageClass *ElasticsearchStorageClassSpec `json:"storageClass,omitempty"`
 
 	// PersistentVolumeClaim will NOT try to regenerate PVC, it will be used
 	// as-is. You may want to use it instead of VolumeClaimTemplate in case
 	// you already have bounded PersistentVolumeClaims you want to use, and the names
 	// of these PersistentVolumeClaims doesn't follow the naming convention.
-	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+
+	// TODO: uncomment when we add in adoption
+	//PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+}
+
+type ElasticsearchStorageClassSpec struct {
+	StorageClassName string            `json:"storageClassName"`
+	Size             resource.Quantity `json:"size"`
 }
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node

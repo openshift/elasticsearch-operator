@@ -12,7 +12,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 )
@@ -475,7 +474,7 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 }
 
 func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
-	mounts := []v1.VolumeMount{
+	return []v1.VolumeMount{
 		v1.VolumeMount{
 			Name:      "elasticsearch-storage",
 			MountPath: "/elasticsearch/persistent",
@@ -484,26 +483,18 @@ func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
 			Name:      "elasticsearch-config",
 			MountPath: elasticsearchConfigPath,
 		},
+		v1.VolumeMount{
+			Name:      "certificates",
+			MountPath: elasticsearchCertsPath,
+		},
 	}
-	mounts = append(mounts, v1.VolumeMount{
-		Name:      "certificates",
-		MountPath: elasticsearchCertsPath,
-	})
-	return mounts
 }
 
 // generateMasterPVC method builds PVC for pure master nodes to be used in
 // volumeClaimTemplate in StatefulSet spec
 func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool, error) {
 	specVol := cfg.ESNodeSpec.Storage
-	if specVol.VolumeClaimTemplate != nil {
-		// The only supported option to specify own volumeClaimTemplate for masters
-		return *specVol.VolumeClaimTemplate, true, nil
-	} else if specVol.EmptyDir != nil {
-		return v1.PersistentVolumeClaim{}, false, nil
-	} else if (specVol == v1alpha1.ElasticsearchNodeStorageSource{}) {
-		// This is the default option, try to construct small 1Gi PVC
-		volumeSize, _ := resource.ParseQuantity("1Gi")
+	if specVol.StorageClass != nil {
 		pvc := v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "elasticsearch-storage",
@@ -515,40 +506,58 @@ func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool
 				},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						v1.ResourceStorage: volumeSize,
+						v1.ResourceStorage: specVol.StorageClass.Size,
 					},
 				},
+				StorageClassName: &specVol.StorageClass.StorageClassName,
 			},
 		}
 		return pvc, true, nil
+	} else if (specVol == v1alpha1.ElasticsearchStorageSpec{}) {
+		return v1.PersistentVolumeClaim{}, false, nil
 	}
+
 	return v1.PersistentVolumeClaim{}, false, fmt.Errorf("Unsupported volume configuration for master in cluster %s", cfg.ClusterName)
 }
 
 func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 	volSource := v1.VolumeSource{}
 	specVol := cfg.ESNodeSpec.Storage
+
 	switch {
-	case specVol.HostPath != nil:
-		volSource.HostPath = specVol.HostPath
-	case specVol.EmptyDir != nil || specVol == v1alpha1.ElasticsearchNodeStorageSource{}:
-		volSource.EmptyDir = specVol.EmptyDir
-	case specVol.VolumeClaimTemplate != nil:
-		claimName := fmt.Sprintf("%s-%s", specVol.VolumeClaimTemplate.Name, cfg.DeployName)
-		volClaim := v1.PersistentVolumeClaimVolumeSource{
+	/*
+		case specVol.PersistentVolumeClaim != nil:
+		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
+	*/
+
+	case specVol.StorageClass != nil:
+		claimName := fmt.Sprintf("%s-%s", cfg.ClusterName, cfg.DeployName)
+		volSource.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{
 			ClaimName: claimName,
 		}
-		volSource.PersistentVolumeClaim = &volClaim
-		err := createOrUpdatePersistentVolumeClaim(specVol.VolumeClaimTemplate.Spec, claimName, cfg.Namespace)
+
+		volSpec := v1.PersistentVolumeClaimSpec{
+			AccessModes: []v1.PersistentVolumeAccessMode{
+				v1.ReadWriteOnce,
+			},
+			Resources: v1.ResourceRequirements{
+				Requests: v1.ResourceList{
+					v1.ResourceStorage: specVol.StorageClass.Size,
+				},
+			},
+			StorageClassName: &specVol.StorageClass.StorageClassName,
+		}
+
+		err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, cfg.Namespace)
 		if err != nil {
 			logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
 		}
-	case specVol.PersistentVolumeClaim != nil:
-		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
+
 	default:
-		// TODO: assume EmptyDir/update to emptyDir?
-		logrus.Warn("Unknown volume source: %s", specVol)
+		logrus.Debug("Defaulting volume source to emptyDir for node %q", cfg.DeployName)
+		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
 	}
+
 	return volSource
 }
 
