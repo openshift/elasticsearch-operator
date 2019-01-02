@@ -32,15 +32,17 @@ func rootLogger() string {
 
 func calculateReplicaCount(dpl *v1alpha1.Elasticsearch) int {
 	dataNodeCount := int((getDataCount(dpl)))
-	repType := dpl.Spec.ReplicationPolicy
+	repType := dpl.Spec.RedundancyPolicy
 	switch repType {
-	case v1alpha1.FullReplication:
+	case v1alpha1.FullRedundancy:
 		return dataNodeCount - 1
-	case v1alpha1.PartialReplication:
+	case v1alpha1.MultipleRedundancy:
 		return (dataNodeCount - 1) / 2
-	case v1alpha1.NoReplication:
-		fallthrough
-	default:
+	case v1alpha1.SingleRedundancy:
+		return 1
+	case v1alpha1.ZeroRedundancy:
 		return 0
+	default:
+		return 1
 	}
 }

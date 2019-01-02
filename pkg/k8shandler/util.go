@@ -394,7 +394,7 @@ func getMasterCount(dpl *v1alpha1.Elasticsearch) int32 {
 
 	for _, node := range dpl.Spec.Nodes {
 		if isNodeMaster(&node) {
-			masterCount = masterCount + node.Replicas
+			masterCount = masterCount + node.NodeCount
 		}
 	}
 
@@ -406,7 +406,7 @@ func getDataCount(dpl *v1alpha1.Elasticsearch) int32 {
 
 	for _, node := range dpl.Spec.Nodes {
 		if isNodeData(&node) {
-			dataCount = dataCount + node.Replicas
+			dataCount = dataCount + node.NodeCount
 		}
 	}
 
@@ -418,7 +418,7 @@ func getClientCount(dpl *v1alpha1.Elasticsearch) int32 {
 
 	for _, node := range dpl.Spec.Nodes {
 		if isNodeClient(&node) {
-			clientCount = clientCount + node.Replicas
+			clientCount = clientCount + node.NodeCount
 		}
 	}
 
@@ -429,7 +429,7 @@ func getNodeCount(dpl *v1alpha1.Elasticsearch) int32 {
 	nodeCount := int32(0)
 
 	for _, node := range dpl.Spec.Nodes {
-		nodeCount = nodeCount + node.Replicas
+		nodeCount = nodeCount + node.NodeCount
 	}
 	return nodeCount
 }

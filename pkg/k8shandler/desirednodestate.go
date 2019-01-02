@@ -122,7 +122,7 @@ func (cfg *desiredNodeState) getReplicas() int32 {
 	if cfg.isNodeData() {
 		return 1
 	}
-	return cfg.ESNodeSpec.Replicas
+	return cfg.ESNodeSpec.NodeCount
 }
 
 func (cfg *desiredNodeState) isNodeMaster() bool {
