@@ -8,15 +8,15 @@ import (
 
 const (
 	modeUnique    = "unique"
-	modeOpsShared = "ops_shared"
-	defaultMode   = modeUnique
+	modeSharedOps = "shared_ops"
+	defaultMode   = modeSharedOps
 )
 
 func kibanaIndexMode(mode string) (string, error) {
 	if mode == "" {
 		return defaultMode, nil
 	}
-	if mode == modeUnique || mode == modeOpsShared {
+	if mode == modeUnique || mode == modeSharedOps {
 		return mode, nil
 	}
 	return "", fmt.Errorf("invalid kibana index mode provided [%s]", mode)
