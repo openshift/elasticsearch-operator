@@ -58,7 +58,7 @@ type ElasticsearchNode struct {
 }
 
 type ElasticsearchStorageSpec struct {
-	StorageClass *ElasticsearchStorageClassSpec `json:"storageClass,omitempty"`
+	StorageClass *ElasticsearchStorageClassSpec `json:",inline,omitempty"`
 
 	// PersistentVolumeClaim will NOT try to regenerate PVC, it will be used
 	// as-is. You may want to use it instead of VolumeClaimTemplate in case
