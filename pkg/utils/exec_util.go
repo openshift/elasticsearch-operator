@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 )

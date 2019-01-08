@@ -4,15 +4,16 @@ import (
 	apps "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NodeTypeInterface interace represents individual Elasticsearch node
 type NodeTypeInterface interface {
 	getResource() runtime.Object
 	isDifferent(cfg *desiredNodeState) (bool, error)
-	constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error)
-	delete() error
-	query() error
+	constructNodeResource(client client.Client, cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error)
+	delete(client client.Client) error
+	query(client client.Client) error
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment

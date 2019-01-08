@@ -3,7 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 )
 
 const (

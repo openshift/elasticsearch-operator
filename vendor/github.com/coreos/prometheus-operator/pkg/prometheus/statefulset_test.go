@@ -19,7 +19,7 @@ import (
 	"reflect"
 	"testing"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1beta2"
 	"k8s.io/api/core/v1"
@@ -529,8 +529,8 @@ func TestRetention(t *testing.T) {
 	}{
 		{"v1.8.2", "", "-storage.local.retention=24h"},
 		{"v1.8.2", "1d", "-storage.local.retention=1d"},
-		{"v2.4.3", "", "--storage.tsdb.retention=24h"},
-		{"v2.4.3", "1d", "--storage.tsdb.retention=1d"},
+		{"v2.5.0", "", "--storage.tsdb.retention=24h"},
+		{"v2.5.0", "1d", "--storage.tsdb.retention=1d"},
 	}
 
 	for _, test := range tests {

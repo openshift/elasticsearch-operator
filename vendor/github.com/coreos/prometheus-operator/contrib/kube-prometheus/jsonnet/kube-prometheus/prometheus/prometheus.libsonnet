@@ -5,7 +5,7 @@ local k = import 'ksonnet/ksonnet.beta.3/k.libsonnet';
     namespace: 'default',
 
     versions+:: {
-      prometheus: 'v2.4.3',
+      prometheus: 'v2.5.0',
     },
 
     imageRepos+:: {
@@ -40,7 +40,7 @@ local k = import 'ksonnet/ksonnet.beta.3/k.libsonnet';
       service.new('prometheus-' + $._config.prometheus.name, { app: 'prometheus', prometheus: $._config.prometheus.name }, prometheusPort) +
       service.mixin.metadata.withNamespace($._config.namespace) +
       service.mixin.metadata.withLabels({ prometheus: $._config.prometheus.name }),
-    rules:
+    [if $._config.prometheus.rules != null && $._config.prometheus.rules != {} then "rules"]:
       {
         apiVersion: 'monitoring.coreos.com/v1',
         kind: 'PrometheusRule',
@@ -386,11 +386,9 @@ local k = import 'ksonnet/ksonnet.beta.3/k.libsonnet';
           },
         },
         spec: {
-          jobLabel: 'k8s-app',
           selector: {
             matchLabels: {
-              'k8s-app': 'coredns',
-              component: 'metrics',
+              'k8s-app': 'kube-dns',
             },
           },
           namespaceSelector: {
@@ -400,7 +398,7 @@ local k = import 'ksonnet/ksonnet.beta.3/k.libsonnet';
           },
           endpoints: [
             {
-              port: 'http-metrics',
+              port: 'metrics',
               interval: '15s',
               bearerTokenFile: '/var/run/secrets/kubernetes.io/serviceaccount/token',
             },

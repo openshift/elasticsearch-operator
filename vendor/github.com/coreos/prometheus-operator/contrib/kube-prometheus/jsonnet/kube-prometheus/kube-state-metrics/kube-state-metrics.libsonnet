@@ -16,8 +16,8 @@ local k = import 'ksonnet/ksonnet.beta.3/k.libsonnet';
     },
 
     versions+:: {
-      kubeStateMetrics: 'v1.3.1',
-      kubeRbacProxy: 'v0.3.1',
+      kubeStateMetrics: 'v1.4.0',
+      kubeRbacProxy: 'v0.4.0',
       addonResizer: '1.0',
     },
 
@@ -182,7 +182,7 @@ local k = import 'ksonnet/ksonnet.beta.3/k.libsonnet';
           },
         ]) +
         container.mixin.resources.withRequests({ cpu: '10m', memory: '30Mi' }) +
-        container.mixin.resources.withLimits({ cpu: '10m', memory: '30Mi' });
+        container.mixin.resources.withLimits({ cpu: '50m', memory: '30Mi' });
 
       local c = [proxyClusterMetrics, proxySelfMetrics, kubeStateMetrics, addonResizer];
 

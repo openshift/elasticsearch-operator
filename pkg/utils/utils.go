@@ -1,15 +1,17 @@
 package utils
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func GetFileContents(filePath string) []byte {
@@ -81,17 +83,17 @@ func UpdateESNodeCondition(status *api.ElasticsearchStatus, condition *api.Clust
 	return !isEqual
 }
 
-func UpdateConditionWithRetry(dpl *api.Elasticsearch, value api.ConditionStatus,
+func UpdateConditionWithRetry(client client.Client, dpl *api.Elasticsearch, value api.ConditionStatus,
 	executeUpdateCondition func(*api.ElasticsearchStatus, api.ConditionStatus) bool) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if getErr := sdk.Get(dpl); getErr != nil {
+		if getErr := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
 			return getErr
 		}
 
 		executeUpdateCondition(&dpl.Status, value)
 
-		if updateErr := sdk.Update(dpl); updateErr != nil {
+		if updateErr := client.Update(context.TODO(), dpl); updateErr != nil {
 			logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
 			return updateErr
 		}
@@ -168,9 +170,9 @@ func IsRestarting(status *api.ElasticsearchStatus) bool {
 	return false
 }
 
-func UpdateNodeUpgradeStatusWithRetry(dpl *api.Elasticsearch, deployName string, value *api.ElasticsearchNodeUpgradeStatus) error {
+func UpdateNodeUpgradeStatusWithRetry(client client.Client, dpl *api.Elasticsearch, deployName string, value *api.ElasticsearchNodeUpgradeStatus) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if getErr := sdk.Get(dpl); getErr != nil {
+		if getErr := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
 			return getErr
 		}
@@ -181,7 +183,7 @@ func UpdateNodeUpgradeStatusWithRetry(dpl *api.Elasticsearch, deployName string,
 			}
 		}
 
-		if updateErr := sdk.Update(dpl); updateErr != nil {
+		if updateErr := client.Update(context.TODO(), dpl); updateErr != nil {
 			logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
 			return updateErr
 		}

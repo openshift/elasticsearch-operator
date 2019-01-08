@@ -1,3 +1,15 @@
+## v0.1.1
+
+### Bug fixes
+- Fix hardcoded CRD version in crd scaffold ([#690](https://github.com/operator-framework/operator-sdk/pull/690))
+
+## v0.1.0
+
+### Changed
+
+- Use [controller runtime](https://github.com/kubernetes-sigs/controller-runtime) library for controller and client APIs
+- See [migration guide](https://github.com/operator-framework/operator-sdk/blob/master/doc/migration/v0.1.0-migration-guide.md) to migrate your project to `v0.1.0`
+
 ## v0.0.7
 
 ### Added

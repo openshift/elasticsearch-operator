@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/operator-framework/operator-sdk/pkg/scaffold"
 	"github.com/operator-framework/operator-sdk/pkg/test"
 
 	"github.com/spf13/cobra"
@@ -89,7 +90,7 @@ func testClusterFunc(cmd *cobra.Command, args []string) error {
 				Name:            "operator-test",
 				Image:           args[0],
 				ImagePullPolicy: pullPolicy,
-				Command:         []string{"/go-test.sh"},
+				Command:         []string{"/" + scaffold.GoTestScriptFile},
 				Env: []v1.EnvVar{{
 					Name:      test.TestNamespaceEnv,
 					ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{FieldPath: "metadata.namespace"}},
@@ -152,7 +153,10 @@ func testClusterFunc(cmd *cobra.Command, args []string) error {
 			}
 			defer readCloser.Close()
 			buf := new(bytes.Buffer)
-			buf.ReadFrom(readCloser)
+			_, err = buf.ReadFrom(readCloser)
+			if err != nil {
+				return fmt.Errorf("test failed and failed to read pod logs: %v", err)
+			}
 			return fmt.Errorf("test failed:\n%s", buf.String())
 		}
 	}

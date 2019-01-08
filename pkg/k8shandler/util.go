@@ -1,12 +1,12 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -67,10 +67,10 @@ func appendDefaultLabel(clusterName string, labels map[string]string) map[string
 }
 
 // asOwner returns an owner reference set as the vault cluster CR
-func asOwner(v *api.Elasticsearch) metav1.OwnerReference {
+func asOwner(v *v1alpha1.Elasticsearch) metav1.OwnerReference {
 	trueVar := true
 	return metav1.OwnerReference{
-		APIVersion: api.SchemeGroupVersion.String(),
+		APIVersion: v1alpha1.SchemeGroupVersion.String(),
 		Kind:       v.Kind,
 		Name:       v.Name,
 		UID:        v.UID,
@@ -145,11 +145,11 @@ func getResourceRequirements(commonResRequirements, nodeResRequirements v1.Resou
 
 }
 
-func listDeployments(clusterName, namespace string) (*apps.DeploymentList, error) {
+func listDeployments(cl client.Client, clusterName, namespace string) (*apps.DeploymentList, error) {
 	list := deploymentList()
-	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName)).String()
-	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := sdk.List(namespace, list, sdk.WithListOptions(listOps))
+	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName))
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	err := cl.List(context.TODO(), listOps, list)
 	if err != nil {
 		return list, fmt.Errorf("Unable to list deployments: %v", err)
 	}
@@ -157,11 +157,11 @@ func listDeployments(clusterName, namespace string) (*apps.DeploymentList, error
 	return list, nil
 }
 
-func listReplicaSets(clusterName, namespace string) (*apps.ReplicaSetList, error) {
+func listReplicaSets(cl client.Client, clusterName, namespace string) (*apps.ReplicaSetList, error) {
 	list := replicaSetList()
-	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName)).String()
-	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := sdk.List(namespace, list, sdk.WithListOptions(listOps))
+	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName))
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	err := cl.List(context.TODO(), listOps, list)
 	if err != nil {
 		return list, fmt.Errorf("Unable to list ReplicaSets: %v", err)
 	}
@@ -169,11 +169,11 @@ func listReplicaSets(clusterName, namespace string) (*apps.ReplicaSetList, error
 	return list, nil
 }
 
-func listStatefulSets(clusterName, namespace string) (*apps.StatefulSetList, error) {
+func listStatefulSets(cl client.Client, clusterName, namespace string) (*apps.StatefulSetList, error) {
 	list := statefulSetList()
-	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName)).String()
-	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := sdk.List(namespace, list, sdk.WithListOptions(listOps))
+	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName))
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	err := cl.List(context.TODO(), listOps, list)
 	if err != nil {
 		return list, fmt.Errorf("Unable to list StatefulSets: %v", err)
 	}
@@ -295,19 +295,19 @@ func podList() *v1.PodList {
 	}
 }
 
-func listPods(clusterName, namespace string) (*v1.PodList, error) {
-	podList := podList()
-	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName)).String()
-	listOps := &metav1.ListOptions{LabelSelector: labelSelector}
-	err := sdk.List(namespace, podList, sdk.WithListOptions(listOps))
+func listPods(cl client.Client, clusterName, namespace string) (*v1.PodList, error) {
+	list := podList()
+	labelSelector := labels.SelectorFromSet(labelsForESCluster(clusterName))
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	err := cl.List(context.TODO(), listOps, list)
 	if err != nil {
-		return podList, fmt.Errorf("failed to list pods: %v", err)
+		return list, fmt.Errorf("failed to list pods: %v", err)
 	}
-	return podList, nil
+	return list, nil
 }
 
-func listRunningPods(clusterName, namespace string) (*v1.PodList, error) {
-	pods, err := listPods(clusterName, namespace)
+func listRunningPods(client client.Client, clusterName, namespace string) (*v1.PodList, error) {
+	pods, err := listPods(client, clusterName, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -332,8 +332,8 @@ func listRunningPods(clusterName, namespace string) (*v1.PodList, error) {
 	return result, nil
 }
 
-func listRunningMasterPods(clusterName, namespace string) (*v1.PodList, error) {
-	pods, err := listRunningPods(clusterName, namespace)
+func listRunningMasterPods(client client.Client, clusterName, namespace string) (*v1.PodList, error) {
+	pods, err := listRunningPods(client, clusterName, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -350,8 +350,8 @@ func listRunningMasterPods(clusterName, namespace string) (*v1.PodList, error) {
 	return result, nil
 }
 
-func getRunningMasterPod(clusterName, namespace string) (*v1.Pod, error) {
-	pods, err := listRunningMasterPods(clusterName, namespace)
+func getRunningMasterPod(client client.Client, clusterName, namespace string) (*v1.Pod, error) {
+	pods, err := listRunningMasterPods(client, clusterName, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +481,7 @@ func isValidConf(dpl *v1alpha1.Elasticsearch) error {
 	return nil
 }
 
-func GetPodList(namespace string, selector string) (*v1.PodList, error) {
+func GetPodList(cl client.Client, namespace string, labelSelector labels.Selector) (*v1.PodList, error) {
 	list := &v1.PodList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -489,13 +489,8 @@ func GetPodList(namespace string, selector string) (*v1.PodList, error) {
 		},
 	}
 
-	err := sdk.List(
-		namespace,
-		list,
-		sdk.WithListOptions(&metav1.ListOptions{
-			LabelSelector: selector,
-		}),
-	)
+	listOps := &client.ListOptions{Namespace: namespace, LabelSelector: labelSelector}
+	err := cl.List(context.TODO(), listOps, list)
 
 	return list, err
 }

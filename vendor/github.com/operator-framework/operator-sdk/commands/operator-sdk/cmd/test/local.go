@@ -20,13 +20,18 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
-	cmdError "github.com/operator-framework/operator-sdk/commands/operator-sdk/error"
+	"github.com/operator-framework/operator-sdk/internal/util/fileutil"
+	"github.com/operator-framework/operator-sdk/internal/util/projutil"
+	"github.com/operator-framework/operator-sdk/pkg/scaffold"
 	"github.com/operator-framework/operator-sdk/pkg/test"
 
 	"github.com/spf13/cobra"
 )
+
+var deployTestDir = filepath.Join(scaffold.DeployDir, "test")
 
 type testLocalConfig struct {
 	kubeconfig        string
@@ -50,7 +55,7 @@ func NewTestLocalCmd() *cobra.Command {
 		defaultKubeConfig = homedir + "/.kube/config"
 	}
 	testCmd.Flags().StringVar(&tlConfig.kubeconfig, "kubeconfig", defaultKubeConfig, "Kubeconfig path")
-	testCmd.Flags().StringVar(&tlConfig.globalManPath, "global-manifest", "deploy/crd.yaml", "Path to manifest for Global resources (e.g. CRD manifest)")
+	testCmd.Flags().StringVar(&tlConfig.globalManPath, "global-manifest", "", "Path to manifest for Global resources (e.g. CRD manifests)")
 	testCmd.Flags().StringVar(&tlConfig.namespacedManPath, "namespaced-manifest", "", "Path to manifest for per-test, namespaced resources (e.g. RBAC and Operator manifest)")
 	testCmd.Flags().StringVar(&tlConfig.goTestFlags, "go-test-flags", "", "Additional flags to pass to go test")
 	testCmd.Flags().StringVar(&tlConfig.namespace, "namespace", "", "If non-empty, single namespace to run tests in")
@@ -60,29 +65,40 @@ func NewTestLocalCmd() *cobra.Command {
 
 func testLocalFunc(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
-		cmdError.ExitWithError(cmdError.ExitBadArgs, fmt.Errorf("operator-sdk test local requires exactly 1 argument"))
+		log.Fatalf("operator-sdk test local requires exactly 1 argument")
 	}
-	// if no namespaced manifest path is given, combine deploy/sa.yaml, deploy/rbac.yaml and deploy/operator.yaml
+	// if no namespaced manifest path is given, combine deploy/service_account.yaml, deploy/role.yaml, deploy/role_binding.yaml and deploy/operator.yaml
 	if tlConfig.namespacedManPath == "" {
-		os.Mkdir("deploy/test", os.FileMode(int(0775)))
-		tlConfig.namespacedManPath = "deploy/test/namespace-manifests.yaml"
-		sa, err := ioutil.ReadFile("deploy/sa.yaml")
+		err := os.MkdirAll(deployTestDir, os.FileMode(fileutil.DefaultDirFileMode))
 		if err != nil {
-			log.Fatalf("could not find sa manifest: %v", err)
+			log.Fatalf("could not create %s: %v", deployTestDir, err)
 		}
-		rbac, err := ioutil.ReadFile("deploy/rbac.yaml")
+		tlConfig.namespacedManPath = filepath.Join(deployTestDir, "namespace-manifests.yaml")
+
+		saFile := filepath.Join(scaffold.DeployDir, scaffold.ServiceAccountYamlFile)
+		sa, err := ioutil.ReadFile(saFile)
 		if err != nil {
-			log.Fatalf("could not find rbac manifest: %v", err)
+			log.Fatalf("could not find the manifest %s: %v", saFile, err)
 		}
-		operator, err := ioutil.ReadFile("deploy/operator.yaml")
+		role, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.RoleYamlFile))
+		if err != nil {
+			log.Fatalf("could not find role manifest: %v", err)
+		}
+		roleBinding, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.RoleBindingYamlFile))
+		if err != nil {
+			log.Fatalf("could not find role_binding manifest: %v", err)
+		}
+		operator, err := ioutil.ReadFile(filepath.Join(scaffold.DeployDir, scaffold.OperatorYamlFile))
 		if err != nil {
 			log.Fatalf("could not find operator manifest: %v", err)
 		}
 		combined := append(sa, []byte("\n---\n")...)
-		combined = append(combined, rbac...)
+		combined = append(combined, role...)
+		combined = append(combined, []byte("\n---\n")...)
+		combined = append(combined, roleBinding...)
 		combined = append(combined, []byte("\n---\n")...)
 		combined = append(combined, operator...)
-		err = ioutil.WriteFile(tlConfig.namespacedManPath, combined, os.FileMode(int(0664)))
+		err = ioutil.WriteFile(tlConfig.namespacedManPath, combined, os.FileMode(fileutil.DefaultFileMode))
 		if err != nil {
 			log.Fatalf("could not create temporary namespaced manifest file: %v", err)
 		}
@@ -93,11 +109,47 @@ func testLocalFunc(cmd *cobra.Command, args []string) {
 			}
 		}()
 	}
+	if tlConfig.globalManPath == "" {
+		err := os.MkdirAll(deployTestDir, os.FileMode(fileutil.DefaultDirFileMode))
+		if err != nil {
+			log.Fatalf("could not create %s: %v", deployTestDir, err)
+		}
+		tlConfig.globalManPath = filepath.Join(deployTestDir, "global-manifests.yaml")
+		files, err := ioutil.ReadDir(scaffold.CrdsDir)
+		if err != nil {
+			log.Fatalf("could not read deploy directory: %v", err)
+		}
+		var combined []byte
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), "crd.yaml") {
+				fileBytes, err := ioutil.ReadFile(filepath.Join(scaffold.CrdsDir, file.Name()))
+				if err != nil {
+					log.Fatalf("could not read file %s: %v", filepath.Join(scaffold.CrdsDir, file.Name()), err)
+				}
+				if combined == nil {
+					combined = []byte{}
+				} else {
+					combined = append(combined, []byte("\n---\n")...)
+				}
+				combined = append(combined, fileBytes...)
+			}
+		}
+		err = ioutil.WriteFile(tlConfig.globalManPath, combined, os.FileMode(fileutil.DefaultFileMode))
+		if err != nil {
+			log.Fatalf("could not create temporary global manifest file: %v", err)
+		}
+		defer func() {
+			err := os.Remove(tlConfig.globalManPath)
+			if err != nil {
+				log.Fatalf("could not delete global namespace manifest file")
+			}
+		}()
+	}
 	testArgs := []string{"test", args[0] + "/..."}
 	testArgs = append(testArgs, "-"+test.KubeConfigFlag, tlConfig.kubeconfig)
 	testArgs = append(testArgs, "-"+test.NamespacedManPathFlag, tlConfig.namespacedManPath)
 	testArgs = append(testArgs, "-"+test.GlobalManPathFlag, tlConfig.globalManPath)
-	testArgs = append(testArgs, "-"+test.ProjRootFlag, mustGetwd())
+	testArgs = append(testArgs, "-"+test.ProjRootFlag, projutil.MustGetwd())
 	// if we do the append using an empty go flags, it inserts an empty arg, which causes
 	// any later flags to be ignored
 	if tlConfig.goTestFlags != "" {
@@ -108,19 +160,11 @@ func testLocalFunc(cmd *cobra.Command, args []string) {
 	}
 	dc := exec.Command("go", testArgs...)
 	dc.Env = append(os.Environ(), fmt.Sprintf("%v=%v", test.TestNamespaceEnv, tlConfig.namespace))
-	dc.Dir = mustGetwd()
+	dc.Dir = projutil.MustGetwd()
 	dc.Stdout = os.Stdout
 	dc.Stderr = os.Stderr
 	err := dc.Run()
 	if err != nil {
-		cmdError.ExitWithError(cmdError.ExitError, fmt.Errorf("failed to exec `go %s`: %v", strings.Join(testArgs, " "), err))
+		log.Fatalf("failed to exec `go %s`: %v", strings.Join(testArgs, " "), err)
 	}
-}
-
-func mustGetwd() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		cmdError.ExitWithError(cmdError.ExitError, fmt.Errorf("failed to determine the full path of the current directory: %v", err))
-	}
-	return wd
 }

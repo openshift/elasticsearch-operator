@@ -1,17 +1,19 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/client-go/util/retry"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 )
 
@@ -27,9 +29,9 @@ type ClusterState struct {
 var wrongConfig bool
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
-func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) error {
+func CreateOrUpdateElasticsearchCluster(client client.Client, dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) error {
 
-	cState, err := NewClusterState(dpl, configMapName, serviceAccountName)
+	cState, err := NewClusterState(client, dpl, configMapName, serviceAccountName)
 	if err != nil {
 		return err
 	}
@@ -47,14 +49,14 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	}
 	wrongConfig = false
 
-	action, err := cState.getRequiredAction(dpl)
+	action, err := cState.getRequiredAction(client, dpl)
 	if err != nil {
 		return err
 	}
 
 	switch {
 	case action == v1alpha1.ElasticsearchActionNewClusterNeeded:
-		err = cState.buildNewCluster(dpl, asOwner(dpl))
+		err = cState.buildNewCluster(client, dpl, asOwner(dpl))
 		if err != nil {
 			return err
 		}
@@ -66,7 +68,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 		// 	return err
 		// }
 	case action == v1alpha1.ElasticsearchActionRollingRestartNeeded:
-		if err = cState.restartCluster(dpl, asOwner(dpl)); err != nil {
+		if err = cState.restartCluster(client, dpl, asOwner(dpl)); err != nil {
 			return err
 		}
 	case action == v1alpha1.ElasticsearchActionNone:
@@ -78,11 +80,11 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 	// Determine if a change to cluster size was made,
 	// if yes, update variables in config map and also
 	// reload live configuration
-	if err = updateClusterSettings(dpl); err != nil {
+	if err = updateClusterSettings(client, dpl); err != nil {
 		return err
 	}
 	// Scrape cluster health from elasticsearch every time
-	err = cState.UpdateStatus(dpl)
+	err = cState.UpdateStatus(client, dpl)
 	if err != nil {
 		return err
 	}
@@ -90,7 +92,7 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 }
 
 // NewClusterState func generates ClusterState for the current cluster
-func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) (ClusterState, error) {
+func NewClusterState(client client.Client, dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountName string) (ClusterState, error) {
 	nodes := []*nodeState{}
 	cState := ClusterState{
 		Nodes: nodes,
@@ -115,22 +117,22 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 		}
 	}
 
-	err := cState.amendDeployments(dpl)
+	err := cState.amendDeployments(client, dpl)
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend Deployments to status: %v", err)
 	}
 
-	err = cState.amendStatefulSets(dpl)
+	err = cState.amendStatefulSets(client, dpl)
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend StatefulSets to status: %v", err)
 	}
 
-	err = cState.amendReplicaSets(dpl)
+	err = cState.amendReplicaSets(client, dpl)
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend ReplicaSets to status: %v", err)
 	}
 
-	err = cState.amendPods(dpl)
+	err = cState.amendPods(client, dpl)
 	if err != nil {
 		return cState, fmt.Errorf("Unable to amend Pods to status: %v", err)
 	}
@@ -140,7 +142,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 
 // getRequiredAction checks the desired state against what's present in current
 // deployments/statefulsets/pods
-func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1alpha1.ElasticsearchRequiredAction, error) {
+func (cState *ClusterState) getRequiredAction(client client.Client, dpl *v1alpha1.Elasticsearch) (v1alpha1.ElasticsearchRequiredAction, error) {
 	// TODO: Add condition that if an operation is currently in progress
 	// not to try to queue another action. Instead return ElasticsearchActionInProgress which
 	// is noop.
@@ -166,7 +168,7 @@ func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1al
 			return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
 		}
 		for _, node := range cState.Nodes {
-			if node.Desired.IsUpdateNeeded() {
+			if node.Desired.IsUpdateNeeded(client) {
 				return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
 			}
 		}
@@ -181,17 +183,17 @@ func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1al
 	return v1alpha1.ElasticsearchActionNone, nil
 }
 
-func (cState *ClusterState) buildNewCluster(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
+func (cState *ClusterState) buildNewCluster(client client.Client, dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
 	// Mark the operation in case of operator failure
-	if err := utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionTrue, utils.UpdateScalingUpCondition); err != nil {
+	if err := utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionTrue, utils.UpdateScalingUpCondition); err != nil {
 		return fmt.Errorf("Unable to update Elasticsearch cluster status: %v", err)
 	}
-	if err := utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionTrue, utils.UpdateUpdatingSettingsCondition); err != nil {
+	if err := utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionTrue, utils.UpdateUpdatingSettingsCondition); err != nil {
 		return fmt.Errorf("Unable to update Elasticsearch cluster status: %v", err)
 	}
 	// Create the new nodes
 	for _, node := range cState.Nodes {
-		err := node.Desired.CreateOrUpdateNode(owner)
+		err := node.Desired.CreateOrUpdateNode(client, owner)
 		if err != nil {
 			return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
 		}
@@ -200,16 +202,16 @@ func (cState *ClusterState) buildNewCluster(dpl *v1alpha1.Elasticsearch, owner m
 }
 
 // list existing StatefulSets and delete those unmanaged by the operator
-func (cState *ClusterState) removeStaleNodes(dpl *v1alpha1.Elasticsearch) error {
+func (cState *ClusterState) removeStaleNodes(client client.Client, dpl *v1alpha1.Elasticsearch) error {
 	// Set 'ScalingDown' condition to True before beggining the actual scale event
-	if err := utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionTrue, utils.UpdateScalingDownCondition); err != nil {
+	if err := utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionTrue, utils.UpdateScalingDownCondition); err != nil {
 		return fmt.Errorf("Unable to update Elasticsearch cluster status: %v", err)
 	}
-	if err := utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionTrue, utils.UpdateUpdatingSettingsCondition); err != nil {
+	if err := utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionTrue, utils.UpdateUpdatingSettingsCondition); err != nil {
 		return fmt.Errorf("Unable to update Elasticsearch cluster status: %v", err)
 	}
 	// Prepare the cluster for the scale down event
-	if err := updateClusterSettings(dpl); err != nil {
+	if err := updateClusterSettings(client, dpl); err != nil {
 		return err
 	}
 	// Remove extra Deployments
@@ -219,7 +221,7 @@ func (cState *ClusterState) removeStaleNodes(dpl *v1alpha1.Elasticsearch) error 
 			Kind:       "Deployment",
 			APIVersion: "apps/v1",
 		}
-		err := sdk.Delete(&node)
+		err := client.Delete(context.TODO(), &node)
 		if err != nil {
 			return fmt.Errorf("Unable to delete resource %v: ", err)
 		}
@@ -227,24 +229,24 @@ func (cState *ClusterState) removeStaleNodes(dpl *v1alpha1.Elasticsearch) error 
 	return nil
 }
 
-func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
+func (cState *ClusterState) restartCluster(client client.Client, dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
 	nodeUnderUpgrade := upgradeInProgress(dpl)
 	// find a pod that can handle requests
 	// in a single-master deployment the operator will complain about not having any master pods
-	masterPod, err := getRunningMasterPod(dpl.Name, dpl.Namespace)
+	masterPod, err := getRunningMasterPod(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return nil
 	}
 	if nodeUnderUpgrade == nil {
 		// don't attempt to restart the cluster unless cluster health is green
-		if ok := canRestartCluster(dpl); !ok {
+		if ok := canRestartCluster(client, dpl); !ok {
 			logrus.Warnf("Cluster Rolling Restart requested but cluster isn't ready.")
 			return nil
 		}
-		nodeUnderUpgrade, err = cState.beginUpgrade(dpl, owner)
+		nodeUnderUpgrade, err = cState.beginUpgrade(client, dpl, owner)
 		if err != nil {
 			// try to revert shard allocation settings, best-effort operation
-			_ = enableShardAllocation(dpl, masterPod)
+			_ = enableShardAllocation(client, dpl, masterPod)
 			return err
 		}
 		logrus.Infof("Rolling upgrade: began upgrading node: %v", nodeUnderUpgrade.DeploymentName)
@@ -254,21 +256,21 @@ func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner me
 	if rejoined := nodeRejoinedCluster(dpl, masterPod); !rejoined {
 		if nodeUnderUpgrade.UpgradeStatus.UpgradePhase != v1alpha1.NodeRestarting {
 			logrus.Infof("Rolling upgrade: waiting for node '%s' to rejoin the cluster...", nodeUnderUpgrade.PodName)
-			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRestarting()); retryErr != nil {
+			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(client, dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRestarting()); retryErr != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	// enable shard allocation
-	if err = enableShardAllocation(dpl, masterPod); err != nil {
+	if err = enableShardAllocation(client, dpl, masterPod); err != nil {
 		return err
 	}
 	// wait for rebalancing to finish
-	if health := clusterHealth(dpl); health != "green" {
+	if health := clusterHealth(client, dpl); health != "green" {
 		if nodeUnderUpgrade.UpgradeStatus.UpgradePhase != v1alpha1.RecoveringData {
 			logrus.Infof("Rolling upgrade: node '%s' rejoined cluster, recovering its data...", nodeUnderUpgrade.PodName)
-			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRecoveringData()); retryErr != nil {
+			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(client, dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRecoveringData()); retryErr != nil {
 				return err
 			}
 		}
@@ -276,11 +278,11 @@ func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner me
 	}
 	// node upgraded
 	logrus.Debugf("Rolling restart: marked node %s as upgraded", nodeUnderUpgrade.DeploymentName)
-	return utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeNormalOperation())
+	return utils.UpdateNodeUpgradeStatusWithRetry(client, dpl, nodeUnderUpgrade.DeploymentName, utils.NodeNormalOperation())
 }
 
-func canRestartCluster(dpl *v1alpha1.Elasticsearch) bool {
-	health := clusterHealth(dpl)
+func canRestartCluster(client client.Client, dpl *v1alpha1.Elasticsearch) bool {
+	health := clusterHealth(client, dpl)
 	if health == "green" {
 		return true
 	}
@@ -294,8 +296,8 @@ func nodeRejoinedCluster(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) bool {
 	return desiredNumberOfNodes == actualNumberOfNodes
 }
 
-func (cState *ClusterState) amendStatefulSets(dpl *v1alpha1.Elasticsearch) error {
-	statefulSets, err := listStatefulSets(dpl.Name, dpl.Namespace)
+func (cState *ClusterState) amendStatefulSets(client client.Client, dpl *v1alpha1.Elasticsearch) error {
+	statefulSets, err := listStatefulSets(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's StatefulSets: %v", err)
 	}
@@ -315,8 +317,8 @@ func (cState *ClusterState) amendStatefulSets(dpl *v1alpha1.Elasticsearch) error
 	return nil
 }
 
-func (cState *ClusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error {
-	deployments, err := listDeployments(dpl.Name, dpl.Namespace)
+func (cState *ClusterState) amendDeployments(client client.Client, dpl *v1alpha1.Elasticsearch) error {
+	deployments, err := listDeployments(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Deployments: %v", err)
 	}
@@ -336,8 +338,8 @@ func (cState *ClusterState) amendDeployments(dpl *v1alpha1.Elasticsearch) error 
 	return nil
 }
 
-func (cState *ClusterState) amendReplicaSets(dpl *v1alpha1.Elasticsearch) error {
-	replicaSets, err := listReplicaSets(dpl.Name, dpl.Namespace)
+func (cState *ClusterState) amendReplicaSets(client client.Client, dpl *v1alpha1.Elasticsearch) error {
+	replicaSets, err := listReplicaSets(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's ReplicaSets: %v", err)
 	}
@@ -357,8 +359,8 @@ func (cState *ClusterState) amendReplicaSets(dpl *v1alpha1.Elasticsearch) error 
 	return nil
 }
 
-func (cState *ClusterState) amendPods(dpl *v1alpha1.Elasticsearch) error {
-	pods, err := listPods(dpl.Name, dpl.Namespace)
+func (cState *ClusterState) amendPods(client client.Client, dpl *v1alpha1.Elasticsearch) error {
+	pods, err := listPods(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return fmt.Errorf("Unable to list Elasticsearch's Pods: %v", err)
 	}
@@ -387,14 +389,14 @@ func upgradeInProgress(dpl *v1alpha1.Elasticsearch) *v1alpha1.ElasticsearchNodeS
 	return nil
 }
 
-func (cState *ClusterState) selectNodeForUpgrade(dpl *v1alpha1.Elasticsearch) (*desiredNodeState, *v1alpha1.ElasticsearchNodeStatus) {
+func (cState *ClusterState) selectNodeForUpgrade(client client.Client, dpl *v1alpha1.Elasticsearch) (*desiredNodeState, *v1alpha1.ElasticsearchNodeStatus) {
 	for _, nodeStatus := range dpl.Status.Nodes {
 		// find a node which isn't under upgrade right now
 		if nodeStatus.UpgradeStatus.UnderUpgrade == v1alpha1.UnderUpgradeFalse {
 			// check if the node has old image
 			for _, currentNode := range cState.Nodes {
 				if currentNode.Desired.DeployName == nodeStatus.DeploymentName {
-					if currentNode.Desired.IsUpdateNeeded() {
+					if currentNode.Desired.IsUpdateNeeded(client) {
 						return &currentNode.Desired, &nodeStatus
 					}
 				}
@@ -404,32 +406,32 @@ func (cState *ClusterState) selectNodeForUpgrade(dpl *v1alpha1.Elasticsearch) (*
 	return nil, nil
 }
 
-func (cState *ClusterState) beginUpgrade(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) (*v1alpha1.ElasticsearchNodeStatus, error) {
-	masterPod, err := getRunningMasterPod(dpl.Name, dpl.Namespace)
+func (cState *ClusterState) beginUpgrade(client client.Client, dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) (*v1alpha1.ElasticsearchNodeStatus, error) {
+	masterPod, err := getRunningMasterPod(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	if err = disableShardAllocation(dpl, masterPod); err != nil {
+	if err = disableShardAllocation(client, dpl, masterPod); err != nil {
 		return nil, err
 	}
 	if err = utils.PerformSyncedFlush(masterPod); err != nil {
 		return nil, err
 	}
-	return cState.upgradeNode(dpl, owner)
+	return cState.upgradeNode(client, dpl, owner)
 }
 
-func (cState *ClusterState) upgradeNode(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) (*v1alpha1.ElasticsearchNodeStatus, error) {
-	nodeForUpgrade, nodeStatus := cState.selectNodeForUpgrade(dpl)
+func (cState *ClusterState) upgradeNode(client client.Client, dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) (*v1alpha1.ElasticsearchNodeStatus, error) {
+	nodeForUpgrade, nodeStatus := cState.selectNodeForUpgrade(client, dpl)
 	if nodeForUpgrade == nil {
 		// upgrade requested, but there are no nodes for upgrade?
 		return nil, fmt.Errorf("Upgrade requested but no nodes for upgrade found")
 	}
 	// TODO: maybe first mark the node 'underUpgrade' and revert that
 	// if the upgrade fails?
-	if err := nodeForUpgrade.CreateOrUpdateNode(owner); err != nil {
+	if err := nodeForUpgrade.CreateOrUpdateNode(client, owner); err != nil {
 		return nil, fmt.Errorf("Unable to create Elasticsearch node: %v", err)
 	}
-	if err := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeForUpgrade.DeployName, utils.NodeControllerUpdated()); err != nil {
+	if err := utils.UpdateNodeUpgradeStatusWithRetry(client, dpl, nodeForUpgrade.DeployName, utils.NodeControllerUpdated()); err != nil {
 		return nil, err
 	}
 	nodeStatus = nil
@@ -447,15 +449,15 @@ func (cState *ClusterState) upgradeNode(dpl *v1alpha1.Elasticsearch, owner metav
 	return nodeStatus, nil
 }
 
-func disableShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) error {
-	return setShardAllocation(dpl, masterPod, v1alpha1.ShardAllocationFalse)
+func disableShardAllocation(client client.Client, dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) error {
+	return setShardAllocation(client, dpl, masterPod, v1alpha1.ShardAllocationFalse)
 }
 
-func enableShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) error {
-	return setShardAllocation(dpl, masterPod, v1alpha1.ShardAllocationTrue)
+func enableShardAllocation(client client.Client, dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod) error {
+	return setShardAllocation(client, dpl, masterPod, v1alpha1.ShardAllocationTrue)
 }
 
-func setShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled v1alpha1.ShardAllocationState) error {
+func setShardAllocation(client client.Client, dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled v1alpha1.ShardAllocationState) error {
 	if enabled == dpl.Status.ShardAllocationEnabled {
 		return nil
 	}
@@ -463,14 +465,15 @@ func setShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled 
 		return err
 	}
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if getErr := sdk.Get(dpl); getErr != nil {
+		dplRetry := &v1alpha1.Elasticsearch{}
+		if getErr := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dplRetry); getErr != nil {
 			return getErr
 		}
-		if dpl.Status.ShardAllocationEnabled == enabled {
+		if dplRetry.Status.ShardAllocationEnabled == enabled {
 			return nil
 		}
-		dpl.Status.ShardAllocationEnabled = enabled
-		return sdk.Update(dpl)
+		dplRetry.Status.ShardAllocationEnabled = enabled
+		return client.Update(context.TODO(), dplRetry)
 	})
 	// TODO: should we revert shard allocation?
 	// if retryErr != nil {
@@ -482,8 +485,8 @@ func setShardAllocation(dpl *v1alpha1.Elasticsearch, masterPod *v1.Pod, enabled 
 	return retryErr
 }
 
-func updateClusterSettings(dpl *v1alpha1.Elasticsearch) error {
-	masterPods, err := listRunningMasterPods(dpl.Name, dpl.Namespace)
+func updateClusterSettings(client client.Client, dpl *v1alpha1.Elasticsearch) error {
+	masterPods, err := listRunningMasterPods(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return err
 	}
@@ -493,7 +496,7 @@ func updateClusterSettings(dpl *v1alpha1.Elasticsearch) error {
 	// all nodes spawned later will read the config map
 	if len(masterPods.Items) == 0 {
 		// in case ClusterSettingsUpdate had been requested and all master pods disapeared cancel the request
-		if err = utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionFalse, utils.UpdateUpdatingSettingsCondition); err != nil {
+		if err = utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionFalse, utils.UpdateUpdatingSettingsCondition); err != nil {
 			return fmt.Errorf("Unable to update Elasticsearch cluster status: %v", err)
 		}
 		return nil
@@ -505,15 +508,15 @@ func updateClusterSettings(dpl *v1alpha1.Elasticsearch) error {
 		if err := execClusterSettingsUpdate(dpl, masterPod); err != nil {
 			return err
 		}
-		err = utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionFalse, utils.UpdateUpdatingSettingsCondition)
+		err = utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionFalse, utils.UpdateUpdatingSettingsCondition)
 	case v1alpha1.ScaledDown:
-		err = utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionFalse, utils.UpdateScalingDownCondition)
+		err = utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionFalse, utils.UpdateScalingDownCondition)
 	case v1alpha1.ScaledUp:
 		if err := execClusterSettingsUpdate(dpl, masterPod); err != nil {
 			return err
 		}
-		err = utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionFalse, utils.UpdateUpdatingSettingsCondition)
-		err = utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionFalse, utils.UpdateScalingUpCondition)
+		err = utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionFalse, utils.UpdateUpdatingSettingsCondition)
+		err = utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionFalse, utils.UpdateScalingUpCondition)
 	case v1alpha1.NoEvent:
 		return nil
 	}

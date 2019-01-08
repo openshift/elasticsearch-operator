@@ -2,17 +2,18 @@ package k8shandler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_rules.yml"
 )
 
-func CreateOrUpdatePrometheusRules(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdatePrometheusRules(client client.Client, dpl *v1alpha1.Elasticsearch) error {
 	ruleName := fmt.Sprintf("%s-%s", dpl.Name, "prometheus-rules")
 	owner := asOwner(dpl)
 
@@ -31,7 +32,7 @@ func CreateOrUpdatePrometheusRules(dpl *v1alpha1.Elasticsearch) error {
 
 	addOwnerRefToObject(promRule, owner)
 
-	err = sdk.Create(promRule)
+	err = client.Create(context.TODO(), promRule)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
@@ -63,7 +64,7 @@ func prometheusRule(ruleName, namespace string, labels map[string]string) *monit
 	return &monitoringv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       monitoringv1.PrometheusRuleKind,
-			APIVersion: monitoringv1.Group + "/" + monitoringv1.Version,
+			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
 
 		ObjectMeta: metav1.ObjectMeta{

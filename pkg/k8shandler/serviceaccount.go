@@ -1,22 +1,24 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 )
 
 // CreateOrUpdateServiceAccount ensures the existence of the serviceaccount for Elasticsearch cluster
-func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) (string, error) {
+func CreateOrUpdateServiceAccount(client client.Client, dpl *v1alpha1.Elasticsearch) (string, error) {
 	serviceAccountName := v1alpha1.ServiceAccountName
 
 	owner := asOwner(dpl)
 
-	err := createOrUpdateServiceAccount(serviceAccountName, dpl.Namespace, owner)
+	err := createOrUpdateServiceAccount(client, serviceAccountName, dpl.Namespace, owner)
 	if err != nil {
 		return serviceAccountName, fmt.Errorf("Failure creating ServiceAccount %v", err)
 	}
@@ -24,12 +26,12 @@ func CreateOrUpdateServiceAccount(dpl *v1alpha1.Elasticsearch) (string, error) {
 	return serviceAccountName, nil
 }
 
-func createOrUpdateServiceAccount(serviceAccountName, namespace string, owner metav1.OwnerReference) error {
-	elasticsearchSA := serviceAccount(serviceAccountName, namespace)
-	addOwnerRefToObject(elasticsearchSA, owner)
-	err := sdk.Get(elasticsearchSA)
+func createOrUpdateServiceAccount(client client.Client, serviceAccountName, namespace string, owner metav1.OwnerReference) error {
+	err := client.Get(context.TODO(), types.NamespacedName{Name: serviceAccountName, Namespace: namespace}, &v1.ServiceAccount{})
 	if err != nil {
-		err = sdk.Create(elasticsearchSA)
+		elasticsearchSA := serviceAccount(serviceAccountName, namespace)
+		addOwnerRefToObject(elasticsearchSA, owner)
+		err = client.Create(context.TODO(), elasticsearchSA)
 		if err != nil {
 			return fmt.Errorf("Failure constructing serviceaccount for the Elasticsearch cluster: %v", err)
 		}

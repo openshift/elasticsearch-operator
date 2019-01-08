@@ -1,15 +1,17 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/sirupsen/logrus"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	apps "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type deploymentNode struct {
@@ -99,13 +101,13 @@ func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	return false, nil
 }
 
-func (node *deploymentNode) query() error {
-	err := sdk.Get(&node.resource)
+func (node *deploymentNode) query(client client.Client) error {
+	err := client.Get(context.TODO(), types.NamespacedName{Name: node.resource.Name, Namespace: node.resource.Namespace}, &apps.Deployment{})
 	return err
 }
 
 // constructNodeDeployment creates the deployment for the node
-func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error) {
+func (node *deploymentNode) constructNodeResource(client client.Client, cfg *desiredNodeState, owner metav1.OwnerReference) (runtime.Object, error) {
 
 	// Check if deployment exists
 
@@ -136,8 +138,8 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 			Type: "Recreate",
 		},
 		ProgressDeadlineSeconds: &progressDeadlineSeconds,
-		Template: cfg.constructPodTemplateSpec(),
-		Paused:   cfg.Paused,
+		Template:                cfg.constructPodTemplateSpec(client),
+		Paused:                  cfg.Paused,
 	}
 
 	// if storageClass != "default" {
@@ -153,8 +155,8 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 	return &deployment, nil
 }
 
-func (node *deploymentNode) delete() error {
-	err := sdk.Delete(&node.resource)
+func (node *deploymentNode) delete(client client.Client) error {
+	err := client.Delete(context.TODO(), &node.resource)
 	if err != nil {
 		return fmt.Errorf("Unable to delete Deployment %v: ", err)
 	}

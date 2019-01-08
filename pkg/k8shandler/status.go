@@ -1,29 +1,31 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
-	"k8s.io/client-go/util/retry"
-
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const healthUnknown = "cluster health unknown"
 
 // UpdateStatus updates the status of Elasticsearch CRD
-func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
+func (cState *ClusterState) UpdateStatus(client client.Client, dpl *v1alpha1.Elasticsearch) error {
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := sdk.Get(dpl); getErr != nil {
+		if getErr := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
 			return getErr
 		}
-		dpl.Status.ClusterHealth = clusterHealth(dpl)
+		dpl.Status.ClusterHealth = clusterHealth(client, dpl)
 		if dpl.Status.ShardAllocationEnabled == "" {
 			dpl.Status.ShardAllocationEnabled = v1alpha1.ShardAllocationTrue
 		}
@@ -34,8 +36,8 @@ func (cState *ClusterState) UpdateStatus(dpl *v1alpha1.Elasticsearch) error {
 		}
 		dpl.Status.Nodes = nodes
 		updateStatusConditions(&dpl.Status)
-		dpl.Status.Pods = rolePodStateMap(dpl.Namespace, dpl.Name)
-		if updateErr := sdk.Update(dpl); updateErr != nil {
+		dpl.Status.Pods = rolePodStateMap(client, dpl.Namespace, dpl.Name)
+		if updateErr := client.Update(context.TODO(), dpl); updateErr != nil {
 			logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", dpl.Name, updateErr)
 			return updateErr
 		}
@@ -121,8 +123,8 @@ func updateStatusConditions(status *v1alpha1.ElasticsearchStatus) {
 	}
 }
 
-func clusterHealth(dpl *v1alpha1.Elasticsearch) string {
-	pods, err := listRunningPods(dpl.Name, dpl.Namespace)
+func clusterHealth(client client.Client, dpl *v1alpha1.Elasticsearch) string {
+	pods, err := listRunningPods(client, dpl.Name, dpl.Namespace)
 	if err != nil {
 		return healthUnknown
 	}
@@ -155,13 +157,24 @@ func clusterHealth(dpl *v1alpha1.Elasticsearch) string {
 	return health
 }
 
-func rolePodStateMap(namespace string, clusterName string) map[v1alpha1.ElasticsearchNodeRole]v1alpha1.PodStateMap {
+func rolePodStateMap(client client.Client, namespace string, clusterName string) map[v1alpha1.ElasticsearchNodeRole]v1alpha1.PodStateMap {
 
-	baseSelector := fmt.Sprintf("component=%s", clusterName)
-	clientList, _ := GetPodList(namespace, fmt.Sprintf("%s,%s", baseSelector, "es-node-client=true"))
-	dataList, _ := GetPodList(namespace, fmt.Sprintf("%s,%s", baseSelector, "es-node-data=true"))
-	masterList, _ := GetPodList(namespace, fmt.Sprintf("%s,%s", baseSelector, "es-node-master=true"))
-
+	baseSelector := map[string]string{"component": clusterName}
+	baseSelector["es-node-client"] = "true"
+	// SelectorFromSet
+	// baseSelector := fmt.Sprintf("component=%s", clusterName)
+	clientList, _ := GetPodList(client, namespace, labels.SelectorFromSet(map[string]string{
+		"component":      clusterName,
+		"es-node-client": "true",
+	}))
+	dataList, _ := GetPodList(client, namespace, labels.SelectorFromSet(map[string]string{
+		"component":    clusterName,
+		"es-node-data": "true",
+	}))
+	masterList, _ := GetPodList(client, namespace, labels.SelectorFromSet(map[string]string{
+		"component":      clusterName,
+		"es-node-master": "true",
+	}))
 	return map[v1alpha1.ElasticsearchNodeRole]v1alpha1.PodStateMap{
 		v1alpha1.ElasticsearchRoleClient: podStateMap(clientList.Items),
 		v1alpha1.ElasticsearchRoleData:   podStateMap(dataList.Items),

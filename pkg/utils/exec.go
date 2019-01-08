@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/k8sclient"
+	// "github.com/operator-framework/operator-sdk/pkg/k8sclient"
 	"k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
@@ -22,18 +24,27 @@ type ExecConfig struct {
 	Tty            bool
 }
 
-func PodExec(config *ExecConfig) (*bytes.Buffer, *bytes.Buffer, error) {
+func PodExec(execConfig *ExecConfig) (*bytes.Buffer, *bytes.Buffer, error) {
 	var (
 		execOut bytes.Buffer
 		execErr bytes.Buffer
 	)
 
-	esPod := config.Pod
+	esPod := execConfig.Pod
 	if esPod.Status.Phase != v1.PodRunning {
 		return nil, nil, fmt.Errorf("elasticsearch pod [%s] found but isn't running", esPod.Name)
 	}
 
-	client := k8sclient.GetKubeClient()
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("error when creating rest client: %v", err)
+	}
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error when creating rest client: %v", err)
+	}
+	// client := k8sclient.GetKubeClient()
+
 	execRequest := client.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(esPod.Name).
@@ -41,13 +52,13 @@ func PodExec(config *ExecConfig) (*bytes.Buffer, *bytes.Buffer, error) {
 		SubResource("exec")
 
 	execRequest.VersionedParams(&v1.PodExecOptions{
-		Container: config.ContainerName,
-		Command:   config.Command,
-		Stdout:    config.StdOut,
-		Stderr:    config.StdErr,
+		Container: execConfig.ContainerName,
+		Command:   execConfig.Command,
+		Stdout:    execConfig.StdOut,
+		Stderr:    execConfig.StdErr,
 	}, scheme.ParameterCodec)
 
-	restClientConfig, err := clientcmd.BuildConfigFromFlags(config.MasterURL, config.KubeConfigPath)
+	restClientConfig, err := clientcmd.BuildConfigFromFlags(execConfig.MasterURL, execConfig.KubeConfigPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error when creating rest client command: %v", err)
 	}
@@ -58,7 +69,7 @@ func PodExec(config *ExecConfig) (*bytes.Buffer, *bytes.Buffer, error) {
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: &execOut,
 		Stderr: &execErr,
-		Tty:    config.Tty,
+		Tty:    execConfig.Tty,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("remote execution failed: %v", err)

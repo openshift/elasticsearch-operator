@@ -1,17 +1,18 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // CreateOrUpdateServiceMonitors ensures the existence of ServiceMonitors for Elasticsearch cluster
-func CreateOrUpdateServiceMonitors(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdateServiceMonitors(client client.Client, dpl *v1alpha1.Elasticsearch) error {
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
 	owner := asOwner(dpl)
 
@@ -19,7 +20,7 @@ func CreateOrUpdateServiceMonitors(dpl *v1alpha1.Elasticsearch) error {
 
 	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Namespace, labelsWithDefault)
 	addOwnerRefToObject(elasticsearchScMonitor, owner)
-	err := sdk.Create(elasticsearchScMonitor)
+	err := client.Create(context.TODO(), elasticsearchScMonitor)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ServiceMonitor: %v", err)
 	}
@@ -56,7 +57,7 @@ func serviceMonitor(serviceMonitorName string, namespace string, labels map[stri
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       monitoringv1.ServiceMonitorsKind,
-			APIVersion: monitoringv1.Group + "/" + monitoringv1.Version,
+			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceMonitorName,

@@ -96,13 +96,12 @@ tags
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
 
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 
 # Build artifacts
 build/*
+test/ansible-operator/ansible-operator
+
+# Test artifacts
+pkg/ansible/runner/testdata/valid.yaml

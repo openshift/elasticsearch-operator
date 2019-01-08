@@ -1,13 +1,13 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -195,18 +196,18 @@ func (cfg *desiredNodeState) getNode() NodeTypeInterface {
 	return NewStatefulSetNode(cfg.DeployName, cfg.Namespace)
 }
 
-func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) error {
+func (cfg *desiredNodeState) CreateOrUpdateNode(client client.Client, owner metav1.OwnerReference) error {
 	node := cfg.getNode()
-	err := node.query()
+	err := node.query(client)
 	if err != nil {
 		// Node's resource doesn't exist, we can construct one
 		cfg.Paused = false
 		logrus.Infof("Constructing new resource %v", cfg.DeployName)
-		dep, err := node.constructNodeResource(cfg, owner)
+		dep, err := node.constructNodeResource(client, cfg, owner)
 		if err != nil {
 			return fmt.Errorf("Could not construct node resource: %v", err)
 		}
-		err = sdk.Create(dep)
+		err = client.Create(context.TODO(), dep)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Could not create node resource: %v", err)
 		}
@@ -216,18 +217,18 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 		nretries := -1
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			nretries++
-			if getErr := node.query(); getErr != nil {
+			if getErr := node.query(client); getErr != nil {
 				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
 				return getErr
 			}
-			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			dep, updateErr := node.constructNodeResource(client, cfg, metav1.OwnerReference{})
 			if updateErr != nil {
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
 			if nretries == 0 {
 				logrus.Infof("Updating node resource %v", cfg.DeployName)
 			}
-			if updateErr = sdk.Update(dep); updateErr != nil {
+			if updateErr = client.Update(context.TODO(), dep); updateErr != nil {
 				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
 			}
 			return updateErr
@@ -252,16 +253,16 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 		nretries := -1
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			nretries++
-			if getErr := node.query(); getErr != nil {
+			if getErr := node.query(client); getErr != nil {
 				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
 				return getErr
 			}
-			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			dep, updateErr := node.constructNodeResource(client, cfg, metav1.OwnerReference{})
 			if updateErr != nil {
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
 			logrus.Infof("Updating node resource %v", cfg.DeployName)
-			if updateErr = sdk.Update(dep); updateErr != nil {
+			if updateErr = client.Update(context.TODO(), dep); updateErr != nil {
 				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
 			}
 			return updateErr
@@ -275,18 +276,18 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 		cfg.Paused = true
 		retryErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			nretries++
-			if getErr := node.query(); getErr != nil {
+			if getErr := node.query(client); getErr != nil {
 				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
 				return getErr
 			}
-			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			dep, updateErr := node.constructNodeResource(client, cfg, metav1.OwnerReference{})
 			if updateErr != nil {
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
 			if nretries == 0 {
 				logrus.Infof("Updating node resource %v", cfg.DeployName)
 			}
-			if updateErr = sdk.Update(dep); updateErr != nil {
+			if updateErr = client.Update(context.TODO(), dep); updateErr != nil {
 				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
 			}
 			return updateErr
@@ -299,11 +300,11 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 	return nil
 }
 
-func (cfg *desiredNodeState) IsUpdateNeeded() bool {
-	// FIXME: to be refactored. query() must not exist here, since
+func (cfg *desiredNodeState) IsUpdateNeeded(client client.Client) bool {
+	// FIXME: to be refactored. query(client) must not exist here, since
 	// we already have information in clusterState
 	node := cfg.getNode()
-	err := node.query()
+	err := node.query(client)
 	if err != nil {
 		// resource doesn't exist, so the update is needed
 		return true
@@ -525,7 +526,7 @@ func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool
 	return v1.PersistentVolumeClaim{}, false, fmt.Errorf("Unsupported volume configuration for master in cluster %s", cfg.ClusterName)
 }
 
-func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
+func (cfg *desiredNodeState) generatePersistentStorage(client client.Client) v1.VolumeSource {
 	volSource := v1.VolumeSource{}
 	specVol := cfg.ESNodeSpec.Storage
 	switch {
@@ -539,7 +540,7 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 			ClaimName: claimName,
 		}
 		volSource.PersistentVolumeClaim = &volClaim
-		err := createOrUpdatePersistentVolumeClaim(specVol.VolumeClaimTemplate.Spec, claimName, cfg.Namespace)
+		err := createOrUpdatePersistentVolumeClaim(client, specVol.VolumeClaimTemplate.Spec, claimName, cfg.Namespace)
 		if err != nil {
 			logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
 		}
@@ -552,7 +553,7 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 	return volSource
 }
 
-func (cfg *desiredNodeState) getVolumes() []v1.Volume {
+func (cfg *desiredNodeState) getVolumes(client client.Client) []v1.Volume {
 	vols := []v1.Volume{
 		v1.Volume{
 			Name: "elasticsearch-config",
@@ -569,7 +570,7 @@ func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 	if !cfg.isNodePureMaster() {
 		vols = append(vols, v1.Volume{
 			Name:         "elasticsearch-storage",
-			VolumeSource: cfg.generatePersistentStorage(),
+			VolumeSource: cfg.generatePersistentStorage(client),
 		})
 	}
 
@@ -625,7 +626,7 @@ func (actualState *actualNodeState) isStatusUpdateNeeded(nodesInStatus v1alpha1.
 	return true
 }
 
-func (cfg *desiredNodeState) constructPodTemplateSpec() v1.PodTemplateSpec {
+func (cfg *desiredNodeState) constructPodTemplateSpec(client client.Client) v1.PodTemplateSpec {
 	affinity := cfg.getAffinity()
 
 	template := v1.PodTemplateSpec{
@@ -637,7 +638,7 @@ func (cfg *desiredNodeState) constructPodTemplateSpec() v1.PodTemplateSpec {
 			Containers: []v1.Container{
 				cfg.getESContainer(),
 			},
-			Volumes: cfg.getVolumes(),
+			Volumes: cfg.getVolumes(client),
 			// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),
 			ServiceAccountName: cfg.ServiceAccountName,
 		},

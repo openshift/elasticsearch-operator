@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"strconv"
@@ -9,11 +10,12 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,7 +26,7 @@ const (
 )
 
 // CreateOrUpdateConfigMaps ensures the existence of ConfigMaps with Elasticsearch configuration
-func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
+func CreateOrUpdateConfigMaps(client client.Client, dpl *v1alpha1.Elasticsearch) (string, error) {
 	owner := asOwner(dpl)
 	configMapName := v1alpha1.ConfigMapName
 
@@ -43,39 +45,39 @@ func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (string, error) {
 	esUnicastHost := esUnicastHost(dpl.Name)
 	rootLogger := rootLogger()
 
-	err = createOrUpdateConfigMap(dpl, configMapName, dpl.Namespace, dpl.Name, kibanaIndexMode, esUnicastHost, rootLogger, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, owner, dpl.Labels)
+	err = createOrUpdateConfigMap(client, dpl, configMapName, dpl.Namespace, dpl.Name, kibanaIndexMode, esUnicastHost, rootLogger, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, owner, dpl.Labels)
 	if err != nil {
 		return configMapName, fmt.Errorf("Failure creating ConfigMap %v", err)
 	}
 	return configMapName, nil
 }
 
-func createOrUpdateConfigMap(dpl *v1alpha1.Elasticsearch, configMapName, namespace, clusterName, kibanaIndexMode, esUnicastHost, rootLogger, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount string,
+func createOrUpdateConfigMap(client client.Client, dpl *v1alpha1.Elasticsearch, configMapName, namespace, clusterName, kibanaIndexMode, esUnicastHost, rootLogger, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount string,
 	owner metav1.OwnerReference, labels map[string]string) error {
 	elasticsearchCM, err := createConfigMap(configMapName, namespace, clusterName, kibanaIndexMode, esUnicastHost, rootLogger, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, labels)
 	if err != nil {
 		return err
 	}
 	addOwnerRefToObject(elasticsearchCM, owner)
-	err = sdk.Create(elasticsearchCM)
+	err = client.Create(context.TODO(), elasticsearchCM)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
 	} else if errors.IsAlreadyExists(err) {
 		// Get existing configMap to check if it is same as what we want
-		existingCM := configMap(configMapName, namespace, labels)
-		err = sdk.Get(existingCM)
+		existingCM := &v1.ConfigMap{}
+		err = client.Get(context.TODO(), types.NamespacedName{Name: configMapName, Namespace: namespace}, existingCM)
 		if err != nil {
 			return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
 		}
 
 		if configMapContentChanged(existingCM, elasticsearchCM) {
 			// Cluster settings has changed, make sure it doesnt go unnoticed
-			if err := utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionTrue, utils.UpdateUpdatingSettingsCondition); err != nil {
+			if err := utils.UpdateConditionWithRetry(client, dpl, v1alpha1.ConditionTrue, utils.UpdateUpdatingSettingsCondition); err != nil {
 				return fmt.Errorf("Unable to update Elasticsearch cluster status: %v", err)
 			}
 
 			return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				if getErr := sdk.Get(existingCM); getErr != nil {
+				if getErr := client.Get(context.TODO(), types.NamespacedName{Name: configMapName, Namespace: namespace}, existingCM); getErr != nil {
 					logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
 					return getErr
 				}
@@ -84,7 +86,7 @@ func createOrUpdateConfigMap(dpl *v1alpha1.Elasticsearch, configMapName, namespa
 				existingCM.Data[log4jConfig] = elasticsearchCM.Data[log4jConfig]
 				existingCM.Data[indexSettingsConfig] = elasticsearchCM.Data[indexSettingsConfig]
 
-				if updateErr := sdk.Update(existingCM); updateErr != nil {
+				if updateErr := client.Update(context.TODO(), existingCM); updateErr != nil {
 					logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
 					return updateErr
 				}

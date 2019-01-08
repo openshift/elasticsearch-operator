@@ -1,23 +1,25 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 )
 
-func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newName string, namespace string) error {
-	claim := persistentVolumeClaim(newName, namespace)
-	err := sdk.Get(claim)
+func createOrUpdatePersistentVolumeClaim(client client.Client, pvc v1.PersistentVolumeClaimSpec, newName string, namespace string) error {
+	claim := &v1.PersistentVolumeClaim{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: newName, Namespace: namespace}, claim)
 	if err != nil {
 		// PVC doesn't exists, needs to be created.
 		claim = createPersistentVolumeClaim(newName, namespace, pvc)
 		logrus.Infof("Creating new PVC: %v", newName)
-		err = sdk.Create(claim)
+		err = client.Create(context.TODO(), claim)
 		if err != nil {
 			return fmt.Errorf("Unable to create PVC: %v", err)
 		}
