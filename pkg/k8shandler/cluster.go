@@ -102,7 +102,7 @@ func NewClusterState(dpl *v1alpha1.Elasticsearch, configMapName, serviceAccountN
 	var i int32
 	for nodeNum, node := range dpl.Spec.Nodes {
 
-		for i = 1; i <= node.Replicas; i++ {
+		for i = 1; i <= node.NodeCount; i++ {
 			nodeCfg, err := constructNodeSpec(dpl, node, configMapName, serviceAccountName, int32(nodeNum), i, numMasters, numDatas)
 			if err != nil {
 				return cState, fmt.Errorf("Unable to construct ES node config %v", err)

@@ -31,27 +31,33 @@ type Elasticsearch struct {
 	Status            ElasticsearchStatus `json:"status,omitempty"`
 }
 
-type ReplicationPolicyType string
+// RedundancyPolicyType controls number of elasticsearch replica shards
+type RedundancyPolicyType string
 
 const (
-	FullReplication    ReplicationPolicyType = "FullReplication"
-	PartialReplication ReplicationPolicyType = "PartialReplication"
-	NoReplication      ReplicationPolicyType = "NoReplication"
+	// FullRedundancy - each index is fully replicated on every Data node in the cluster
+	FullRedundancy RedundancyPolicyType = "FullRedundancy"
+	// MultipleRedundancy - each index is spread over half of the Data nodes
+	MultipleRedundancy RedundancyPolicyType = "MultipleRedundancy"
+	// SingleRedundancy - one replica shard
+	SingleRedundancy RedundancyPolicyType = "SingleRedundancy"
+	// ZeroRedundancy - no replica shards
+	ZeroRedundancy RedundancyPolicyType = "ZeroRedundancy"
 )
 
 // ElasticsearchSpec struct represents the Spec of Elasticsearch cluster CRD
 type ElasticsearchSpec struct {
 	// managementState indicates whether and how the operator should manage the component
-	ManagementState   ManagementState       `json:"managementState"`
-	ReplicationPolicy ReplicationPolicyType `json:"dataReplication"`
-	Nodes             []ElasticsearchNode   `json:"nodes"`
-	Spec              ElasticsearchNodeSpec `json:"nodeSpec"`
+	ManagementState  ManagementState       `json:"managementState"`
+	RedundancyPolicy RedundancyPolicyType  `json:"redundancyPolicy"`
+	Nodes            []ElasticsearchNode   `json:"nodes"`
+	Spec             ElasticsearchNodeSpec `json:"nodeSpec"`
 }
 
 // ElasticsearchNode struct represents individual node in Elasticsearch cluster
 type ElasticsearchNode struct {
 	Roles        []ElasticsearchNodeRole  `json:"roles"`
-	Replicas     int32                    `json:"replicas"`
+	NodeCount    int32                    `json:"nodeCount"`
 	Spec         ElasticsearchNodeSpec    `json:"nodeSpec"`
 	NodeSelector map[string]string        `json:"nodeSelector,omitempty"`
 	Storage      ElasticsearchStorageSpec `json:"storage"`
