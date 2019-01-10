@@ -50,7 +50,7 @@ get-dep:
 	fi
 
 
-build: $(SRC)
+build: fmt
 	@mkdir -p $(TARGET_DIR)/src/$(APP_REPO)
 	@cp -ru $(CURPATH)/pkg $(TARGET_DIR)/src/$(APP_REPO)
 	@cp -ru $(CURPATH)/vendor/* $(TARGET_DIR)/src
@@ -66,7 +66,9 @@ test-e2e: image operator-sdk
 	hack/test-e2e.sh
 
 fmt:
-	@gofmt -l -w $(SRC)
+	@gofmt -l -w cmd && \
+	gofmt -l -w pkg && \
+	gofmt -l -w test
 
 simplify:
 	@gofmt -s -l -w $(SRC)
