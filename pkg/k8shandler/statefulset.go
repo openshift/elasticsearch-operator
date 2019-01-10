@@ -18,6 +18,18 @@ func (node *statefulSetNode) getResource() runtime.Object {
 	return &node.resource
 }
 
+func (node *statefulSetNode) getRevision(cfg *desiredNodeState) (string, error) {
+	return "", nil
+}
+
+func (node *statefulSetNode) awaitingRollout(cfg *desiredNodeState, currentRevision string) (bool, error) {
+	return false, nil
+}
+
+func (node *statefulSetNode) needsPause(cfg *desiredNodeState) (bool, error) {
+	return false, nil
+}
+
 func (node *statefulSetNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	// Check replicas number
 	if cfg.getReplicas() != *node.resource.Spec.Replicas {

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
 
@@ -194,7 +196,7 @@ func (cfg *desiredNodeState) getNode() NodeTypeInterface {
 	return NewStatefulSetNode(cfg.DeployName, cfg.Namespace)
 }
 
-func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) error {
+func (cfg *desiredNodeState) CreateNode(owner metav1.OwnerReference) error {
 	node := cfg.getNode()
 	err := node.query()
 	if err != nil {
@@ -209,7 +211,22 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Could not create node resource: %v", err)
 		}
+	}
+	return nil
+}
 
+func (cfg *desiredNodeState) PauseNode(owner metav1.OwnerReference) error {
+	node := cfg.getNode()
+	err := node.query()
+
+	// TODO: what is allowed to be changed in the StatefulSet ?
+	// Validate Elasticsearch cluster parameters
+	unpaused, err := node.needsPause(cfg)
+	if err != nil {
+		return fmt.Errorf("Failed to see if the node resource is different from what's needed: %v", err)
+	}
+
+	if unpaused {
 		// set it back to being paused
 		cfg.Paused = true
 		nretries := -1
@@ -224,7 +241,7 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
 			if nretries == 0 {
-				logrus.Infof("Updating node resource %v", cfg.DeployName)
+				logrus.Infof("Updating node resource to be paused again %v", cfg.DeployName)
 			}
 			if updateErr = sdk.Update(dep); updateErr != nil {
 				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
@@ -235,9 +252,13 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cfg.DeployName, nretries, retryErr)
 		}
 		logrus.Debugf("Updated Elasticsearch %v after %v retries", cfg.DeployName, nretries)
-
-		return nil
 	}
+	return nil
+}
+
+func (cfg *desiredNodeState) UpdateNode(owner metav1.OwnerReference) error {
+	node := cfg.getNode()
+	err := node.query()
 
 	// TODO: what is allowed to be changed in the StatefulSet ?
 	// Validate Elasticsearch cluster parameters
@@ -270,32 +291,49 @@ func (cfg *desiredNodeState) CreateOrUpdateNode(owner metav1.OwnerReference) err
 		}
 		logrus.Debugf("Updated Elasticsearch %v after %v retries", cfg.DeployName, nretries)
 
-		// set it back to being paused
-		cfg.Paused = true
-		retryErr = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			nretries++
+		currentRevision, err := node.getRevision(cfg)
+		if err != nil {
+			return err
+		}
+
+		err = wait.Poll(time.Second*1, time.Second*10, func() (done bool, err error) {
 			if getErr := node.query(); getErr != nil {
 				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
-				return getErr
+				return false, getErr
 			}
-			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
-			if updateErr != nil {
-				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
+
+			if awaitingRollout, _ := node.awaitingRollout(cfg, currentRevision); !awaitingRollout {
+				err = cfg.PauseNode(owner)
+				return err == nil, err
 			}
-			if nretries == 0 {
-				logrus.Infof("Updating node resource %v", cfg.DeployName)
-			}
-			if updateErr = sdk.Update(dep); updateErr != nil {
-				logrus.Debugf("Failed to update node resource %v: %v", cfg.DeployName, updateErr)
-			}
-			return updateErr
+
+			return false, nil
 		})
-		if retryErr != nil {
-			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cfg.DeployName, nretries, retryErr)
+		if err != nil {
+			return err
 		}
-		logrus.Debugf("Updated Elasticsearch %v after %v retries", cfg.DeployName, nretries)
+
 	}
 	return nil
+}
+
+func (cfg *desiredNodeState) IsPauseNeeded() bool {
+	// FIXME: to be refactored. query() must not exist here, since
+	// we already have information in clusterState
+	node := cfg.getNode()
+	err := node.query()
+	if err != nil {
+		// resource doesn't exist, so the pause is not needed
+		return false
+	}
+
+	unpaused, err := node.needsPause(cfg)
+	if err != nil {
+		logrus.Errorf("Failed to obtain if there is a pause needed for resource: %v", err)
+		return false
+	}
+
+	return unpaused
 }
 
 func (cfg *desiredNodeState) IsUpdateNeeded() bool {

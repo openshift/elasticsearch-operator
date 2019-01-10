@@ -20,12 +20,39 @@ func (node *deploymentNode) getResource() runtime.Object {
 	return &node.resource
 }
 
-func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
+func (node *deploymentNode) getRevision(cfg *desiredNodeState) (string, error) {
+	val, ok := node.resource.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
+
+	if ok {
+		return val, nil
+	}
+
+	return "", fmt.Errorf("Unable to find revision annotation value for %v", cfg.DeployName)
+}
+
+func (node *deploymentNode) awaitingRollout(cfg *desiredNodeState, currentRevision string) (bool, error) {
+
+	actualRevision, err := node.getRevision(cfg)
+	if err != nil {
+		return true, err
+	}
+
+	return actualRevision == currentRevision, nil
+}
+
+func (node *deploymentNode) needsPause(cfg *desiredNodeState) (bool, error) {
 
 	if node.resource.Spec.Paused == false {
 		logrus.Debugf("Deployment %v is not currently paused.", node.resource.Name)
 		return true, nil
 	}
+
+	return false, nil
+}
+
+// Since this is called as part of doing an upgrade we check if deployments need to be
+//  paused again as a separate call to avoid unnecessary rollouts
+func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 
 	// Check replicas number
 	actualReplicas := *node.resource.Spec.Replicas
