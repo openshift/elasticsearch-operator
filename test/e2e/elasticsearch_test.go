@@ -12,7 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
-	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/apis"
+	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1alpha1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,16 +26,26 @@ var (
 )
 
 func TestElasticsearch(t *testing.T) {
+	// get global framework variables
+	ctx := framework.NewTestCtx(t)
+	defer ctx.Cleanup()
+
 	elasticsearchList := &elasticsearch.ElasticsearchList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Elasticsearch",
 			APIVersion: elasticsearch.SchemeGroupVersion.String(),
 		},
 	}
-	err := framework.AddToFrameworkScheme(elasticsearch.AddToScheme, elasticsearchList)
+	err := framework.AddToFrameworkScheme(apis.AddToScheme, elasticsearchList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
+
+	err = ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// run subtests
 	t.Run("elasticsearch-group", func(t *testing.T) {
 		t.Run("Cluster", ElasticsearchCluster)
@@ -202,13 +213,13 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 }
 
 func ElasticsearchCluster(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := framework.NewTestCtx(t)
 	defer ctx.Cleanup()
-	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
-	if err != nil {
-		t.Fatalf("failed to initialize cluster resources: %v", err)
-	}
+	// err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	// if err != nil {
+	// 	t.Fatalf("failed to initialize cluster resources: %v", err)
+	// }
 	t.Log("Initialized cluster resources")
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
