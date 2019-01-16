@@ -307,17 +307,7 @@ func (cfg *desiredNodeState) IsUpdateNeeded() bool {
 		// resource doesn't exist, so the update is needed
 		return true
 	}
-
-	diff, err := node.isDifferent(cfg)
-	if err != nil {
-		logrus.Errorf("Failed to obtain if there is a significant difference in resources: %v", err)
-		return false
-	}
-
-	if diff {
-		return true
-	}
-	return false
+	return node.isUpdateNeeded(cfg)
 }
 
 func (node *nodeState) setStatefulSet(statefulSet apps.StatefulSet) {

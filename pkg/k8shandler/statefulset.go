@@ -29,6 +29,12 @@ func (node *statefulSetNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	return false, nil
 }
 
+// isUpdateNeeded returns true if update is needed
+func (node *statefulSetNode) isUpdateNeeded(cfg *desiredNodeState) bool {
+	// This operator doesn't update nodes managed by StatefulSets in rolling fashion
+	return false
+}
+
 func (node *statefulSetNode) query() error {
 	err := sdk.Get(&node.resource)
 	return err
