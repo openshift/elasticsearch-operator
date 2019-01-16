@@ -236,7 +236,7 @@ func (cfg *desiredNodeState) PauseNode(owner metav1.OwnerReference) error {
 				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
 				return getErr
 			}
-			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			dep, updateErr := node.constructNodeResource(cfg, owner)
 			if updateErr != nil {
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
@@ -276,7 +276,7 @@ func (cfg *desiredNodeState) UpdateNode(owner metav1.OwnerReference) error {
 				logrus.Debugf("Could not get Elasticsearch node resource %v: %v", cfg.DeployName, getErr)
 				return getErr
 			}
-			dep, updateErr := node.constructNodeResource(cfg, metav1.OwnerReference{})
+			dep, updateErr := node.constructNodeResource(cfg, owner)
 			if updateErr != nil {
 				return fmt.Errorf("Could not construct node resource %v for update: %v", cfg.DeployName, updateErr)
 			}
