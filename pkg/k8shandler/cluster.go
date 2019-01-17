@@ -148,10 +148,6 @@ func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1al
 	// TODO: Handle failures. Maybe introduce some ElasticsearchCondition which says
 	// what action was attempted last, when, how many tries and what the result is.
 
-	// TODO: implement better logic to understand when new cluster is needed
-	// maybe RequiredAction ElasticsearchActionNewClusterNeeded should be renamed to
-	// ElasticsearchActionAddNewNodes - will blindly add new nodes to the cluster.
-
 	if dpl.Spec.ManagementState == v1alpha1.ManagementStateManaged {
 
 		for _, node := range cState.Nodes {
@@ -160,8 +156,6 @@ func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1al
 			}
 		}
 
-		// TODO: implement rolling restart action if any deployment/configmap actually deployed
-		// is different from the desired.
 		if node := upgradeInProgress(dpl); node != nil {
 			return v1alpha1.ElasticsearchActionRollingRestartNeeded, nil
 		}
