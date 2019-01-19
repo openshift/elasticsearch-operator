@@ -64,8 +64,20 @@ type ElasticsearchNode struct {
 }
 
 type ElasticsearchStorageSpec struct {
-	StorageClassName string             `json:"storageClassName,omitempty"`
-	Size             *resource.Quantity `json:"size,omitempty"`
+	StorageClass *ElasticsearchStorageClassSpec `json:",inline,omitempty"`
+
+	// PersistentVolumeClaim will NOT try to regenerate PVC, it will be used
+	// as-is. You may want to use it instead of VolumeClaimTemplate in case
+	// you already have bounded PersistentVolumeClaims you want to use, and the names
+	// of these PersistentVolumeClaims doesn't follow the naming convention.
+
+	// TODO: uncomment when we add in adoption
+	//PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+}
+
+type ElasticsearchStorageClassSpec struct {
+	StorageClassName string            `json:"storageClassName"`
+	Size             resource.Quantity `json:"size"`
 }
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node

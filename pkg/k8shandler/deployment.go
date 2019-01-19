@@ -74,7 +74,7 @@ func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	for _, volume := range node.resource.Spec.Template.Spec.Volumes {
 		if volume.Name == "elasticsearch-storage" {
 			switch {
-			case volume.PersistentVolumeClaim != nil && &cfg.ESNodeSpec.Storage.StorageClassName != nil:
+			case volume.PersistentVolumeClaim != nil && cfg.ESNodeSpec.Storage.StorageClass != nil:
 				desiredClaimName := fmt.Sprintf("%s-%s", cfg.ClusterName, cfg.DeployName)
 				if volume.PersistentVolumeClaim.ClaimName == desiredClaimName {
 					return false, nil

@@ -484,8 +484,7 @@ func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
 // volumeClaimTemplate in StatefulSet spec
 func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool, error) {
 	specVol := cfg.ESNodeSpec.Storage
-	if &specVol.StorageClassName != nil &&
-		&specVol.Size != nil {
+	if specVol.StorageClass != nil {
 		pvc := v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "elasticsearch-storage",
@@ -497,10 +496,10 @@ func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool
 				},
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						v1.ResourceStorage: *specVol.Size,
+						v1.ResourceStorage: specVol.StorageClass.Size,
 					},
 				},
-				StorageClassName: &specVol.StorageClassName,
+				StorageClassName: &specVol.StorageClass.StorageClassName,
 			},
 		}
 		return pvc, true, nil
@@ -521,8 +520,7 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
 	*/
 
-	case &specVol.StorageClassName != nil &&
-		&specVol.Size != nil:
+	case specVol.StorageClass != nil:
 		claimName := fmt.Sprintf("%s-%s", cfg.ClusterName, cfg.DeployName)
 		volSource.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{
 			ClaimName: claimName,
@@ -534,10 +532,10 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 			},
 			Resources: v1.ResourceRequirements{
 				Requests: v1.ResourceList{
-					v1.ResourceStorage: *specVol.Size,
+					v1.ResourceStorage: specVol.StorageClass.Size,
 				},
 			},
-			StorageClassName: &specVol.StorageClassName,
+			StorageClassName: &specVol.StorageClass.StorageClassName,
 		}
 
 		err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, cfg.Namespace)
