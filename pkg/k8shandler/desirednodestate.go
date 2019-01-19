@@ -521,8 +521,7 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 		volSource.PersistentVolumeClaim = specVol.PersistentVolumeClaim
 	*/
 
-	case &specVol.StorageClassName != nil &&
-		&specVol.Size != nil:
+	case &specVol.StorageClassName != nil && specVol.Size != nil:
 		claimName := fmt.Sprintf("%s-%s", cfg.ClusterName, cfg.DeployName)
 		volSource.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{
 			ClaimName: claimName,
