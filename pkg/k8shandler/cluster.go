@@ -70,7 +70,12 @@ func CreateOrUpdateElasticsearchCluster(dpl *v1alpha1.Elasticsearch, configMapNa
 			return err
 		}
 	case action == v1alpha1.ElasticsearchActionNone:
-		break
+		if dpl.Spec.ManagementState == v1alpha1.ManagementStateManaged {
+			// Make sure that the deployments are Paused
+			if err = cState.pauseCluster(dpl, asOwner(dpl)); err != nil {
+				return err
+			}
+		}
 	default:
 		return fmt.Errorf("Unknown cluster action requested: %v", action)
 	}
@@ -175,6 +180,18 @@ func (cState *ClusterState) getRequiredAction(dpl *v1alpha1.Elasticsearch) (v1al
 	return v1alpha1.ElasticsearchActionNone, nil
 }
 
+func (cState *ClusterState) pauseCluster(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
+
+	// check if the node is Paused: false
+	for _, currentNode := range cState.Nodes {
+		if currentNode.Desired.IsPauseNeeded() {
+			currentNode.Desired.PauseNode(owner)
+		}
+	}
+
+	return nil
+}
+
 func (cState *ClusterState) buildNewCluster(dpl *v1alpha1.Elasticsearch, owner metav1.OwnerReference) error {
 	// Mark the operation in case of operator failure
 	if err := utils.UpdateConditionWithRetry(dpl, v1alpha1.ConditionTrue, utils.UpdateScalingUpCondition); err != nil {
@@ -185,7 +202,7 @@ func (cState *ClusterState) buildNewCluster(dpl *v1alpha1.Elasticsearch, owner m
 	}
 	// Create the new nodes
 	for _, node := range cState.Nodes {
-		err := node.Desired.CreateOrUpdateNode(owner)
+		err := node.Desired.CreateNode(owner)
 		if err != nil {
 			return fmt.Errorf("Unable to create Elasticsearch node: %v", err)
 		}
@@ -238,16 +255,24 @@ func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner me
 		nodeUnderUpgrade, err = cState.beginUpgrade(dpl, owner)
 		if err != nil {
 			// try to revert shard allocation settings, best-effort operation
-			_ = enableShardAllocation(dpl, masterPod)
+			masterPod, err = getRunningMasterPod(dpl.Name, dpl.Namespace)
+			if err != nil {
+				return nil
+			}
+			enableShardAllocation(dpl, masterPod)
 			return err
 		}
 		logrus.Infof("Rolling upgrade: began upgrading node: %v", nodeUnderUpgrade.DeploymentName)
 	}
 
 	// wait for node to start and rejoin the cluster
+	masterPod, err = getRunningMasterPod(dpl.Name, dpl.Namespace)
+	if err != nil {
+		return nil
+	}
 	if rejoined := nodeRejoinedCluster(dpl, masterPod); !rejoined {
 		if nodeUnderUpgrade.UpgradeStatus.UpgradePhase != v1alpha1.NodeRestarting {
-			logrus.Infof("Rolling upgrade: waiting for node '%s' to rejoin the cluster...", nodeUnderUpgrade.PodName)
+			logrus.Infof("Rolling upgrade: waiting for node '%s' to rejoin the cluster...", nodeUnderUpgrade.DeploymentName)
 			if retryErr := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeUnderUpgrade.DeploymentName, utils.NodeRestarting()); retryErr != nil {
 				return err
 			}
@@ -255,6 +280,10 @@ func (cState *ClusterState) restartCluster(dpl *v1alpha1.Elasticsearch, owner me
 		return nil
 	}
 	// enable shard allocation
+	masterPod, err = getRunningMasterPod(dpl.Name, dpl.Namespace)
+	if err != nil {
+		return nil
+	}
 	if err = enableShardAllocation(dpl, masterPod); err != nil {
 		return err
 	}
@@ -420,7 +449,7 @@ func (cState *ClusterState) upgradeNode(dpl *v1alpha1.Elasticsearch, owner metav
 	}
 	// TODO: maybe first mark the node 'underUpgrade' and revert that
 	// if the upgrade fails?
-	if err := nodeForUpgrade.CreateOrUpdateNode(owner); err != nil {
+	if err := nodeForUpgrade.UpdateNode(owner); err != nil {
 		return nil, fmt.Errorf("Unable to create Elasticsearch node: %v", err)
 	}
 	if err := utils.UpdateNodeUpgradeStatusWithRetry(dpl, nodeForUpgrade.DeployName, utils.NodeControllerUpdated()); err != nil {
