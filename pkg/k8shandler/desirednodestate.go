@@ -523,7 +523,7 @@ func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
 func (cfg *desiredNodeState) generateMasterPVC() (v1.PersistentVolumeClaim, bool, error) {
 	specVol := cfg.ESNodeSpec.Storage
 	if &specVol.StorageClassName != nil &&
-		&specVol.Size != nil {
+		specVol.Size != nil {
 		pvc := v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   "elasticsearch-storage",
