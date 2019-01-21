@@ -221,12 +221,12 @@ func (cfg *desiredNodeState) PauseNode(owner metav1.OwnerReference) error {
 
 	// TODO: what is allowed to be changed in the StatefulSet ?
 	// Validate Elasticsearch cluster parameters
-	unpaused, err := node.needsPause(cfg)
+	needsPause, err := node.needsPause(cfg)
 	if err != nil {
 		return fmt.Errorf("Failed to see if the node resource is different from what's needed: %v", err)
 	}
 
-	if unpaused {
+	if needsPause {
 		// set it back to being paused
 		cfg.Paused = true
 		nretries := -1
@@ -258,14 +258,13 @@ func (cfg *desiredNodeState) PauseNode(owner metav1.OwnerReference) error {
 
 func (cfg *desiredNodeState) UpdateNode(owner metav1.OwnerReference) error {
 	node := cfg.getNode()
-	err := node.query()
+	if err := node.query(); err != nil {
+		return err
+	}
 
 	// TODO: what is allowed to be changed in the StatefulSet ?
 	// Validate Elasticsearch cluster parameters
-	diff, err := node.isDifferent(cfg)
-	if err != nil {
-		return fmt.Errorf("Failed to see if the node resource is different from what's needed: %v", err)
-	}
+	diff := node.isUpdateNeeded(cfg)
 
 	if diff {
 		cfg.Paused = false
@@ -309,10 +308,7 @@ func (cfg *desiredNodeState) UpdateNode(owner metav1.OwnerReference) error {
 
 			return false, nil
 		})
-		if err != nil {
-			return err
-		}
-
+		return err
 	}
 	return nil
 }
@@ -583,7 +579,7 @@ func (cfg *desiredNodeState) generatePersistentStorage() v1.VolumeSource {
 		}
 
 	default:
-		logrus.Debug("Defaulting volume source to emptyDir for node %q", cfg.DeployName)
+		logrus.Debugf("Defaulting volume source to emptyDir for node %q", cfg.DeployName)
 		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
 	}
 
