@@ -177,6 +177,17 @@ To run the e2e tests, install the above CRDs and from the repo directory, run:
 ```
 make test-e2e
 ```
+This assumes:
+
+* the operator-sdk installed (e.g. `make operator-sdk`)
+* the operator image is built (e.g. `make image`) and available to the OKD cluster
+
+**Note:** It is necessary to set the `IMAGE_ELASTICSEARCH_OPERATOR` environment variable to a valid pull spec in order to run this test against local changes to the `elasticsearch-operator`. For example:
+```	
+make deploy-image && \
+IMAGE_ELASTICSEARCH_OPERATOR=quay.io/openshift/origin-elasticsearch-operator:latest make test-e2e
+```
+
 
 ### Dev Testing
 You should first ensure that you have commands such as `imagebuilder` and `operator-sdk`
@@ -190,7 +201,7 @@ ELASTICSEARCH_OPERATOR=$GOPATH/src/github.com/openshift/elasticsearch-operator
 [REMOTE_REGISTRY=true] make deploy-example
 ```
 
-To test on an OCP cluster, you can run:
+To test on an OKD cluster, you can run:
 
     make go-run
 
