@@ -62,7 +62,7 @@ clean:
 image: imagebuilder
 	$(IMAGE_BUILDER) -t $(IMAGE_TAG) . $(IMAGE_BUILDER_OPTS)
 
-test-e2e: image operator-sdk
+test-e2e: image
 	hack/test-e2e.sh
 
 fmt:
