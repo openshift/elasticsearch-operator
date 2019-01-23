@@ -40,6 +40,9 @@ func (node *deploymentNode) awaitingRollout(cfg *desiredNodeState, currentRevisi
 	return actualRevision == currentRevision, nil
 }
 
+// needsPause determines whether a Deployment needs to be paused
+// A Deployment doesn't need to be paused if it is already paused.
+// Otherwise it need to be paused.
 func (node *deploymentNode) needsPause(cfg *desiredNodeState) (bool, error) {
 
 	if node.resource.Spec.Paused == false {
@@ -51,7 +54,7 @@ func (node *deploymentNode) needsPause(cfg *desiredNodeState) (bool, error) {
 }
 
 // Since this is called as part of doing an upgrade we check if deployments need to be
-//  paused again as a separate call to avoid unnecessary rollouts
+// paused again as a separate call to avoid unnecessary rollouts
 func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 
 	// Check replicas number
@@ -62,10 +65,6 @@ func (node *deploymentNode) isDifferent(cfg *desiredNodeState) (bool, error) {
 	}
 
 	// Check if labels are correct
-	if len(cfg.Labels) != len(node.resource.Labels) {
-		logrus.Debugf("Different labels detected, updating deployment %q", node.resource.GetName())
-		return true, nil
-	}
 	for label, value := range cfg.Labels {
 		val, ok := node.resource.Labels[label]
 		if !ok || val != value {
