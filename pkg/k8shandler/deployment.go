@@ -128,27 +128,27 @@ func (node *deploymentNode) isUpdateNeeded(cfg *desiredNodeState) bool {
 	for _, container := range node.resource.Spec.Template.Spec.Containers {
 		if container.Name == "elasticsearch" {
 			// Check image of Elasticsearch container
-			if container.Image != cfg.ESNodeSpec.Spec.Image {
+			if container.Image != cfg.Image {
 				logrus.Debugf("Resource '%s' has different container image than desired", node.resource.Name)
 				return true
 			}
 			// Check CPU limits
-			if cfg.ESNodeSpec.Spec.Resources.Limits.Cpu().Cmp(*container.Resources.Limits.Cpu()) != 0 {
+			if cfg.ESNodeSpec.Resources.Limits.Cpu().Cmp(*container.Resources.Limits.Cpu()) != 0 {
 				logrus.Debugf("Resource '%s' has different CPU limit than desired", node.resource.Name)
 				return true
 			}
 			// Check memory limits
-			if cfg.ESNodeSpec.Spec.Resources.Limits.Memory().Cmp(*container.Resources.Limits.Memory()) != 0 {
+			if cfg.ESNodeSpec.Resources.Limits.Memory().Cmp(*container.Resources.Limits.Memory()) != 0 {
 				logrus.Debugf("Resource '%s' has different Memory limit than desired", node.resource.Name)
 				return true
 			}
 			// Check CPU requests
-			if cfg.ESNodeSpec.Spec.Resources.Requests.Cpu().Cmp(*container.Resources.Requests.Cpu()) != 0 {
+			if cfg.ESNodeSpec.Resources.Requests.Cpu().Cmp(*container.Resources.Requests.Cpu()) != 0 {
 				logrus.Debugf("Resource '%s' has different CPU Request than desired", node.resource.Name)
 				return true
 			}
 			// Check memory requests
-			if cfg.ESNodeSpec.Spec.Resources.Requests.Memory().Cmp(*container.Resources.Requests.Memory()) != 0 {
+			if cfg.ESNodeSpec.Resources.Requests.Memory().Cmp(*container.Resources.Requests.Memory()) != 0 {
 				logrus.Debugf("Resource '%s' has different Memory Request than desired", node.resource.Name)
 				return true
 			}
