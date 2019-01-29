@@ -62,6 +62,7 @@ func createService(serviceName, namespace, clusterName, targetPortName string, p
 				Port:       port,
 				Protocol:   "TCP",
 				TargetPort: intstr.FromString(targetPortName),
+				Name:       clusterName,
 			},
 		},
 		PublishNotReadyAddresses: publishNotReady,
