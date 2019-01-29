@@ -21,7 +21,7 @@ func CreateOrUpdateServiceMonitors(dpl *v1alpha1.Elasticsearch) error {
 
 	labelsWithDefault := appendDefaultLabel(dpl.Name, dpl.Labels)
 
-	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Namespace, labelsWithDefault)
+	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Name, dpl.Namespace, labelsWithDefault)
 	addOwnerRefToObject(elasticsearchScMonitor, owner)
 	err := sdk.Create(elasticsearchScMonitor)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -33,13 +33,14 @@ func CreateOrUpdateServiceMonitors(dpl *v1alpha1.Elasticsearch) error {
 	return nil
 }
 
-func createServiceMonitor(serviceMonitorName, namespace string, labels map[string]string) *monitoringv1.ServiceMonitor {
+func createServiceMonitor(serviceMonitorName, clusterName, namespace string, labels map[string]string) *monitoringv1.ServiceMonitor {
 	svcMonitor := serviceMonitor(serviceMonitorName, namespace, labels)
 	labelSelector := metav1.LabelSelector{
 		MatchLabels: labels,
 	}
 	tlsConfig := monitoringv1.TLSConfig{
-		CAFile: prometheusCAFile,
+		CAFile:     prometheusCAFile,
+		ServerName: clusterName,
 	}
 	endpoint := monitoringv1.Endpoint{
 		Port:            "restapi",
