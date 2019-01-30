@@ -16,24 +16,48 @@ import (
 func CreateOrUpdateServices(dpl *v1alpha1.Elasticsearch) error {
 	elasticsearchClusterSvcName := fmt.Sprintf("%s-%s", dpl.Name, "cluster")
 	elasticsearchRestSvcName := dpl.Name
+	metricsSvcName := fmt.Sprintf("%s-%s", dpl.Name, "metrics")
 	owner := asOwner(dpl)
 
 	labelsWithDefault := appendDefaultLabel(dpl.Name, dpl.Labels)
 
-	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name, "cluster", 9300, selectorForES("es-node-master", dpl.Name), labelsWithDefault, true, owner)
+	err := createOrUpdateService(elasticsearchClusterSvcName, dpl.Namespace, dpl.Name,
+		"cluster", 9300, selectorForES("es-node-master", dpl.Name), map[string]string{},
+		labelsWithDefault, true, owner)
+
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 
-	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name, "restapi", 9200, selectorForES("es-node-client", dpl.Name), labelsWithDefault, false, owner)
+	err = createOrUpdateService(elasticsearchRestSvcName, dpl.Namespace, dpl.Name,
+		"restapi", 9200, selectorForES("es-node-client", dpl.Name), map[string]string{},
+		labelsWithDefault, false, owner)
+
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
 	}
+
+	annotations := map[string]string{
+		"service.alpha.openshift.io/serving-cert-secret-name": metricsSvcName,
+	}
+
+	err = createOrUpdateService(metricsSvcName, dpl.Namespace, metricsSvcName,
+		"metrics", 60000, selectorForES("es-node-client", dpl.Name), annotations,
+		labelsWithDefault, false, owner)
+
+	if err != nil {
+		return fmt.Errorf("Failure creating service %v", err)
+	}
+
 	return nil
 }
 
-func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, labels map[string]string, publishNotReady bool, owner metav1.OwnerReference) error {
-	elasticsearchSvc := createService(serviceName, namespace, clusterName, targetPortName, port, selector, labels, publishNotReady)
+func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, annotations, labels map[string]string, publishNotReady bool, owner metav1.OwnerReference) error {
+
+	elasticsearchSvc := createService(serviceName, namespace, clusterName,
+		targetPortName, port, selector, annotations,
+		labels, publishNotReady)
+
 	addOwnerRefToObject(elasticsearchSvc, owner)
 	err := sdk.Create(elasticsearchSvc)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -52,8 +76,9 @@ func createOrUpdateService(serviceName, namespace, clusterName, targetPortName s
 	return nil
 }
 
-func createService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, labels map[string]string, publishNotReady bool) *v1.Service {
+func createService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, annotations, labels map[string]string, publishNotReady bool) *v1.Service {
 	svc := service(serviceName, namespace)
+	svc.Annotations = annotations
 	svc.Labels = labels
 	svc.Spec = v1.ServiceSpec{
 		Selector: selector,

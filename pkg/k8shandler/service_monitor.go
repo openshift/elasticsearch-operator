@@ -40,10 +40,11 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 	}
 	tlsConfig := monitoringv1.TLSConfig{
 		CAFile:     prometheusCAFile,
-		ServerName: clusterName,
+		ServerName: fmt.Sprintf("%s-%s.%s.svc", clusterName, "metrics", namespace),
+		// ServerName can be e.g. elasticsearch-metrics.openshift-logging.svc
 	}
 	endpoint := monitoringv1.Endpoint{
-		Port:            "restapi",
+		Port:            fmt.Sprintf("%s-%s", clusterName, "metrics"),
 		Path:            "/_prometheus/metrics",
 		Scheme:          "https",
 		BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
@@ -53,6 +54,9 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 		JobLabel:  "monitor-elasticsearch",
 		Endpoints: []monitoringv1.Endpoint{endpoint},
 		Selector:  labelSelector,
+		NamespaceSelector: monitoringv1.NamespaceSelector{
+			MatchNames: []string{namespace},
+		},
 	}
 	return svcMonitor
 }
