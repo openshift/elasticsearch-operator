@@ -21,7 +21,7 @@ import (
 const (
 	elasticsearchCertsPath    = "/etc/openshift/elasticsearch/secret"
 	elasticsearchConfigPath   = "/usr/share/java/elasticsearch/config"
-	elasticsearchDefaultImage = "docker.io/openshift/origin-logging-elasticsearch5"
+	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch5"
 	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
 )
 
