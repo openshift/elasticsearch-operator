@@ -18,11 +18,12 @@ package controller
 
 import (
 	"fmt"
-
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache/informertest"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/internal/controller/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile/reconciletest"
@@ -174,11 +176,11 @@ var _ = Describe("controller", func() {
 			Expect(ctrl.Watch(src, evthdl)).To(Equal(expected))
 		})
 
-		It("should inject dependencies into the Reconciler", func() {
+		PIt("should inject dependencies into the Reconciler", func() {
 			// TODO(community): Write this
 		})
 
-		It("should return an error if there is an error injecting into the Reconciler", func() {
+		PIt("should return an error if there is an error injecting into the Reconciler", func() {
 			// TODO(community): Write this
 		})
 
@@ -297,7 +299,7 @@ var _ = Describe("controller", func() {
 			close(done)
 		})
 
-		It("should forget an item if it is not a Request and continue processing items", func() {
+		PIt("should forget an item if it is not a Request and continue processing items", func() {
 			// TODO(community): write this test
 		})
 
@@ -389,20 +391,228 @@ var _ = Describe("controller", func() {
 			Eventually(func() int { return ctrl.Queue.NumRequeues(request) }).Should(Equal(0))
 		})
 
-		It("should forget the Request if Reconciler is successful", func() {
+		PIt("should forget the Request if Reconciler is successful", func() {
 			// TODO(community): write this test
 		})
 
-		It("should return if the queue is shutdown", func() {
+		PIt("should return if the queue is shutdown", func() {
 			// TODO(community): write this test
 		})
 
-		It("should wait for informers to be synced before processing items", func() {
+		PIt("should wait for informers to be synced before processing items", func() {
 			// TODO(community): write this test
 		})
 
-		It("should create a new go routine for MaxConcurrentReconciles", func() {
+		PIt("should create a new go routine for MaxConcurrentReconciles", func() {
 			// TODO(community): write this test
+		})
+
+		Context("prometheus metric reconcile_total", func() {
+			var reconcileTotal dto.Metric
+
+			BeforeEach(func() {
+				ctrlmetrics.ReconcileTotal.Reset()
+				reconcileTotal.Reset()
+			})
+
+			It("should get updated on successful reconciliation", func(done Done) {
+				Expect(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "success").Write(&reconcileTotal)
+					if reconcileTotal.GetCounter().GetValue() != 0.0 {
+						return fmt.Errorf("metric reconcile total not reset")
+					}
+					return nil
+				}()).Should(Succeed())
+
+				go func() {
+					defer GinkgoRecover()
+					Expect(ctrl.Start(stop)).NotTo(HaveOccurred())
+				}()
+				By("Invoking Reconciler which will succeed")
+				ctrl.Queue.Add(request)
+
+				Expect(<-reconciled).To(Equal(request))
+				Eventually(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "success").Write(&reconcileTotal)
+					if actual := reconcileTotal.GetCounter().GetValue(); actual != 1.0 {
+						return fmt.Errorf("metric reconcile total expected: %v and got: %v", 1.0, actual)
+					}
+					return nil
+				}, 2.0).Should(Succeed())
+
+				close(done)
+			}, 2.0)
+
+			It("should get updated on reconcile errors", func(done Done) {
+				Expect(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "error").Write(&reconcileTotal)
+					if reconcileTotal.GetCounter().GetValue() != 0.0 {
+						return fmt.Errorf("metric reconcile total not reset")
+					}
+					return nil
+				}()).Should(Succeed())
+
+				fakeReconcile.Err = fmt.Errorf("expected error: reconcile")
+				go func() {
+					defer GinkgoRecover()
+					Expect(ctrl.Start(stop)).NotTo(HaveOccurred())
+				}()
+				By("Invoking Reconciler which will give an error")
+				ctrl.Queue.Add(request)
+
+				Expect(<-reconciled).To(Equal(request))
+				Eventually(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "error").Write(&reconcileTotal)
+					if actual := reconcileTotal.GetCounter().GetValue(); actual != 1.0 {
+						return fmt.Errorf("metric reconcile total expected: %v and got: %v", 1.0, actual)
+					}
+					return nil
+				}, 2.0).Should(Succeed())
+
+				close(done)
+			}, 2.0)
+
+			It("should get updated when reconcile returns with retry enabled", func(done Done) {
+				Expect(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "retry").Write(&reconcileTotal)
+					if reconcileTotal.GetCounter().GetValue() != 0.0 {
+						return fmt.Errorf("metric reconcile total not reset")
+					}
+					return nil
+				}()).Should(Succeed())
+
+				fakeReconcile.Result.Requeue = true
+				go func() {
+					defer GinkgoRecover()
+					Expect(ctrl.Start(stop)).NotTo(HaveOccurred())
+				}()
+				By("Invoking Reconciler which will return result with Requeue enabled")
+				ctrl.Queue.Add(request)
+
+				Expect(<-reconciled).To(Equal(request))
+				Eventually(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "requeue").Write(&reconcileTotal)
+					if actual := reconcileTotal.GetCounter().GetValue(); actual != 1.0 {
+						return fmt.Errorf("metric reconcile total expected: %v and got: %v", 1.0, actual)
+					}
+					return nil
+				}, 2.0).Should(Succeed())
+
+				close(done)
+			}, 2.0)
+
+			It("should get updated when reconcile returns with retryAfter enabled", func(done Done) {
+				Expect(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "retry_after").Write(&reconcileTotal)
+					if reconcileTotal.GetCounter().GetValue() != 0.0 {
+						return fmt.Errorf("metric reconcile total not reset")
+					}
+					return nil
+				}()).Should(Succeed())
+
+				fakeReconcile.Result.RequeueAfter = 5 * time.Hour
+				go func() {
+					defer GinkgoRecover()
+					Expect(ctrl.Start(stop)).NotTo(HaveOccurred())
+				}()
+				By("Invoking Reconciler which will return result with requeueAfter enabled")
+				ctrl.Queue.Add(request)
+
+				Expect(<-reconciled).To(Equal(request))
+				Eventually(func() error {
+					ctrlmetrics.ReconcileTotal.WithLabelValues(ctrl.Name, "requeue_after").Write(&reconcileTotal)
+					if actual := reconcileTotal.GetCounter().GetValue(); actual != 1.0 {
+						return fmt.Errorf("metric reconcile total expected: %v and got: %v", 1.0, actual)
+					}
+					return nil
+				}, 2.0).Should(Succeed())
+
+				close(done)
+			}, 2.0)
+		})
+
+		Context("should update prometheus metrics", func() {
+			It("should requeue a Request if there is an error and continue processing items", func(done Done) {
+				var reconcileErrs dto.Metric
+				ctrlmetrics.ReconcileErrors.Reset()
+				Expect(func() error {
+					ctrlmetrics.ReconcileErrors.WithLabelValues(ctrl.Name).Write(&reconcileErrs)
+					if reconcileErrs.GetCounter().GetValue() != 0.0 {
+						return fmt.Errorf("metric reconcile errors not reset")
+					}
+					return nil
+				}()).Should(Succeed())
+
+				fakeReconcile.Err = fmt.Errorf("expected error: reconcile")
+				go func() {
+					defer GinkgoRecover()
+					Expect(ctrl.Start(stop)).NotTo(HaveOccurred())
+				}()
+				ctrl.Queue.Add(request)
+
+				// Reduce the jitterperiod so we don't have to wait a second before the reconcile function is rerun.
+				ctrl.JitterPeriod = time.Millisecond
+
+				By("Invoking Reconciler which will give an error")
+				Expect(<-reconciled).To(Equal(request))
+				Eventually(func() error {
+					ctrlmetrics.ReconcileErrors.WithLabelValues(ctrl.Name).Write(&reconcileErrs)
+					if reconcileErrs.GetCounter().GetValue() != 1.0 {
+						return fmt.Errorf("metrics not updated")
+					}
+					return nil
+				}, 2.0).Should(Succeed())
+
+				By("Invoking Reconciler a second time without error")
+				fakeReconcile.Err = nil
+				Expect(<-reconciled).To(Equal(request))
+
+				By("Removing the item from the queue")
+				Eventually(ctrl.Queue.Len).Should(Equal(0))
+				Eventually(func() int { return ctrl.Queue.NumRequeues(request) }).Should(Equal(0))
+
+				close(done)
+			}, 2.0)
+
+			It("should add a reconcile time to the reconcile time histogram", func(done Done) {
+				var reconcileTime dto.Metric
+				ctrlmetrics.ReconcileTime.Reset()
+
+				Expect(func() error {
+					histObserver := ctrlmetrics.ReconcileTime.WithLabelValues(ctrl.Name)
+					hist := histObserver.(prometheus.Histogram)
+					hist.Write(&reconcileTime)
+					if reconcileTime.GetHistogram().GetSampleCount() != uint64(0) {
+						return fmt.Errorf("metrics not reset")
+					}
+					return nil
+				}()).Should(Succeed())
+
+				go func() {
+					defer GinkgoRecover()
+					Expect(ctrl.Start(stop)).NotTo(HaveOccurred())
+				}()
+				ctrl.Queue.Add(request)
+
+				By("Invoking Reconciler")
+				Expect(<-reconciled).To(Equal(request))
+
+				By("Removing the item from the queue")
+				Eventually(ctrl.Queue.Len).Should(Equal(0))
+				Eventually(func() int { return ctrl.Queue.NumRequeues(request) }).Should(Equal(0))
+
+				Eventually(func() error {
+					histObserver := ctrlmetrics.ReconcileTime.WithLabelValues(ctrl.Name)
+					hist := histObserver.(prometheus.Histogram)
+					hist.Write(&reconcileTime)
+					if reconcileTime.GetHistogram().GetSampleCount() == uint64(0) {
+						return fmt.Errorf("metrics not updated")
+					}
+					return nil
+				}, 2.0).Should(Succeed())
+
+				close(done)
+			}, 4.0)
 		})
 	})
 })
