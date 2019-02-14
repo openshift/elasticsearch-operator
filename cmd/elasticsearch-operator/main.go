@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	stub "github.com/openshift/elasticsearch-operator/pkg/stub"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
+	"github.com/sirupsen/logrus"
+
+	stub "github.com/openshift/elasticsearch-operator/pkg/stub"
 	sdk "github.com/operator-framework/operator-sdk/pkg/sdk"
 	k8sutil "github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
