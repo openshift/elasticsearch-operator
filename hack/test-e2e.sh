@@ -5,6 +5,9 @@ if [ -n "${DEBUG:-}" ]; then
     set -x
 fi
 
+IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-quay.io/openshift/origin-elasticsearch-operator:latest}
+KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+
 repo_dir="$(dirname $0)/.."
 
 manifest=$(mktemp)
@@ -14,8 +17,10 @@ pushd manifests;
      cat ${f} >> ${manifest};
   done;
 popd
+# update the manifest with the image built by ci
+sed -i "s,quay.io/openshift/origin-elasticsearch-operator:latest,${IMAGE_ELASTICSEARCH_OPERATOR}," ${manifest}
 
-sudo sysctl -w vm.max_map_count=262144
+sudo sysctl -w vm.max_map_count=262144 ||:
 
 if oc get project openshift-logging > /dev/null 2>&1 ; then
   echo using existing project openshift-logging
@@ -30,7 +35,7 @@ https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prom
 
 TEST_NAMESPACE=openshift-logging go test ./test/e2e/... \
   -root=$(pwd) \
-  -kubeconfig=$HOME/.kube/config \
+  -kubeconfig=${KUBECONFIG} \
   -globalMan manifests/04-crd.yaml \
   -namespacedMan ${manifest} \
   -v \

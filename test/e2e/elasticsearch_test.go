@@ -8,7 +8,7 @@ import (
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -86,7 +86,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 			elasticsearch.ElasticsearchRoleMaster,
 		},
 		NodeCount: int32(1),
-		Storage: elasticsearch.ElasticsearchStorageSpec{ },
+		Storage:   elasticsearch.ElasticsearchStorageSpec{},
 	}
 
 	// create clusterlogging custom resource

@@ -107,8 +107,6 @@ func Main() int {
 	}
 	printVersion()
 
-	sdk.ExposeMetricsPort()
-
 	resource := "logging.openshift.io/v1alpha1"
 	kind := "Elasticsearch"
 	namespace, err := k8sutil.GetWatchNamespace()
