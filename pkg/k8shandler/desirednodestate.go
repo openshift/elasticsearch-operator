@@ -403,7 +403,7 @@ func (cfg *desiredNodeState) getEnvVars() []v1.EnvVar {
 			},
 		},
 		v1.EnvVar{
-			Name:  "KUBERNETES_TRUST_CERT",
+			Name:  "KUBERNETES_TRUST_CERTIFICATES",
 			Value: "true",
 		},
 		v1.EnvVar{
