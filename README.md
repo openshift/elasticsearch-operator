@@ -141,6 +141,17 @@ Decide how many nodes you want to run.
 
 TODO
 
+### Exposing elasticsearch service with a route
+
+Obtain the CA cert from Elasticsearch.
+```
+oc extract secret/elasticsearch --to=. --keys=admin-ca
+```
+Create a [re-encrypt route](https://docs.openshift.com/container-platform/3.11/architecture/networking/routes.html#secured-routes).
+
+In the Re-encrypt termination example, use the contents of the file `admin-ca` for spec.tls.destinationCACertificate.
+You do not need to set the spec.tls.key, spec.tls.certificate and spec.tls.caCertificate parameters shown in the example.
+
 ## Supported features
 
 Kubernetes TBD+ and OpenShift TBD+ are supported.
