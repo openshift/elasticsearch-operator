@@ -479,12 +479,20 @@ func isValidDataCount(dpl *v1alpha1.Elasticsearch) bool {
 	return dataCount > 0
 }
 
+func isValidRedundancyPolicy(dpl *v1alpha1.Elasticsearch) bool {
+	dataCount := int(getDataCount(dpl))
+	return !(dataCount == 1 && dpl.Spec.RedundancyPolicy == v1alpha1.SingleRedundancy)
+}
+
 func isValidConf(dpl *v1alpha1.Elasticsearch) error {
 	if !isValidMasterCount(dpl) {
 		return fmt.Errorf("Invalid master nodes count. Please ensure there are no more than %v total nodes with master roles", maxMasterCount)
 	}
 	if !isValidDataCount(dpl) {
 		return fmt.Errorf("No data nodes requested. Please ensure there is at least 1 node with data roles")
+	}
+	if !isValidRedundancyPolicy(dpl) {
+		return fmt.Errorf("Wrong RedundancyPolicy selected. Choose different RedundancyPolicy or add more nodes with data roles")
 	}
 	return nil
 }
