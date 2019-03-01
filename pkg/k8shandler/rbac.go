@@ -116,10 +116,7 @@ func createOrUpdateClusterRole(role *rbac.ClusterRole) error {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create ClusterRole %s: %v", role.Name, err)
 		}
-		existingRole := utils.NewClusterRole(
-			role.Name,
-			utils.NewPolicyRules(),
-		)
+		existingRole := role.DeepCopy()
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if getErr := sdk.Get(existingRole); getErr != nil {
 				logrus.Debugf("could not get ClusterRole %v: %v", existingRole.Name, getErr)
@@ -141,11 +138,7 @@ func createOrUpdateClusterRoleBinding(roleBinding *rbac.ClusterRoleBinding) erro
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("failed to create ClusterRoleBindig %s: %v", roleBinding.Name, err)
 		}
-		existingRoleBinding := utils.NewClusterRoleBinding(
-			roleBinding.Name,
-			roleBinding.RoleRef.Name,
-			utils.NewSubjects(),
-		)
+		existingRoleBinding := roleBinding.DeepCopy()
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if getErr := sdk.Get(existingRoleBinding); getErr != nil {
 				return fmt.Errorf("could not get ClusterRole %v: %v", existingRoleBinding.Name, getErr)
