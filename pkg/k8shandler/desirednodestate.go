@@ -2,12 +2,14 @@ package k8shandler
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
@@ -23,6 +25,7 @@ const (
 	elasticsearchConfigPath   = "/usr/share/java/elasticsearch/config"
 	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch5"
 	heapDumpLocation          = "/elasticsearch/persistent/heapdump.hprof"
+	proxyImageEnv             = "PROXY_IMAGE"
 )
 
 type nodeState struct {
@@ -36,7 +39,8 @@ type desiredNodeState struct {
 	DeployName         string
 	Roles              []v1alpha1.ElasticsearchNodeRole
 	ESNodeSpec         v1alpha1.ElasticsearchNode
-	Image              string
+	ESImage            string
+	ProxyImage         string
 	SecretName         string
 	NodeNum            int32
 	ReplicaNum         int32
@@ -80,7 +84,13 @@ func constructNodeSpec(dpl *v1alpha1.Elasticsearch, esNode v1alpha1.Elasticsearc
 	nodeCfg.EnvVars = nodeCfg.getEnvVars()
 
 	nodeCfg.ESNodeSpec.Resources = getResourceRequirements(dpl.Spec.Spec.Resources, esNode.Resources)
-	nodeCfg.Image = getImage(dpl.Spec.Spec.Image)
+	nodeCfg.ESImage = dpl.Spec.Spec.Image
+	// proxyImage isn't part of the CRD, because we may not need the proxy forever
+	value, ok := os.LookupEnv(proxyImageEnv)
+	if !ok {
+		return nodeCfg, fmt.Errorf("proxy Image not specified, use %s environmental variable", proxyImageEnv)
+	}
+	nodeCfg.ProxyImage = value
 	return nodeCfg, nil
 }
 
@@ -457,7 +467,7 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 	probe := getReadinessProbe()
 	return v1.Container{
 		Name:            "elasticsearch",
-		Image:           cfg.Image,
+		Image:           cfg.ESImage,
 		ImagePullPolicy: "IfNotPresent",
 		Env:             cfg.getEnvVars(),
 		Ports: []v1.ContainerPort{
@@ -476,6 +486,49 @@ func (cfg *desiredNodeState) getESContainer() v1.Container {
 		VolumeMounts:   cfg.getVolumeMounts(),
 		Resources:      cfg.ESNodeSpec.Resources,
 	}
+}
+
+func (cfg *desiredNodeState) getProxyContainer() (v1.Container, error) {
+	proxyCookieSecret, err := utils.RandStringBase64(16)
+	if err != nil {
+		return v1.Container{}, err
+	}
+	container := v1.Container{
+		Name:            "proxy",
+		Image:           cfg.ProxyImage,
+		ImagePullPolicy: "IfNotPresent",
+		Ports: []v1.ContainerPort{
+			v1.ContainerPort{
+				Name:          "metrics",
+				ContainerPort: 60000,
+				Protocol:      v1.ProtocolTCP,
+			},
+		},
+		VolumeMounts: []v1.VolumeMount{
+			v1.VolumeMount{
+				Name:      fmt.Sprintf("%s-%s", cfg.ClusterName, "metrics"),
+				MountPath: "/etc/proxy/secrets",
+			},
+			v1.VolumeMount{
+				Name:      "certificates",
+				MountPath: "/etc/proxy/elasticsearch",
+			},
+		},
+		Args: []string{
+			"--https-address=:60000",
+			"--provider=openshift",
+			"--upstream=https://127.0.0.1:9200",
+			"--tls-cert=/etc/proxy/secrets/tls.crt",
+			"--tls-key=/etc/proxy/secrets/tls.key",
+			"--upstream-ca=/etc/proxy/elasticsearch/admin-ca",
+			"--openshift-service-account=elasticsearch",
+			`-openshift-sar={"resource": "namespaces", "verb": "get"}`,
+			`-openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}}`,
+			"--pass-user-bearer-token",
+			fmt.Sprintf("--cookie-secret=%s", proxyCookieSecret),
+		},
+	}
+	return container, nil
 }
 
 func (cfg *desiredNodeState) getVolumeMounts() []v1.VolumeMount {
@@ -579,6 +632,14 @@ func (cfg *desiredNodeState) getVolumes() []v1.Volume {
 				},
 			},
 		},
+		v1.Volume{
+			Name: fmt.Sprintf("%s-%s", cfg.ClusterName, "metrics"),
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: fmt.Sprintf("%s-%s", cfg.ClusterName, "metrics"),
+				},
+			},
+		},
 	}
 
 	if !cfg.isNodePureMaster() {
@@ -640,8 +701,13 @@ func (actualState *actualNodeState) isStatusUpdateNeeded(nodesInStatus v1alpha1.
 	return true
 }
 
-func (cfg *desiredNodeState) constructPodTemplateSpec() v1.PodTemplateSpec {
+func (cfg *desiredNodeState) constructPodTemplateSpec() (v1.PodTemplateSpec, error) {
 	affinity := cfg.getAffinity()
+
+	proxyPodSpec, err := cfg.getProxyContainer()
+	if err != nil {
+		return v1.PodTemplateSpec{}, err
+	}
 
 	template := v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -651,9 +717,9 @@ func (cfg *desiredNodeState) constructPodTemplateSpec() v1.PodTemplateSpec {
 			Affinity: &affinity,
 			Containers: []v1.Container{
 				cfg.getESContainer(),
+				proxyPodSpec,
 			},
-			Volumes: cfg.getVolumes(),
-			// ImagePullSecrets: TemplateImagePullSecrets(imagePullSecrets),
+			Volumes:            cfg.getVolumes(),
 			ServiceAccountName: cfg.ServiceAccountName,
 		},
 	}
@@ -661,5 +727,5 @@ func (cfg *desiredNodeState) constructPodTemplateSpec() v1.PodTemplateSpec {
 	if ok {
 		template.Spec.NodeSelector = nodeSelector
 	}
-	return template
+	return template, nil
 }

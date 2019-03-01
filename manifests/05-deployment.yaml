@@ -28,3 +28,5 @@ spec:
               value: ""
             - name: OPERATOR_NAME
               value: "elasticsearch-operator"
+            - name: PROXY_IMAGE
+              value: "quay.io/openshift/origin-oauth-proxy:v4.0.0"
