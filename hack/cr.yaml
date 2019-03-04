@@ -21,4 +21,4 @@ spec:
     - data
     - master
     storage: {}
-  redundancyPolicy: SingleRedundancy
+  redundancyPolicy: ZeroRedundancy
