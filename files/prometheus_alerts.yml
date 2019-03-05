@@ -61,17 +61,6 @@
     "for": "5m"
     "labels":
       "severity": "high"
-  - "alert": "ElasticsearchNodeDiskLowForSegmentMerges"
-    "annotations":
-      "message": "Free disk at {{ $labels.node }} node in {{ $labels.cluster }} cluster may be low for optimal segment merges"
-      "summary": "Free disk may be low for optimal segment merges"
-    "expr": |
-      sum by (cluster, instance, node) (es_fs_path_free_bytes) /
-      sum by (cluster, instance, node) (es_indices_store_size_bytes)
-      < 0.5
-    "for": "15m"
-    "labels":
-      "severity": "warning"
   - "alert": "ElasticsearchJVMHeapUseHigh"
     "annotations":
       "message": "JVM Heap usage on the node {{ $labels.node }} in {{ $labels.cluster }} cluster is {{ $value }}%."
