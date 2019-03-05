@@ -36,6 +36,11 @@ func Reconcile(es *v1alpha1.Elasticsearch) (err error) {
 		return fmt.Errorf("Failed to reconcile Services for Elasticsearch cluster: %v", err)
 	}
 
+	// Ensure existence of clusterroles and clusterrolebindings
+	if err := k8shandler.CreateOrUpdateRBAC(es); err != nil {
+		return fmt.Errorf("Failed to reconcile Roles and RoleBindings for Elasticsearch cluster: %v", err)
+	}
+
 	// Ensure existence of servicesaccount
 	serviceAccountName, err := k8shandler.CreateOrUpdateServiceAccount(es)
 	if err != nil {

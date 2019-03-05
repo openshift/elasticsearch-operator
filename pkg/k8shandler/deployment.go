@@ -128,7 +128,7 @@ func (node *deploymentNode) isUpdateNeeded(cfg *desiredNodeState) bool {
 	for _, container := range node.resource.Spec.Template.Spec.Containers {
 		if container.Name == "elasticsearch" {
 			// Check image of Elasticsearch container
-			if container.Image != cfg.Image {
+			if container.Image != cfg.ESImage {
 				logrus.Debugf("Resource '%s' has different container image than desired", node.resource.Name)
 				return true
 			}
@@ -185,6 +185,10 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 
 	progressDeadlineSeconds := int32(1800)
 	deployment.ObjectMeta.Labels = cfg.getLabels()
+	podTemplate, err := cfg.constructPodTemplateSpec()
+	if err != nil {
+		return nil, err
+	}
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
@@ -194,7 +198,7 @@ func (node *deploymentNode) constructNodeResource(cfg *desiredNodeState, owner m
 			Type: "Recreate",
 		},
 		ProgressDeadlineSeconds: &progressDeadlineSeconds,
-		Template:                cfg.constructPodTemplateSpec(),
+		Template:                podTemplate,
 		Paused:                  cfg.Paused,
 	}
 

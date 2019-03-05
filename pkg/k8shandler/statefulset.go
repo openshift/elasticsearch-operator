@@ -61,13 +61,18 @@ func (node *statefulSetNode) constructNodeResource(cfg *desiredNodeState, owner 
 	//statefulSet(cfg.DeployName, node.resource.ObjectMeta.Namespace)
 	statefulSet.ObjectMeta.Labels = cfg.getLabels()
 
+	podTemplate, err := cfg.constructPodTemplateSpec()
+	if err != nil {
+		return nil, err
+	}
+
 	statefulSet.Spec = apps.StatefulSetSpec{
 		Replicas:    &replicas,
 		ServiceName: cfg.DeployName,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: cfg.getLabels(),
 		},
-		Template: cfg.constructPodTemplateSpec(),
+		Template: podTemplate,
 	}
 
 	pvc, ok, err := cfg.generateMasterPVC()
