@@ -98,6 +98,10 @@ func CreateOrUpdateConfigMaps(dpl *v1alpha1.Elasticsearch) (err error) {
 					}
 					return nil
 				})
+			} else {
+				if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition); err != nil {
+					return err
+				}
 			}
 		}
 	}

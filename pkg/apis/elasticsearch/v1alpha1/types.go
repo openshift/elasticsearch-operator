@@ -77,6 +77,7 @@ type ElasticsearchNodeStatus struct {
 	Status          string                         `json:"status,omitempty"`
 	UpgradeStatus   ElasticsearchNodeUpgradeStatus `json:"upgradeStatus,omitempty"`
 	Roles           []ElasticsearchNodeRole        `json:"roles,omitempty"`
+	Conditions      []ClusterCondition             `json:"conditions,omitempty"`
 }
 
 type ElasticsearchNodeUpgradeStatus struct {
@@ -179,6 +180,17 @@ const (
 	ScalingUp        ClusterConditionType = "ScalingUp"
 	ScalingDown      ClusterConditionType = "ScalingDown"
 	Restarting       ClusterConditionType = "Restarting"
+
+	InvalidMasters    ClusterConditionType = "InvalidMasters"
+	InvalidData       ClusterConditionType = "InvalidData"
+	InvalidRedundancy ClusterConditionType = "InvalidRedundancy"
+
+	ESContainerWaiting       ClusterConditionType = "ElasticsearchContainerWaiting"
+	ESContainerTerminated    ClusterConditionType = "ElasticsearchContainerTerminated"
+	ProxyContainerWaiting    ClusterConditionType = "ProxyContainerWaiting"
+	ProxyContainerTerminated ClusterConditionType = "ProxyContainerTerminated"
+	Unschedulable            ClusterConditionType = "Unschedulable"
+	NodeStorage              ClusterConditionType = "NodeStorage"
 )
 
 type ClusterEvent string

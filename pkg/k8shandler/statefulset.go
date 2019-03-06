@@ -30,7 +30,7 @@ type statefulSetNode struct {
 
 func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node v1alpha1.ElasticsearchNode, cluster *v1alpha1.Elasticsearch, roleMap map[v1alpha1.ElasticsearchNodeRole]bool, replicas int32) {
 
-	labels := newLabels(cluster.Name, roleMap)
+	labels := newLabels(cluster.Name, nodeName, roleMap)
 
 	statefulSet := apps.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -49,7 +49,7 @@ func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node 
 	statefulSet.Spec = apps.StatefulSetSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
-			MatchLabels: newLabelSelector(cluster.Name, roleMap),
+			MatchLabels: newLabelSelector(cluster.Name, nodeName, roleMap),
 		},
 		Template: newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap),
 		UpdateStrategy: apps.StatefulSetUpdateStrategy{
@@ -72,8 +72,8 @@ func (current *statefulSetNode) updateReference(desired NodeTypeInterface) {
 }
 
 func (node *statefulSetNode) state() v1alpha1.ElasticsearchNodeStatus {
-	rolloutForReload := v1.ConditionFalse
-	rolloutForUpdate := v1.ConditionFalse
+	var rolloutForReload v1.ConditionStatus
+	var rolloutForUpdate v1.ConditionStatus
 
 	// see if we need to update the deployment object
 	if node.isChanged() {
@@ -287,7 +287,7 @@ func (node *statefulSetNode) restart(upgradeStatus *v1alpha1.ElasticsearchNodeSt
 	if upgradeStatus.UpgradeStatus.UpgradePhase == v1alpha1.RecoveringData {
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = v1alpha1.ControllerUpdated
-		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionFalse
+		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
 	}
 }
 
@@ -400,7 +400,7 @@ func (node *statefulSetNode) update(upgradeStatus *v1alpha1.ElasticsearchNodeSta
 	if upgradeStatus.UpgradeStatus.UpgradePhase == v1alpha1.RecoveringData {
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = v1alpha1.ControllerUpdated
-		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionFalse
+		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
 	}
 
 	return nil

@@ -32,7 +32,7 @@ type deploymentNode struct {
 
 func (deploymentNode *deploymentNode) populateReference(nodeName string, node v1alpha1.ElasticsearchNode, cluster *v1alpha1.Elasticsearch, roleMap map[v1alpha1.ElasticsearchNodeRole]bool, replicas int32) {
 
-	labels := newLabels(cluster.Name, roleMap)
+	labels := newLabels(cluster.Name, nodeName, roleMap)
 
 	deployment := apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -51,7 +51,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node v1
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
-			MatchLabels: newLabelSelector(cluster.Name, roleMap),
+			MatchLabels: newLabelSelector(cluster.Name, nodeName, roleMap),
 		},
 		Strategy: apps.DeploymentStrategy{
 			Type: "Recreate",
@@ -77,8 +77,8 @@ func (node *deploymentNode) name() string {
 
 func (node *deploymentNode) state() v1alpha1.ElasticsearchNodeStatus {
 
-	rolloutForReload := v1.ConditionFalse
-	rolloutForUpdate := v1.ConditionFalse
+	var rolloutForReload v1.ConditionStatus
+	var rolloutForUpdate v1.ConditionStatus
 
 	// see if we need to update the deployment object
 	if node.isChanged() {
@@ -362,7 +362,7 @@ func (node *deploymentNode) restart(upgradeStatus *v1alpha1.ElasticsearchNodeSta
 		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = v1alpha1.ControllerUpdated
-		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionFalse
+		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
 	}
 }
 
@@ -462,7 +462,7 @@ func (node *deploymentNode) update(upgradeStatus *v1alpha1.ElasticsearchNodeStat
 		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = v1alpha1.ControllerUpdated
-		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionFalse
+		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
 	}
 
 	return nil
