@@ -20,6 +20,10 @@ popd
 # update the manifest with the image built by ci
 sed -i "s,quay.io/openshift/origin-elasticsearch-operator:latest,${IMAGE_ELASTICSEARCH_OPERATOR}," ${manifest}
 
+if [ "${REMOTE_CLUSTER:-false}" = false ] ; then
+  sudo sysctl -w vm.max_map_count=262144 ||:
+fi
+
 if oc get project openshift-logging > /dev/null 2>&1 ; then
   echo using existing project openshift-logging
 else
