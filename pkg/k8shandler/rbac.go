@@ -94,7 +94,7 @@ func CreateOrUpdateRBAC(dpl *v1alpha1.Elasticsearch) error {
 	subject = utils.NewSubject(
 		"ServiceAccount",
 		"elasticsearch",
-		"openshift-logging",
+		dpl.Namespace,
 	)
 	subject.APIGroup = ""
 
