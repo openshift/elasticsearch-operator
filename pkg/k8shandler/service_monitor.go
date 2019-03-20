@@ -3,10 +3,11 @@ package k8shandler
 import (
 	"fmt"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/apimachinery/pkg/api/errors"
+
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
+	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,7 +18,7 @@ const (
 // CreateOrUpdateServiceMonitors ensures the existence of ServiceMonitors for Elasticsearch cluster
 func CreateOrUpdateServiceMonitors(dpl *v1alpha1.Elasticsearch) error {
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
-	owner := asOwner(dpl)
+	owner := getOwnerRef(dpl)
 
 	labelsWithDefault := appendDefaultLabel(dpl.Name, dpl.Labels)
 

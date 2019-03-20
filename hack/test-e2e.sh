@@ -6,6 +6,11 @@ if [ -n "${DEBUG:-}" ]; then
 fi
 
 IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-quay.io/openshift/origin-elasticsearch-operator:latest}
+
+if [ -n "${IMAGE_FORMAT:-}" ] ; then
+  IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
+fi
+
 KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 
 repo_dir="$(dirname $0)/.."
