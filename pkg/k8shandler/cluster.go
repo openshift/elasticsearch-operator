@@ -251,7 +251,8 @@ func getScheduledRedeployOnlyNodes(cluster *v1alpha1.Elasticsearch) []NodeTypeIn
 
 	for _, node := range cluster.Status.Nodes {
 		if node.UpgradeStatus.ScheduledForRedeploy == v1.ConditionTrue &&
-			node.UpgradeStatus.ScheduledForUpgrade == v1.ConditionFalse {
+			(node.UpgradeStatus.ScheduledForUpgrade == v1.ConditionFalse ||
+				node.UpgradeStatus.ScheduledForUpgrade == "") {
 			for _, nodeTypeInterface := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
 				if node.DeploymentName == nodeTypeInterface.name() ||
 					node.StatefulSetName == nodeTypeInterface.name() {
