@@ -428,8 +428,6 @@ func (node *statefulSetNode) scale() {
 		return
 	}
 
-	logrus.Infof("Replica for desired: %d ; replica for current: %d", *desired.Spec.Replicas, *node.self.Spec.Replicas)
-
 	if *desired.Spec.Replicas != *node.self.Spec.Replicas {
 		node.self.Spec.Replicas = desired.Spec.Replicas
 		logrus.Infof("Resource '%s' has different container replicas than desired", node.self.Name)
