@@ -292,18 +292,21 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 }
 
 func (node *statefulSetNode) create() error {
-	err := sdk.Create(&node.self)
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Could not create node resource: %v", err)
-		} else {
-			node.scale()
-		}
-	}
 
-	// update the hashmaps
-	node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace)
-	node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace)
+	if node.self.ObjectMeta.ResourceVersion == "" {
+		err := sdk.Create(&node.self)
+		if err != nil {
+			if !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("Could not create node resource: %v", err)
+			}
+		}
+
+		// update the hashmaps
+		node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace)
+		node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace)
+	} else {
+		node.scale()
+	}
 
 	return nil
 }

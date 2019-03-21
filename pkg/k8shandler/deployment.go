@@ -108,31 +108,26 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 
 func (node *deploymentNode) create() error {
 
-	err := sdk.Create(&node.self)
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Could not create node resource: %v", err)
-		} else {
-			// node already exists, make sure the deployment is paused
-			return node.pause()
+	if node.self.ObjectMeta.ResourceVersion == "" {
+		err := sdk.Create(&node.self)
+		if err != nil {
+			if !errors.IsAlreadyExists(err) {
+				return fmt.Errorf("Could not create node resource: %v", err)
+			}
 		}
+
+		// created unpaused, pause after deployment...
+		// wait until we have a revision annotation...
+		if err = node.waitForInitialRollout(); err != nil {
+			return err
+		}
+
+		// update the hashmaps
+		node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace)
+		node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace)
 	}
 
-	// created unpaused, pause after deployment...
-	// wait until we have a revision annotation...
-	if err = node.waitForInitialRollout(); err != nil {
-		return err
-	}
-
-	if err = node.pause(); err != nil {
-		return err
-	}
-
-	// update the hashmaps
-	node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace)
-	node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace)
-
-	return nil
+	return node.pause()
 }
 
 func (node *deploymentNode) waitForInitialRollout() error {

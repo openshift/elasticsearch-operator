@@ -575,6 +575,28 @@ func updateInvalidDataCountCondition(status *api.ElasticsearchStatus, value v1.C
 	})
 }
 
+func updateInvalidUUIDChangeCondition(cluster *api.Elasticsearch, value v1.ConditionStatus, message string) error {
+	var reason string
+	if value == v1.ConditionTrue {
+		reason = "Invalid Spec"
+	} else {
+		reason = ""
+	}
+
+	return updateConditionWithRetry(
+		cluster,
+		value,
+		func(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+			return updateESNodeCondition(&cluster.Status, &api.ClusterCondition{
+				Type:    api.InvalidUUID,
+				Status:  value,
+				Reason:  reason,
+				Message: message,
+			})
+		},
+	)
+}
+
 func updateInvalidReplicationCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	var message string
 	var reason string
