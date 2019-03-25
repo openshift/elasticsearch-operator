@@ -7,11 +7,11 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/util/retry"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,7 +23,7 @@ var DISK_WATERMARK_HIGH_PCT *float64
 var DISK_WATERMARK_LOW_ABS *resource.Quantity
 var DISK_WATERMARK_HIGH_ABS *resource.Quantity
 
-func UpdateClusterStatus(cluster *v1alpha1.Elasticsearch) error {
+func UpdateClusterStatus(cluster *api.Elasticsearch) error {
 
 	clusterStatus := cluster.Status.DeepCopy()
 
@@ -36,11 +36,11 @@ func UpdateClusterStatus(cluster *v1alpha1.Elasticsearch) error {
 	allocation, err := GetShardAllocation(cluster.Name, cluster.Namespace)
 	switch {
 	case allocation == "none":
-		clusterStatus.ShardAllocationEnabled = v1alpha1.ShardAllocationNone
+		clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
 	case err != nil:
-		clusterStatus.ShardAllocationEnabled = v1alpha1.ShardAllocationUnknown
+		clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
 	default:
-		clusterStatus.ShardAllocationEnabled = v1alpha1.ShardAllocationAll
+		clusterStatus.ShardAllocationEnabled = api.ShardAllocationAll
 	}
 
 	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name)
@@ -79,49 +79,49 @@ func UpdateClusterStatus(cluster *v1alpha1.Elasticsearch) error {
 }
 
 // if a status doesn't exist, provide a new one
-func getNodeStatus(name string, status *v1alpha1.ElasticsearchStatus) (int, *v1alpha1.ElasticsearchNodeStatus) {
+func getNodeStatus(name string, status *api.ElasticsearchStatus) (int, *api.ElasticsearchNodeStatus) {
 	for index, status := range status.Nodes {
 		if status.DeploymentName == name || status.StatefulSetName == name {
 			return index, &status
 		}
 	}
 
-	return NOT_FOUND_INDEX, &v1alpha1.ElasticsearchNodeStatus{}
+	return NOT_FOUND_INDEX, &api.ElasticsearchNodeStatus{}
 }
 
-func rolePodStateMap(namespace string, clusterName string) map[v1alpha1.ElasticsearchNodeRole]v1alpha1.PodStateMap {
+func rolePodStateMap(namespace string, clusterName string) map[api.ElasticsearchNodeRole]api.PodStateMap {
 
 	baseSelector := fmt.Sprintf("component=%s", clusterName)
 	clientList, _ := GetPodList(namespace, fmt.Sprintf("%s,%s", baseSelector, "es-node-client=true"))
 	dataList, _ := GetPodList(namespace, fmt.Sprintf("%s,%s", baseSelector, "es-node-data=true"))
 	masterList, _ := GetPodList(namespace, fmt.Sprintf("%s,%s", baseSelector, "es-node-master=true"))
 
-	return map[v1alpha1.ElasticsearchNodeRole]v1alpha1.PodStateMap{
-		v1alpha1.ElasticsearchRoleClient: podStateMap(clientList.Items),
-		v1alpha1.ElasticsearchRoleData:   podStateMap(dataList.Items),
-		v1alpha1.ElasticsearchRoleMaster: podStateMap(masterList.Items),
+	return map[api.ElasticsearchNodeRole]api.PodStateMap{
+		api.ElasticsearchRoleClient: podStateMap(clientList.Items),
+		api.ElasticsearchRoleData:   podStateMap(dataList.Items),
+		api.ElasticsearchRoleMaster: podStateMap(masterList.Items),
 	}
 }
 
-func podStateMap(podList []v1.Pod) v1alpha1.PodStateMap {
-	stateMap := map[v1alpha1.PodStateType][]string{
-		v1alpha1.PodStateTypeReady:    []string{},
-		v1alpha1.PodStateTypeNotReady: []string{},
-		v1alpha1.PodStateTypeFailed:   []string{},
+func podStateMap(podList []v1.Pod) api.PodStateMap {
+	stateMap := map[api.PodStateType][]string{
+		api.PodStateTypeReady:    []string{},
+		api.PodStateTypeNotReady: []string{},
+		api.PodStateTypeFailed:   []string{},
 	}
 
 	for _, pod := range podList {
 		switch pod.Status.Phase {
 		case v1.PodPending:
-			stateMap[v1alpha1.PodStateTypeNotReady] = append(stateMap[v1alpha1.PodStateTypeNotReady], pod.Name)
+			stateMap[api.PodStateTypeNotReady] = append(stateMap[api.PodStateTypeNotReady], pod.Name)
 		case v1.PodRunning:
 			if isPodReady(pod) {
-				stateMap[v1alpha1.PodStateTypeReady] = append(stateMap[v1alpha1.PodStateTypeReady], pod.Name)
+				stateMap[api.PodStateTypeReady] = append(stateMap[api.PodStateTypeReady], pod.Name)
 			} else {
-				stateMap[v1alpha1.PodStateTypeNotReady] = append(stateMap[v1alpha1.PodStateTypeNotReady], pod.Name)
+				stateMap[api.PodStateTypeNotReady] = append(stateMap[api.PodStateTypeNotReady], pod.Name)
 			}
 		case v1.PodFailed:
-			stateMap[v1alpha1.PodStateTypeFailed] = append(stateMap[v1alpha1.PodStateTypeFailed], pod.Name)
+			stateMap[api.PodStateTypeFailed] = append(stateMap[api.PodStateTypeFailed], pod.Name)
 		}
 	}
 
@@ -139,7 +139,7 @@ func isPodReady(pod v1.Pod) bool {
 	return true
 }
 
-func updateNodeConditions(clusterName, namespace string, status *v1alpha1.ElasticsearchStatus) {
+func updateNodeConditions(clusterName, namespace string, status *api.ElasticsearchStatus) {
 	// Get all pods based on status.Nodes[] and check their conditions
 	// get pod with label 'node-name=node.getName()'
 	baseSelector := fmt.Sprintf("component=%s", clusterName)
@@ -192,14 +192,14 @@ func updateNodeConditions(clusterName, namespace string, status *v1alpha1.Elasti
 					if containerStatus.State.Waiting != nil {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ESContainerWaiting,
+							api.ESContainerWaiting,
 							containerStatus.State.Waiting.Reason,
 							containerStatus.State.Waiting.Message,
 						)
 					} else {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ESContainerWaiting,
+							api.ESContainerWaiting,
 							"",
 							"",
 						)
@@ -207,14 +207,14 @@ func updateNodeConditions(clusterName, namespace string, status *v1alpha1.Elasti
 					if containerStatus.State.Terminated != nil {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ESContainerTerminated,
+							api.ESContainerTerminated,
 							containerStatus.State.Terminated.Reason,
 							containerStatus.State.Terminated.Message,
 						)
 					} else {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ESContainerTerminated,
+							api.ESContainerTerminated,
 							"",
 							"",
 						)
@@ -224,14 +224,14 @@ func updateNodeConditions(clusterName, namespace string, status *v1alpha1.Elasti
 					if containerStatus.State.Waiting != nil {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ProxyContainerWaiting,
+							api.ProxyContainerWaiting,
 							containerStatus.State.Waiting.Reason,
 							containerStatus.State.Waiting.Message,
 						)
 					} else {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ProxyContainerWaiting,
+							api.ProxyContainerWaiting,
 							"",
 							"",
 						)
@@ -239,14 +239,14 @@ func updateNodeConditions(clusterName, namespace string, status *v1alpha1.Elasti
 					if containerStatus.State.Terminated != nil {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ProxyContainerTerminated,
+							api.ProxyContainerTerminated,
 							containerStatus.State.Terminated.Reason,
 							containerStatus.State.Terminated.Message,
 						)
 					} else {
 						updatePodNotReadyCondition(
 							node,
-							v1alpha1.ProxyContainerTerminated,
+							api.ProxyContainerTerminated,
 							"",
 							"",
 						)
@@ -367,9 +367,9 @@ func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Q
 	return false
 }
 
-func updatePodCondition(node *v1alpha1.ElasticsearchNodeStatus, condition *v1alpha1.ClusterCondition) bool {
+func updatePodCondition(node *api.ElasticsearchNodeStatus, condition *api.ClusterCondition) bool {
 	if node.Conditions == nil {
-		node.Conditions = make([]v1alpha1.ClusterCondition, 0, 4)
+		node.Conditions = make([]api.ClusterCondition, 0, 4)
 	}
 
 	// Try to find this node condition.
@@ -398,7 +398,7 @@ func updatePodCondition(node *v1alpha1.ElasticsearchNodeStatus, condition *v1alp
 	return !isEqual
 }
 
-func getPodCondition(node *v1alpha1.ElasticsearchNodeStatus, conditionType v1alpha1.ClusterConditionType) (int, *v1alpha1.ClusterCondition) {
+func getPodCondition(node *api.ElasticsearchNodeStatus, conditionType api.ClusterConditionType) (int, *api.ClusterCondition) {
 	if node == nil {
 		return -1, nil
 	}
@@ -410,9 +410,9 @@ func getPodCondition(node *v1alpha1.ElasticsearchNodeStatus, conditionType v1alp
 	return -1, nil
 }
 
-func updatePodUnschedulableCondition(node *v1alpha1.ElasticsearchNodeStatus, podCondition v1.PodCondition) bool {
-	return updatePodCondition(node, &v1alpha1.ClusterCondition{
-		Type:               v1alpha1.Unschedulable,
+func updatePodUnschedulableCondition(node *api.ElasticsearchNodeStatus, podCondition v1.PodCondition) bool {
+	return updatePodCondition(node, &api.ClusterCondition{
+		Type:               api.Unschedulable,
 		Status:             podCondition.Status,
 		Reason:             podCondition.Reason,
 		Message:            podCondition.Message,
@@ -420,7 +420,7 @@ func updatePodUnschedulableCondition(node *v1alpha1.ElasticsearchNodeStatus, pod
 	})
 }
 
-func updatePodNotReadyCondition(node *v1alpha1.ElasticsearchNodeStatus, conditionType v1alpha1.ClusterConditionType, reason, message string) bool {
+func updatePodNotReadyCondition(node *api.ElasticsearchNodeStatus, conditionType api.ClusterConditionType, reason, message string) bool {
 
 	var status v1.ConditionStatus
 	if message == "" && reason == "" {
@@ -429,7 +429,7 @@ func updatePodNotReadyCondition(node *v1alpha1.ElasticsearchNodeStatus, conditio
 		status = v1.ConditionTrue
 	}
 
-	return updatePodCondition(node, &v1alpha1.ClusterCondition{
+	return updatePodCondition(node, &api.ClusterCondition{
 		Type:               conditionType,
 		Status:             status,
 		Reason:             reason,
@@ -438,7 +438,7 @@ func updatePodNotReadyCondition(node *v1alpha1.ElasticsearchNodeStatus, conditio
 	})
 }
 
-func updatePodNodeStorageCondition(node *v1alpha1.ElasticsearchNodeStatus, reason, message string) bool {
+func updatePodNodeStorageCondition(node *api.ElasticsearchNodeStatus, reason, message string) bool {
 
 	var status v1.ConditionStatus
 	if message == "" && reason == "" {
@@ -447,8 +447,8 @@ func updatePodNodeStorageCondition(node *v1alpha1.ElasticsearchNodeStatus, reaso
 		status = v1.ConditionTrue
 	}
 
-	return updatePodCondition(node, &v1alpha1.ClusterCondition{
-		Type:               v1alpha1.NodeStorage,
+	return updatePodCondition(node, &api.ClusterCondition{
+		Type:               api.NodeStorage,
 		Status:             status,
 		Reason:             reason,
 		Message:            message,
@@ -456,25 +456,25 @@ func updatePodNodeStorageCondition(node *v1alpha1.ElasticsearchNodeStatus, reaso
 	})
 }
 
-func updateStatusConditions(status *v1alpha1.ElasticsearchStatus) {
+func updateStatusConditions(status *api.ElasticsearchStatus) {
 	if status.Conditions == nil {
-		status.Conditions = make([]v1alpha1.ClusterCondition, 0, 4)
+		status.Conditions = make([]api.ClusterCondition, 0, 4)
 	}
-	if _, condition := getESNodeCondition(status, v1alpha1.UpdatingSettings); condition == nil {
+	if _, condition := getESNodeCondition(status, api.UpdatingSettings); condition == nil {
 		updateUpdatingSettingsCondition(status, v1.ConditionFalse)
 	}
-	if _, condition := getESNodeCondition(status, v1alpha1.ScalingUp); condition == nil {
+	if _, condition := getESNodeCondition(status, api.ScalingUp); condition == nil {
 		updateScalingUpCondition(status, v1.ConditionFalse)
 	}
-	if _, condition := getESNodeCondition(status, v1alpha1.ScalingDown); condition == nil {
+	if _, condition := getESNodeCondition(status, api.ScalingDown); condition == nil {
 		updateScalingDownCondition(status, v1.ConditionFalse)
 	}
-	if _, condition := getESNodeCondition(status, v1alpha1.Restarting); condition == nil {
+	if _, condition := getESNodeCondition(status, api.Restarting); condition == nil {
 		updateRestartingCondition(status, v1.ConditionFalse)
 	}
 }
 
-func getESNodeCondition(status *v1alpha1.ElasticsearchStatus, conditionType v1alpha1.ClusterConditionType) (int, *v1alpha1.ClusterCondition) {
+func getESNodeCondition(status *api.ElasticsearchStatus, conditionType api.ClusterConditionType) (int, *api.ClusterCondition) {
 	if status == nil {
 		return -1, nil
 	}
@@ -486,7 +486,7 @@ func getESNodeCondition(status *v1alpha1.ElasticsearchStatus, conditionType v1al
 	return -1, nil
 }
 
-func updateESNodeCondition(status *v1alpha1.ElasticsearchStatus, condition *v1alpha1.ClusterCondition) bool {
+func updateESNodeCondition(status *api.ElasticsearchStatus, condition *api.ClusterCondition) bool {
 	condition.LastTransitionTime = metav1.Now()
 	// Try to find this node condition.
 	conditionIndex, oldCondition := getESNodeCondition(status, condition.Type)
@@ -520,8 +520,8 @@ func updateESNodeCondition(status *v1alpha1.ElasticsearchStatus, condition *v1al
 	return !isEqual
 }
 
-func updateConditionWithRetry(dpl *v1alpha1.Elasticsearch, value v1.ConditionStatus,
-	executeUpdateCondition func(*v1alpha1.ElasticsearchStatus, v1.ConditionStatus) bool) error {
+func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
+	executeUpdateCondition func(*api.ElasticsearchStatus, v1.ConditionStatus) bool) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if getErr := sdk.Get(dpl); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
@@ -539,7 +539,7 @@ func updateConditionWithRetry(dpl *v1alpha1.Elasticsearch, value v1.ConditionSta
 	return retryErr
 }
 
-func updateInvalidMasterCountCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
+func updateInvalidMasterCountCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	var message string
 	var reason string
 	if value == v1.ConditionTrue {
@@ -549,15 +549,15 @@ func updateInvalidMasterCountCondition(status *v1alpha1.ElasticsearchStatus, val
 		message = ""
 		reason = ""
 	}
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:    v1alpha1.InvalidMasters,
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:    api.InvalidMasters,
 		Status:  value,
 		Reason:  reason,
 		Message: message,
 	})
 }
 
-func updateInvalidDataCountCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
+func updateInvalidDataCountCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	var message string
 	var reason string
 	if value == v1.ConditionTrue {
@@ -567,15 +567,15 @@ func updateInvalidDataCountCondition(status *v1alpha1.ElasticsearchStatus, value
 		message = ""
 		reason = ""
 	}
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:    v1alpha1.InvalidData,
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:    api.InvalidData,
 		Status:  value,
 		Reason:  reason,
 		Message: message,
 	})
 }
 
-func updateInvalidReplicationCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
+func updateInvalidReplicationCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	var message string
 	var reason string
 	if value == v1.ConditionTrue {
@@ -585,46 +585,46 @@ func updateInvalidReplicationCondition(status *v1alpha1.ElasticsearchStatus, val
 		message = ""
 		reason = ""
 	}
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:    v1alpha1.InvalidRedundancy,
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:    api.InvalidRedundancy,
 		Status:  value,
 		Reason:  reason,
 		Message: message,
 	})
 }
 
-func updateUpdatingSettingsCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
+func updateUpdatingSettingsCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	var message string
 	if value == v1.ConditionTrue {
 		message = "Config Map is different"
 	} else {
 		message = "Config Map is up to date"
 	}
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:    v1alpha1.UpdatingSettings,
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:    api.UpdatingSettings,
 		Status:  value,
 		Reason:  "ConfigChange",
 		Message: message,
 	})
 }
 
-func updateScalingUpCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:   v1alpha1.ScalingUp,
+func updateScalingUpCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:   api.ScalingUp,
 		Status: value,
 	})
 }
 
-func updateScalingDownCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:   v1alpha1.ScalingDown,
+func updateScalingDownCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:   api.ScalingDown,
 		Status: value,
 	})
 }
 
-func updateRestartingCondition(status *v1alpha1.ElasticsearchStatus, value v1.ConditionStatus) bool {
-	return updateESNodeCondition(status, &v1alpha1.ClusterCondition{
-		Type:   v1alpha1.Restarting,
+func updateRestartingCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:   api.Restarting,
 		Status: value,
 	})
 }
