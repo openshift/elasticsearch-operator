@@ -208,8 +208,8 @@ func updateNodeConditions(clusterName, namespace string, status *v1alpha1.Elasti
 						updatePodNotReadyCondition(
 							node,
 							v1alpha1.ESContainerTerminated,
-							containerStatus.State.Waiting.Reason,
-							containerStatus.State.Waiting.Message,
+							containerStatus.State.Terminated.Reason,
+							containerStatus.State.Terminated.Message,
 						)
 					} else {
 						updatePodNotReadyCondition(
@@ -240,8 +240,8 @@ func updateNodeConditions(clusterName, namespace string, status *v1alpha1.Elasti
 						updatePodNotReadyCondition(
 							node,
 							v1alpha1.ProxyContainerTerminated,
-							containerStatus.State.Waiting.Reason,
-							containerStatus.State.Waiting.Message,
+							containerStatus.State.Terminated.Reason,
+							containerStatus.State.Terminated.Message,
 						)
 					} else {
 						updatePodNotReadyCondition(
