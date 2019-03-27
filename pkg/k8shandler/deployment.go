@@ -185,22 +185,27 @@ func (node *deploymentNode) unpause() error {
 }
 
 func (node *deploymentNode) setPaused(paused bool) error {
+
+	// we use pauseNode so that we don't revert any new changes that should be made and
+	// noticed in state()
+	pauseNode := node.self.DeepCopy()
+
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := sdk.Get(&node.self); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
+		if getErr := sdk.Get(pauseNode); getErr != nil {
+			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", pauseNode.Name, getErr)
 			return getErr
 		}
 
-		if node.self.Spec.Paused == paused {
+		if pauseNode.Spec.Paused == paused {
 			return nil
 		}
 
-		node.self.Spec.Paused = paused
+		pauseNode.Spec.Paused = paused
 
-		if updateErr := sdk.Update(&node.self); updateErr != nil {
-			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
+		if updateErr := sdk.Update(pauseNode); updateErr != nil {
+			logrus.Debugf("Failed to update node resource %v: %v", pauseNode.Name, updateErr)
 			return updateErr
 		}
 		return nil
@@ -208,6 +213,8 @@ func (node *deploymentNode) setPaused(paused bool) error {
 	if retryErr != nil {
 		return fmt.Errorf("Error: could not update Elasticsearch node %v after %v retries: %v", node.self.Name, nretries, retryErr)
 	}
+
+	node.self.Spec.Paused = pauseNode.Spec.Paused
 
 	return nil
 }
