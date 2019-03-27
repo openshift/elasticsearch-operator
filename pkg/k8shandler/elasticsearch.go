@@ -15,10 +15,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +37,7 @@ type esCurlStruct struct {
 	Error        error
 }
 
-func SetShardAllocation(clusterName, namespace string, state v1alpha1.ShardAllocationState) (bool, error) {
+func SetShardAllocation(clusterName, namespace string, state api.ShardAllocationState) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method:      http.MethodPut,

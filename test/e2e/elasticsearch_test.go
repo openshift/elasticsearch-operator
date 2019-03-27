@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	goctx "context"
-	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
+	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -213,7 +213,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	for _, condition := range exampleElasticsearch.Status.Conditions {
 		if condition.Type == elasticsearch.InvalidMasters {
 			if condition.Status == v1.ConditionFalse ||
-		 			condition.Status == "" {
+				condition.Status == "" {
 				return fmt.Errorf("unexpected status condition for example-elasticsearch found: %v", condition.Status)
 			}
 		}
