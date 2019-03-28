@@ -317,7 +317,7 @@ func newLabels(clusterName, nodeName string, roleMap map[api.ElasticsearchNodeRo
 		"es-node-data":                     strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
 		"es-node-master":                   strconv.FormatBool(roleMap[api.ElasticsearchRoleMaster]),
 		"cluster-name":                     clusterName,
-		"component":                        clusterName,
+		"component":                        "elasticsearch",
 		"tuned.openshift.io/elasticsearch": "true",
 		"node-name":                        nodeName,
 	}
