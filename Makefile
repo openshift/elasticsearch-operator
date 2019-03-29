@@ -18,7 +18,6 @@ MAIN_PKG=cmd/$(APP_NAME)/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
 
-
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
@@ -36,6 +35,9 @@ operator-sdk: get-dep
 	  make dep ; \
 	  make install || sudo make install || cd commands/operator-sdk && sudo go install ; \
 	fi
+
+gendeepcopy: operator-sdk
+	@operator-sdk generate k8s
 
 imagebuilder:
 	@if [ $${USE_IMAGE_STREAM:-false} = false ] && ! type -p imagebuilder ; \
@@ -63,11 +65,14 @@ clean:
 
 image: imagebuilder
 	@if [ $${USE_IMAGE_STREAM:-false} = false ] ; \
-	then $(IMAGE_BUILDER) -t $(IMAGE_TAG) . $(IMAGE_BUILDER_OPTS) ; \
+	then $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) -t $(IMAGE_TAG) . ; \
 	fi
 
 test-e2e:
 	hack/test-e2e.sh
+
+test-unit:
+	@go test -v ./pkg/... ./cmd/...
 
 fmt:
 	@gofmt -l -w cmd && \

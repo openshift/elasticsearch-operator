@@ -3,31 +3,32 @@ package k8shandler
 import (
 	"fmt"
 
-	v1alpha1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1alpha1"
-	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/util/retry"
+
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 	rbac "k8s.io/api/rbac/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/util/retry"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateOrUpdateRBAC(dpl *v1alpha1.Elasticsearch) error {
+func CreateOrUpdateRBAC(dpl *api.Elasticsearch) error {
 
-	owner := asOwner(dpl)
+	owner := getOwnerRef(dpl)
 
 	// elasticsearch RBAC
-	elasticsearchRole := utils.NewClusterRole(
+	elasticsearchRole := newClusterRole(
 		"elasticsearch-metrics",
-		utils.NewPolicyRules(
-			utils.NewPolicyRule(
+		newPolicyRules(
+			newPolicyRule(
 				[]string{""},
 				[]string{"pods", "services", "endpoints"},
 				[]string{},
 				[]string{"list", "watch"},
 				[]string{},
 			),
-			utils.NewPolicyRule(
+			newPolicyRule(
 				[]string{},
 				[]string{},
 				[]string{},
@@ -43,17 +44,17 @@ func CreateOrUpdateRBAC(dpl *v1alpha1.Elasticsearch) error {
 		return err
 	}
 
-	subject := utils.NewSubject(
+	subject := newSubject(
 		"ServiceAccount",
 		"prometheus-k8s",
 		"openshift-monitoring",
 	)
 	subject.APIGroup = ""
 
-	elasticsearchRoleBinding := utils.NewClusterRoleBinding(
+	elasticsearchRoleBinding := newClusterRoleBinding(
 		"elasticsearch-metrics",
 		"elasticsearch-metrics",
-		utils.NewSubjects(
+		newSubjects(
 			subject,
 		),
 	)
@@ -65,17 +66,17 @@ func CreateOrUpdateRBAC(dpl *v1alpha1.Elasticsearch) error {
 	}
 
 	// proxy RBAC
-	proxyRole := utils.NewClusterRole(
+	proxyRole := newClusterRole(
 		"elasticsearch-proxy",
-		utils.NewPolicyRules(
-			utils.NewPolicyRule(
+		newPolicyRules(
+			newPolicyRule(
 				[]string{"authentication.k8s.io"},
 				[]string{"tokenreviews"},
 				[]string{},
 				[]string{"create"},
 				[]string{},
 			),
-			utils.NewPolicyRule(
+			newPolicyRule(
 				[]string{"authorization.k8s.io"},
 				[]string{"subjectaccessreviews"},
 				[]string{},
@@ -91,17 +92,17 @@ func CreateOrUpdateRBAC(dpl *v1alpha1.Elasticsearch) error {
 		return err
 	}
 
-	subject = utils.NewSubject(
+	subject = newSubject(
 		"ServiceAccount",
-		"elasticsearch",
-		"openshift-logging",
+		dpl.Name,
+		dpl.Namespace,
 	)
 	subject.APIGroup = ""
 
-	proxyRoleBinding := utils.NewClusterRoleBinding(
+	proxyRoleBinding := newClusterRoleBinding(
 		"elasticsearch-proxy",
 		"elasticsearch-proxy",
-		utils.NewSubjects(
+		newSubjects(
 			subject,
 		),
 	)
@@ -151,4 +152,62 @@ func createOrUpdateClusterRoleBinding(roleBinding *rbac.ClusterRoleBinding) erro
 		})
 	}
 	return nil
+}
+
+func newPolicyRule(apiGroups, resources, resourceNames, verbs, urls []string) rbac.PolicyRule {
+	return rbac.PolicyRule{
+		APIGroups:       apiGroups,
+		Resources:       resources,
+		ResourceNames:   resourceNames,
+		Verbs:           verbs,
+		NonResourceURLs: urls,
+	}
+}
+
+func newPolicyRules(rules ...rbac.PolicyRule) []rbac.PolicyRule {
+	return rules
+}
+
+func newClusterRole(roleName string, rules []rbac.PolicyRule) *rbac.ClusterRole {
+	return &rbac.ClusterRole{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterRole",
+			APIVersion: rbac.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		Rules: rules,
+	}
+}
+
+func newSubject(kind, name, namespace string) rbac.Subject {
+	return rbac.Subject{
+		Kind:      kind,
+		Name:      name,
+		Namespace: namespace,
+		APIGroup:  rbac.GroupName,
+	}
+}
+
+func newSubjects(subjects ...rbac.Subject) []rbac.Subject {
+	return subjects
+}
+
+func newClusterRoleBinding(bindingName, roleName string, subjects []rbac.Subject) *rbac.ClusterRoleBinding {
+	return &rbac.ClusterRoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterRoleBinding",
+			APIVersion: rbac.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: bindingName,
+		},
+		RoleRef: rbac.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     roleName,
+			APIGroup: rbac.GroupName,
+		},
+		Subjects: subjects,
+	}
 }
