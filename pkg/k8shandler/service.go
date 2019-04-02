@@ -28,6 +28,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 		annotations,
 		true,
 		ownerRef,
+		map[string]string{},
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -43,6 +44,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 		annotations,
 		false,
 		ownerRef,
+		map[string]string{},
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -54,11 +56,14 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 		dpl.Namespace,
 		dpl.Name,
 		"metrics",
-		9200,
+		60000,
 		selectorForES("es-node-client", dpl.Name),
 		annotations,
 		false,
 		ownerRef,
+		map[string]string{
+			"scrape-metrics": "enabled",
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -66,9 +71,9 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 	return nil
 }
 
-func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, annotations map[string]string, publishNotReady bool, owner metav1.OwnerReference) error {
+func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, annotations map[string]string, publishNotReady bool, owner metav1.OwnerReference, labels map[string]string) error {
 
-	labels := appendDefaultLabel(clusterName, map[string]string{})
+	labels = appendDefaultLabel(clusterName, labels)
 
 	service := newService(
 		serviceName,
