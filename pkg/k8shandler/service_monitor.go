@@ -21,6 +21,7 @@ func CreateOrUpdateServiceMonitors(dpl *v1.Elasticsearch) error {
 	owner := getOwnerRef(dpl)
 
 	labelsWithDefault := appendDefaultLabel(dpl.Name, dpl.Labels)
+	labelsWithDefault["scrape-metrics"] = "enabled"
 
 	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Name, dpl.Namespace, labelsWithDefault)
 	addOwnerRefToObject(elasticsearchScMonitor, owner)
@@ -45,7 +46,7 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 		// ServerName can be e.g. elasticsearch-metrics.openshift-logging.svc
 	}
 	endpoint := monitoringv1.Endpoint{
-		Port:            fmt.Sprintf("%s-%s", clusterName, "metrics"),
+		Port:            clusterName,
 		Path:            "/_prometheus/metrics",
 		Scheme:          "https",
 		BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
