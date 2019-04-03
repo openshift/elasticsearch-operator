@@ -298,6 +298,9 @@ func (node *statefulSetNode) create() error {
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
 				return fmt.Errorf("Could not create node resource: %v", err)
+			} else {
+				node.scale()
+				return nil
 			}
 		}
 
