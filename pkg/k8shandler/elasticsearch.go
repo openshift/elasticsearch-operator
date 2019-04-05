@@ -14,12 +14,14 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"context"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,7 +39,7 @@ type esCurlStruct struct {
 	Error        error
 }
 
-func SetShardAllocation(clusterName, namespace string, state api.ShardAllocationState) (bool, error) {
+func SetShardAllocation(clusterName, namespace string, state api.ShardAllocationState, client client.Client) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method:      http.MethodPut,
@@ -45,7 +47,7 @@ func SetShardAllocation(clusterName, namespace string, state api.ShardAllocation
 		RequestBody: fmt.Sprintf("{%q:{%q:%q}}", "transient", "cluster.routing.allocation.enable", state),
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	acknowledged := false
 	if payload.ResponseBody["acknowledged"] != nil {
@@ -54,14 +56,14 @@ func SetShardAllocation(clusterName, namespace string, state api.ShardAllocation
 	return (payload.StatusCode == 200 && acknowledged), payload.Error
 }
 
-func GetShardAllocation(clusterName, namespace string) (string, error) {
+func GetShardAllocation(clusterName, namespace string, client client.Client) (string, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cluster/settings",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	allocation := ""
 	value := walkInterfaceMap("transient.cluster.routing.allocation.enable", payload.ResponseBody)
@@ -73,14 +75,14 @@ func GetShardAllocation(clusterName, namespace string) (string, error) {
 	return allocation, payload.Error
 }
 
-func GetNodeDiskUsage(clusterName, namespace, nodeName string) (string, float64, error) {
+func GetNodeDiskUsage(clusterName, namespace, nodeName string, client client.Client) (string, float64, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cat/nodes?h=name,du,dup",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	usage := ""
 	percentUsage := float64(-1)
@@ -103,14 +105,14 @@ func GetNodeDiskUsage(clusterName, namespace, nodeName string) (string, float64,
 	return usage, percentUsage, payload.Error
 }
 
-func GetThresholdEnabled(clusterName, namespace string) (bool, error) {
+func GetThresholdEnabled(clusterName, namespace string, client client.Client) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cluster/settings?include_defaults=true&filter_path=defaults.cluster.routing.allocation.disk",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	var enabled interface{}
 
@@ -144,14 +146,14 @@ func GetThresholdEnabled(clusterName, namespace string) (bool, error) {
 	return enabled.(bool), payload.Error
 }
 
-func GetDiskWatermarks(clusterName, namespace string) (interface{}, interface{}, error) {
+func GetDiskWatermarks(clusterName, namespace string, client client.Client) (interface{}, interface{}, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cluster/settings?include_defaults=true&filter_path=defaults.cluster.routing.allocation.disk",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	var low interface{}
 	var high interface{}
@@ -266,7 +268,7 @@ func parseNodeDiskUsage(results string) map[string]interface{} {
 	return nodeDiskUsage
 }
 
-func SetMinMasterNodes(clusterName, namespace string, numberMasters int32) (bool, error) {
+func SetMinMasterNodes(clusterName, namespace string, numberMasters int32, client client.Client) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method:      http.MethodPut,
@@ -274,7 +276,7 @@ func SetMinMasterNodes(clusterName, namespace string, numberMasters int32) (bool
 		RequestBody: fmt.Sprintf("{%q:{%q:%d}}", "persistent", "discovery.zen.minimum_master_nodes", numberMasters),
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	acknowledged := false
 	if payload.ResponseBody["acknowledged"] != nil {
@@ -284,14 +286,14 @@ func SetMinMasterNodes(clusterName, namespace string, numberMasters int32) (bool
 	return (payload.StatusCode == 200 && acknowledged), payload.Error
 }
 
-func GetMinMasterNodes(clusterName, namespace string) (int32, error) {
+func GetMinMasterNodes(clusterName, namespace string, client client.Client) (int32, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cluster/settings",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	masterCount := int32(0)
 	if payload.ResponseBody["persistent"] != nil {
@@ -304,14 +306,14 @@ func GetMinMasterNodes(clusterName, namespace string) (int32, error) {
 	return masterCount, payload.Error
 }
 
-func GetClusterHealth(clusterName, namespace string) (string, error) {
+func GetClusterHealth(clusterName, namespace string, client client.Client) (string, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cluster/health",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	status := ""
 	if payload.ResponseBody["status"] != nil {
@@ -321,14 +323,14 @@ func GetClusterHealth(clusterName, namespace string) (string, error) {
 	return status, payload.Error
 }
 
-func GetClusterNodeCount(clusterName, namespace string) (int32, error) {
+func GetClusterNodeCount(clusterName, namespace string, client client.Client) (int32, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
 		Uri:    "_cluster/health",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	nodeCount := int32(0)
 	if payload.ResponseBody["number_of_nodes"] != nil {
@@ -339,21 +341,21 @@ func GetClusterNodeCount(clusterName, namespace string) (int32, error) {
 }
 
 // TODO: also check that the number of shards in the response > 0?
-func DoSynchronizedFlush(clusterName, namespace string) (bool, error) {
+func DoSynchronizedFlush(clusterName, namespace string, client client.Client) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodPost,
 		Uri:    "_flush/synced",
 	}
 
-	curlESService(clusterName, namespace, payload)
+	curlESService(clusterName, namespace, payload, client)
 
 	return (payload.StatusCode == 200), payload.Error
 }
 
 // This will curl the ES service and provide the certs required for doing so
 //  it will also return the http and string response
-func curlESService(clusterName, namespace string, payload *esCurlStruct) {
+func curlESService(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
 
 	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.Uri)
 	urlURL, err := url.Parse(urlString)
@@ -398,8 +400,8 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct) {
 		return
 	}
 
-	client := getClient(clusterName, namespace)
-	resp, err := client.Do(request)
+	httpClient := getClient(clusterName, namespace, client)
+	resp, err := httpClient.Do(request)
 
 	if resp != nil {
 		payload.StatusCode = resp.StatusCode
@@ -451,10 +453,10 @@ func getClientCertificates(clusterName, namespace string) []tls.Certificate {
 	}
 }
 
-func getClient(clusterName, namespace string) *http.Client {
+func getClient(clusterName, namespace string, client client.Client) *http.Client {
 
 	// get the contents of the secret
-	extractSecret(clusterName, namespace)
+	extractSecret(clusterName, namespace, client)
 
 	return &http.Client{
 		Transport: &http.Transport{
@@ -467,7 +469,7 @@ func getClient(clusterName, namespace string) *http.Client {
 	}
 }
 
-func extractSecret(secretName, namespace string) {
+func extractSecret(secretName, namespace string, client client.Client) {
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -478,7 +480,7 @@ func extractSecret(secretName, namespace string) {
 			Namespace: namespace,
 		},
 	}
-	if err := sdk.Get(secret); err != nil {
+	if err := client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret); err != nil {
 		if errors.IsNotFound(err) {
 			//return err
 			logrus.Errorf("Unable to find secret %v: %v", secretName, err)

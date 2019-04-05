@@ -2,12 +2,13 @@ package k8shandler
 
 import (
 	"fmt"
+	"context"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
-	v1 "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	v1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,7 +17,7 @@ const (
 )
 
 // CreateOrUpdateServiceMonitors ensures the existence of ServiceMonitors for Elasticsearch cluster
-func CreateOrUpdateServiceMonitors(dpl *v1.Elasticsearch) error {
+func CreateOrUpdateServiceMonitors(dpl *v1.Elasticsearch, client client.Client) error {
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
 	owner := getOwnerRef(dpl)
 
@@ -24,7 +25,7 @@ func CreateOrUpdateServiceMonitors(dpl *v1.Elasticsearch) error {
 
 	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Name, dpl.Namespace, labelsWithDefault)
 	addOwnerRefToObject(elasticsearchScMonitor, owner)
-	err := sdk.Create(elasticsearchScMonitor)
+	err := client.Create(context.TODO(), elasticsearchScMonitor)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ServiceMonitor: %v", err)
 	}
@@ -65,8 +66,8 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 func serviceMonitor(serviceMonitorName string, namespace string, labels map[string]string) *monitoringv1.ServiceMonitor {
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       monitoringv1.ServiceMonitorsKind,
-			APIVersion: monitoringv1.Group + "/" + monitoringv1.Version,
+			Kind:       monitoringv1.DefaultCrdKinds.ServiceMonitor.Kind,
+			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceMonitorName,

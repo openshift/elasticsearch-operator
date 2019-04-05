@@ -3,14 +3,16 @@ package k8shandler
 import (
 	"fmt"
 	"time"
+	"context"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,9 +30,11 @@ type deploymentNode struct {
 	currentRevision string
 
 	clusterSize int32
+
+	client client.Client
 }
 
-func (deploymentNode *deploymentNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32) {
+func (deploymentNode *deploymentNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client) {
 
 	labels := newLabels(cluster.Name, nodeName, roleMap)
 
@@ -58,13 +62,15 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 		},
 		ProgressDeadlineSeconds: &progressDeadlineSeconds,
 		Paused:                  false,
-		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap),
+		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client),
 	}
 
 	addOwnerRefToObject(&deployment, getOwnerRef(cluster))
 
 	deploymentNode.self = deployment
 	deploymentNode.clusterName = cluster.Name
+
+	deploymentNode.client = client
 }
 
 func (current *deploymentNode) updateReference(node NodeTypeInterface) {
@@ -92,7 +98,7 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 	}*/
 
 	// check if the secretHash changed
-	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace)
+	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
 	if newSecretHash != node.secretHash {
 		rolloutForReload = v1.ConditionTrue
 	}
@@ -109,7 +115,7 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 func (node *deploymentNode) create() error {
 
 	if node.self.ObjectMeta.ResourceVersion == "" {
-		err := sdk.Create(&node.self)
+		err := node.client.Create(context.TODO(), &node.self)
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
 				return fmt.Errorf("Could not create node resource: %v", err)
@@ -123,8 +129,8 @@ func (node *deploymentNode) create() error {
 		}
 
 		// update the hashmaps
-		node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace)
-		node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace)
+		node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace, node.client)
+		node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
 	}
 
 	return node.pause()
@@ -132,7 +138,7 @@ func (node *deploymentNode) create() error {
 
 func (node *deploymentNode) waitForInitialRollout() error {
 	err := wait.Poll(time.Second*1, time.Second*30, func() (done bool, err error) {
-		if getErr := sdk.Get(&node.self); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
 			return false, getErr
 		}
@@ -159,7 +165,7 @@ func (node *deploymentNode) nodeRevision() string {
 
 func (node *deploymentNode) waitForNodeRollout(currentRevision string) error {
 	err := wait.Poll(time.Second*1, time.Second*30, func() (done bool, err error) {
-		if getErr := sdk.Get(&node.self); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
 			return false, getErr
 		}
@@ -188,7 +194,7 @@ func (node *deploymentNode) setPaused(paused bool) error {
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := sdk.Get(pauseNode); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: pauseNode.Name, Namespace: pauseNode.Namespace}, pauseNode); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", pauseNode.Name, getErr)
 			return getErr
 		}
@@ -199,7 +205,7 @@ func (node *deploymentNode) setPaused(paused bool) error {
 
 		pauseNode.Spec.Paused = paused
 
-		if updateErr := sdk.Update(pauseNode); updateErr != nil {
+		if updateErr := node.client.Update(context.TODO(), pauseNode); updateErr != nil {
 			logrus.Debugf("Failed to update node resource %v: %v", pauseNode.Name, updateErr)
 			return updateErr
 		}
@@ -218,7 +224,7 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := sdk.Get(&node.self); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
 			return getErr
 		}
@@ -229,7 +235,7 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 
 		node.self.Spec.Replicas = &replicas
 
-		if updateErr := sdk.Update(&node.self); updateErr != nil {
+		if updateErr := node.client.Update(context.TODO(), &node.self); updateErr != nil {
 			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
 			return updateErr
 		}
@@ -243,7 +249,7 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 }
 
 func (node *deploymentNode) replicaCount() (error, int32) {
-	if err := sdk.Get(&node.self); err != nil {
+	if err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); err != nil {
 		logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, err)
 		return err, -1
 	}
@@ -253,7 +259,7 @@ func (node *deploymentNode) replicaCount() (error, int32) {
 
 func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace)
+		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size waiting for %v to rejoin cluster", node.name())
 			return false, getErr
@@ -267,7 +273,7 @@ func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 
 func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace)
+		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size waiting for %v to leave cluster", node.name())
 			return false, getErr
@@ -282,12 +288,12 @@ func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace); status != "green" {
+		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace, node.client); status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
 			return
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace)
+		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
 			return
@@ -305,13 +311,13 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 		}
 
 		if replicas > 0 {
-			if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace); !ok {
+			if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok {
 				logrus.Warnf("Unable to perform synchronized flush: %v", err)
 				return
 			}
 
 			// disable shard allocation
-			if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone); !ok {
+			if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
 				logrus.Warnf("Unable to disable shard allocation: %v", err)
 				return
 			}
@@ -348,7 +354,7 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 		node.refreshHashes()
 
 		// reenable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationAll); !ok {
+		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationAll, node.client); !ok {
 			logrus.Warnf("Unable to enable shard allocation: %v", err)
 			return
 		}
@@ -358,7 +364,7 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
-		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace); status != "green" {
+		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace, node.client); status != "green" {
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return
 		}
@@ -372,12 +378,12 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	// set our state to being under upgrade
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace); status != "green" {
+		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace, node.client); status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before upgrading %v: %v / green", node.name(), status)
 			return fmt.Errorf("Cluster not in green state before beginning upgrade: %v", status)
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace)
+		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to update for %v", node.name())
 		}
@@ -389,13 +395,13 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace); !ok {
+		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok {
 			logrus.Warnf("Unable to perform synchronized flush: %v", err)
 			return err
 		}
 
 		// disable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone); !ok {
+		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
 			logrus.Warnf("Unable to disable shard allocation: %v", err)
 			return err
 		}
@@ -405,7 +411,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 			// isChanged() will get the latest revision from the apiserver
 			// and return false if there is nothing to change and will update the node object if required
 			if node.isChanged() {
-				if updateErr := sdk.Update(&node.self); updateErr != nil {
+				if updateErr := node.client.Update(context.TODO(), &node.self); updateErr != nil {
 					logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
 					return updateErr
 				}
@@ -448,7 +454,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		}
 
 		// reenable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationAll); !ok {
+		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationAll, node.client); !ok {
 			logrus.Warnf("Unable to enable shard allocation: %v", err)
 			return err
 		}
@@ -458,7 +464,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
-		if status, err := GetClusterHealth(node.clusterName, node.self.Namespace); status != "green" {
+		if status, err := GetClusterHealth(node.clusterName, node.self.Namespace, node.client); status != "green" {
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return err
 		}
@@ -471,12 +477,12 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 }
 
 func (node *deploymentNode) refreshHashes() {
-	newConfigmapHash := getConfigmapDataHash(node.clusterName, node.self.Namespace)
+	newConfigmapHash := getConfigmapDataHash(node.clusterName, node.self.Namespace, node.client)
 	if newConfigmapHash != node.configmapHash {
 		node.configmapHash = newConfigmapHash
 	}
 
-	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace)
+	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
 	if newSecretHash != node.secretHash {
 		node.secretHash = newSecretHash
 	}
@@ -487,7 +493,7 @@ func (node *deploymentNode) isChanged() bool {
 	changed := false
 
 	desired := node.self.DeepCopy()
-	err := sdk.Get(&node.self)
+	err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self)
 	// error check that it exists, etc
 	if err != nil {
 		// if it doesn't exist, return true

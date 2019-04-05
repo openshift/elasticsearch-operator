@@ -14,7 +14,7 @@ export IMAGE_TAG=quay.io/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
 TARGET=$(TARGET_DIR)/bin/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
-MAIN_PKG=cmd/$(APP_NAME)/main.go
+MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
 
@@ -107,7 +107,7 @@ go-run: deploy deploy-example
 	RULES_FILE_PATH=files/prometheus_rules.yml \
 	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
 	KUBERNETES_CONFIG=/etc/origin/master/admin.kubeconfig \
-	go run cmd/elasticsearch-operator/main.go > $(RUN_LOG) 2>&1 & echo $$! > $(RUN_PID)
+	go run ${MAIN_PKG} > $(RUN_LOG) 2>&1 & echo $$! > $(RUN_PID)
 
 undeploy:
 	hack/undeploy.sh
