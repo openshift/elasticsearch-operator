@@ -1,20 +1,24 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateOrUpdateServices ensures the existence of the services for Elasticsearch cluster
-func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error {
+
+	dpl := elasticsearchRequest.cluster
+
 	ownerRef := getOwnerRef(dpl)
 	annotations := make(map[string]string)
 
@@ -29,6 +33,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 		true,
 		ownerRef,
 		map[string]string{},
+		elasticsearchRequest.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -45,6 +50,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 		false,
 		ownerRef,
 		map[string]string{},
+		elasticsearchRequest.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -64,6 +70,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 		map[string]string{
 			"scrape-metrics": "enabled",
 		},
+		elasticsearchRequest.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -71,7 +78,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch) error {
 	return nil
 }
 
-func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, annotations map[string]string, publishNotReady bool, owner metav1.OwnerReference, labels map[string]string) error {
+func createOrUpdateService(serviceName, namespace, clusterName, targetPortName string, port int32, selector, annotations map[string]string, publishNotReady bool, owner metav1.OwnerReference, labels map[string]string, client client.Client) error {
 
 	labels = appendDefaultLabel(clusterName, labels)
 
@@ -88,7 +95,7 @@ func createOrUpdateService(serviceName, namespace, clusterName, targetPortName s
 	)
 	addOwnerRefToObject(service, owner)
 
-	err := sdk.Create(service)
+	err := client.Create(context.TODO(), service)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure constructing %v service: %v", service.Name, err)
@@ -96,7 +103,7 @@ func createOrUpdateService(serviceName, namespace, clusterName, targetPortName s
 
 		current := service.DeepCopy()
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err = sdk.Get(current); err != nil {
+			if err = client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
 				if errors.IsNotFound(err) {
 					// the object doesn't exist -- it was likely culled
 					// recreate it on the next time through if necessary
@@ -109,7 +116,7 @@ func createOrUpdateService(serviceName, namespace, clusterName, targetPortName s
 			current.Spec.Selector = service.Spec.Selector
 			current.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
 			current.Labels = service.Labels
-			if err = sdk.Update(current); err != nil {
+			if err = client.Update(context.TODO(), current); err != nil {
 				return err
 			}
 			return nil
