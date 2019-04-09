@@ -1,14 +1,12 @@
 package k8shandler
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	v1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,7 +15,9 @@ const (
 )
 
 // CreateOrUpdateServiceMonitors ensures the existence of ServiceMonitors for Elasticsearch cluster
-func CreateOrUpdateServiceMonitors(dpl *v1.Elasticsearch, client client.Client) error {
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
+
+	dpl := elasticsearchRequest.cluster
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
 	owner := getOwnerRef(dpl)
 
@@ -25,7 +25,7 @@ func CreateOrUpdateServiceMonitors(dpl *v1.Elasticsearch, client client.Client) 
 
 	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Name, dpl.Namespace, labelsWithDefault)
 	addOwnerRefToObject(elasticsearchScMonitor, owner)
-	err := client.Create(context.TODO(), elasticsearchScMonitor)
+	err := elasticsearchRequest.client.Create(context.TODO(), elasticsearchScMonitor)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ServiceMonitor: %v", err)
 	}

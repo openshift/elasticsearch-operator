@@ -1,13 +1,13 @@
 package k8shandler
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
-	"context"
 
 	"k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func getSecret(secretName, namespace string, client client.Client) *v1.Secret {

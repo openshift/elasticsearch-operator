@@ -1,22 +1,24 @@
 package k8shandler
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/apimachinery/pkg/types"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateOrUpdateServices ensures the existence of the services for Elasticsearch cluster
-func CreateOrUpdateServices(dpl *api.Elasticsearch, client client.Client) error {
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error {
+
+	dpl := elasticsearchRequest.cluster
+
 	ownerRef := getOwnerRef(dpl)
 	annotations := make(map[string]string)
 
@@ -30,7 +32,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch, client client.Client) error 
 		annotations,
 		true,
 		ownerRef,
-		client,
+		elasticsearchRequest.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -46,7 +48,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch, client client.Client) error 
 		annotations,
 		false,
 		ownerRef,
-		client,
+		elasticsearchRequest.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -63,7 +65,7 @@ func CreateOrUpdateServices(dpl *api.Elasticsearch, client client.Client) error 
 		annotations,
 		false,
 		ownerRef,
-		client,
+		elasticsearchRequest.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)

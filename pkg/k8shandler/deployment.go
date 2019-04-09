@@ -1,16 +1,16 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 	"time"
-	"context"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	apps "k8s.io/api/apps/v1"

@@ -1,12 +1,12 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 	"strings"
-	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	v1 "k8s.io/api/core/v1"
@@ -97,7 +97,11 @@ func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 	return !(dataCount == 1 && dpl.Spec.RedundancyPolicy == api.SingleRedundancy)
 }
 
-func isValidConf(dpl *api.Elasticsearch, client client.Client) error {
+func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
+
+	dpl := elasticsearchRequest.cluster
+	client := elasticsearchRequest.client
+
 	if !isValidMasterCount(dpl) {
 		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, client); err != nil {
 			return err

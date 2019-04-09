@@ -23,11 +23,13 @@ type NodeTypeInterface interface {
 type NodeTypeFactory func(name, namespace string) NodeTypeInterface
 
 // this can potentially return a list if we have replicas > 1 for a data node
-func GetNodeTypeInterface(uuid string, node api.ElasticsearchNode, cluster *api.Elasticsearch, client client.Client) []NodeTypeInterface {
+func (elasticsearchRequest *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.ElasticsearchNode) []NodeTypeInterface {
 
 	nodes := []NodeTypeInterface{}
 
 	roleMap := getNodeRoleMap(node)
+
+	cluster := elasticsearchRequest.cluster
 
 	// common spec => cluster.Spec.Spec
 	nodeName := fmt.Sprintf("%s-%s", cluster.Name, getNodeSuffix(uuid, roleMap))
@@ -38,11 +40,11 @@ func GetNodeTypeInterface(uuid string, node api.ElasticsearchNode, cluster *api.
 		//   it is 1 instead of 0 because of legacy code
 		for replicaIndex := int32(1); replicaIndex <= node.NodeCount; replicaIndex++ {
 			dataNodeName := addDataNodeSuffix(nodeName, replicaIndex)
-			node := newDeploymentNode(dataNodeName, node, cluster, roleMap, client)
+			node := newDeploymentNode(dataNodeName, node, cluster, roleMap, elasticsearchRequest.client)
 			nodes = append(nodes, node)
 		}
 	} else {
-		node := newStatefulSetNode(nodeName, node, cluster, roleMap, client)
+		node := newStatefulSetNode(nodeName, node, cluster, roleMap, elasticsearchRequest.client)
 		nodes = append(nodes, node)
 	}
 

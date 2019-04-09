@@ -1,21 +1,22 @@
 package k8shandler
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/apimachinery/pkg/types"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	rbac "k8s.io/api/rbac/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateOrUpdateRBAC(dpl *api.Elasticsearch, client client.Client) error {
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
+
+	dpl := elasticsearchRequest.cluster
 
 	owner := getOwnerRef(dpl)
 
@@ -42,7 +43,7 @@ func CreateOrUpdateRBAC(dpl *api.Elasticsearch, client client.Client) error {
 
 	addOwnerRefToObject(elasticsearchRole, owner)
 
-	if err := createOrUpdateClusterRole(elasticsearchRole, client); err != nil {
+	if err := createOrUpdateClusterRole(elasticsearchRole, elasticsearchRequest.client); err != nil {
 		return err
 	}
 
@@ -63,7 +64,7 @@ func CreateOrUpdateRBAC(dpl *api.Elasticsearch, client client.Client) error {
 
 	addOwnerRefToObject(elasticsearchRoleBinding, owner)
 
-	if err := createOrUpdateClusterRoleBinding(elasticsearchRoleBinding, client); err != nil {
+	if err := createOrUpdateClusterRoleBinding(elasticsearchRoleBinding, elasticsearchRequest.client); err != nil {
 		return err
 	}
 
@@ -90,7 +91,7 @@ func CreateOrUpdateRBAC(dpl *api.Elasticsearch, client client.Client) error {
 
 	addOwnerRefToObject(proxyRole, owner)
 
-	if err := createOrUpdateClusterRole(proxyRole, client); err != nil {
+	if err := createOrUpdateClusterRole(proxyRole, elasticsearchRequest.client); err != nil {
 		return err
 	}
 
@@ -111,7 +112,7 @@ func CreateOrUpdateRBAC(dpl *api.Elasticsearch, client client.Client) error {
 
 	addOwnerRefToObject(proxyRoleBinding, owner)
 
-	return createOrUpdateClusterRoleBinding(proxyRoleBinding, client)
+	return createOrUpdateClusterRoleBinding(proxyRoleBinding, elasticsearchRequest.client)
 }
 
 func createOrUpdateClusterRole(role *rbac.ClusterRole, client client.Client) error {

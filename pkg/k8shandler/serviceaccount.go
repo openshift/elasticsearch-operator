@@ -1,21 +1,22 @@
 package k8shandler
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CreateOrUpdateServiceAccount ensures the existence of the serviceaccount for Elasticsearch cluster
-func CreateOrUpdateServiceAccount(dpl *api.Elasticsearch, client client.Client) (err error) {
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServiceAccount() (err error) {
 
-	err = createOrUpdateServiceAccount(dpl.Name, dpl.Namespace, getOwnerRef(dpl), client)
+	dpl := elasticsearchRequest.cluster
+
+	err = createOrUpdateServiceAccount(dpl.Name, dpl.Namespace, getOwnerRef(dpl), elasticsearchRequest.client)
 	if err != nil {
 		return fmt.Errorf("Failure creating ServiceAccount %v", err)
 	}

@@ -2,7 +2,6 @@ package elasticsearch
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
@@ -94,39 +93,8 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
-	// Ensure existence of servicesaccount
-	if err = k8shandler.CreateOrUpdateServiceAccount(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile ServiceAccount for Elasticsearch cluster: %v", err)
-	}
-
-	// Ensure existence of clusterroles and clusterrolebindings
-	if err := k8shandler.CreateOrUpdateRBAC(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile Roles and RoleBindings for Elasticsearch cluster: %v", err)
-	}
-
-	// Ensure existence of config maps
-	if err = k8shandler.CreateOrUpdateConfigMaps(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile ConfigMaps for Elasticsearch cluster: %v", err)
-	}
-
-	if err = k8shandler.CreateOrUpdateServices(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile Services for Elasticsearch cluster: %v", err)
-	}
-
-	// Ensure Elasticsearch cluster itself is up to spec
-	//if err = k8shandler.CreateOrUpdateElasticsearchCluster(cluster, "elasticsearch", "elasticsearch"); err != nil {
-	if err = k8shandler.CreateOrUpdateElasticsearchCluster(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile Elasticsearch deployment spec: %v", err)
-	}
-
-	// Ensure existence of service monitors
-	if err = k8shandler.CreateOrUpdateServiceMonitors(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile Service Monitors for Elasticsearch cluster: %v", err)
-	}
-
-	// Ensure existence of prometheus rules
-	if err = k8shandler.CreateOrUpdatePrometheusRules(cluster, r.client); err != nil {
-		return reconcileResult, fmt.Errorf("Failed to reconcile PrometheusRules for Elasticsearch cluster: %v", err)
+	if err = k8shandler.Reconcile(cluster, r.client); err != nil {
+		return reconcileResult, err
 	}
 
 	return reconcileResult, nil

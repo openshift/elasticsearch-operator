@@ -1,17 +1,17 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
-	"context"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,17 +25,19 @@ var DISK_WATERMARK_HIGH_PCT *float64
 var DISK_WATERMARK_LOW_ABS *resource.Quantity
 var DISK_WATERMARK_HIGH_ABS *resource.Quantity
 
-func UpdateClusterStatus(cluster *api.Elasticsearch, client client.Client) error {
+func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
+
+	cluster := elasticsearchRequest.cluster
 
 	clusterStatus := cluster.Status.DeepCopy()
 
-	health, err := GetClusterHealth(cluster.Name, cluster.Namespace, client)
+	health, err := GetClusterHealth(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
 	if err != nil {
 		health = healthUnknown
 	}
 	clusterStatus.ClusterHealth = health
 
-	allocation, err := GetShardAllocation(cluster.Name, cluster.Namespace, client)
+	allocation, err := GetShardAllocation(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
 	switch {
 	case allocation == "none":
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
@@ -45,15 +47,15 @@ func UpdateClusterStatus(cluster *api.Elasticsearch, client client.Client) error
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationAll
 	}
 
-	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, client)
+	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, elasticsearchRequest.client)
 	updateStatusConditions(clusterStatus)
-	updateNodeConditions(cluster.Name, cluster.Namespace, clusterStatus, client)
+	updateNodeConditions(cluster.Name, cluster.Namespace, clusterStatus, elasticsearchRequest.client)
 
 	if !reflect.DeepEqual(clusterStatus, cluster.Status) {
 		nretries := -1
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			nretries++
-			if getErr := client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
+			if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
 				logrus.Debugf("Could not get Elasticsearch %v: %v", cluster.Name, getErr)
 				return getErr
 			}
@@ -64,7 +66,7 @@ func UpdateClusterStatus(cluster *api.Elasticsearch, client client.Client) error
 			cluster.Status.ShardAllocationEnabled = clusterStatus.ShardAllocationEnabled
 			cluster.Status.Nodes = clusterStatus.Nodes
 
-			if updateErr := client.Update(context.TODO(), cluster); updateErr != nil {
+			if updateErr := elasticsearchRequest.client.Update(context.TODO(), cluster); updateErr != nil {
 				logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", cluster.Name, updateErr)
 				return updateErr
 			}
@@ -95,17 +97,17 @@ func rolePodStateMap(namespace, clusterName string, client client.Client) map[ap
 
 	clientList, _ := GetPodList(
 		namespace,
-		map[string]string {
-			"component": "elasticsearch",
-			"cluster-name": clusterName,
+		map[string]string{
+			"component":      "elasticsearch",
+			"cluster-name":   clusterName,
 			"es-node-client": "true",
 		},
 		client,
 	)
 	dataList, _ := GetPodList(
 		namespace,
-		map[string]string {
-			"component": "elasticsearch",
+		map[string]string{
+			"component":    "elasticsearch",
 			"cluster-name": clusterName,
 			"es-node-data": "true",
 		},
@@ -113,9 +115,9 @@ func rolePodStateMap(namespace, clusterName string, client client.Client) map[ap
 	)
 	masterList, _ := GetPodList(
 		namespace,
-		map[string]string {
-			"component": "elasticsearch",
-			"cluster-name": clusterName,
+		map[string]string{
+			"component":      "elasticsearch",
+			"cluster-name":   clusterName,
 			"es-node-master": "true",
 		},
 		client,
@@ -191,10 +193,10 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 
 		nodePodList, _ := GetPodList(
 			namespace,
-			map[string]string {
-				"component": "elasticsearch",
+			map[string]string{
+				"component":    "elasticsearch",
 				"cluster-name": clusterName,
-				"node-name": nodeName,
+				"node-name":    nodeName,
 			},
 			client,
 		)

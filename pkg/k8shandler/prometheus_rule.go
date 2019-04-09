@@ -2,17 +2,15 @@ package k8shandler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"context"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -22,7 +20,10 @@ const (
 	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_rules.yml"
 )
 
-func CreateOrUpdatePrometheusRules(dpl *api.Elasticsearch, client client.Client) error {
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
+
+	dpl := elasticsearchRequest.cluster
+
 	ruleName := fmt.Sprintf("%s-%s", dpl.Name, "prometheus-rules")
 	owner := getOwnerRef(dpl)
 
@@ -33,7 +34,7 @@ func CreateOrUpdatePrometheusRules(dpl *api.Elasticsearch, client client.Client)
 
 	addOwnerRefToObject(promRule, owner)
 
-	err = client.Create(context.TODO(), promRule)
+	err = elasticsearchRequest.client.Create(context.TODO(), promRule)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
