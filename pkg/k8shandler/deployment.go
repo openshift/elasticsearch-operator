@@ -245,12 +245,14 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 }
 
 func (node *deploymentNode) replicaCount() (error, int32) {
-	if err := sdk.Get(&node.self); err != nil {
-		logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, err)
+	nodeCopy := node.self.DeepCopy()
+
+	if err := sdk.Get(nodeCopy); err != nil {
+		logrus.Debugf("Could not get Elasticsearch node resource %v: %v", nodeCopy.Name, err)
 		return err, -1
 	}
 
-	return nil, node.self.Status.Replicas
+	return nil, nodeCopy.Status.Replicas
 }
 
 func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
@@ -325,11 +327,11 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 				logrus.Warnf("Unable to scale down %v", node.name())
 				return
 			}
-		}
 
-		if err, _ = node.waitForNodeLeaveCluster(); err != nil {
-			logrus.Infof("Timed out waiting for %v to leave the cluster", node.name())
-			return
+			if err, _ = node.waitForNodeLeaveCluster(); err != nil {
+				logrus.Infof("Timed out waiting for %v to leave the cluster", node.name())
+				return
+			}
 		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
@@ -402,24 +404,8 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 			return err
 		}
 
-		// see if we need to update the deployment object and verify we have latest to update
-		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			// isChanged() will get the latest revision from the apiserver
-			// and return false if there is nothing to change and will update the node object if required
-			if node.isChanged() {
-				if updateErr := sdk.Update(&node.self); updateErr != nil {
-					logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
-					return updateErr
-				}
-
-				return nil
-			} else {
-				return nil
-			}
-		})
-
-		if retryErr != nil {
-			return retryErr
+		if err := node.executeUpdate(); err != nil {
+			return err
 		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
@@ -469,6 +455,47 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
 	}
 
+	return nil
+}
+
+func (node *deploymentNode) executeUpdate() error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// isChanged() will get the latest revision from the apiserver
+		// and return false if there is nothing to change and will update the node object if required
+		if node.isChanged() {
+			if updateErr := sdk.Update(&node.self); updateErr != nil {
+				logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
+				return updateErr
+			}
+		}
+		return nil
+	})
+}
+
+func (node *deploymentNode) progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error {
+	if node.isChanged() {
+		logrus.Infof("Requested to update node '%s', which is unschedulable. Skipping rolling restart scenario and performing redeploy now", upgradeStatus.DeploymentName)
+
+		if err := node.executeUpdate(); err != nil {
+			return err
+		}
+
+		if err := node.unpause(); err != nil {
+			return err
+		}
+		// if unpause is succesfull, always try to pause
+		defer node.pause()
+
+		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
+
+		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
+			logrus.Infof("Timed out waiting for node %v to rollout", node.name())
+			return err
+		}
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
+		node.currentRevision = node.nodeRevision()
+	}
 	return nil
 }
 

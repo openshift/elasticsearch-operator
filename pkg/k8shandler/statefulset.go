@@ -161,13 +161,16 @@ func (node *statefulSetNode) setPartition(partitions int32) error {
 	return nil
 }
 
-func (node *statefulSetNode) partition() (error, int32) {
-	if err := sdk.Get(&node.self); err != nil {
+func (node *statefulSetNode) partition() (int32, error) {
+
+	desired := node.self.DeepCopy()
+
+	if err := sdk.Get(desired); err != nil {
 		logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, err)
-		return err, -1
+		return -1, err
 	}
 
-	return nil, *node.self.Spec.UpdateStrategy.RollingUpdate.Partition
+	return *desired.Spec.UpdateStrategy.RollingUpdate.Partition, nil
 }
 
 func (node *statefulSetNode) setReplicaCount(replicas int32) error {
@@ -198,13 +201,16 @@ func (node *statefulSetNode) setReplicaCount(replicas int32) error {
 	return nil
 }
 
-func (node *statefulSetNode) replicaCount() (error, int32) {
-	if err := sdk.Get(&node.self); err != nil {
+func (node *statefulSetNode) replicaCount() (int32, error) {
+
+	desired := node.self.DeepCopy()
+
+	if err := sdk.Get(desired); err != nil {
 		logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, err)
-		return err, -1
+		return -1, err
 	}
 
-	return nil, node.self.Status.Replicas
+	return desired.Status.Replicas, nil
 }
 
 func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) {
@@ -222,7 +228,7 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 		}
 		node.clusterSize = size
 
-		err, replicas := node.replicaCount()
+		replicas, err := node.replicaCount()
 		if err != nil {
 			logrus.Warnf("Unable to get number of replicas prior to restart for %v", node.name())
 			return
@@ -242,7 +248,7 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
 
-		err, ordinal := node.partition()
+		ordinal, err := node.partition()
 		if err != nil {
 			logrus.Infof("Unable to get node ordinal value: %v", err)
 			return
@@ -250,7 +256,7 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 
 		for index := ordinal; index > 0; index-- {
 			// get podName based on ordinal index and node.name()
-			podName := fmt.Sprintf("%v-%v", node.name(), index)
+			podName := fmt.Sprintf("%v-%v", node.name(), index-1)
 
 			// make sure we have all nodes in the cluster first -- always
 			if err, _ := node.waitForNodeRejoinCluster(); err != nil {
@@ -260,7 +266,7 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 
 			// delete the pod
 			if err := DeletePod(podName, node.self.Namespace); err != nil {
-				logrus.Infof("Unable to delete pod %v for restart", podName)
+				logrus.Infof("Unable to delete pod %s for restart: %v", podName, err)
 				return
 			}
 
@@ -314,6 +320,21 @@ func (node *statefulSetNode) create() error {
 	return nil
 }
 
+func (node *statefulSetNode) executeUpdate() error {
+	// see if we need to update the deployment object and verify we have latest to update
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// isChanged() will get the latest revision from the apiserver
+		// and return false if there is nothing to change and will update the node object if required
+		if node.isChanged() {
+			if updateErr := sdk.Update(&node.self); updateErr != nil {
+				logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
+				return updateErr
+			}
+		}
+		return nil
+	})
+}
+
 func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) error {
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
 		if status, _ := GetClusterHealth(node.clusterName, node.self.Namespace); status != "green" {
@@ -327,7 +348,7 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 		}
 		node.clusterSize = size
 
-		err, replicas := node.replicaCount()
+		replicas, err := node.replicaCount()
 		if err != nil {
 			logrus.Warnf("Unable to get number of replicas prior to restart for %v", node.name())
 			return fmt.Errorf("Unable to get number of replicas prior to restart for %v", node.name())
@@ -340,24 +361,8 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		// see if we need to update the deployment object and verify we have latest to update
-		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			// isChanged() will get the latest revision from the apiserver
-			// and return false if there is nothing to change and will update the node object if required
-			if node.isChanged() {
-				if updateErr := sdk.Update(&node.self); updateErr != nil {
-					logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
-					return updateErr
-				}
-
-				return nil
-			} else {
-				return nil
-			}
-		})
-
-		if retryErr != nil {
-			return retryErr
+		if err := node.executeUpdate(); err != nil {
+			return err
 		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
@@ -365,7 +370,7 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
 
-		err, ordinal := node.partition()
+		ordinal, err := node.partition()
 		if err != nil {
 			logrus.Infof("Unable to get node ordinal value: %v", err)
 			return err
@@ -504,6 +509,28 @@ func (node *statefulSetNode) isChanged() bool {
 
 		node.self.Spec.Template.Spec.Containers[index] = nodeContainer
 	}
-
 	return changed
+}
+
+func (node *statefulSetNode) progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error {
+	if node.isChanged() {
+		if err := node.executeUpdate(); err != nil {
+			return err
+		}
+
+		partition, err := node.partition()
+		if err != nil {
+			return err
+		}
+
+		podName := fmt.Sprintf("%v-%v", node.name(), partition)
+
+		logrus.Debugf("Updated statefulset %s, manually applying changes on pod: %s", node.name(), podName)
+
+		if err := DeletePod(podName, node.self.Namespace); err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
