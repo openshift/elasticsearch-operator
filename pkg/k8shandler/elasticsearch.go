@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -30,7 +32,7 @@ const (
 
 type esCurlStruct struct {
 	Method       string // use net/http constants https://golang.org/pkg/net/http/#pkg-constants
-	Uri          string
+	URI          string
 	RequestBody  string
 	StatusCode   int
 	ResponseBody map[string]interface{}
@@ -41,15 +43,15 @@ func SetShardAllocation(clusterName, namespace string, state api.ShardAllocation
 
 	payload := &esCurlStruct{
 		Method:      http.MethodPut,
-		Uri:         "_cluster/settings",
+		URI:         "_cluster/settings",
 		RequestBody: fmt.Sprintf("{%q:{%q:%q}}", "transient", "cluster.routing.allocation.enable", state),
 	}
 
 	curlESService(clusterName, namespace, payload)
 
 	acknowledged := false
-	if payload.ResponseBody["acknowledged"] != nil {
-		acknowledged = payload.ResponseBody["acknowledged"].(bool)
+	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+		acknowledged = acknowledgedBool
 	}
 	return (payload.StatusCode == 200 && acknowledged), payload.Error
 }
@@ -58,7 +60,7 @@ func GetShardAllocation(clusterName, namespace string) (string, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/settings",
+		URI:    "_cluster/settings",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -66,8 +68,8 @@ func GetShardAllocation(clusterName, namespace string) (string, error) {
 	allocation := ""
 	value := walkInterfaceMap("transient.cluster.routing.allocation.enable", payload.ResponseBody)
 
-	if value != nil {
-		allocation = value.(string)
+	if allocationString, ok := value.(string); ok {
+		allocation = allocationString
 	}
 
 	return allocation, payload.Error
@@ -77,7 +79,7 @@ func GetNodeDiskUsage(clusterName, namespace, nodeName string) (string, float64,
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cat/nodes?h=name,du,dup",
+		URI:    "_cat/nodes?h=name,du,dup",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -85,17 +87,15 @@ func GetNodeDiskUsage(clusterName, namespace, nodeName string) (string, float64,
 	usage := ""
 	percentUsage := float64(-1)
 
-	if payload.ResponseBody["results"] != nil {
-		response := parseNodeDiskUsage(payload.ResponseBody["results"].(string))
-		if nodeResponse, ok := response[nodeName]; ok {
-			nodeResponseBody := nodeResponse.(map[string]interface{})
-
-			if nodeResponseBody["used"] != nil {
-				usage = nodeResponseBody["used"].(string)
+	if payload, ok := payload.ResponseBody["results"].(string); ok {
+		response := parseNodeDiskUsage(payload)
+		if nodeResponse, ok := response[nodeName].(map[string]interface{}); ok {
+			if usageString, ok := nodeResponse["used"].(string); ok {
+				usage = usageString
 			}
 
-			if nodeResponseBody["used_percent"] != nil {
-				percentUsage = nodeResponseBody["used_percent"].(float64)
+			if percentUsageFloat, ok := nodeResponse["used_percent"].(float64); ok {
+				percentUsage = percentUsageFloat
 			}
 		}
 	}
@@ -107,7 +107,7 @@ func GetThresholdEnabled(clusterName, namespace string) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/settings?include_defaults=true",
+		URI:    "_cluster/settings?include_defaults=true",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -135,20 +135,21 @@ func GetThresholdEnabled(clusterName, namespace string) (bool, error) {
 		enabled = value
 	}
 
-	if enabled != nil {
-		enabled, _ = strconv.ParseBool(enabled.(string))
-	} else {
-		enabled = false
+	enabledBool := false
+	if enabledString, ok := enabled.(string); ok {
+		if enabledTemp, err := strconv.ParseBool(enabledString); err == nil {
+			enabledBool = enabledTemp
+		}
 	}
 
-	return enabled.(bool), payload.Error
+	return enabledBool, payload.Error
 }
 
 func GetDiskWatermarks(clusterName, namespace string) (interface{}, interface{}, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/settings?include_defaults=true",
+		URI:    "_cluster/settings?include_defaults=true",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -198,22 +199,22 @@ func GetDiskWatermarks(clusterName, namespace string) (interface{}, interface{},
 		high = value
 	}
 
-	if low != nil {
-		if strings.HasSuffix(low.(string), "%") {
-			low, _ = strconv.ParseFloat(strings.TrimSuffix(low.(string), "%"), 64)
+	if lowString, ok := low.(string); ok {
+		if strings.HasSuffix(lowString, "%") {
+			low, _ = strconv.ParseFloat(strings.TrimSuffix(lowString, "%"), 64)
 		} else {
-			if strings.HasSuffix(low.(string), "b") {
-				low = strings.TrimSuffix(low.(string), "b")
+			if strings.HasSuffix(lowString, "b") {
+				low = strings.TrimSuffix(lowString, "b")
 			}
 		}
 	}
 
-	if high != nil {
-		if strings.HasSuffix(high.(string), "%") {
-			high, _ = strconv.ParseFloat(strings.TrimSuffix(high.(string), "%"), 64)
+	if highString, ok := high.(string); ok {
+		if strings.HasSuffix(highString, "%") {
+			high, _ = strconv.ParseFloat(strings.TrimSuffix(highString, "%"), 64)
 		} else {
-			if strings.HasSuffix(high.(string), "b") {
-				high = strings.TrimSuffix(high.(string), "b")
+			if strings.HasSuffix(highString, "b") {
+				high = strings.TrimSuffix(highString, "b")
 			}
 		}
 	}
@@ -242,15 +243,30 @@ func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interfac
 	return nil
 }
 
+// ---
+// method: GET
+// uri: _cat/nodes?h=name,du,dup
+// requestbody: ""
+// statuscode: 200
+// responsebody:
+//   results: |
+//     elasticsearch-cm-23bq83d3   6.3gb 5.36
+//     elasticsearch-cd-ujt4y3n5-1 6.4gb 5.43
+// error: null
 func parseNodeDiskUsage(results string) map[string]interface{} {
 
 	nodeDiskUsage := make(map[string]interface{})
 
 	for _, result := range strings.Split(results, "\n") {
-		fields := strings.Split(result, " ")
+
+		fields := []string{}
+		for _, val := range strings.Split(result, " ") {
+			if len(val) > 0 {
+				fields = append(fields, val)
+			}
+		}
 
 		if len(fields) == 3 {
-
 			percent, err := strconv.ParseFloat(fields[2], 64)
 			if err != nil {
 				percent = float64(-1)
@@ -270,15 +286,15 @@ func SetMinMasterNodes(clusterName, namespace string, numberMasters int32) (bool
 
 	payload := &esCurlStruct{
 		Method:      http.MethodPut,
-		Uri:         "_cluster/settings",
+		URI:         "_cluster/settings",
 		RequestBody: fmt.Sprintf("{%q:{%q:%d}}", "persistent", "discovery.zen.minimum_master_nodes", numberMasters),
 	}
 
 	curlESService(clusterName, namespace, payload)
 
 	acknowledged := false
-	if payload.ResponseBody["acknowledged"] != nil {
-		acknowledged = payload.ResponseBody["acknowledged"].(bool)
+	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+		acknowledged = acknowledgedBool
 	}
 
 	return (payload.StatusCode == 200 && acknowledged), payload.Error
@@ -288,7 +304,7 @@ func GetMinMasterNodes(clusterName, namespace string) (int32, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/settings",
+		URI:    "_cluster/settings",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -296,8 +312,8 @@ func GetMinMasterNodes(clusterName, namespace string) (int32, error) {
 	masterCount := int32(0)
 	if payload.ResponseBody["persistent"] != nil {
 		persistentBody := payload.ResponseBody["persistent"].(map[string]interface{})
-		if persistentBody["discovery.zen.minimum_master_nodes"] != nil {
-			masterCount = int32(persistentBody["discovery.zen.minimum_master_nodes"].(float64))
+		if masterCountFloat, ok := persistentBody["discovery.zen.minimum_master_nodes"].(float64); ok {
+			masterCount = int32(masterCountFloat)
 		}
 	}
 
@@ -308,14 +324,16 @@ func GetClusterHealth(clusterName, namespace string) (string, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/health",
+		URI:    "_cluster/health",
 	}
 
 	curlESService(clusterName, namespace, payload)
 
 	status := ""
 	if payload.ResponseBody["status"] != nil {
-		status = payload.ResponseBody["status"].(string)
+		if statusString, ok := payload.ResponseBody["status"].(string); ok {
+			status = statusString
+		}
 	}
 
 	return status, payload.Error
@@ -325,14 +343,15 @@ func GetClusterNodeCount(clusterName, namespace string) (int32, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/health",
+		URI:    "_cluster/health",
 	}
 
 	curlESService(clusterName, namespace, payload)
 
 	nodeCount := int32(0)
-	if payload.ResponseBody["number_of_nodes"] != nil {
-		nodeCount = int32(payload.ResponseBody["number_of_nodes"].(float64))
+	if nodeCountFloat, ok := payload.ResponseBody["number_of_nodes"].(float64); ok {
+		// we expect at most double digit numbers here, eg cluster with 15 nodes
+		nodeCount = int32(nodeCountFloat)
 	}
 
 	return nodeCount, payload.Error
@@ -343,7 +362,7 @@ func DoSynchronizedFlush(clusterName, namespace string) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodPost,
-		Uri:    "_flush/synced",
+		URI:    "_flush/synced",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -355,7 +374,7 @@ func DoSynchronizedFlush(clusterName, namespace string) (bool, error) {
 //  it will also return the http and string response
 func curlESService(clusterName, namespace string, payload *esCurlStruct) {
 
-	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.Uri)
+	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
 	urlURL, err := url.Parse(urlString)
 
 	if err != nil {
@@ -456,8 +475,19 @@ func getClient(clusterName, namespace string) *http.Client {
 	// get the contents of the secret
 	extractSecret(clusterName, namespace)
 
+	// http.Transport sourced from go 1.10.7
 	return &http.Client{
 		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
 				RootCAs:            getRootCA(clusterName, namespace),
