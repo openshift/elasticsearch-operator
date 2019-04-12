@@ -80,7 +80,6 @@
   packages = [
     "pkg/apis/monitoring",
     "pkg/apis/monitoring/v1",
-    "pkg/client/listers/monitoring/v1",
     "pkg/client/versioned/scheme",
     "pkg/client/versioned/typed/monitoring/v1"
   ]
@@ -979,7 +978,6 @@
     "pkg/client/apiutil",
     "pkg/client/config",
     "pkg/controller",
-    "pkg/controller/controllerutil",
     "pkg/event",
     "pkg/handler",
     "pkg/internal/controller",
@@ -1028,6 +1026,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "282d1c415da2553d6958dba817315f73387b4ae97e94830f08b4f169019019d7"
+  inputs-digest = "fd3310fe9907777b3e8c507ff9f76e6d2f435030004454190fdf3eebfe055f52"
   solver-name = "gps-cdcl"
   solver-version = 1

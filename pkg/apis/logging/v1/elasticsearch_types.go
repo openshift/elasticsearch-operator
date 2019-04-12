@@ -67,18 +67,18 @@ type ElasticsearchStatus struct {
 // ElasticsearchNode struct represents individual node in Elasticsearch cluster
 // GenUUID will be populated by the operator if not provided
 type ElasticsearchNode struct {
-	Roles        []ElasticsearchNodeRole  `json:"roles"`
-	NodeCount    int32                    `json:"nodeCount"`
-	Resources    v1.ResourceRequirements  `json:"resources"`
-	NodeSelector map[string]string        `json:"nodeSelector,omitempty"`
-	Storage      ElasticsearchStorageSpec `json:"storage"`
-	GenUUID      *string                  `json:"genUUID,omitempty"`
+	Roles     []ElasticsearchNodeRole  `json:"roles"`
+	NodeCount int32                    `json:"nodeCount"`
+	Resources v1.ResourceRequirements  `json:"resources"`
+	Storage   ElasticsearchStorageSpec `json:"storage"`
+	GenUUID   *string                  `json:"genUUID,omitempty"`
 }
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
 type ElasticsearchNodeSpec struct {
-	Image     string                  `json:"image,omitempty"`
-	Resources v1.ResourceRequirements `json:"resources"`
+	Image        string                  `json:"image,omitempty"`
+	Resources    v1.ResourceRequirements `json:"resources"`
+	NodeSelector map[string]string       `json:"nodeSelector,omitempty"`
 }
 
 type ElasticsearchStorageSpec struct {
