@@ -113,6 +113,8 @@ func (node *deploymentNode) create() error {
 		if err != nil {
 			if !errors.IsAlreadyExists(err) {
 				return fmt.Errorf("Could not create node resource: %v", err)
+			} else {
+				return node.pause()
 			}
 		}
 
@@ -487,11 +489,22 @@ func (node *deploymentNode) isChanged() bool {
 	changed := false
 
 	desired := node.self.DeepCopy()
+
+	// we want to blank this out before a get to ensure we get the correct information back (possible sdk issue with maps?)
+	node.self.Spec = apps.DeploymentSpec{}
+
 	err := sdk.Get(&node.self)
 	// error check that it exists, etc
 	if err != nil {
 		// if it doesn't exist, return true
 		return false
+	}
+
+	// check the pod's nodeselector
+	if !areSelectorsSame(node.self.Spec.Template.Spec.NodeSelector, desired.Spec.Template.Spec.NodeSelector) {
+		logrus.Debugf("Resource '%s' has different nodeSelector than desired", node.self.Name)
+		node.self.Spec.Template.Spec.NodeSelector = desired.Spec.Template.Spec.NodeSelector
+		changed = true
 	}
 
 	// Only Image and Resources (CPU & memory) differences trigger rolling restart

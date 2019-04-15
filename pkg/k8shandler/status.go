@@ -172,7 +172,9 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 
 			isUnschedulable := false
 			for _, podCondition := range nodePod.Status.Conditions {
-				if podCondition.Type == v1.PodReasonUnschedulable {
+				if podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse {
+					podCondition.Type = v1.PodReasonUnschedulable
+					podCondition.Status = v1.ConditionTrue
 					updatePodUnschedulableCondition(node, podCondition)
 					isUnschedulable = true
 				}
