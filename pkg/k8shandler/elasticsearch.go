@@ -107,7 +107,7 @@ func GetThresholdEnabled(clusterName, namespace string) (bool, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/settings?include_defaults=true&filter_path=defaults.cluster.routing.allocation.disk",
+		Uri:    "_cluster/settings?include_defaults=true",
 	}
 
 	curlESService(clusterName, namespace, payload)
@@ -116,7 +116,7 @@ func GetThresholdEnabled(clusterName, namespace string) (bool, error) {
 
 	if value := walkInterfaceMap(
 		"defaults.cluster.routing.allocation.disk.threshold_enabled",
-		payload.ResponseBody); enabled != nil {
+		payload.ResponseBody); value != nil {
 
 		enabled = value
 	}
@@ -148,7 +148,7 @@ func GetDiskWatermarks(clusterName, namespace string) (interface{}, interface{},
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		Uri:    "_cluster/settings?include_defaults=true&filter_path=defaults.cluster.routing.allocation.disk",
+		Uri:    "_cluster/settings?include_defaults=true",
 	}
 
 	curlESService(clusterName, namespace, payload)
