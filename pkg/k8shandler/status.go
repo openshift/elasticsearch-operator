@@ -181,7 +181,7 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 			}
 
 			if isUnschedulable {
-				return
+				continue
 			}
 
 			updatePodUnschedulableCondition(node, v1.PodCondition{
@@ -258,13 +258,13 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 
 			if !thresholdEnabled {
 				// disk threshold is not enabled, just return
-				return
+				continue
 			}
 
 			usage, percent, err := GetNodeDiskUsage(clusterName, namespace, nodeName)
 			if err != nil {
 				logrus.Debugf("Unable to get disk usage for %v", nodeName)
-				return
+				continue
 			}
 
 			if exceedsLowWatermark(usage, percent) {
