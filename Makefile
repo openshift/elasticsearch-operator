@@ -64,8 +64,8 @@ clean:
 	@rm -rf $(TARGET_DIR)
 
 image: imagebuilder
-	@if [ $${USE_IMAGE_STREAM:-false} = false ] ; \
-	then $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) -t $(IMAGE_TAG) . ; \
+	@if [ $${USE_IMAGE_STREAM:-false} = false ] && [ $${SKIP_BUILD:-false} = false ] ; \
+	then hack/build-image.sh $(IMAGE_TAG) $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) ; \
 	fi
 
 test-e2e:
