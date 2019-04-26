@@ -183,7 +183,6 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 			if isUnschedulable {
 				continue
 			}
-
 			updatePodUnschedulableCondition(node, v1.PodCondition{
 				Status: v1.ConditionFalse,
 			})
@@ -257,7 +256,7 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 			}
 
 			if !thresholdEnabled {
-				// disk threshold is not enabled, just return
+				// disk threshold is not enabled, continue to next node
 				continue
 			}
 
@@ -462,27 +461,32 @@ func updateStatusConditions(status *api.ElasticsearchStatus) {
 	if status.Conditions == nil {
 		status.Conditions = make([]api.ClusterCondition, 0, 4)
 	}
-	if _, condition := getESNodeCondition(status, api.UpdatingSettings); condition == nil {
+	if _, condition := getESNodeCondition(status.Conditions, api.UpdatingSettings); condition == nil {
 		updateUpdatingSettingsCondition(status, v1.ConditionFalse)
 	}
-	if _, condition := getESNodeCondition(status, api.ScalingUp); condition == nil {
+	if _, condition := getESNodeCondition(status.Conditions, api.ScalingUp); condition == nil {
 		updateScalingUpCondition(status, v1.ConditionFalse)
 	}
-	if _, condition := getESNodeCondition(status, api.ScalingDown); condition == nil {
+	if _, condition := getESNodeCondition(status.Conditions, api.ScalingDown); condition == nil {
 		updateScalingDownCondition(status, v1.ConditionFalse)
 	}
-	if _, condition := getESNodeCondition(status, api.Restarting); condition == nil {
+	if _, condition := getESNodeCondition(status.Conditions, api.Restarting); condition == nil {
 		updateRestartingCondition(status, v1.ConditionFalse)
 	}
 }
 
-func getESNodeCondition(status *api.ElasticsearchStatus, conditionType api.ClusterConditionType) (int, *api.ClusterCondition) {
-	if status == nil {
+func isPodUnschedulableConditionTrue(conditions []api.ClusterCondition) bool {
+	_, condition := getESNodeCondition(conditions, api.Unschedulable)
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+
+func getESNodeCondition(conditions []api.ClusterCondition, conditionType api.ClusterConditionType) (int, *api.ClusterCondition) {
+	if conditions == nil {
 		return -1, nil
 	}
-	for i := range status.Conditions {
-		if status.Conditions[i].Type == conditionType {
-			return i, &status.Conditions[i]
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return i, &conditions[i]
 		}
 	}
 	return -1, nil
@@ -491,7 +495,7 @@ func getESNodeCondition(status *api.ElasticsearchStatus, conditionType api.Clust
 func updateESNodeCondition(status *api.ElasticsearchStatus, condition *api.ClusterCondition) bool {
 	condition.LastTransitionTime = metav1.Now()
 	// Try to find this node condition.
-	conditionIndex, oldCondition := getESNodeCondition(status, condition.Type)
+	conditionIndex, oldCondition := getESNodeCondition(status.Conditions, condition.Type)
 
 	if condition.Status == v1.ConditionFalse {
 		if oldCondition != nil {

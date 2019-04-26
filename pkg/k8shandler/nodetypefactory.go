@@ -13,6 +13,7 @@ type NodeTypeInterface interface {
 	create() error                                           // this will create the node in the case where it is new
 	update(upgradeStatus *api.ElasticsearchNodeStatus) error // this will handle updates
 	restart(upgradeStatus *api.ElasticsearchNodeStatus)
+	progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error
 	name() string
 	updateReference(node NodeTypeInterface)
 }
