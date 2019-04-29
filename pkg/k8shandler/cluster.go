@@ -42,6 +42,8 @@ func CreateOrUpdateElasticsearchCluster(cluster *api.Elasticsearch) error {
 
 	getNodes(cluster)
 
+	progressUnshedulableNodes(cluster)
+
 	// if there is a node currently being upgraded, work on that first
 	upgradeInProgressNode := getNodeUpgradeInProgress(cluster)
 	scheduledUpgradeNodes := getScheduledUpgradeNodes(cluster)
@@ -181,7 +183,7 @@ func updateMinMasters(cluster *api.Elasticsearch) {
 		logrus.Debugf("Unable to get current min master count for cluster %v", cluster.Name)
 	}
 
-	desiredMasterCount := getMasterCount(cluster)
+	desiredMasterCount := getMasterCount(cluster)/2 + 1
 	currentNodeCount, err := GetClusterNodeCount(cluster.Name, cluster.Namespace)
 
 	// check that we have the required number of master nodes in the cluster...
@@ -207,6 +209,22 @@ func getNodeUpgradeInProgress(cluster *api.Elasticsearch) NodeTypeInterface {
 	}
 
 	return nil
+}
+
+func progressUnshedulableNodes(cluster *api.Elasticsearch) {
+	for _, node := range cluster.Status.Nodes {
+		if isPodUnschedulableConditionTrue(node.Conditions) {
+			for _, nodeTypeInterface := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
+				if node.DeploymentName == nodeTypeInterface.name() ||
+					node.StatefulSetName == nodeTypeInterface.name() {
+					logrus.Debugf("Node %s is unschedulable, trying to recover...", nodeTypeInterface.name())
+					if err := nodeTypeInterface.progressUnshedulableNode(&node); err != nil {
+						logrus.Warnf("Failed to progress update of unschedulable node '%s': %v", nodeTypeInterface.name(), err)
+					}
+				}
+			}
+		}
+	}
 }
 
 func setUUIDs(cluster *api.Elasticsearch) {
