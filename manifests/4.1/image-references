@@ -11,3 +11,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-logging-elasticsearch5:latest
+  - name: oauth-proxy
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-oauth-proxy:latest
