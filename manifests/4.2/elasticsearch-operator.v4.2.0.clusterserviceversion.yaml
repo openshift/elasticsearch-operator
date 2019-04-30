@@ -3,7 +3,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: elasticsearch-operator.v4.1.0
+  name: elasticsearch-operator.v4.2.0
   namespace: placeholder
   annotations:
     categories: "OpenShift Optional, Logging & Tracing"
@@ -17,7 +17,7 @@ metadata:
       ### Memory Considerations
       Elasticsearch is a memory intensive application.  The initial
       set of OKD nodes may not be large enough to support the Elasticsearch cluster.  Additional OKD nodes must be added
-      to the OKD cluster if you desire to run with the recommended(or better) memory. Each ES node can operate with a
+      to the OKD cluster if you desire to run with the recommended (or better) memory. Each ES node can operate with a
       lower memory setting though this is not recommended for production deployments.
     containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
     createdAt: 2019-02-20T08:00:00Z
@@ -55,6 +55,8 @@ metadata:
         ]
 spec:
   displayName: Elasticsearch Operator
+
+  replaces: elasticsearch-operator.v4.1.0
 
   description: |
     The Elasticsearch Operator for OKD provides a means for configuring and managing an Elasticsearch cluster for use in tracing and cluster logging.
@@ -182,13 +184,17 @@ spec:
                       valueFrom:
                         fieldRef:
                           fieldPath: metadata.annotations['olm.targetNamespaces']
+                    - name: POD_NAME
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.name
                     - name: OPERATOR_NAME
                       value: "elasticsearch-operator"
                     - name: PROXY_IMAGE
                       value: "quay.io/openshift/origin-oauth-proxy:latest"
                     - name: ELASTICSEARCH_IMAGE
                       value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
-  version: 4.1.0
+  version: 4.2.0
   customresourcedefinitions:
     owned:
     - name: elasticsearches.logging.openshift.io
@@ -212,32 +218,52 @@ spec:
       - kind: Route
         version: v1
       specDescriptors:
-      - description: The name of the serviceaccount used by the Elasticsearch pods
-        displayName: Service Account
-        path: serviceAccountName
-        x-descriptors:
-          - 'urn:alm:descriptor:io.kubernetes:ServiceAccount'
-      - description: The name of the configmap used by the Elasticsearch pods
-        displayName: Config Map
-        path: configMapName
-        x-descriptors:
-          - 'urn:alm:descriptor:io.kubernetes:ConfigMap'
-      - description: The name of the secret used by the Elasticsearch pods
-        displayName: Secret
-        path: secretName
-        x-descriptors:
-          - 'urn:alm:descriptor:io.kubernetes:Secret'
       - description: Limits describes the minimum/maximum amount of compute resources required/allowed
         displayName: Resource Requirements
         path: nodeSpec.resources
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
       statusDescriptors:
-      - description: The current health of Elasticsearch Cluster
-        displayName: Elasticsearch Cluster Health
-        path: clusterHealth
+      - description: The current Status of the Elasticsearch Cluster
+        displayName: Status
+        path: cluster.status
         x-descriptors:
           - 'urn:alm:descriptor:io.kubernetes.phase'
+      - description: The number of Active Primary Shards for the Elasticsearch Cluster
+        displayName: Active Primary Shards
+        path: cluster.activePrimShards
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
+      - description: The number of Active Shards for the Elasticsearch Cluster
+        displayName: Active Shards
+        path: cluster.activeShards
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
+      - description: The number of Initializing Shards for the Elasticsearch Cluster
+        displayName: Initializing Shards
+        path: cluster.initializingShards
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
+      - description: The number of Data Nodes for the Elasticsearch Cluster
+        displayName: Number of Data Nodes
+        path: cluster.numDataNodes
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
+      - description: The number of Nodes for the Elasticsearch Cluster
+        displayName: Number of Nodes
+        path: cluster.numNodes
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
+      - description: The number of Relocating Shards for the Elasticsearch Cluster
+        displayName: Relocating Shards
+        path: cluster.relocatingShards
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
+      - description: The number of Unassigned Shards for the Elasticsearch Cluster
+        displayName: Unassigned Shards
+        path: cluster.unassignedShards
+        x-descriptors:
+          - 'urn:alm:descriptor:text'
       - description: The status for each of the Elasticsearch pods with the Client role
         displayName: Elasticsearch Client Status
         path: pods.client
