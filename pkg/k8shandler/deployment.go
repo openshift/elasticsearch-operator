@@ -309,15 +309,15 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 		}
 
 		if replicas > 0 {
-			if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace); !ok {
-				logrus.Warnf("Unable to perform synchronized flush: %v", err)
-				return
-			}
 
 			// disable shard allocation
 			if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone); !ok {
 				logrus.Warnf("Unable to disable shard allocation: %v", err)
 				return
+			}
+
+			if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace); !ok {
+				logrus.Warnf("Unable to perform synchronized flush: %v", err)
 			}
 
 			// check for available replicas empty
@@ -393,15 +393,14 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace); !ok {
-			logrus.Warnf("Unable to perform synchronized flush: %v", err)
-			return err
-		}
-
 		// disable shard allocation
 		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone); !ok {
 			logrus.Warnf("Unable to disable shard allocation: %v", err)
 			return err
+		}
+
+		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace); !ok {
+			logrus.Warnf("Unable to perform synchronized flush: %v", err)
 		}
 
 		if err := node.executeUpdate(); err != nil {
