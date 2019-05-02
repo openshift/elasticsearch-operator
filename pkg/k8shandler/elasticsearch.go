@@ -357,7 +357,6 @@ func GetClusterNodeCount(clusterName, namespace string) (int32, error) {
 	return nodeCount, payload.Error
 }
 
-// TODO: also check that the number of shards in the response > 0?
 func DoSynchronizedFlush(clusterName, namespace string) (bool, error) {
 
 	payload := &esCurlStruct{
@@ -366,6 +365,17 @@ func DoSynchronizedFlush(clusterName, namespace string) (bool, error) {
 	}
 
 	curlESService(clusterName, namespace, payload)
+
+	failed := 0
+	if shards, ok := payload.ResponseBody["_shards"].(map[string]interface{}); ok {
+		if failedFload, ok := shards["failed"].(float64); ok {
+			failed = int(failedFload)
+		}
+	}
+
+	if payload.Error == nil && failed != 0 {
+		payload.Error = fmt.Errorf("Failed to flush %d shards in preparation for cluster restart", failed)
+	}
 
 	return (payload.StatusCode == 200), payload.Error
 }
