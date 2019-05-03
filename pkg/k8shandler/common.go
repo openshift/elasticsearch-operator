@@ -25,7 +25,7 @@ func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 func getImage(commonImage string) string {
 	image := commonImage
 	if image == "" {
-		image = elasticsearchDefaultImage
+		image = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", elasticsearchDefaultImage)
 	}
 	return image
 }

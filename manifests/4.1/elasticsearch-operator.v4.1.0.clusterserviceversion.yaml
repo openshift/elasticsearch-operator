@@ -186,6 +186,8 @@ spec:
                       value: "elasticsearch-operator"
                     - name: PROXY_IMAGE
                       value: "quay.io/openshift/origin-oauth-proxy:latest"
+                    - name: ELASTICSEARCH_IMAGE
+                      value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
   version: 4.1.0
   customresourcedefinitions:
     owned:
