@@ -28,6 +28,10 @@ const (
 	CodeInvalidParams = -32602
 	// CodeInternalError is not currently returned but defined for completeness.
 	CodeInternalError = -32603
+
+	//CodeServerOverloaded is returned when a message was refused due to a
+	//server being temporarily unable to accept any new messages.
+	CodeServerOverloaded = -32000
 )
 
 // Request is sent to a server to represent a Call or Notify operaton.
@@ -114,6 +118,9 @@ func (VersionTag) UnmarshalJSON(data []byte) error {
 // The representation is non ambiguous, string forms are quoted, number forms
 // are preceded by a #
 func (id *ID) String() string {
+	if id == nil {
+		return ""
+	}
 	if id.Name != "" {
 		return strconv.Quote(id.Name)
 	}

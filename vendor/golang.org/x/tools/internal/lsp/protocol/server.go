@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 
 	"golang.org/x/tools/internal/jsonrpc2"
+	"golang.org/x/tools/internal/lsp/xlog"
 )
 
 type Server interface {
@@ -48,415 +49,417 @@ type Server interface {
 	RangeFormatting(context.Context, *DocumentRangeFormattingParams) ([]TextEdit, error)
 	OnTypeFormatting(context.Context, *DocumentOnTypeFormattingParams) ([]TextEdit, error)
 	Rename(context.Context, *RenameParams) ([]WorkspaceEdit, error)
-	FoldingRanges(context.Context, *FoldingRangeRequestParam) ([]FoldingRange, error)
+	FoldingRanges(context.Context, *FoldingRangeParams) ([]FoldingRange, error)
 }
 
-func serverHandler(server Server) jsonrpc2.Handler {
-	return func(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) (interface{}, *jsonrpc2.Error) {
+func serverHandler(log xlog.Logger, server Server) jsonrpc2.Handler {
+	return func(ctx context.Context, conn *jsonrpc2.Conn, r *jsonrpc2.Request) {
 		switch r.Method {
 		case "initialize":
 			var params InitializeParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Initialize(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "initialized":
 			var params InitializedParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.Initialized(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "shutdown":
 			if r.Params != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeInvalidParams, "Expected no params")
+				conn.Reply(ctx, r, nil, jsonrpc2.NewErrorf(jsonrpc2.CodeInvalidParams, "Expected no params"))
+				return
 			}
 			if err := server.Shutdown(ctx); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "exit":
 			if r.Params != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeInvalidParams, "Expected no params")
+				conn.Reply(ctx, r, nil, jsonrpc2.NewErrorf(jsonrpc2.CodeInvalidParams, "Expected no params"))
+				return
 			}
 			if err := server.Exit(ctx); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "$/cancelRequest":
 			var params CancelParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			conn.Cancel(params.ID)
-			return nil, nil
 
 		case "workspace/didChangeWorkspaceFolders":
 			var params DidChangeWorkspaceFoldersParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidChangeWorkspaceFolders(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "workspace/didChangeConfiguration":
 			var params DidChangeConfigurationParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidChangeConfiguration(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "workspace/didChangeWatchedFiles":
 			var params DidChangeWatchedFilesParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidChangeWatchedFiles(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "workspace/symbol":
 			var params WorkspaceSymbolParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Symbols(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "workspace/executeCommand":
 			var params ExecuteCommandParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.ExecuteCommand(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/didOpen":
 			var params DidOpenTextDocumentParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidOpen(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "textDocument/didChange":
 			var params DidChangeTextDocumentParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidChange(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "textDocument/willSave":
 			var params WillSaveTextDocumentParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.WillSave(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "textDocument/willSaveWaitUntil":
 			var params WillSaveTextDocumentParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.WillSaveWaitUntil(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/didSave":
 			var params DidSaveTextDocumentParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidSave(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "textDocument/didClose":
 			var params DidCloseTextDocumentParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			if err := server.DidClose(ctx, &params); err != nil {
-				return nil, toJSONError(err)
+				log.Errorf(ctx, "%v", err)
 			}
-			return nil, nil
 
 		case "textDocument/completion":
 			var params CompletionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Completion(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "completionItem/resolve":
 			var params CompletionItem
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.CompletionResolve(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/hover":
 			var params TextDocumentPositionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Hover(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/signatureHelp":
 			var params TextDocumentPositionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.SignatureHelp(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/definition":
 			var params TextDocumentPositionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Definition(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/typeDefinition":
 			var params TextDocumentPositionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.TypeDefinition(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/implementation":
 			var params TextDocumentPositionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Implementation(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/references":
 			var params ReferenceParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.References(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/documentHighlight":
 			var params TextDocumentPositionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.DocumentHighlight(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/documentSymbol":
 			var params DocumentSymbolParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.DocumentSymbol(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/codeAction":
 			var params CodeActionParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.CodeAction(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/codeLens":
 			var params CodeLensParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.CodeLens(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "codeLens/resolve":
 			var params CodeLens
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.CodeLensResolve(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/documentLink":
 			var params DocumentLinkParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.DocumentLink(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "documentLink/resolve":
 			var params DocumentLink
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.DocumentLinkResolve(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/documentColor":
 			var params DocumentColorParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.DocumentColor(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/colorPresentation":
 			var params ColorPresentationParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.ColorPresentation(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/formatting":
 			var params DocumentFormattingParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Formatting(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/rangeFormatting":
 			var params DocumentRangeFormattingParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.RangeFormatting(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/onTypeFormatting":
 			var params DocumentOnTypeFormattingParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.OnTypeFormatting(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
 		case "textDocument/rename":
 			var params RenameParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.Rename(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 
-		case "textDocument/foldingRanges":
-			var params FoldingRangeRequestParam
+		case "textDocument/foldingRange":
+			var params FoldingRangeParams
 			if err := json.Unmarshal(*r.Params, &params); err != nil {
-				return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeParseError, "%v", err)
+				sendParseError(ctx, log, conn, r, err)
+				return
 			}
 			resp, err := server.FoldingRanges(ctx, &params)
-			if err != nil {
-				return nil, toJSONError(err)
+			if err := conn.Reply(ctx, r, resp, err); err != nil {
+				log.Errorf(ctx, "%v", err)
 			}
-			return resp, nil
 		default:
-			return nil, jsonrpc2.NewErrorf(jsonrpc2.CodeMethodNotFound, "method %q not found", r.Method)
+			if r.IsNotify() {
+				conn.Reply(ctx, r, nil, jsonrpc2.NewErrorf(jsonrpc2.CodeMethodNotFound, "method %q not found", r.Method))
+			}
 		}
 	}
 }
@@ -709,10 +712,17 @@ func (s *serverDispatcher) Rename(ctx context.Context, params *RenameParams) ([]
 	return result, nil
 }
 
-func (s *serverDispatcher) FoldingRanges(ctx context.Context, params *FoldingRangeRequestParam) ([]FoldingRange, error) {
+func (s *serverDispatcher) FoldingRanges(ctx context.Context, params *FoldingRangeParams) ([]FoldingRange, error) {
 	var result []FoldingRange
 	if err := s.Conn.Call(ctx, "textDocument/foldingRanges", params, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+type CancelParams struct {
+	/**
+	 * The request id to cancel.
+	 */
+	ID jsonrpc2.ID `json:"id"`
 }
