@@ -1,10 +1,13 @@
 package k8shandler
 
 import (
+	"reflect"
 	"testing"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
 )
 
 var (
@@ -350,6 +353,23 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", expected, actual)
+	}
+}
+
+func TestPodSpecHasTaintTolerations(t *testing.T) {
+
+	expectedTolerations := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{})
+
+	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
+		t.Errorf("Exp. the tolerations to be %q but was %q", expectedTolerations, podTemplateSpec.Spec.Tolerations)
 	}
 }
 
