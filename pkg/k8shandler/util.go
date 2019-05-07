@@ -121,6 +121,16 @@ func isValidDataCount(dpl *api.Elasticsearch) bool {
 func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 	dataCount := int(getDataCount(dpl))
 
+	switch dpl.Spec.RedundancyPolicy {
+	case "":
+	case api.ZeroRedundancy:
+	case api.SingleRedundancy:
+	case api.MultipleRedundancy:
+	case api.FullRedundancy:
+	default:
+		return false
+	}
+
 	return !(dataCount == 1 && dpl.Spec.RedundancyPolicy == api.SingleRedundancy)
 }
 
@@ -149,7 +159,7 @@ func isValidConf(dpl *api.Elasticsearch) error {
 		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition); err != nil {
 			return err
 		}
-		return fmt.Errorf("Wrong RedundancyPolicy selected. Choose different RedundancyPolicy or add more nodes with data roles")
+		return fmt.Errorf("Wrong RedundancyPolicy selected '%s'. Choose different RedundancyPolicy or add more nodes with data roles", dpl.Spec.RedundancyPolicy)
 	} else {
 		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition); err != nil {
 			return err
