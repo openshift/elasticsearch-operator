@@ -538,6 +538,14 @@ func (node *deploymentNode) isChanged() bool {
 		nodeContainer := node.self.Spec.Template.Spec.Containers[index]
 		desiredContainer := desired.Spec.Template.Spec.Containers[index]
 
+		if nodeContainer.Resources.Requests == nil {
+			nodeContainer.Resources.Requests = v1.ResourceList{}
+		}
+
+		if nodeContainer.Resources.Limits == nil {
+			nodeContainer.Resources.Limits = v1.ResourceList{}
+		}
+
 		// check that both exist
 
 		if nodeContainer.Image != desiredContainer.Image {
