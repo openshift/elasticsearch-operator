@@ -357,6 +357,13 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 			NodeSelector:       mergeSelectors(node.NodeSelector, commonSpec.NodeSelector),
 			ServiceAccountName: clusterName,
 			Volumes:            newVolumes(clusterName, nodeName, namespace, node),
+			Tolerations: []v1.Toleration{
+				v1.Toleration{
+					Key:      "node.kubernetes.io/disk-pressure",
+					Operator: v1.TolerationOpExists,
+					Effect:   v1.TaintEffectNoSchedule,
+				},
+			},
 		},
 	}
 }
