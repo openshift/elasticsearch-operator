@@ -373,6 +373,45 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 	}
 }
 
+func TestProxyContainerResourcesDefined(t *testing.T) {
+
+	imageName := "openshift/oauth-proxy:1.1"
+	clusterName := "elasticsearch"
+
+	expectedCPU, _ := resource.ParseQuantity("100m")
+	expectedMemory, _ := resource.ParseQuantity("64Mi")
+
+	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	if err != nil {
+		t.Errorf("Failed to populate Proxy container: %v", err)
+	}
+
+	if memoryLimit, ok := proxyContainer.Resources.Limits["memory"]; ok {
+		if memoryLimit.Cmp(expectedMemory) != 0 {
+			t.Errorf("Expected CPU limit %s but got %s", expectedMemory.String(), memoryLimit.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing CPU limit. Expected limit %s", expectedMemory.String())
+	}
+
+	if cpuRequest, ok := proxyContainer.Resources.Requests["cpu"]; ok {
+		if cpuRequest.Cmp(expectedCPU) != 0 {
+			t.Errorf("Expected CPU request %s but got %s", expectedCPU.String(), cpuRequest.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing CPU request. Expected request %s", expectedCPU.String())
+	}
+
+	if memoryLimit, ok := proxyContainer.Resources.Limits["memory"]; ok {
+		if memoryLimit.Cmp(expectedMemory) != 0 {
+			t.Errorf("Expected memory limit %s but got %s", expectedMemory.String(), memoryLimit.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing memory limit. Expected limit %s", expectedMemory.String())
+	}
+
+}
+
 func buildResource(cpuLimit, cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
 	return v1.ResourceRequirements{
 		Limits: v1.ResourceList{

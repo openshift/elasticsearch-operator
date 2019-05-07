@@ -213,6 +213,17 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 	if err != nil {
 		return v1.Container{}, err
 	}
+
+	cpuLimit, err := resource.ParseQuantity("100m")
+	if err != nil {
+		return v1.Container{}, err
+	}
+
+	memoryLimit, err := resource.ParseQuantity("64Mi")
+	if err != nil {
+		return v1.Container{}, err
+	}
+
 	container := v1.Container{
 		Name:            "proxy",
 		Image:           imageName,
@@ -246,6 +257,15 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 			`-openshift-delegate-urls={"/": {"resource": "namespaces", "verb": "get"}}`,
 			"--pass-user-bearer-token",
 			fmt.Sprintf("--cookie-secret=%s", proxyCookieSecret),
+		},
+		Resources: v1.ResourceRequirements{
+			Limits: v1.ResourceList{
+				"memory": memoryLimit,
+			},
+			Requests: v1.ResourceList{
+				"cpu":    cpuLimit,
+				"memory": memoryLimit,
+			},
 		},
 	}
 	return container, nil
