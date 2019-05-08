@@ -57,6 +57,9 @@ func calculateReplicaCount(dpl *api.Elasticsearch) int {
 	case api.ZeroRedundancy:
 		return 0
 	default:
+		if dataNodeCount == 1 {
+			return 0
+		}
 		return 1
 	}
 }
