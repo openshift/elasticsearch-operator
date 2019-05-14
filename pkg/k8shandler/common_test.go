@@ -7,7 +7,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
 var (
@@ -356,6 +356,44 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 	}
 }
 
+func TestProxyContainerResourcesDefined(t *testing.T) {
+
+	imageName := "openshift/oauth-proxy:1.1"
+	clusterName := "elasticsearch"
+
+	expectedCPU := resource.MustParse("100m")
+	expectedMemory := resource.MustParse("64Mi")
+
+	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	if err != nil {
+		t.Errorf("Failed to populate Proxy container: %v", err)
+	}
+
+	if memoryLimit, ok := proxyContainer.Resources.Limits["memory"]; ok {
+		if memoryLimit.Cmp(expectedMemory) != 0 {
+			t.Errorf("Expected CPU limit %s but got %s", expectedMemory.String(), memoryLimit.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing CPU limit. Expected limit %s", expectedMemory.String())
+	}
+
+	if cpuRequest, ok := proxyContainer.Resources.Requests["cpu"]; ok {
+		if cpuRequest.Cmp(expectedCPU) != 0 {
+			t.Errorf("Expected CPU request %s but got %s", expectedCPU.String(), cpuRequest.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing CPU request. Expected request %s", expectedCPU.String())
+	}
+
+	if memoryLimit, ok := proxyContainer.Resources.Limits["memory"]; ok {
+		if memoryLimit.Cmp(expectedMemory) != 0 {
+			t.Errorf("Expected memory limit %s but got %s", expectedMemory.String(), memoryLimit.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing memory limit. Expected limit %s", expectedMemory.String())
+	}
+}
+
 func TestPodSpecHasTaintTolerations(t *testing.T) {
 
 	expectedTolerations := []v1.Toleration{
@@ -366,7 +404,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 		},
 	}
 
-	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{})
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %q but was %q", expectedTolerations, podTemplateSpec.Spec.Tolerations)

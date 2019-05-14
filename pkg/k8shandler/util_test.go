@@ -3,7 +3,7 @@ package k8shandler
 import (
 	"testing"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
 func TestSelectorsBothUndefined(t *testing.T) {

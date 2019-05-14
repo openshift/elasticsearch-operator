@@ -27,29 +27,31 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/blang/semver"
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/client/monitoring/v1"
+	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/coreos/prometheus-operator/pkg/k8sutil"
 	"github.com/pkg/errors"
 )
 
 const (
-	governingServiceName     = "prometheus-operated"
-	DefaultPrometheusVersion = "v2.4.3"
-	DefaultThanosVersion     = "v0.1.0"
-	defaultRetention         = "24h"
-	storageDir               = "/prometheus"
-	confDir                  = "/etc/prometheus/config"
-	confOutDir               = "/etc/prometheus/config_out"
-	rulesDir                 = "/etc/prometheus/rules"
-	secretsDir               = "/etc/prometheus/secrets/"
-	configmapsDir            = "/etc/prometheus/configmaps/"
-	configFilename           = "prometheus.yaml"
-	configEnvsubstFilename   = "prometheus.env.yaml"
-	sSetInputHashName        = "prometheus-operator-input-hash"
+	governingServiceName            = "prometheus-operated"
+	DefaultPrometheusVersion        = "v2.7.1"
+	DefaultThanosVersion            = "v0.2.1"
+	defaultRetention                = "24h"
+	defaultReplicaExternalLabelName = "prometheus_replica"
+	storageDir                      = "/prometheus"
+	confDir                         = "/etc/prometheus/config"
+	confOutDir                      = "/etc/prometheus/config_out"
+	rulesDir                        = "/etc/prometheus/rules"
+	secretsDir                      = "/etc/prometheus/secrets/"
+	configmapsDir                   = "/etc/prometheus/configmaps/"
+	configFilename                  = "prometheus.yaml.gz"
+	configEnvsubstFilename          = "prometheus.env.yaml"
+	sSetInputHashName               = "prometheus-operator-input-hash"
 )
 
 var (
 	minReplicas                 int32 = 1
+	defaultMaxConcurrency       int32 = 20
 	managedByOperatorLabel            = "managed-by"
 	managedByOperatorLabelValue       = "prometheus-operator"
 	managedByOperatorLabels           = map[string]string{
@@ -80,12 +82,16 @@ var (
 		"v2.4.1",
 		"v2.4.2",
 		"v2.4.3",
+		"v2.5.0",
+		"v2.6.0",
+		"v2.6.1",
+		"v2.7.0",
+		"v2.7.1",
 	}
 )
 
 func makeStatefulSet(
 	p monitoringv1.Prometheus,
-	previousPodManagementPolicy appsv1.PodManagementPolicyType,
 	config *Config,
 	ruleConfigMapNames []string,
 	inputHash string,
@@ -210,10 +216,6 @@ func makeStatefulSet(
 		statefulset.Spec.VolumeClaimTemplates = append(statefulset.Spec.VolumeClaimTemplates, pvcTemplate)
 	}
 
-	// Updates to statefulset spec for fields other than 'replicas',
-	// 'template', and 'updateStrategy' are forbidden.
-	statefulset.Spec.PodManagementPolicy = previousPodManagementPolicy
-
 	return statefulset, nil
 }
 
@@ -254,6 +256,14 @@ func makeStatefulSetService(p *monitoringv1.Prometheus, config Config) *v1.Servi
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: governingServiceName,
+			OwnerReferences: []metav1.OwnerReference{
+				metav1.OwnerReference{
+					Name:       p.GetName(),
+					Kind:       p.Kind,
+					APIVersion: p.APIVersion,
+					UID:        p.GetUID(),
+				},
+			},
 			Labels: config.Labels.Merge(map[string]string{
 				"operated-prometheus": "true",
 			}),
@@ -292,8 +302,6 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 		"-web.console.libraries=/etc/prometheus/console_libraries",
 	}
 
-	var securityContext *v1.PodSecurityContext
-
 	switch version.Major {
 	case 1:
 		promArgs = append(promArgs,
@@ -327,8 +335,6 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 				"-storage.local.target-heap-size="+fmt.Sprintf("%d", reqMem.Value()/3*2),
 			)
 		}
-
-		securityContext = &v1.PodSecurityContext{}
 	case 2:
 		promArgs = append(promArgs,
 			fmt.Sprintf("-config.file=%s", path.Join(confOutDir, configEnvsubstFilename)),
@@ -338,22 +344,50 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 			"-storage.tsdb.no-lockfile",
 		)
 
-		gid := int64(2000)
-		uid := int64(1000)
-		nr := true
-		securityContext = &v1.PodSecurityContext{
-			RunAsNonRoot: &nr,
+		if p.Spec.Query != nil && p.Spec.Query.LookbackDelta != nil {
+			promArgs = append(promArgs,
+				fmt.Sprintf("-query.lookback-delta=%s", *p.Spec.Query.LookbackDelta),
+			)
 		}
-		if !c.DisableAutoUserGroup {
-			securityContext.FSGroup = &gid
-			securityContext.RunAsUser = &uid
+
+		if version.Minor >= 4 {
+			if p.Spec.Rules.Alert.ForOutageTolerance != "" {
+				promArgs = append(promArgs, "-rules.alert.for-outage-tolerance="+p.Spec.Rules.Alert.ForOutageTolerance)
+			}
+			if p.Spec.Rules.Alert.ForGracePeriod != "" {
+				promArgs = append(promArgs, "-rules.alert.for-grace-period="+p.Spec.Rules.Alert.ForGracePeriod)
+			}
+			if p.Spec.Rules.Alert.ResendDelay != "" {
+				promArgs = append(promArgs, "-rules.alert.resend-delay="+p.Spec.Rules.Alert.ResendDelay)
+			}
 		}
 	default:
 		return nil, errors.Errorf("unsupported Prometheus major version %s", version)
 	}
 
+	if p.Spec.Query != nil {
+		if p.Spec.Query.MaxConcurrency != nil {
+			if *p.Spec.Query.MaxConcurrency < 1 {
+				p.Spec.Query.MaxConcurrency = &defaultMaxConcurrency
+			}
+			promArgs = append(promArgs,
+				fmt.Sprintf("-query.max-concurrency=%d", *p.Spec.Query.MaxConcurrency),
+			)
+		}
+		if p.Spec.Query.Timeout != nil {
+			promArgs = append(promArgs,
+				fmt.Sprintf("-query.timeout=%s", *p.Spec.Query.Timeout),
+			)
+		}
+	}
+
+	var securityContext *v1.PodSecurityContext = nil
 	if p.Spec.SecurityContext != nil {
 		securityContext = p.Spec.SecurityContext
+	}
+
+	if p.Spec.EnableAdminAPI {
+		promArgs = append(promArgs, "-web.enable-admin-api")
 	}
 
 	if p.Spec.ExternalURL != "" {
@@ -368,6 +402,11 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 
 	if p.Spec.LogLevel != "" && p.Spec.LogLevel != "info" {
 		promArgs = append(promArgs, fmt.Sprintf("-log.level=%s", p.Spec.LogLevel))
+	}
+	if version.GTE(semver.MustParse("2.6.0")) {
+		if p.Spec.LogFormat != "" && p.Spec.LogFormat != "logfmt" {
+			promArgs = append(promArgs, fmt.Sprintf("-log.format=%s", p.Spec.LogFormat))
+		}
 	}
 
 	var ports []v1.ContainerPort
@@ -583,8 +622,8 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 			VolumeMounts: []v1.VolumeMount{},
 			Resources: v1.ResourceRequirements{
 				Limits: v1.ResourceList{
-					v1.ResourceCPU:    resource.MustParse("5m"),
-					v1.ResourceMemory: resource.MustParse("10Mi"),
+					v1.ResourceCPU:    resource.MustParse(c.ConfigReloaderCPU),
+					v1.ResourceMemory: resource.MustParse(c.ConfigReloaderMemory),
 				},
 			},
 		}
@@ -618,10 +657,13 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 		if p.Spec.Thanos.SHA != nil {
 			thanosImage = fmt.Sprintf("%s@sha256:%s", thanosBaseImage, *p.Spec.Thanos.SHA)
 		}
+		if p.Spec.Thanos.Image != nil && *p.Spec.Thanos.Image != "" {
+			thanosImage = *p.Spec.Thanos.Image
+		}
 
 		thanosArgs := []string{
 			"sidecar",
-			fmt.Sprintf("--prometheus.url=http://%s:9090", c.LocalHost),
+			fmt.Sprintf("--prometheus.url=http://%s:9090%s", c.LocalHost, path.Clean(webRoutePrefix)),
 			fmt.Sprintf("--tsdb.path=%s", storageDir),
 			fmt.Sprintf("--cluster.address=[$(POD_IP)]:%d", 10900),
 			fmt.Sprintf("--grpc-address=[$(POD_IP)]:%d", 10901),
@@ -630,8 +672,20 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 		if p.Spec.Thanos.Peers != nil {
 			thanosArgs = append(thanosArgs, fmt.Sprintf("--cluster.peers=%s", *p.Spec.Thanos.Peers))
 		}
+		if p.Spec.Thanos.ClusterAdvertiseAddress != nil {
+			thanosArgs = append(thanosArgs, fmt.Sprintf("--cluster.advertise-address=%s", *p.Spec.Thanos.ClusterAdvertiseAddress))
+		}
+		if p.Spec.Thanos.GrpcAdvertiseAddress != nil {
+			thanosArgs = append(thanosArgs, fmt.Sprintf("--grpc-advertise-address=%s", *p.Spec.Thanos.GrpcAdvertiseAddress))
+		}
 		if p.Spec.LogLevel != "" && p.Spec.LogLevel != "info" {
 			thanosArgs = append(thanosArgs, fmt.Sprintf("--log.level=%s", p.Spec.LogLevel))
+		}
+		thanosVersion := semver.MustParse(strings.TrimPrefix(*p.Spec.Thanos.Version, "v"))
+		if thanosVersion.GTE(semver.MustParse("0.2.0")) {
+			if p.Spec.LogFormat != "" && p.Spec.LogFormat != "logfmt" {
+				thanosArgs = append(thanosArgs, fmt.Sprintf("--log.format=%s", p.Spec.LogFormat))
+			}
 		}
 
 		thanosVolumeMounts := []v1.VolumeMount{
@@ -652,7 +706,26 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 					},
 				},
 			},
+			{
+				Name: "HOST_IP",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "status.hostIP",
+					},
+				},
+			},
 		}
+
+		if p.Spec.Thanos.ObjectStorageConfig != nil {
+			envVars = append(envVars, v1.EnvVar{
+				Name: "OBJSTORE_CONFIG",
+				ValueFrom: &v1.EnvVarSource{
+					SecretKeyRef: p.Spec.Thanos.ObjectStorageConfig,
+				},
+			})
+			thanosArgs = append(thanosArgs, "--objstore.config=$(OBJSTORE_CONFIG)")
+		}
+
 		if p.Spec.Thanos.GCS != nil {
 			if p.Spec.Thanos.GCS.Bucket != nil {
 				thanosArgs = append(thanosArgs, fmt.Sprintf("--gcs.bucket=%s", *p.Spec.Thanos.GCS.Bucket))
@@ -667,7 +740,7 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 					Name:  "GOOGLE_APPLICATION_CREDENTIALS",
 					Value: path.Join(secretDir, secretFileName),
 				})
-				volumeName := "secret-" + p.Spec.Thanos.GCS.SecretKey.Name
+				volumeName := k8sutil.SanitizeVolumeName("secret-" + p.Spec.Thanos.GCS.SecretKey.Name)
 				volumes = append(volumes, v1.Volume{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
@@ -756,6 +829,9 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 	if p.Spec.SHA != "" {
 		prometheusImage = fmt.Sprintf("%s@sha256:%s", p.Spec.BaseImage, p.Spec.SHA)
 	}
+	if p.Spec.Image != nil && *p.Spec.Image != "" {
+		prometheusImage = *p.Spec.Image
+	}
 
 	return &appsv1.StatefulSetSpec{
 		ServiceName:         governingServiceName,
@@ -799,7 +875,7 @@ func makeStatefulSetSpec(p monitoringv1.Prometheus, c *Config, ruleConfigMapName
 						VolumeMounts: configReloadVolumeMounts,
 						Resources: v1.ResourceRequirements{
 							Limits: v1.ResourceList{
-								v1.ResourceCPU:    resource.MustParse("10m"),
+								v1.ResourceCPU:    resource.MustParse("50m"),
 								v1.ResourceMemory: resource.MustParse("50Mi"),
 							},
 						},
