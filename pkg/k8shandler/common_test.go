@@ -7,7 +7,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/elasticsearch/v1"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
 var (
@@ -404,7 +404,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 		},
 	}
 
-	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{})
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %q but was %q", expectedTolerations, podTemplateSpec.Spec.Tolerations)

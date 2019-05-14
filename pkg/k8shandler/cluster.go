@@ -45,8 +45,6 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 
 	progressUnshedulableNodes(elasticsearchRequest.cluster)
 
-	progressUnshedulableNodes(cluster)
-
 	// if there is a node currently being upgraded, work on that first
 	upgradeInProgressNode := getNodeUpgradeInProgress(elasticsearchRequest.cluster)
 	scheduledUpgradeNodes := getScheduledUpgradeNodes(elasticsearchRequest.cluster)
