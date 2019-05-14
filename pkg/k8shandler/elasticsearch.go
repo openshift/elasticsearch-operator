@@ -380,6 +380,17 @@ func DoSynchronizedFlush(clusterName, namespace string, client client.Client) (b
 		payload.Error = fmt.Errorf("Failed to flush %d shards in preparation for cluster restart", failed)
 	}
 
+	failed := 0
+	if shards, ok := payload.ResponseBody["_shards"].(map[string]interface{}); ok {
+		if failedFload, ok := shards["failed"].(float64); ok {
+			failed = int(failedFload)
+		}
+	}
+
+	if payload.Error == nil && failed != 0 {
+		payload.Error = fmt.Errorf("Failed to flush %d shards in preparation for cluster restart", failed)
+	}
+
 	return (payload.StatusCode == 200), payload.Error
 }
 

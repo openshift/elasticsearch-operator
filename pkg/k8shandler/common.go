@@ -26,7 +26,7 @@ func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 func getImage(commonImage string) string {
 	image := commonImage
 	if image == "" {
-		image = elasticsearchDefaultImage
+		image = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", elasticsearchDefaultImage)
 	}
 	return image
 }
@@ -378,6 +378,13 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 			NodeSelector:       mergeSelectors(node.NodeSelector, commonSpec.NodeSelector),
 			ServiceAccountName: clusterName,
 			Volumes:            newVolumes(clusterName, nodeName, namespace, node, client),
+			Tolerations: []v1.Toleration{
+				v1.Toleration{
+					Key:      "node.kubernetes.io/disk-pressure",
+					Operator: v1.TolerationOpExists,
+					Effect:   v1.TaintEffectNoSchedule,
+				},
+			},
 		},
 	}
 }
