@@ -51,7 +51,6 @@ var _ = Describe("secretCertWriter", func() {
 			CertGenerator: &fakegenerator.CertGenerator{
 				DNSNameToCertArtifacts: map[string]*generator.Artifacts{
 					dnsName: {
-						CAKey:  []byte(`CAKeyBytes`),
 						CACert: []byte(`CACertBytes`),
 						Cert:   []byte(`CertBytes`),
 						Key:    []byte(`KeyBytes`),
@@ -67,7 +66,7 @@ var _ = Describe("secretCertWriter", func() {
 	Context("Failed to EnsureCerts", func() {
 		Describe("empty DNS name", func() {
 			It("should return error", func() {
-				_, _, err := certWriter.EnsureCert("")
+				_, _, err := certWriter.EnsureCert("", false)
 				Expect(err).To(MatchError("dnsName should not be empty"))
 			})
 		})
@@ -79,10 +78,6 @@ var _ = Describe("secretCertWriter", func() {
 			//isController := true
 			//blockOwnerDeletion := true
 			secret = &corev1.Secret{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "Secret",
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "namespace-bar",
 					Name:      "secret-foo",
@@ -98,7 +93,6 @@ var _ = Describe("secretCertWriter", func() {
 					//},
 				},
 				Data: map[string][]byte{
-					CAKeyName:      []byte(`CAKeyBytes`),
 					CACertName:     []byte(`CACertBytes`),
 					ServerKeyName:  []byte(`KeyBytes`),
 					ServerCertName: []byte(`CertBytes`),
@@ -109,7 +103,7 @@ var _ = Describe("secretCertWriter", func() {
 
 		Context("certGenerator is not set", func() {
 			It("should default it and return no error", func() {
-				_, _, err := certWriter.EnsureCert(dnsName)
+				_, _, err := certWriter.EnsureCert(dnsName, false)
 				Expect(err).NotTo(HaveOccurred())
 				list := &corev1.List{}
 				err = sCertWriter.Client.List(nil, &client.ListOptions{
@@ -134,7 +128,7 @@ var _ = Describe("secretCertWriter", func() {
 			})
 
 			It("should create new secrets with certs", func() {
-				_, changed, err := certWriter.EnsureCert(dnsName)
+				_, changed, err := certWriter.EnsureCert(dnsName, false)
 				Expect(err).NotTo(HaveOccurred())
 				list := &corev1.List{}
 				err = sCertWriter.Client.List(nil, &client.ListOptions{
@@ -172,7 +166,7 @@ var _ = Describe("secretCertWriter", func() {
 					})
 
 					It("should replace with new certs", func() {
-						_, changed, err := certWriter.EnsureCert(dnsName)
+						_, changed, err := certWriter.EnsureCert(dnsName, false)
 						Expect(err).NotTo(HaveOccurred())
 						list := &corev1.List{}
 						err = sCertWriter.Client.List(nil, &client.ListOptions{
@@ -195,8 +189,7 @@ var _ = Describe("secretCertWriter", func() {
 					BeforeEach(func(done Done) {
 						oldSecret = secret.DeepCopy()
 						oldSecret.Data = map[string][]byte{
-							CAKeyName:      []byte(`invalidCAKeyBytes`),
-							CACertName:     []byte(`invalidCACertBytes`),
+							CACertName:     []byte(`oldCACertBytes`),
 							ServerKeyName:  []byte(`oldKeyBytes`),
 							ServerCertName: []byte(`oldCertBytes`),
 						}
@@ -205,7 +198,7 @@ var _ = Describe("secretCertWriter", func() {
 					})
 
 					It("should replace with new certs", func() {
-						_, changed, err := certWriter.EnsureCert(dnsName)
+						_, changed, err := certWriter.EnsureCert(dnsName, false)
 						Expect(err).NotTo(HaveOccurred())
 						list := &corev1.List{}
 						err = sCertWriter.Client.List(nil, &client.ListOptions{
@@ -228,7 +221,6 @@ var _ = Describe("secretCertWriter", func() {
 			Context("cert is valid", func() {
 				BeforeEach(func(done Done) {
 					oldSecret.Data = map[string][]byte{
-						CAKeyName:      []byte(certs2.CAKey),
 						CACertName:     []byte(certs2.CACert),
 						ServerKeyName:  []byte(certs2.Key),
 						ServerCertName: []byte(certs2.Cert),
@@ -243,7 +235,6 @@ var _ = Describe("secretCertWriter", func() {
 					BeforeEach(func(done Done) {
 						oldSecret = secret.DeepCopy()
 						oldSecret.Data = map[string][]byte{
-							CAKeyName:      []byte(certs2.CAKey),
 							CACertName:     []byte(certs2.CACert),
 							ServerKeyName:  []byte(certs2.Key),
 							ServerCertName: []byte(certs2.Cert),
@@ -255,7 +246,7 @@ var _ = Describe("secretCertWriter", func() {
 						close(done)
 					})
 					It("should keep the secret", func() {
-						_, changed, err := certWriter.EnsureCert(dnsName)
+						_, changed, err := certWriter.EnsureCert(dnsName, false)
 						Expect(err).NotTo(HaveOccurred())
 						list := &corev1.List{}
 						err = sCertWriter.Client.List(nil, &client.ListOptions{
@@ -279,7 +270,6 @@ var _ = Describe("secretCertWriter", func() {
 					BeforeEach(func(done Done) {
 						oldSecret = secret.DeepCopy()
 						oldSecret.Data = map[string][]byte{
-							CAKeyName:  []byte(`oldCAKeyBytes`),
 							CACertName: []byte(`oldCACertBytes`),
 							//ServerKeyName:  []byte(expiringKeyPEM),
 							//ServerCertName: []byte(expiringCertPEM),

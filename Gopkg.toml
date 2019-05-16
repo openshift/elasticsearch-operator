@@ -29,8 +29,20 @@ required = [
   version = "kubernetes-1.11.0"
 
 [[override]]
+  name = "github.com/coreos/prometheus-operator"
+  version = "=v0.25.0"
+
+[[override]]
   name = "k8s.io/client-go"
   version = "kubernetes-1.11.0"
+
+[[override]]
+  name = "github.com/go-openapi/spec"
+  revision = "5bae59e25b21498baea7f9d46e9c147ec106a42e"
+
+[[override]]
+  name = "sigs.k8s.io/controller-runtime"
+  version = "=v0.1.4"
 
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"

@@ -23,8 +23,6 @@ type Artifacts struct {
 	Key []byte
 	// PEM encoded serving certificate
 	Cert []byte
-	// PEM encoded CA private key
-	CAKey []byte
 	// PEM encoded CA certificate
 	CACert []byte
 }
@@ -33,6 +31,4 @@ type Artifacts struct {
 type CertGenerator interface {
 	// Generate returns a Artifacts struct.
 	Generate(CommonName string) (*Artifacts, error)
-	// SetCA sets the PEM-encoded CA private key and CA cert for signing the generated serving cert.
-	SetCA(caKey, caCert []byte)
 }

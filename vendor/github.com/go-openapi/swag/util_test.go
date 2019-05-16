@@ -33,6 +33,32 @@ func init() {
 	AddInitialisms("elb", "cap", "capwd", "wd")
 }
 
+func TestIndexOfInitialismsSorted(t *testing.T) {
+	configuredInitialisms := map[string]bool{
+		"ACL":   true,
+		"API":   true,
+		"ASCII": true,
+		"CPU":   true,
+		"CSS":   true,
+		"DNS":   true,
+		"VM":    true,
+		"XML":   true,
+		"XMPP":  true,
+		"XSRF":  true,
+		"XSS":   true,
+	}
+
+	goldenSample := newIndexOfInitialisms().load(configuredInitialisms).sorted()
+	for i := 0; i < 100; i++ {
+		sample := newIndexOfInitialisms().load(configuredInitialisms).sorted()
+		failMsg := "equal sorted initialisms should be always equal"
+
+		if !assert.Equal(t, goldenSample, sample, failMsg) {
+			t.FailNow()
+		}
+	}
+}
+
 func TestToGoName(t *testing.T) {
 	samples := []translationSample{
 		{"sample text", "SampleText"},
@@ -64,6 +90,25 @@ func TestToGoName(t *testing.T) {
 
 	for _, sample := range samples {
 		assert.Equal(t, sample.out, ToGoName(sample.str))
+	}
+}
+
+func BenchmarkToGoName(b *testing.B) {
+	samples := []string{
+		"sample text",
+		"sample-text",
+		"sample_text",
+		"sampleText",
+		"sample 2 Text",
+		"findThingById",
+		"日本語sample 2 Text",
+		"日本語findThingById",
+		"findTHINGSbyID",
+	}
+	for i := 0; i < b.N; i++ {
+		for _, s := range samples {
+			ToGoName(s)
+		}
 	}
 }
 

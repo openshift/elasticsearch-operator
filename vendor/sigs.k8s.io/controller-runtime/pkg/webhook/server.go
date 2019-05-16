@@ -54,10 +54,10 @@ type ServerOptions struct {
 	// Client will be injected by the manager if not set.
 	Client client.Client
 
-	// DisableWebhookConfigInstaller controls if the server will automatically create webhook related objects
-	// during bootstrapping. e.g. webhookConfiguration, service and secret.
-	// If false, the server will install the webhook config objects. It is defaulted to false.
-	DisableWebhookConfigInstaller *bool
+	// Dryrun controls if the server will install the webhookConfiguration and service if any.
+	// If true, it will print the objects in yaml format.
+	// If false, it will install the objects in the cluster.
+	Dryrun bool
 
 	// BootstrapOptions contains the options for bootstrapping the admission server.
 	*BootstrapOptions
@@ -75,8 +75,7 @@ type BootstrapOptions struct {
 	// This is optional. If unspecified, it will write to the filesystem.
 	// It the secret already exists and is different from the desired, it will be replaced.
 	Secret *apitypes.NamespacedName
-
-	// Deprecated: Writer will not be used anywhere.
+	// Writer is used in dryrun mode for writing the objects in yaml format.
 	Writer io.Writer
 
 	// Service is k8s service fronting the webhook server pod(s).
@@ -188,28 +187,15 @@ func (s *Server) Handle(pattern string, handler http.Handler) {
 
 var _ manager.Runnable = &Server{}
 
-// Start runs the server.
-// It will install the webhook related resources depend on the server configuration.
+// Start runs the server if s.Dryrun is false.
+// Otherwise, it will print the objects in yaml format.
 func (s *Server) Start(stop <-chan struct{}) error {
-	s.once.Do(s.setDefault)
-	if s.err != nil {
-		return s.err
+	err := s.installWebhookConfig()
+	// if encounter an error or it's in dryrun mode, return.
+	if err != nil || s.Dryrun {
+		return err
 	}
 
-	if s.DisableWebhookConfigInstaller != nil && !*s.DisableWebhookConfigInstaller {
-		log.Info("installing webhook configuration in cluster")
-		err := s.InstallWebhookManifests()
-		if err != nil {
-			return err
-		}
-	} else {
-		log.Info("webhook installer is disabled")
-	}
-
-	return s.run(stop)
-}
-
-func (s *Server) run(stop <-chan struct{}) error {
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%v", s.Port),
 		Handler: s.sMux,
