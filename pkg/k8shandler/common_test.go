@@ -1,6 +1,7 @@
 package k8shandler
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -11,93 +12,58 @@ import (
 )
 
 var (
-	commonCpuValue = resource.MustParse("500m")
+	commonCPUValue = resource.MustParse("500m")
 	commonMemValue = resource.MustParse("2Gi")
 
-	nodeCpuValue = resource.MustParse("600m")
+	nodeCPUValue = resource.MustParse("600m")
 	nodeMemValue = resource.MustParse("3Gi")
 
-	defaultTestCpuLimit   = resource.MustParse(defaultCPULimit)
-	defaultTestCpuRequest = resource.MustParse(defaultCPURequest)
+	defaultTestCPULimit   = resource.MustParse("1")
+	defaultTestCPURequest = resource.MustParse(defaultCPURequest)
 	defaultTestMemLimit   = resource.MustParse(defaultMemoryLimit)
 	defaultTestMemRequest = resource.MustParse(defaultMemoryRequest)
 )
 
 /*
   Resource scenarios:
-  1. common has a limit and request
-     node sets new request and limit
-     -> use node settings
+  1. common has no settings
+     node has no settings
+     -> use defaults
 
-  2. common has limit and request
+  2. common resource requirements are set
      node has no settings
      -> use common settings
 
   3. common has no settings
-     node has no settings
-     -> use defaults
+     node resource requirements are set
+     -> use node resource requirements
 
-  4. common has limit and request
-     node sets request only
-     -> use common limit and node request
+  4. common resource requirements are set
+     node resource requirements are set
+	 -> merge common and node, when values colide, node value takes precedence
 
-  5. common has limit and request
-     node sets limt only
-     -> use common request and node limit
-
-  6. common has request only
-     node has no settings
-     -> request and limit set to be same and use common settings
-
-  7. common has limit only
-     node has no settings
-     -> request and limit set to be same and use common settings
-
-  8. common has no settings
-     node only has request
-     -> request and limit set to be same and use node settings
-
-  9. common has no settings
-     node only has limit
-     -> request and limit set to be same and use node settings
-
- 10. common has limit
-     node has request
-     -> use common limit and node request
-
- 11. common has request
-     node has limit
-     -> use common request and node limit
+  5. common resource requirements are set
+     node resource requirements are partialy set
+	 -> merge common and node, when values colide, node value takes precedence
 */
 
 // 1
-func TestResourcesCommonAndNodeDefined(t *testing.T) {
+func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 
-	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
-		commonMemValue,
-		commonMemValue,
+	commonRequirements := v1.ResourceRequirements{}
+
+	nodeRequirements := v1.ResourceRequirements{}
+
+	expected := buildResourceNoCPULimits(
+		defaultTestCPURequest,
+		defaultTestMemLimit,
+		defaultTestMemRequest,
 	)
 
-	nodeRequirements := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
-		nodeMemValue,
-		nodeMemValue,
-	)
+	actual := newResourceRequirements(&nodeRequirements, &commonRequirements)
 
-	expected := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
-		nodeMemValue,
-		nodeMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+	if !areResourcesSame(*actual, expected) {
+		t.Errorf("Expected:\n%v\nBut got:\n%v", resourcesToString(&expected), resourcesToString(actual))
 	}
 }
 
@@ -105,8 +71,8 @@ func TestResourcesCommonAndNodeDefined(t *testing.T) {
 func TestResourcesNoNodeDefined(t *testing.T) {
 
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
@@ -114,245 +80,109 @@ func TestResourcesNoNodeDefined(t *testing.T) {
 	nodeRequirements := v1.ResourceRequirements{}
 
 	expected := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newResourceRequirements(&nodeRequirements, &commonRequirements)
 
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+	if !areResourcesSame(*actual, expected) {
+		t.Errorf("Expected:\n%v\nBut got:\n%v", resourcesToString(&expected), resourcesToString(actual))
 	}
 }
 
 // 3
-func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
+func TestResourcesNoCommonDefined(t *testing.T) {
 
 	commonRequirements := v1.ResourceRequirements{}
 
-	nodeRequirements := v1.ResourceRequirements{}
-
-	expected := buildResource(
-		defaultTestCpuLimit,
-		defaultTestCpuRequest,
-		defaultTestMemLimit,
-		defaultTestMemRequest,
+	nodeRequirements := buildResourceOnlyRequests(
+		nodeCPUValue,
+		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	expected := buildResourceNoCPULimits(
+		nodeCPUValue,
+		defaultTestMemLimit,
+		nodeMemValue,
+	)
 
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+	actual := newResourceRequirements(&nodeRequirements, &commonRequirements)
+
+	if val, ok := actual.Limits[v1.ResourceCPU]; ok {
+		t.Errorf("No CPU limit expected, but got %s", val.String())
+	}
+
+	if !areResourcesSame(*actual, expected) {
+		t.Errorf("Expected:\n%v\nBut got:\n%v", resourcesToString(&expected), resourcesToString(actual))
+	}
+
+	// check that changes don't propagate to the original map
+	// deep copy is expected
+	if _, ok := nodeRequirements.Limits[v1.ResourceCPU]; ok {
+		t.Error("Original NodeRequirements map modified")
 	}
 }
 
 // 4
-func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
+func TestResourcesCommonAndNodeDefined(t *testing.T) {
 
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		commonMemValue,
 		commonMemValue,
 	)
 
-	nodeRequirements := buildResourceOnlyRequests(
-		nodeCpuValue,
+	nodeRequirements := buildResource(
+		nodeCPUValue,
+		nodeCPUValue,
+		nodeMemValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		commonCpuValue,
-		nodeCpuValue,
-		commonMemValue,
+		nodeCPUValue,
+		nodeCPUValue,
+		nodeMemValue,
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newResourceRequirements(&nodeRequirements, &commonRequirements)
 
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+	if !areResourcesSame(*actual, expected) {
+		t.Errorf("Expected:\n%v\nBut got:\n%v", resourcesToString(&expected), resourcesToString(actual))
 	}
 }
 
 // 5
-func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
+func TestResourcesRequestsNodeOverride(t *testing.T) {
 
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		commonMemValue,
-		commonMemValue,
-	)
-
-	nodeRequirements := buildResourceOnlyLimits(
-		nodeCpuValue,
-		nodeMemValue,
-	)
-
-	expected := buildResource(
-		nodeCpuValue,
-		commonCpuValue,
-		nodeMemValue,
-		commonMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
-
-// 6
-func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
-
-	commonRequirements := buildResourceOnlyRequests(
-		commonCpuValue,
-		commonMemValue,
-	)
-
-	nodeRequirements := v1.ResourceRequirements{}
-
-	expected := buildResource(
-		commonCpuValue,
-		commonCpuValue,
-		commonMemValue,
-		commonMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
-
-// 7
-func TestResourcesCommonLimitAndNoNodeDefined(t *testing.T) {
-
-	commonRequirements := buildResourceOnlyLimits(
-		commonCpuValue,
-		commonMemValue,
-	)
-
-	nodeRequirements := v1.ResourceRequirements{}
-
-	expected := buildResource(
-		commonCpuValue,
-		commonCpuValue,
-		commonMemValue,
-		commonMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
-
-// 8
-func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
-
-	commonRequirements := v1.ResourceRequirements{}
-
-	nodeRequirements := buildResourceOnlyRequests(
-		nodeCpuValue,
-		nodeMemValue,
-	)
-
-	expected := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
-		nodeMemValue,
-		nodeMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
-
-// 9
-func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
-
-	commonRequirements := v1.ResourceRequirements{}
-
-	nodeRequirements := buildResourceOnlyLimits(
-		nodeCpuValue,
-		nodeMemValue,
-	)
-
-	expected := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
-		nodeMemValue,
-		nodeMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
-
-// 10
-func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
-
-	commonRequirements := buildResourceOnlyLimits(
-		commonCpuValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := buildResourceOnlyRequests(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		commonCpuValue,
-		nodeCpuValue,
+		commonCPUValue,
+		nodeCPUValue,
 		commonMemValue,
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newResourceRequirements(&nodeRequirements, &commonRequirements)
 
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
-	}
-}
-
-// 11
-func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
-
-	commonRequirements := buildResourceOnlyRequests(
-		commonCpuValue,
-		commonMemValue,
-	)
-
-	nodeRequirements := buildResourceOnlyLimits(
-		nodeCpuValue,
-		nodeMemValue,
-	)
-
-	expected := buildResource(
-		nodeCpuValue,
-		commonCpuValue,
-		nodeMemValue,
-		commonMemValue,
-	)
-
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
-
-	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+	if !areResourcesSame(*actual, expected) {
+		t.Errorf("Expected:\n%v\nBut got:\n%v", resourcesToString(&expected), resourcesToString(actual))
 	}
 }
 
@@ -433,11 +263,14 @@ func buildResourceOnlyRequests(cpuRequest, memRequest resource.Quantity) v1.Reso
 	}
 }
 
-func buildResourceOnlyLimits(cpuLimit, memLimit resource.Quantity) v1.ResourceRequirements {
+func buildResourceNoCPULimits(cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
 	return v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			v1.ResourceCPU:    cpuLimit,
 			v1.ResourceMemory: memLimit,
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuRequest,
+			v1.ResourceMemory: memRequest,
 		},
 	}
 }
@@ -465,4 +298,13 @@ func areResourcesSame(lhs, rhs v1.ResourceRequirements) bool {
 
 func areQuantitiesSame(lhs, rhs *resource.Quantity) bool {
 	return lhs.Cmp(*rhs) == 0
+}
+
+func resourcesToString(r *v1.ResourceRequirements) string {
+	return fmt.Sprintf("limits:\n  cpu: %s\n  memory: %s\nrequests:\n  cpu: %s\n  memory: %s\n",
+		r.Limits.Cpu().String(),
+		r.Limits.Memory().String(),
+		r.Requests.Cpu().String(),
+		r.Requests.Memory().String(),
+	)
 }

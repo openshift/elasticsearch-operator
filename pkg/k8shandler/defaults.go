@@ -13,10 +13,9 @@ const (
 
 	defaultMasterCPULimit     = "100m"
 	defaultMasterCPURequest   = "100m"
-	defaultCPULimit           = "4000m"
-	defaultCPURequest         = "100m"
-	defaultMemoryLimit        = "4Gi"
-	defaultMemoryRequest      = "1Gi"
+	defaultCPURequest         = "1"
+	defaultMemoryLimit        = "16Gi"
+	defaultMemoryRequest      = "16Gi"
 	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch5"
 
 	maxMasterCount = 3

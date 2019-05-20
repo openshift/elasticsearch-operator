@@ -357,7 +357,7 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 
 func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client) v1.PodTemplateSpec {
 
-	resourceRequirements := newResourceRequirements(node.Resources, commonSpec.Resources)
+	resourceRequirements := newResourceRequirements(&node.Resources, &commonSpec.Resources)
 	proxyImage := utils.LookupEnvWithDefault("PROXY_IMAGE", "quay.io/openshift/origin-oauth-proxy:latest")
 	proxyContainer, _ := newProxyContainer(proxyImage, clusterName)
 
@@ -371,7 +371,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 				newElasticsearchContainer(
 					getImage(commonSpec.Image),
 					newEnvVars(nodeName, clusterName, resourceRequirements.Limits.Memory().String(), roleMap),
-					resourceRequirements,
+					*resourceRequirements,
 				),
 				proxyContainer,
 			},
@@ -389,146 +389,29 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 	}
 }
 
-func newResourceRequirements(nodeResRequirements, commonResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
-	// if only one resource (cpu or memory) is specified as a limit/request use it for the other value as well instead of
-	//  using the defaults.
+func newResourceRequirements(nodeResRequirements, commonResRequirements *v1.ResourceRequirements) *v1.ResourceRequirements {
 
-	var requestMem *resource.Quantity
-	var limitMem *resource.Quantity
-	var requestCPU *resource.Quantity
-	var limitCPU *resource.Quantity
-
-	// first check if either limit or resource is left off
-	// Mem
-	nodeLimitMem := nodeResRequirements.Limits.Memory()
-	nodeRequestMem := nodeResRequirements.Requests.Memory()
-	commonLimitMem := commonResRequirements.Limits.Memory()
-	commonRequestMem := commonResRequirements.Requests.Memory()
-
-	if commonRequestMem.IsZero() && commonLimitMem.IsZero() {
-		// no common memory settings
-		if nodeRequestMem.IsZero() && nodeLimitMem.IsZero() {
-			// no node settings, use defaults
-			lMem, _ := resource.ParseQuantity(defaultMemoryLimit)
-			limitMem = &lMem
-
-			rMem, _ := resource.ParseQuantity(defaultMemoryRequest)
-			requestMem = &rMem
-		} else {
-			// either one is not zero or both aren't zero but common is empty
-			if nodeRequestMem.IsZero() {
-				// request is zero use limit for both
-				requestMem = nodeLimitMem
-				limitMem = nodeLimitMem
-			} else {
-				if nodeLimitMem.IsZero() {
-					// limit is zero use request for both
-					requestMem = nodeRequestMem
-					limitMem = nodeRequestMem
-				} else {
-					// both aren't zero
-					requestMem = nodeRequestMem
-					limitMem = nodeLimitMem
-				}
-			}
-		}
-	} else {
-		// either one is not zero or both aren't zero (common)
-
-		//check node for override
-		if nodeRequestMem.IsZero() {
-			// no node request mem, check that common has it
-			if commonRequestMem.IsZero() {
-				requestMem = commonLimitMem
-			} else {
-				requestMem = commonRequestMem
-			}
-		} else {
-			requestMem = nodeRequestMem
-		}
-
-		if nodeLimitMem.IsZero() {
-			// no node request mem, check that common has it
-			if commonLimitMem.IsZero() {
-				limitMem = commonRequestMem
-			} else {
-				limitMem = commonLimitMem
-			}
-		} else {
-			limitMem = nodeLimitMem
-		}
-	}
-
-	// CPU
-	nodeLimitCPU := nodeResRequirements.Limits.Cpu()
-	nodeRequestCPU := nodeResRequirements.Requests.Cpu()
-	commonLimitCPU := commonResRequirements.Limits.Cpu()
-	commonRequestCPU := commonResRequirements.Requests.Cpu()
-
-	if commonRequestCPU.IsZero() && commonLimitCPU.IsZero() {
-		// no common memory settings
-		if nodeRequestCPU.IsZero() && nodeLimitCPU.IsZero() {
-			// no node settings, use defaults
-			lCPU, _ := resource.ParseQuantity(defaultCPULimit)
-			limitCPU = &lCPU
-
-			rCPU, _ := resource.ParseQuantity(defaultCPURequest)
-			requestCPU = &rCPU
-		} else {
-			// either one is not zero or both aren't zero but common is empty
-			if nodeRequestCPU.IsZero() {
-				// request is zero use limit for both
-				requestCPU = nodeLimitCPU
-				limitCPU = nodeLimitCPU
-			} else {
-				if nodeLimitCPU.IsZero() {
-					// limit is zero use request for both
-					requestCPU = nodeRequestCPU
-					limitCPU = nodeRequestCPU
-				} else {
-					// both aren't zero
-					requestCPU = nodeRequestCPU
-					limitCPU = nodeLimitCPU
-				}
-			}
-		}
-	} else {
-		// either one is not zero or both aren't zero (common)
-
-		//check node for override
-		if nodeRequestCPU.IsZero() {
-			// no node request mem, check that common has it
-			if commonRequestCPU.IsZero() {
-				requestCPU = commonLimitCPU
-			} else {
-				requestCPU = commonRequestCPU
-			}
-		} else {
-			requestCPU = nodeRequestCPU
-		}
-
-		if nodeLimitCPU.IsZero() {
-			// no node request mem, check that common has it
-			if commonLimitCPU.IsZero() {
-				limitCPU = commonRequestCPU
-			} else {
-				limitCPU = commonLimitCPU
-			}
-		} else {
-			limitCPU = nodeLimitCPU
-		}
-	}
-
-	return v1.ResourceRequirements{
+	defaultResRequirements := &v1.ResourceRequirements{
 		Limits: v1.ResourceList{
-			"cpu":    *limitCPU,
-			"memory": *limitMem,
+			v1.ResourceMemory: resource.MustParse(defaultMemoryLimit),
 		},
 		Requests: v1.ResourceList{
-			"cpu":    *requestCPU,
-			"memory": *requestMem,
-		},
+			v1.ResourceCPU:    resource.MustParse(defaultCPURequest),
+			v1.ResourceMemory: resource.MustParse(defaultMemoryRequest),
+		}}
+
+	if isResourceRequirementsEmpty(nodeResRequirements) {
+		if isResourceRequirementsEmpty(commonResRequirements) {
+			return defaultResRequirements
+		}
+		return commonResRequirements
 	}
+
+	if isResourceRequirementsEmpty(commonResRequirements) {
+		return overrideCommonResourceRequirements(nodeResRequirements, defaultResRequirements)
+	}
+
+	return overrideCommonResourceRequirements(nodeResRequirements, commonResRequirements)
 }
 
 func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) []v1.Volume {

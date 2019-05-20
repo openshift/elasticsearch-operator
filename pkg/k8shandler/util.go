@@ -271,6 +271,49 @@ func sliceContainsString(slice []string, value string) bool {
 	return false
 }
 
+func isResourceRequirementsEmpty(resources *v1.ResourceRequirements) bool {
+	if resources == nil {
+		return true
+	}
+
+	if (resources.Limits == nil || len(resources.Limits) == 0) && (resources.Requests == nil || len(resources.Requests) == 0) {
+		return true
+	}
+
+	return false
+}
+
+func overrideCommonResourceRequirements(node, common *v1.ResourceRequirements) *v1.ResourceRequirements {
+
+	nodeNew := node.DeepCopy()
+
+	if nodeNew.Limits == nil {
+		nodeNew.Limits = v1.ResourceList{}
+	}
+
+	if nodeNew.Requests == nil {
+		nodeNew.Requests = v1.ResourceList{}
+	}
+
+	if nodeNew.Limits.Cpu().IsZero() && !common.Limits.Cpu().IsZero() {
+		nodeNew.Limits[v1.ResourceCPU] = common.Limits[v1.ResourceCPU]
+	}
+
+	if nodeNew.Limits.Memory().IsZero() && !common.Limits.Memory().IsZero() {
+		nodeNew.Limits[v1.ResourceMemory] = common.Limits[v1.ResourceMemory]
+	}
+
+	if nodeNew.Requests.Cpu().IsZero() && !common.Requests.Cpu().IsZero() {
+		nodeNew.Requests[v1.ResourceCPU] = common.Requests[v1.ResourceCPU]
+	}
+
+	if nodeNew.Requests.Memory().IsZero() && !common.Requests.Memory().IsZero() {
+		nodeNew.Requests[v1.ResourceMemory] = common.Requests[v1.ResourceMemory]
+	}
+
+	return nodeNew
+}
+
 func DeletePod(podName, namespace string, client client.Client) error {
 	pod := &v1.Pod{
 		TypeMeta: metav1.TypeMeta{
