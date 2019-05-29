@@ -112,6 +112,10 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 	}
 }
 
+func (node *deploymentNode) delete() {
+	node.client.Delete(context.TODO(), &node.self)
+}
+
 func (node *deploymentNode) create() error {
 
 	if node.self.ObjectMeta.ResourceVersion == "" {
