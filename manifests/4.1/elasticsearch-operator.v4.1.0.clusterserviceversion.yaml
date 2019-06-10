@@ -34,6 +34,7 @@ metadata:
                 "spec": {
                   "managementState": "Managed",
                   "nodeSpec": {
+                    "image": "quay.io/openshift/origin-logging-elasticsearch5:latest",
                     "resources": {
                       "limits": {
                         "memory": "1Gi"
@@ -212,25 +213,32 @@ spec:
       - kind: Route
         version: v1
       specDescriptors:
+      - description: The name of the serviceaccount used by the Elasticsearch pods
+        displayName: Service Account
+        path: serviceAccountName
+        x-descriptors:
+          - 'urn:alm:descriptor:io.kubernetes:ServiceAccount'
+      - description: The name of the configmap used by the Elasticsearch pods
+        displayName: Config Map
+        path: configMapName
+        x-descriptors:
+          - 'urn:alm:descriptor:io.kubernetes:ConfigMap'
+      - description: The name of the secret used by the Elasticsearch pods
+        displayName: Secret
+        path: secretName
+        x-descriptors:
+          - 'urn:alm:descriptor:io.kubernetes:Secret'
       - description: Limits describes the minimum/maximum amount of compute resources required/allowed
         displayName: Resource Requirements
         path: nodeSpec.resources
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
-      - description:
-        displayName: Elasticsearch Image
-        path: nodeSpec.image
-      - description:
-        displayName: Elasticsearch NodeSelector
-        path: nodeSpec.nodeSelector
-        x-descriptors:
-          - 'urn:alm:descriptor:com.tectonic.ui:selector'
       statusDescriptors:
       - description: The current health of Elasticsearch Cluster
         displayName: Elasticsearch Cluster Health
         path: clusterHealth
         x-descriptors:
-          - 'urn:alm:descriptor:text'
+          - 'urn:alm:descriptor:io.kubernetes.phase'
       - description: The status for each of the Elasticsearch pods with the Client role
         displayName: Elasticsearch Client Status
         path: pods.client
@@ -246,8 +254,3 @@ spec:
         path: pods.master
         x-descriptors:
         - 'urn:alm:descriptor:com.tectonic.ui:podStatuses'
-      - description: The conditions for the Elasticsearch CR
-        displayName: Elasticsearch Conditions
-        path: conditions
-        x-descriptors:
-        - 'urn:alm:descriptor:io.kubernetes.conditions'
