@@ -217,10 +217,10 @@ spec:
         path: nodeSpec.resources
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:resourceRequirements'
-      - description:
+      - description: The image to use for the deployment
         displayName: Elasticsearch Image
         path: nodeSpec.image
-      - description:
+      - description: The nodeselector for placing the Elastic pods
         displayName: Elasticsearch NodeSelector
         path: nodeSpec.nodeSelector
         x-descriptors:
