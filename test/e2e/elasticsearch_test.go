@@ -166,6 +166,10 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
+		deployment, _ := f.KubeClient.AppsV1().Deployments(namespace).Get(fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), metav1.GetOptions{IncludeUninitialized: true})
+		if deployment != nil {
+			t.Log("Deployment: %v", deployment)
+		}
 		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), err)
 	}
 	t.Log("Created additional deployment")
