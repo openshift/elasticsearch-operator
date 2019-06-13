@@ -7,7 +7,9 @@ updates:
     # replace entire version line, otherwise would replace 4.1.0 anywhere
     - search: "version: 4.1.2"
       replace: "version: {FULL_VER}"
-  - file: "package.yaml"
+    - search: 'olm.skipRange: ">=4.1.0 <4.1.2"'
+      replace: 'olm.skipRange: ">=4.1.0 <{FULL_VER}"'
+  - file: "elasticsearch-operator.package.yaml"
     update_list:
     - search: "currentCSV: elasticsearch-operator.v{MAJOR}.{MINOR}.2"
       replace: "currentCSV: elasticsearch-operator.{FULL_VER}"
