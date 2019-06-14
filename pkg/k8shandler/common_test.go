@@ -17,7 +17,6 @@ var (
 	nodeCpuValue = resource.MustParse("600m")
 	nodeMemValue = resource.MustParse("3Gi")
 
-	defaultTestCpuLimit   = resource.MustParse(defaultCPULimit)
 	defaultTestCpuRequest = resource.MustParse(defaultCPURequest)
 	defaultTestMemLimit   = resource.MustParse(defaultMemoryLimit)
 	defaultTestMemRequest = resource.MustParse(defaultMemoryRequest)
@@ -134,8 +133,7 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 
 	nodeRequirements := v1.ResourceRequirements{}
 
-	expected := buildResource(
-		defaultTestCpuLimit,
+	expected := buildDefaultResource(
 		defaultTestCpuRequest,
 		defaultTestMemLimit,
 		defaultTestMemRequest,
@@ -400,6 +398,18 @@ func buildResourceOnlyLimits(cpuLimit, memLimit resource.Quantity) v1.ResourceRe
 		Limits: v1.ResourceList{
 			v1.ResourceCPU:    cpuLimit,
 			v1.ResourceMemory: memLimit,
+		},
+	}
+}
+
+func buildDefaultResource(cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
+	return v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			v1.ResourceMemory: memLimit,
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuRequest,
+			v1.ResourceMemory: memRequest,
 		},
 	}
 }
