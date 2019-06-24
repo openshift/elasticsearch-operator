@@ -361,6 +361,11 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 	proxyImage := utils.LookupEnvWithDefault("PROXY_IMAGE", "quay.io/openshift/origin-oauth-proxy:latest")
 	proxyContainer, _ := newProxyContainer(proxyImage, clusterName)
 
+	selectors := mergeSelectors(node.NodeSelector, commonSpec.NodeSelector)
+	// We want to make sure the pod ends up allocated on linux node. Thus we make sure the
+	// linux node selectors is always present. See LOG-411
+	selectors = ensureLinuxNodeSelector(selectors)
+
 	return v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
@@ -375,7 +380,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 				),
 				proxyContainer,
 			},
-			NodeSelector:       mergeSelectors(node.NodeSelector, commonSpec.NodeSelector),
+			NodeSelector:       selectors,
 			ServiceAccountName: clusterName,
 			Volumes:            newVolumes(clusterName, nodeName, namespace, node, client),
 			Tolerations: []v1.Toleration{

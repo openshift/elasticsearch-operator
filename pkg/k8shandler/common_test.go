@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
@@ -407,6 +407,71 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %q but was %q", expectedTolerations, podTemplateSpec.Spec.Tolerations)
 	}
+}
+
+// All pods created by Elasticsearch operator needs to be allocated to linux nodes.
+// See LOG-411
+func TestPodNodeSelectors(t *testing.T) {
+
+	var podSpec v1.PodSpec
+
+	// Create podSpecTemplate providing nil/empty node selectors, we expect the PodTemplateSpec.Spec selectors
+	// will contain only the linux allocation selector.
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(nil).Spec
+
+	if podSpec.NodeSelector == nil {
+		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
+	}
+	if len(podSpec.NodeSelector) != 1 {
+		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
+	}
+	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+
+	// Create podSpecTemplate providing some custom node selectors, we expect the PodTemplateSpec.Spec selectors
+	// will add linux node selector.
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{"foo": "bar", "baz": "foo"}).Spec
+
+	if podSpec.NodeSelector == nil {
+		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
+	}
+	if len(podSpec.NodeSelector) != 3 {
+		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
+	}
+	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+
+	// Create podSpecTemplate providing node selector with some custom value, we expect the PodTemplateSpec.Spec selector
+	// will override the node selector to linux one.
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{OsNodeLabel: "foo"}).Spec
+
+	if podSpec.NodeSelector == nil {
+		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
+	}
+	if len(podSpec.NodeSelector) != 1 {
+		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
+	}
+	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+}
+
+// Return a fresh new PodTemplateSpec using provided node selectors.
+// Resulting selectors set always contains also the node selector with value of "linux", see LOG-411
+// This function wraps the call to newPodTempalteSpec in case its signature changes in the future
+// so that keeping unit tests up to date will be easier.
+func preparePodTemplateSpecProvidingNodeSelectors(selectors map[string]string) v1.PodTemplateSpec {
+	return newPodTemplateSpec(
+		"test-node-name",
+		"test-cluster-name",
+		"test-namespace-name",
+		api.ElasticsearchNode{NodeSelector: selectors},
+		api.ElasticsearchNodeSpec{},
+		map[string]string{},
+		map[api.ElasticsearchNodeRole]bool{},
+		nil)
 }
 
 func buildResource(cpuLimit, cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
