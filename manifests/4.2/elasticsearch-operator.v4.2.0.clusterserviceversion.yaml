@@ -22,6 +22,7 @@ metadata:
     containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
     createdAt: 2019-02-20T08:00:00Z
     support: AOS Cluster Logging, Jaeger
+    olm.skipRange: ">=4.1.0 <4.2.0"
     alm-examples: |-
         [
             {
@@ -43,11 +44,11 @@ metadata:
                       }
                     }
                   },
+                  "redundancyPolicy": "SingleRedundancy",
                   "nodes": [
                     {
                         "nodeCount": 1,
-                        "roles": ["client","data","master"],
-                        "redundancyPolicy": "SingleRedundancy"
+                        "roles": ["client","data","master"]
                     }
                   ]
                 }
@@ -55,8 +56,6 @@ metadata:
         ]
 spec:
   displayName: Elasticsearch Operator
-
-  replaces: elasticsearch-operator.v4.1.0
 
   description: |
     The Elasticsearch Operator for OKD provides a means for configuring and managing an Elasticsearch cluster for use in tracing and cluster logging.
