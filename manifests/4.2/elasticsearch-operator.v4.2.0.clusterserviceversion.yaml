@@ -55,6 +55,7 @@ metadata:
             }
         ]
 spec:
+  version: 4.2.0
   displayName: Elasticsearch Operator
 
   description: |
@@ -193,7 +194,6 @@ spec:
                       value: "quay.io/openshift/origin-oauth-proxy:latest"
                     - name: ELASTICSEARCH_IMAGE
                       value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
-  version: 4.2.0
   customresourcedefinitions:
     owned:
     - name: elasticsearches.logging.openshift.io
