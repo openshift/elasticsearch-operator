@@ -433,4 +433,46 @@ func (req *ElasticsearchRequest) ListIndicesForAlias(aliasPattern string) ([]str
 		response = append(response, index)
 	}
 	return response, nil
+// Instead of checking if indices are valid or invalid
+// (because 5x created are allowed to have multiple types but 6x created are not)
+// list which indices have multiple types and make a decision, later, based on that
+func HasMultipleTypesIndices(clusterName, namespace string, client client.Client) ([]string, error) {
+	indices := []string{}
+
+	mappings, err := GetIndexTypes(clusterName, namespace, client)
+
+	for indexName, types := range mappings {
+		if len(types) > 1 {
+			indices = append(indices, indexName)
+		}
+	}
+
+	return indices, err
+}
+
+func GetIndexTypes(clusterName, namespace string, client client.Client) (map[string][]string, error) {
+
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    "_mapping",
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	typesMap := make(map[string][]string)
+	for indexName, _ := range payload.ResponseBody {
+		typesNames := []string{}
+
+		if mappings, ok := payload.ResponseBody[indexName].(map[string]interface{}); ok {
+			if types, ok := mappings["mappings"].(map[string]interface{}); ok {
+				for typesName, _ := range types {
+					typesNames = append(typesNames, typesName)
+				}
+			}
+		}
+
+		typesMap[indexName] = typesNames
+	}
+
+	return typesMap, payload.Error
 }
