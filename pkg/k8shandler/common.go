@@ -448,9 +448,6 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 		// no common memory settings
 		if nodeRequestCPU.IsZero() && nodeLimitCPU.IsZero() {
 			// no node settings, use defaults
-			lCPU, _ := resource.ParseQuantity(defaultCPULimit)
-			limitCPU = &lCPU
-
 			rCPU, _ := resource.ParseQuantity(defaultCPURequest)
 			requestCPU = &rCPU
 		} else {
@@ -463,7 +460,6 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 				if nodeLimitCPU.IsZero() {
 					// limit is zero use request for both
 					requestCPU = nodeRequestCPU
-					limitCPU = nodeRequestCPU
 				} else {
 					// both aren't zero
 					requestCPU = nodeRequestCPU
@@ -488,13 +484,23 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 
 		if nodeLimitCPU.IsZero() {
 			// no node request mem, check that common has it
-			if commonLimitCPU.IsZero() {
-				limitCPU = commonRequestCPU
-			} else {
+			if !commonLimitCPU.IsZero() {
 				limitCPU = commonLimitCPU
 			}
 		} else {
 			limitCPU = nodeLimitCPU
+		}
+	}
+
+	if limitCPU == nil {
+		return v1.ResourceRequirements{
+			Limits: v1.ResourceList{
+				"memory": *limitMem,
+			},
+			Requests: v1.ResourceList{
+				"cpu":    *requestCPU,
+				"memory": *requestMem,
+			},
 		}
 	}
 
