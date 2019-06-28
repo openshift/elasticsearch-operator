@@ -463,7 +463,6 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 				if nodeLimitCPU.IsZero() {
 					// limit is zero use request for both
 					requestCPU = nodeRequestCPU
-					limitCPU = nodeRequestCPU
 				} else {
 					// both aren't zero
 					requestCPU = nodeRequestCPU
@@ -488,9 +487,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 
 		if nodeLimitCPU.IsZero() {
 			// no node request mem, check that common has it
-			if commonLimitCPU.IsZero() {
-				limitCPU = commonRequestCPU
-			} else {
+			if !commonLimitCPU.IsZero() {
 				limitCPU = commonLimitCPU
 			}
 		} else {
