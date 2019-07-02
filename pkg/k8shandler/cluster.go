@@ -168,6 +168,12 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					elasticsearchRequest.updateMinMasters()
 				}
 
+				// we only want to update our replicas if we aren't in the middle up an upgrade
+				UpdateReplicaCount(
+					elasticsearchRequest.cluster.Name,
+					elasticsearchRequest.cluster.Namespace,
+					elasticsearchRequest.client,
+					int32(calculateReplicaCount(elasticsearchRequest.cluster)))
 			}
 		}
 	}
