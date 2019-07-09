@@ -3,7 +3,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: elasticsearch-operator.v4.1.2
+  name: elasticsearch-operator.v4.1.0
   namespace: placeholder
   annotations:
     categories: "OpenShift Optional, Logging & Tracing"
@@ -22,7 +22,7 @@ metadata:
     containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
     createdAt: 2019-02-20T08:00:00Z
     support: AOS Cluster Logging, Jaeger
-    olm.skipRange: ">=4.1.0 <4.1.2"
+    olm.skipRange: ">=4.1.0 <4.1.0"
     alm-examples: |-
         [
             {
@@ -55,6 +55,7 @@ metadata:
             }
         ]
 spec:
+  version: 4.1.0
   displayName: Elasticsearch Operator
 
   description: |
@@ -189,7 +190,6 @@ spec:
                       value: "quay.io/openshift/origin-oauth-proxy:latest"
                     - name: ELASTICSEARCH_IMAGE
                       value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
-  version: 4.1.2
   customresourcedefinitions:
     owned:
     - name: elasticsearches.logging.openshift.io
