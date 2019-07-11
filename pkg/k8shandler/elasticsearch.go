@@ -1,6 +1,7 @@
 package k8shandler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -433,46 +435,121 @@ func (req *ElasticsearchRequest) ListIndicesForAlias(aliasPattern string) ([]str
 		response = append(response, index)
 	}
 	return response, nil
-// Instead of checking if indices are valid or invalid
-// (because 5x created are allowed to have multiple types but 6x created are not)
-// list which indices have multiple types and make a decision, later, based on that
-func HasMultipleTypesIndices(clusterName, namespace string, client client.Client) ([]string, error) {
-	indices := []string{}
-
-	mappings, err := GetIndexTypes(clusterName, namespace, client)
-
-	for indexName, types := range mappings {
-		if len(types) > 1 {
-			indices = append(indices, indexName)
-		}
-	}
-
-	return indices, err
 }
 
-func GetIndexTypes(clusterName, namespace string, client client.Client) (map[string][]string, error) {
-
+func MigrateKibanaIndex(clusterName, namespace string, client client.Client) (bool, error) {
+	// check that kibana needs to be migrated
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		URI:    "_mapping",
+		URI:    ".kibana/_mapping",
 	}
 
 	curlESService(clusterName, namespace, payload, client)
 
-	typesMap := make(map[string][]string)
-	for indexName, _ := range payload.ResponseBody {
-		typesNames := []string{}
+	// check for 404, means index does not exist -- no migration needed
+	if payload.StatusCode == 404 {
+		return true, nil
+	}
 
-		if mappings, ok := payload.ResponseBody[indexName].(map[string]interface{}); ok {
-			if types, ok := mappings["mappings"].(map[string]interface{}); ok {
-				for typesName, _ := range types {
-					typesNames = append(typesNames, typesName)
+	if indexBody, ok := payload.ResponseBody[".kibana"].(map[string]interface{}); ok {
+		if mappings, ok := indexBody["mappings"].(map[string]interface{}); ok {
+			if len(mappings) > 1 {
+				// if .kibana_1 doesn't exist, reindex
+				payload := &esCurlStruct{
+					Method: http.MethodGet,
+					URI:    ".kibana_1",
+				}
+
+				curlESService(clusterName, namespace, payload, client)
+
+				if payload.StatusCode == 404 {
+					// reindex to .kibana_1
+					payload := &esCurlStruct{
+						Method:      http.MethodPost,
+						URI:         "_reindex",
+						RequestBody: "{\"source\":{\"index\":\".kibana\"},\"dest\":{\"index\":\".kibana_1\",\"type\":\"doc\"}}",
+					}
+
+					curlESService(clusterName, namespace, payload, client)
+
+					// check that reindex had no failures:
+					// {"took":61,"timed_out":false,"total":1,
+					//  "updated":0,"created":1,"deleted":0,"batches":1,
+					//  "version_conflicts":0,"noops":0,
+					//  "retries":{"bulk":0,"search":0},"throttled_millis":0,
+					//  "requests_per_second":-1.0,"throttled_until_millis":0,"failures":[]}
+					if failures, ok := payload.ResponseBody["failures"].([]interface{}); ok {
+						if len(failures) > 0 {
+							logrus.Warnf("Failures occurred during reindexing: %v", failures)
+							return false, fmt.Errorf(parseString("error.root_cause.reason", payload.ResponseBody))
+						}
+					}
+				}
+
+				// build new mappings based on created index and prior mappings
+				payload = &esCurlStruct{
+					Method: http.MethodGet,
+					URI:    ".kibana_1/_mapping",
+				}
+
+				curlESService(clusterName, namespace, payload, client)
+
+				if kibanaBody, ok := payload.ResponseBody[".kibana_1"].(map[string]interface{}); ok {
+					if kibanaMappings, ok := kibanaBody["mappings"].(map[string]interface{}); ok {
+						if doc, ok := kibanaMappings["doc"].(map[string]interface{}); ok {
+							if _, ok := doc["properties"].(map[string]interface{}); ok {
+								for typeName, typeBody := range mappings {
+									// skip "_default_"
+									if typeName != "_default_" {
+										doc["properties"].(map[string]interface{})[typeName] = typeBody
+									}
+								}
+
+								docJSON, _ := json.Marshal(doc)
+
+								// put mappings from .kibana into .kibana_1
+								payload = &esCurlStruct{
+									Method:      http.MethodPut,
+									URI:         ".kibana_1/_mapping/doc",
+									RequestBody: string(docJSON),
+								}
+
+								curlESService(clusterName, namespace, payload, client)
+
+								// verify it worked
+								acknowledged := false
+								if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+									acknowledged = acknowledgedBool
+								}
+
+								if !(payload.StatusCode == 200 && acknowledged) {
+									return false, fmt.Errorf(parseString("error.root_cause.reason", payload.ResponseBody))
+								}
+
+								// create alias and delete .kibana index atomically
+								payload = &esCurlStruct{
+									Method:      http.MethodPost,
+									URI:         "_aliases",
+									RequestBody: "{\"actions\":[{\"add\":{\"index\":\".kibana_1\",\"alias\":\".kibana\"}},{\"remove_index\":{\"index\":\".kibana\"}}]}",
+								}
+
+								curlESService(clusterName, namespace, payload, client)
+
+								acknowledged = false
+								if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+									acknowledged = acknowledgedBool
+								}
+
+								if !(payload.StatusCode == 200 && acknowledged) {
+									return false, fmt.Errorf(parseString("error.root_cause.reason", payload.ResponseBody))
+								}
+							}
+						}
+					}
 				}
 			}
 		}
-
-		typesMap[indexName] = typesNames
 	}
 
-	return typesMap, payload.Error
+	return true, nil
 }
