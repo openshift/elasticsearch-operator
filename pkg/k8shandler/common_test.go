@@ -1,9 +1,9 @@
 package k8shandler
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
-	"fmt"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -454,6 +454,31 @@ func TestPodNodeSelectors(t *testing.T) {
 	}
 	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
 		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+}
+
+func TestPodDiskToleration(t *testing.T) {
+
+	expectedToleration := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	// Create podSpecTemplate providing nil/empty tolerations, we expect the PodTemplateSpec.Spec tolerations
+	// will contain only the disk usage toleration
+	podSpec := preparePodTemplateSpecProvidingNodeSelectors(nil).Spec
+
+	if podSpec.Tolerations == nil {
+		t.Errorf("Exp. the toleration to contains the disk usage toleration but was %T", podSpec.Tolerations)
+	}
+	if len(podSpec.Tolerations) != 1 {
+		t.Errorf("Exp. single toleration but %d were found", len(podSpec.Tolerations))
+	}
+	if !areTolerationsSame(podSpec.Tolerations, expectedToleration) {
+		t.Errorf("Exp. the tolerations to contain %v", expectedToleration)
 	}
 }
 

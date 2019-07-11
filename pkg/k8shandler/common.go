@@ -366,6 +366,15 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 	// linux node selectors is always present. See LOG-411
 	selectors = ensureLinuxNodeSelector(selectors)
 
+	tolerations := appendTolerations(node.Tolerations, commonSpec.Tolerations)
+	tolerations = appendTolerations(tolerations, []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	})
+
 	return v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
@@ -383,13 +392,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 			NodeSelector:       selectors,
 			ServiceAccountName: clusterName,
 			Volumes:            newVolumes(clusterName, nodeName, namespace, node, client),
-			Tolerations: []v1.Toleration{
-				v1.Toleration{
-					Key:      "node.kubernetes.io/disk-pressure",
-					Operator: v1.TolerationOpExists,
-					Effect:   v1.TaintEffectNoSchedule,
-				},
-			},
+			Tolerations:        tolerations,
 		},
 	}
 }
