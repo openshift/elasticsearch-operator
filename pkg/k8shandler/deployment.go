@@ -542,6 +542,13 @@ func (node *deploymentNode) isChanged() bool {
 		changed = true
 	}
 
+	// check the pod's tolerations
+	if !areTolerationsSame(node.self.Spec.Template.Spec.Tolerations, desired.Spec.Template.Spec.Tolerations) {
+		logrus.Debugf("Resource '%s' has different tolerations than desired", node.self.Name)
+		node.self.Spec.Template.Spec.Tolerations = desired.Spec.Template.Spec.Tolerations
+		changed = true
+	}
+
 	// Only Image and Resources (CPU & memory) differences trigger rolling restart
 	for index := 0; index < len(node.self.Spec.Template.Spec.Containers); index++ {
 		nodeContainer := node.self.Spec.Template.Spec.Containers[index]
