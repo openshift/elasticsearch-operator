@@ -16,7 +16,7 @@ spec:
       serviceAccountName: elasticsearch-operator
       containers:
         - name: elasticsearch-operator
-          image: quay.io/openshift/origin-elasticsearch-operator:latest
+          image: quay.io/openshift/origin-elasticsearch-operator:4.1
           imagePullPolicy: IfNotPresent
           command:
           - elasticsearch-operator
