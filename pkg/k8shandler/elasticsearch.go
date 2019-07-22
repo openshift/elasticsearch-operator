@@ -629,22 +629,28 @@ func ensureTokenHeader(header http.Header) http.Header {
 		header = map[string][]string{}
 	}
 
-	if saToken, ok := readSAToken(); ok {
+	if saToken, ok := readSAToken(k8sTokenFile); ok {
 		header["x-forwarded-access-token"] = []string{
 			saToken,
 		}
 	}
 
-	return header;
+	return header
 }
 
 // we want to read each time so that we can be sure to have the most up to date
 // token in the case where our perms change and a new token is mounted
-func readSAToken() (string, bool) {
+func readSAToken(tokenFile string) (string, bool) {
 	// read from /var/run/secrets/kubernetes.io/serviceaccount/token
-	token, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	token, err := ioutil.ReadFile(tokenFile)
+
 	if err != nil {
-		logrus.Errorf("Unable to read file to get contents: %v", err)
+		logrus.Errorf("Unable to read auth token from file [%s]: %v", tokenFile, err)
+		return "", false
+	}
+
+	if len(token) == 0 {
+		logrus.Errorf("Unable to read auth token from file [%s]: empty token", tokenFile)
 		return "", false
 	}
 
@@ -704,9 +710,13 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 
 	if resp != nil {
 		// TODO: eventually remove after all ES images have been updated to use SA token auth for EO?
-		if resp.StatusCode == http.StatusForbidden {
+		if resp.StatusCode == http.StatusForbidden ||
+			resp.StatusCode == http.StatusUnauthorized {
+			// if we get a 401 that means that we couldn't read from the token and provided
+			// no header.
 			// if we get a 403 that means the ES cluster doesn't allow us to use
-			// our SA token. try to use the old way
+			// our SA token.
+			// in both cases, try the old way.
 
 			// Not sure why, but just trying to reuse the request with the old client
 			// resulted in a 400 every time. Doing it this way got a 200 response as expected.
@@ -843,7 +853,6 @@ func getClient(clusterName, namespace string, client client.Client) *http.Client
 		},
 	}
 }
-
 
 func getOldClient(clusterName, namespace string, client client.Client) *http.Client {
 
