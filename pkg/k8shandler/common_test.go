@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"testing"
 
@@ -361,7 +362,7 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 	expectedCPU := resource.MustParse("100m")
 	expectedMemory := resource.MustParse("64Mi")
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	proxyContainer, err := newProxyContainer(imageName, clusterName, v1.PullIfNotPresent)
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -404,7 +405,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
-		t.Errorf("Exp. the tolerations to be %q but was %q", expectedTolerations, podTemplateSpec.Spec.Tolerations)
+		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
 	}
 }
 
@@ -480,6 +481,48 @@ func TestPodDiskToleration(t *testing.T) {
 	if !areTolerationsSame(podSpec.Tolerations, expectedToleration) {
 		t.Errorf("Exp. the tolerations to contain %v", expectedToleration)
 	}
+}
+
+func TestPodSpecImagePullPolicy(t *testing.T) {
+
+	// should default es and proxy images to v1.PullIfNotPresent
+	expectedPullPolicy := v1.PullIfNotPresent
+
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
+
+	if expectedPullPolicy != podTemplateSpec.Spec.Containers[0].ImagePullPolicy {
+		t.Errorf("Exp. the imagePullPolicy to be %q but was %q", expectedPullPolicy, podTemplateSpec.Spec.Containers[0].ImagePullPolicy)
+	}
+	if expectedPullPolicy != podTemplateSpec.Spec.Containers[1].ImagePullPolicy {
+		t.Errorf("Exp. the proxy imagePullPolicy to be %q but was %q", expectedPullPolicy, podTemplateSpec.Spec.Containers[1].ImagePullPolicy)
+	}
+
+	// set es - proxy should default to es setting
+	nodeSpec := api.ElasticsearchNodeSpec{}
+	nodeSpec.ImagePullPolicy = v1.PullAlways
+	podTemplateSpec = newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, nodeSpec, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
+
+	if v1.PullAlways != podTemplateSpec.Spec.Containers[0].ImagePullPolicy {
+		t.Errorf("Exp. the imagePullPolicy to be %q but was %q", v1.PullAlways, podTemplateSpec.Spec.Containers[0].ImagePullPolicy)
+	}
+	if v1.PullAlways != podTemplateSpec.Spec.Containers[1].ImagePullPolicy {
+		t.Errorf("Exp. the proxy imagePullPolicy to be %q but was %q", v1.PullAlways, podTemplateSpec.Spec.Containers[1].ImagePullPolicy)
+	}
+
+	// see if we can explicitly set both es and proxy
+	nodeSpec = api.ElasticsearchNodeSpec{}
+	nodeSpec.ImagePullPolicy = v1.PullAlways
+	os.Setenv("PROXY_IMAGE_PULL_POLICY", "Never")
+	defer os.Unsetenv("PROXY_IMAGE_PULL_POLICY")
+	podTemplateSpec = newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, nodeSpec, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
+
+	if v1.PullAlways != podTemplateSpec.Spec.Containers[0].ImagePullPolicy {
+		t.Errorf("Exp. the imagePullPolicy to be %q but was %q", v1.PullAlways, podTemplateSpec.Spec.Containers[0].ImagePullPolicy)
+	}
+	if v1.PullNever != podTemplateSpec.Spec.Containers[1].ImagePullPolicy {
+		t.Errorf("Exp. the proxy imagePullPolicy to be %q but was %q", v1.PullNever, podTemplateSpec.Spec.Containers[1].ImagePullPolicy)
+	}
+
 }
 
 // Return a fresh new PodTemplateSpec using provided node selectors.

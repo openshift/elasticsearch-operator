@@ -31,6 +31,13 @@ func getImage(commonImage string) string {
 	return image
 }
 
+func getImagePullPolicy(imagePullPolicy v1.PullPolicy) v1.PullPolicy {
+	if imagePullPolicy == "" {
+		return v1.PullIfNotPresent
+	}
+	return imagePullPolicy
+}
+
 func getNodeRoleMap(node api.ElasticsearchNode) map[api.ElasticsearchNodeRole]bool {
 	isClient := false
 	isData := false
@@ -160,12 +167,12 @@ func newAffinity(roleMap map[api.ElasticsearchNodeRole]bool) *v1.Affinity {
 	}
 }
 
-func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRequirements v1.ResourceRequirements) v1.Container {
+func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRequirements v1.ResourceRequirements, imagePullPolicy v1.PullPolicy) v1.Container {
 
 	return v1.Container{
 		Name:            "elasticsearch",
 		Image:           imageName,
-		ImagePullPolicy: "IfNotPresent",
+		ImagePullPolicy: imagePullPolicy,
 		Env:             envVars,
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
@@ -209,7 +216,7 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 	}
 }
 
-func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
+func newProxyContainer(imageName, clusterName string, imagePullPolicy v1.PullPolicy) (v1.Container, error) {
 	proxyCookieSecret, err := utils.RandStringBase64(16)
 	if err != nil {
 		return v1.Container{}, err
@@ -228,7 +235,7 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 	container := v1.Container{
 		Name:            "proxy",
 		Image:           imageName,
-		ImagePullPolicy: "IfNotPresent",
+		ImagePullPolicy: imagePullPolicy,
 		Ports: []v1.ContainerPort{
 			v1.ContainerPort{
 				Name:          "metrics",
@@ -358,8 +365,10 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client) v1.PodTemplateSpec {
 
 	resourceRequirements := newResourceRequirements(node.Resources, commonSpec.Resources)
+	imagePullPolicy := getImagePullPolicy(commonSpec.ImagePullPolicy)
 	proxyImage := utils.LookupEnvWithDefault("PROXY_IMAGE", "quay.io/openshift/origin-oauth-proxy:latest")
-	proxyContainer, _ := newProxyContainer(proxyImage, clusterName)
+	proxyImagePullPolicy := utils.LookupEnvWithDefault("PROXY_IMAGE_PULL_POLICY", string(imagePullPolicy))
+	proxyContainer, _ := newProxyContainer(proxyImage, clusterName, v1.PullPolicy(proxyImagePullPolicy))
 
 	selectors := mergeSelectors(node.NodeSelector, commonSpec.NodeSelector)
 	// We want to make sure the pod ends up allocated on linux node. Thus we make sure the
@@ -386,6 +395,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 					getImage(commonSpec.Image),
 					newEnvVars(nodeName, clusterName, resourceRequirements.Limits.Memory().String(), roleMap),
 					resourceRequirements,
+					imagePullPolicy,
 				),
 				proxyContainer,
 			},

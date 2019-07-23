@@ -91,10 +91,11 @@ type ElasticsearchNode struct {
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
 type ElasticsearchNodeSpec struct {
-	Image        string                  `json:"image,omitempty"`
-	Resources    v1.ResourceRequirements `json:"resources"`
-	NodeSelector map[string]string       `json:"nodeSelector,omitempty"`
-	Tolerations  []v1.Toleration         `json:"tolerations,omitempty"`
+	Image           string                  `json:"image,omitempty"`
+	Resources       v1.ResourceRequirements `json:"resources"`
+	NodeSelector    map[string]string       `json:"nodeSelector,omitempty"`
+	Tolerations     []v1.Toleration         `json:"tolerations,omitempty"`
+	ImagePullPolicy v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
 }
 
 type ElasticsearchStorageSpec struct {

@@ -30,6 +30,8 @@ spec:
               value: "elasticsearch-operator"
             - name: PROXY_IMAGE
               value: "quay.io/openshift/origin-oauth-proxy:v4.0.0"
+            - name: PROXY_IMAGE_PULL_POLICY
+              value: IfNotPresent
             - name: POD_NAME
               valueFrom:
                 fieldRef:
