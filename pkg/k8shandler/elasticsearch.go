@@ -623,6 +623,40 @@ func updateIndexReplicas(clusterName, namespace string, client client.Client, in
 	return (payload.StatusCode == 200 && acknowledged), payload.Error
 }
 
+func ensureTokenHeader(header http.Header) http.Header {
+
+	if header == nil {
+		header = map[string][]string{}
+	}
+
+	if saToken, ok := readSAToken(k8sTokenFile); ok {
+		header["x-forwarded-access-token"] = []string{
+			saToken,
+		}
+	}
+
+	return header
+}
+
+// we want to read each time so that we can be sure to have the most up to date
+// token in the case where our perms change and a new token is mounted
+func readSAToken(tokenFile string) (string, bool) {
+	// read from /var/run/secrets/kubernetes.io/serviceaccount/token
+	token, err := ioutil.ReadFile(tokenFile)
+
+	if err != nil {
+		logrus.Errorf("Unable to read auth token from file [%s]: %v", tokenFile, err)
+		return "", false
+	}
+
+	if len(token) == 0 {
+		logrus.Errorf("Unable to read auth token from file [%s]: empty token", tokenFile)
+		return "", false
+	}
+
+	return string(token), true
+}
+
 // This will curl the ES service and provide the certs required for doing so
 //  it will also return the http and string response
 func curlESService(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
@@ -670,13 +704,86 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 		return
 	}
 
+	request.Header = ensureTokenHeader(request.Header)
 	httpClient := getClient(clusterName, namespace, client)
+	resp, err := httpClient.Do(request)
+
+	if resp != nil {
+		// TODO: eventually remove after all ES images have been updated to use SA token auth for EO?
+		if resp.StatusCode == http.StatusForbidden ||
+			resp.StatusCode == http.StatusUnauthorized {
+			// if we get a 401 that means that we couldn't read from the token and provided
+			// no header.
+			// if we get a 403 that means the ES cluster doesn't allow us to use
+			// our SA token.
+			// in both cases, try the old way.
+
+			// Not sure why, but just trying to reuse the request with the old client
+			// resulted in a 400 every time. Doing it this way got a 200 response as expected.
+			curlESServiceOldClient(clusterName, namespace, payload, client)
+			return
+		}
+
+		payload.StatusCode = resp.StatusCode
+		payload.ResponseBody = getMapFromBody(resp.Body)
+	}
+
+	payload.Error = err
+}
+
+func curlESServiceOldClient(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
+
+	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
+	urlURL, err := url.Parse(urlString)
+
+	if err != nil {
+		logrus.Warnf("Unable to parse URL %v: %v", urlString, err)
+		return
+	}
+
+	request := &http.Request{
+		Method: payload.Method,
+		URL:    urlURL,
+	}
+
+	switch payload.Method {
+	case http.MethodGet:
+		// no more to do to request...
+	case http.MethodPost:
+		if payload.RequestBody != "" {
+			// add to the request
+			request.Header = map[string][]string{
+				"Content-Type": []string{
+					"application/json",
+				},
+			}
+			request.Body = ioutil.NopCloser(bytes.NewReader([]byte(payload.RequestBody)))
+		}
+
+	case http.MethodPut:
+		if payload.RequestBody != "" {
+			// add to the request
+			request.Header = map[string][]string{
+				"Content-Type": []string{
+					"application/json",
+				},
+			}
+			request.Body = ioutil.NopCloser(bytes.NewReader([]byte(payload.RequestBody)))
+		}
+
+	default:
+		// unsupported method -- do nothing
+		return
+	}
+
+	httpClient := getOldClient(clusterName, namespace, client)
 	resp, err := httpClient.Do(request)
 
 	if resp != nil {
 		payload.StatusCode = resp.StatusCode
 		payload.ResponseBody = getMapFromBody(resp.Body)
 	}
+
 	payload.Error = err
 }
 
@@ -724,6 +831,30 @@ func getClientCertificates(clusterName, namespace string) []tls.Certificate {
 }
 
 func getClient(clusterName, namespace string, client client.Client) *http.Client {
+
+	// http.Transport sourced from go 1.10.7
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			// we cannot rely on certificates as they may rotate and therefore would be invalid
+			// since ES listens on https and presents a server cert, we need to not verify it
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+}
+
+func getOldClient(clusterName, namespace string, client client.Client) *http.Client {
 
 	// get the contents of the secret
 	extractSecret(clusterName, namespace, client)
