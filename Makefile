@@ -23,7 +23,7 @@ RUN_PID?=elasticsearch-operator.pid
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
 #.PHONY: all build clean install uninstall fmt simplify check run
-.PHONY: all build clean fmt simplify run
+.PHONY: all build clean fmt simplify run sec
 
 all: build #check install
 
@@ -74,6 +74,10 @@ test-e2e:
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
+
+sec:
+	go get -u github.com/securego/gosec/cmd/gosec
+	gosec -severity medium -confidence medium -exclude G304 -quiet ./...
 
 fmt:
 	@gofmt -l -w cmd && \
