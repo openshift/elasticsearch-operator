@@ -297,6 +297,10 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 	}
 }
 
+func (node *statefulSetNode) delete() {
+	sdk.Delete(&node.self)
+}
+
 func (node *statefulSetNode) create() error {
 
 	if node.self.ObjectMeta.ResourceVersion == "" {

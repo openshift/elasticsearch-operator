@@ -16,6 +16,7 @@ type NodeTypeInterface interface {
 	progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error
 	name() string
 	updateReference(node NodeTypeInterface)
+	delete()
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment

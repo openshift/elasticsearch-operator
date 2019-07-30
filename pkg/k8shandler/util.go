@@ -109,11 +109,21 @@ func getClientCount(dpl *api.Elasticsearch) int32 {
 }
 
 func isValidMasterCount(dpl *api.Elasticsearch) bool {
+
+	if len(dpl.Spec.Nodes) == 0 {
+		return true
+	}
+
 	masterCount := int(getMasterCount(dpl))
 	return (masterCount <= maxMasterCount && masterCount > 0)
 }
 
 func isValidDataCount(dpl *api.Elasticsearch) bool {
+
+	if len(dpl.Spec.Nodes) == 0 {
+		return true
+	}
+
 	dataCount := int(getDataCount(dpl))
 	return dataCount > 0
 }
@@ -145,6 +155,7 @@ func isValidConf(dpl *api.Elasticsearch) error {
 			return err
 		}
 	}
+
 	if !isValidDataCount(dpl) {
 		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidDataCountCondition); err != nil {
 			return err
@@ -155,6 +166,7 @@ func isValidConf(dpl *api.Elasticsearch) error {
 			return err
 		}
 	}
+
 	if !isValidRedundancyPolicy(dpl) {
 		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition); err != nil {
 			return err
