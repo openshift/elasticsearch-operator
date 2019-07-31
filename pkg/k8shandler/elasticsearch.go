@@ -845,6 +845,7 @@ func getClient(clusterName, namespace string, client client.Client) *http.Client
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
+			// #nosec
 			// we cannot rely on certificates as they may rotate and therefore would be invalid
 			// since ES listens on https and presents a server cert, we need to not verify it
 			TLSClientConfig: &tls.Config{
@@ -904,7 +905,7 @@ func extractSecret(secretName, namespace string, client client.Client) {
 
 	// make sure that the dir === secretName exists
 	if _, err := os.Stat(path.Join(certLocalPath, secretName)); os.IsNotExist(err) {
-		err = os.MkdirAll(path.Join(certLocalPath, secretName), 0755)
+		err = os.MkdirAll(path.Join(certLocalPath, secretName), 0750)
 		if err != nil {
 			logrus.Errorf("Error creating dir %v: %v", path.Join(certLocalPath, secretName), err)
 		}
