@@ -1,6 +1,7 @@
 package k8shandler
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -404,7 +405,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
-		t.Errorf("Exp. the tolerations to be %q but was %q", expectedTolerations, podTemplateSpec.Spec.Tolerations)
+		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
 	}
 }
 
@@ -542,24 +543,7 @@ func buildNoCPULimitResource(cpuRequest, memLimit, memRequest resource.Quantity)
 }
 
 func areResourcesSame(lhs, rhs v1.ResourceRequirements) bool {
-
-	if !areQuantitiesSame(lhs.Limits.Cpu(), rhs.Limits.Cpu()) {
-		return false
-	}
-
-	if !areQuantitiesSame(lhs.Requests.Cpu(), rhs.Requests.Cpu()) {
-		return false
-	}
-
-	if !areQuantitiesSame(lhs.Limits.Memory(), rhs.Limits.Memory()) {
-		return false
-	}
-
-	if !areQuantitiesSame(lhs.Requests.Memory(), rhs.Requests.Memory()) {
-		return false
-	}
-
-	return true
+	return reflect.DeepEqual(lhs, rhs)
 }
 
 func areQuantitiesSame(lhs, rhs *resource.Quantity) bool {
@@ -567,38 +551,9 @@ func areQuantitiesSame(lhs, rhs *resource.Quantity) bool {
 }
 
 func printResource(resource v1.ResourceRequirements) string {
-	pretty := "\n{\n"
-
-	memLimit := resource.Limits.Memory()
-	memRequest := resource.Requests.Memory()
-	cpuLimit := resource.Limits.Cpu()
-	cpuRequest := resource.Requests.Cpu()
-
-	if !memRequest.IsZero() || !cpuRequest.IsZero() {
-		pretty = fmt.Sprintf("%s\tRequest:\n", pretty)
-
-		if !memRequest.IsZero() {
-			pretty = fmt.Sprintf("%s\t\tMemory: %s\n", pretty, memRequest)
-		}
-
-		if !cpuRequest.IsZero() {
-			pretty = fmt.Sprintf("%s\t\tCpu: %s\n", pretty, cpuRequest)
-		}
+	pretty, err := json.MarshalIndent(resource, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshalling to json: %v", pretty)
 	}
-
-	if !memLimit.IsZero() || !cpuLimit.IsZero() {
-		pretty = fmt.Sprintf("%s\tLimit:\n", pretty)
-
-		if !memLimit.IsZero() {
-			pretty = fmt.Sprintf("%s\t\tMemory: %s\n", pretty, memLimit)
-		}
-
-		if !cpuLimit.IsZero() {
-			pretty = fmt.Sprintf("%s\t\tCpu: %s\n", pretty, cpuLimit)
-		}
-	}
-
-	pretty = fmt.Sprintf("%s}\n", pretty)
-
-	return pretty
+	return string(pretty)
 }
