@@ -1,6 +1,7 @@
 package k8shandler
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -466,6 +467,13 @@ func (node *deploymentNode) executeUpdate() error {
 		// isChanged() will get the latest revision from the apiserver
 		// and return false if there is nothing to change and will update the node object if required
 		if node.isChanged() {
+			if logrus.GetLevel() == logrus.DebugLevel {
+				pretty, err := json.MarshalIndent(node.self, "", "  ")
+				if err != nil {
+					logrus.Debugf("Error marshalling node deployment for debug log: %v", err)
+				}
+				logrus.Debugf("Attempting to update node deployment: %+v", string(pretty))
+			}
 			if updateErr := sdk.Update(&node.self); updateErr != nil {
 				logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
 				return updateErr
@@ -542,6 +550,12 @@ func (node *deploymentNode) isChanged() bool {
 		nodeContainer := node.self.Spec.Template.Spec.Containers[index]
 		desiredContainer := desired.Spec.Template.Spec.Containers[index]
 
+		if nodeContainer.Image != desiredContainer.Image {
+			logrus.Debugf("Resource '%s' has different container image than desired", node.self.Name)
+			nodeContainer.Image = desiredContainer.Image
+			changed = true
+		}
+
 		if nodeContainer.Resources.Requests == nil {
 			nodeContainer.Resources.Requests = v1.ResourceList{}
 		}
@@ -550,40 +564,65 @@ func (node *deploymentNode) isChanged() bool {
 			nodeContainer.Resources.Limits = v1.ResourceList{}
 		}
 
-		// check that both exist
-
-		if nodeContainer.Image != desiredContainer.Image {
-			logrus.Debugf("Resource '%s' has different container image than desired", node.self.Name)
-			nodeContainer.Image = desiredContainer.Image
+		var updatedContainer v1.Container
+		var resourceUpdated bool
+		if updatedContainer, resourceUpdated = updateResources(node, nodeContainer, desiredContainer); resourceUpdated {
 			changed = true
 		}
 
-		if desiredContainer.Resources.Limits.Cpu().Cmp(*nodeContainer.Resources.Limits.Cpu()) != 0 {
-			logrus.Debugf("Resource '%s' has different CPU limit than desired", node.self.Name)
-			nodeContainer.Resources.Limits[v1.ResourceCPU] = *desiredContainer.Resources.Limits.Cpu()
-			changed = true
-		}
-		// Check memory limits
-		if desiredContainer.Resources.Limits.Memory().Cmp(*nodeContainer.Resources.Limits.Memory()) != 0 {
-			logrus.Debugf("Resource '%s' has different Memory limit than desired", node.self.Name)
-			nodeContainer.Resources.Limits[v1.ResourceMemory] = *desiredContainer.Resources.Limits.Memory()
-			changed = true
-		}
-		// Check CPU requests
-		if desiredContainer.Resources.Requests.Cpu().Cmp(*nodeContainer.Resources.Requests.Cpu()) != 0 {
-			logrus.Debugf("Resource '%s' has different CPU Request than desired", node.self.Name)
-			nodeContainer.Resources.Requests[v1.ResourceCPU] = *desiredContainer.Resources.Requests.Cpu()
-			changed = true
-		}
-		// Check memory requests
-		if desiredContainer.Resources.Requests.Memory().Cmp(*nodeContainer.Resources.Requests.Memory()) != 0 {
-			logrus.Debugf("Resource '%s' has different Memory Request than desired", node.self.Name)
-			nodeContainer.Resources.Requests[v1.ResourceMemory] = *desiredContainer.Resources.Requests.Memory()
-			changed = true
-		}
-
-		node.self.Spec.Template.Spec.Containers[index] = nodeContainer
+		node.self.Spec.Template.Spec.Containers[index] = updatedContainer
 	}
 
 	return changed
+}
+
+//updateResources for the node; return true if an actual change is made
+func updateResources(node *deploymentNode, nodeContainer, desiredContainer v1.Container) (v1.Container, bool) {
+	changed := false
+	if nodeContainer.Resources.Requests == nil {
+		nodeContainer.Resources.Requests = v1.ResourceList{}
+	}
+
+	if nodeContainer.Resources.Limits == nil {
+		nodeContainer.Resources.Limits = v1.ResourceList{}
+	}
+
+	// Check CPU limits
+	if desiredContainer.Resources.Limits.Cpu().Cmp(*nodeContainer.Resources.Limits.Cpu()) != 0 {
+		logrus.Debugf("Resource '%s' has different CPU (%+v) limit than desired (%+v)", node.self.Name, *nodeContainer.Resources.Limits.Cpu(), desiredContainer.Resources.Limits.Cpu())
+		nodeContainer.Resources.Limits[v1.ResourceCPU] = *desiredContainer.Resources.Limits.Cpu()
+		if nodeContainer.Resources.Limits.Cpu().IsZero() {
+			delete(nodeContainer.Resources.Limits, v1.ResourceCPU)
+		}
+		changed = true
+	}
+	// Check memory limits
+	if desiredContainer.Resources.Limits.Memory().Cmp(*nodeContainer.Resources.Limits.Memory()) != 0 {
+		logrus.Debugf("Resource '%s' has different Memory limit than desired", node.self.Name)
+		nodeContainer.Resources.Limits[v1.ResourceMemory] = *desiredContainer.Resources.Limits.Memory()
+		if nodeContainer.Resources.Limits.Memory().IsZero() {
+			delete(nodeContainer.Resources.Limits, v1.ResourceMemory)
+		}
+		changed = true
+	}
+	// Check CPU requests
+	if desiredContainer.Resources.Requests.Cpu().Cmp(*nodeContainer.Resources.Requests.Cpu()) != 0 {
+		logrus.Debugf("Resource '%s' has different CPU Request than desired", node.self.Name)
+		nodeContainer.Resources.Requests[v1.ResourceCPU] = *desiredContainer.Resources.Requests.Cpu()
+		if nodeContainer.Resources.Requests.Cpu().IsZero() {
+			delete(nodeContainer.Resources.Requests, v1.ResourceCPU)
+		}
+		changed = true
+	}
+	// Check memory requests
+	if desiredContainer.Resources.Requests.Memory().Cmp(*nodeContainer.Resources.Requests.Memory()) != 0 {
+		logrus.Debugf("Resource '%s' has different Memory Request than desired", node.self.Name)
+		nodeContainer.Resources.Requests[v1.ResourceMemory] = *desiredContainer.Resources.Requests.Memory()
+		if nodeContainer.Resources.Requests.Memory().IsZero() {
+			delete(nodeContainer.Resources.Requests, v1.ResourceMemory)
+		}
+		changed = true
+	}
+
+	return nodeContainer, changed
 }
