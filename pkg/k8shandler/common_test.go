@@ -1,10 +1,15 @@
 package k8shandler
 
 import (
+	"encoding/json"
+	"fmt"
+	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
 var (
@@ -14,7 +19,6 @@ var (
 	nodeCpuValue = resource.MustParse("600m")
 	nodeMemValue = resource.MustParse("3Gi")
 
-	defaultTestCpuLimit   = resource.MustParse(defaultCPULimit)
 	defaultTestCpuRequest = resource.MustParse(defaultCPURequest)
 	defaultTestMemLimit   = resource.MustParse(defaultMemoryLimit)
 	defaultTestMemRequest = resource.MustParse(defaultMemoryRequest)
@@ -44,7 +48,7 @@ var (
 
   6. common has request only
      node has no settings
-     -> request and limit set to be same and use common settings
+     -> cpu/mem request and mem limit set to be same and use common settings
 
   7. common has limit only
      node has no settings
@@ -52,7 +56,7 @@ var (
 
   8. common has no settings
      node only has request
-     -> request and limit set to be same and use node settings
+     -> cpu/mem request and mem limit set to be same and use node settings
 
   9. common has no settings
      node only has limit
@@ -94,7 +98,7 @@ func TestResourcesCommonAndNodeDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -120,7 +124,7 @@ func TestResourcesNoNodeDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -131,8 +135,7 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 
 	nodeRequirements := v1.ResourceRequirements{}
 
-	expected := buildResource(
-		defaultTestCpuLimit,
+	expected := buildNoCPULimitResource(
 		defaultTestCpuRequest,
 		defaultTestMemLimit,
 		defaultTestMemRequest,
@@ -141,7 +144,7 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -170,7 +173,7 @@ func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -199,7 +202,7 @@ func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -213,8 +216,7 @@ func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
 
 	nodeRequirements := v1.ResourceRequirements{}
 
-	expected := buildResource(
-		commonCpuValue,
+	expected := buildNoCPULimitResource(
 		commonCpuValue,
 		commonMemValue,
 		commonMemValue,
@@ -223,7 +225,7 @@ func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -247,7 +249,7 @@ func TestResourcesCommonLimitAndNoNodeDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -261,8 +263,7 @@ func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	expected := buildResource(
-		nodeCpuValue,
+	expected := buildNoCPULimitResource(
 		nodeCpuValue,
 		nodeMemValue,
 		nodeMemValue,
@@ -271,7 +272,7 @@ func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -295,7 +296,7 @@ func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -322,7 +323,7 @@ func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -349,7 +350,7 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 	actual := newResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
+		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
 	}
 }
 
@@ -389,7 +390,113 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 	} else {
 		t.Errorf("Proxy container is missing memory limit. Expected limit %s", expectedMemory.String())
 	}
+}
 
+func TestPodSpecHasTaintTolerations(t *testing.T) {
+
+	expectedTolerations := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
+
+	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
+		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
+	}
+}
+
+// All pods created by Elasticsearch operator needs to be allocated to linux nodes.
+// See LOG-411
+func TestPodNodeSelectors(t *testing.T) {
+
+	var podSpec v1.PodSpec
+
+	// Create podSpecTemplate providing nil/empty node selectors, we expect the PodTemplateSpec.Spec selectors
+	// will contain only the linux allocation selector.
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(nil).Spec
+
+	if podSpec.NodeSelector == nil {
+		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
+	}
+	if len(podSpec.NodeSelector) != 1 {
+		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
+	}
+	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+
+	// Create podSpecTemplate providing some custom node selectors, we expect the PodTemplateSpec.Spec selectors
+	// will add linux node selector.
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{"foo": "bar", "baz": "foo"}).Spec
+
+	if podSpec.NodeSelector == nil {
+		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
+	}
+	if len(podSpec.NodeSelector) != 3 {
+		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
+	}
+	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+
+	// Create podSpecTemplate providing node selector with some custom value, we expect the PodTemplateSpec.Spec selector
+	// will override the node selector to linux one.
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{OsNodeLabel: "foo"}).Spec
+
+	if podSpec.NodeSelector == nil {
+		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
+	}
+	if len(podSpec.NodeSelector) != 1 {
+		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
+	}
+	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	}
+}
+
+func TestPodDiskToleration(t *testing.T) {
+
+	expectedToleration := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	// Create podSpecTemplate providing nil/empty tolerations, we expect the PodTemplateSpec.Spec tolerations
+	// will contain only the disk usage toleration
+	podSpec := preparePodTemplateSpecProvidingNodeSelectors(nil).Spec
+
+	if podSpec.Tolerations == nil {
+		t.Errorf("Exp. the toleration to contains the disk usage toleration but was %T", podSpec.Tolerations)
+	}
+	if len(podSpec.Tolerations) != 1 {
+		t.Errorf("Exp. single toleration but %d were found", len(podSpec.Tolerations))
+	}
+	if !areTolerationsSame(podSpec.Tolerations, expectedToleration) {
+		t.Errorf("Exp. the tolerations to contain %v", expectedToleration)
+	}
+}
+
+// Return a fresh new PodTemplateSpec using provided node selectors.
+// Resulting selectors set always contains also the node selector with value of "linux", see LOG-411
+// This function wraps the call to newPodTempalteSpec in case its signature changes in the future
+// so that keeping unit tests up to date will be easier.
+func preparePodTemplateSpecProvidingNodeSelectors(selectors map[string]string) v1.PodTemplateSpec {
+	return newPodTemplateSpec(
+		"test-node-name",
+		"test-cluster-name",
+		"test-namespace-name",
+		api.ElasticsearchNode{NodeSelector: selectors},
+		api.ElasticsearchNodeSpec{},
+		map[string]string{},
+		map[api.ElasticsearchNodeRole]bool{},
+		nil)
 }
 
 func buildResource(cpuLimit, cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
@@ -423,27 +530,30 @@ func buildResourceOnlyLimits(cpuLimit, memLimit resource.Quantity) v1.ResourceRe
 	}
 }
 
+func buildNoCPULimitResource(cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
+	return v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			v1.ResourceMemory: memLimit,
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuRequest,
+			v1.ResourceMemory: memRequest,
+		},
+	}
+}
+
 func areResourcesSame(lhs, rhs v1.ResourceRequirements) bool {
-
-	if !areQuantitiesSame(lhs.Limits.Cpu(), rhs.Limits.Cpu()) {
-		return false
-	}
-
-	if !areQuantitiesSame(lhs.Requests.Cpu(), rhs.Requests.Cpu()) {
-		return false
-	}
-
-	if !areQuantitiesSame(lhs.Limits.Memory(), rhs.Limits.Memory()) {
-		return false
-	}
-
-	if !areQuantitiesSame(lhs.Requests.Memory(), rhs.Requests.Memory()) {
-		return false
-	}
-
-	return true
+	return reflect.DeepEqual(lhs, rhs)
 }
 
 func areQuantitiesSame(lhs, rhs *resource.Quantity) bool {
 	return lhs.Cmp(*rhs) == 0
+}
+
+func printResource(resource v1.ResourceRequirements) string {
+	pretty, err := json.MarshalIndent(resource, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshalling to json: %v", pretty)
+	}
+	return string(pretty)
 }

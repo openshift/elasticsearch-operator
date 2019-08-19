@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestSelectorsBothUndefined(t *testing.T) {
@@ -153,6 +154,37 @@ func TestInvalidRedundancyPolicySpecified(t *testing.T) {
 
 }
 
+func TestValidNoNodesSpecified(t *testing.T) {
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{},
+		},
+	}
+
+	isValid := isValidMasterCount(esCR)
+
+	if !isValid {
+		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid master count")
+	}
+
+	isValid = isValidDataCount(esCR)
+
+	if !isValid {
+		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid data count")
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if !isValid {
+		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid redundancy policy")
+	}
+
+	if ok, msg := hasValidUUIDs(esCR); !ok {
+		t.Errorf("Expected no nodes defined to be flagged as valid, was found to be invalid UUIDs: %v", msg)
+	}
+}
+
 func TestValidReplicaCount(t *testing.T) {
 
 	dataNodeCount := 5
@@ -223,4 +255,125 @@ func TestSingleNodeNoReplicaCount(t *testing.T) {
 		t.Errorf("Expected ZeroRedundancy, when no policy is specified and cluster has only 1 data node, got %d replica shards", rc)
 	}
 
+}
+
+func TestNoTolerations(t *testing.T) {
+	commonTolerations := []v1.Toleration{}
+
+	nodeTolerations := []v1.Toleration{}
+
+	expected := []v1.Toleration{}
+
+	actual := appendTolerations(nodeTolerations, commonTolerations)
+
+	if !areTolerationsSame(actual, expected) {
+		t.Errorf("Expected %v but got %v", expected, actual)
+	}
+}
+
+func TestNoNodeTolerations(t *testing.T) {
+	commonTolerations := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	nodeTolerations := []v1.Toleration{}
+
+	expected := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	actual := appendTolerations(nodeTolerations, commonTolerations)
+
+	if !areTolerationsSame(actual, expected) {
+		t.Errorf("Expected %v but got %v", expected, actual)
+	}
+}
+
+func TestNoCommonTolerations(t *testing.T) {
+	commonTolerations := []v1.Toleration{}
+
+	nodeTolerations := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	expected := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	actual := appendTolerations(nodeTolerations, commonTolerations)
+
+	if !areTolerationsSame(actual, expected) {
+		t.Errorf("Expected %v but got %v", expected, actual)
+	}
+}
+
+func TestTolerations(t *testing.T) {
+	commonTolerations := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	nodeTolerations := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/memory-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	expected := []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+		v1.Toleration{
+			Key:      "node.kubernetes.io/memory-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	actual := appendTolerations(nodeTolerations, commonTolerations)
+
+	if !areTolerationsSame(actual, expected) {
+		t.Errorf("Expected %v but got %v", expected, actual)
+	}
+
+	// ensure that ordering does not make a difference
+	expected = []v1.Toleration{
+		v1.Toleration{
+			Key:      "node.kubernetes.io/memory-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+		v1.Toleration{
+			Key:      "node.kubernetes.io/disk-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	if !areTolerationsSame(actual, expected) {
+		t.Errorf("Expected %v but got %v", expected, actual)
+	}
 }

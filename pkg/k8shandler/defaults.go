@@ -11,9 +11,7 @@ const (
 	modeSharedOps = "shared_ops"
 	defaultMode   = modeSharedOps
 
-	defaultMasterCPULimit     = "100m"
 	defaultMasterCPURequest   = "100m"
-	defaultCPULimit           = "4000m"
 	defaultCPURequest         = "100m"
 	defaultMemoryLimit        = "4Gi"
 	defaultMemoryRequest      = "1Gi"
@@ -24,6 +22,8 @@ const (
 	elasticsearchCertsPath  = "/etc/openshift/elasticsearch/secret"
 	elasticsearchConfigPath = "/usr/share/java/elasticsearch/config"
 	heapDumpLocation        = "/elasticsearch/persistent/heapdump.hprof"
+
+	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
 
 func kibanaIndexMode(mode string) (string, error) {

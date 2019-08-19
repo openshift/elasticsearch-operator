@@ -67,12 +67,7 @@ func GetShardAllocation(clusterName, namespace string, client client.Client) (st
 
 	curlESService(clusterName, namespace, payload, client)
 
-	allocation := ""
-	value := walkInterfaceMap("transient.cluster.routing.allocation.enable", payload.ResponseBody)
-
-	if allocationString, ok := value.(string); ok {
-		allocation = allocationString
-	}
+	allocation := parseString("transient.cluster.routing.allocation.enable", payload.ResponseBody)
 
 	return allocation, payload.Error
 }
@@ -224,6 +219,40 @@ func GetDiskWatermarks(clusterName, namespace string, client client.Client) (int
 	return low, high, payload.Error
 }
 
+func parseBool(path string, interfaceMap map[string]interface{}) bool {
+	value := walkInterfaceMap(path, interfaceMap)
+
+	if parsedBool, ok := value.(bool); ok {
+		return parsedBool
+	} else {
+		return false
+	}
+}
+
+func parseString(path string, interfaceMap map[string]interface{}) string {
+	value := walkInterfaceMap(path, interfaceMap)
+
+	if parsedString, ok := value.(string); ok {
+		return parsedString
+	} else {
+		return ""
+	}
+}
+
+func parseInt32(path string, interfaceMap map[string]interface{}) int32 {
+	return int32(parseFloat64(path, interfaceMap))
+}
+
+func parseFloat64(path string, interfaceMap map[string]interface{}) float64 {
+	value := walkInterfaceMap(path, interfaceMap)
+
+	if parsedFloat, ok := value.(float64); ok {
+		return parsedFloat
+	} else {
+		return float64(-1)
+	}
+}
+
 func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interface{} {
 
 	current := interfaceMap
@@ -322,7 +351,35 @@ func GetMinMasterNodes(clusterName, namespace string, client client.Client) (int
 	return masterCount, payload.Error
 }
 
-func GetClusterHealth(clusterName, namespace string, client client.Client) (string, error) {
+func GetClusterHealth(clusterName, namespace string, client client.Client) (api.ClusterHealth, error) {
+
+	clusterHealth := api.ClusterHealth{}
+
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    "_cluster/health",
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	if payload.Error != nil {
+		return clusterHealth, payload.Error
+	}
+
+	clusterHealth.Status = parseString("status", payload.ResponseBody)
+	clusterHealth.NumNodes = parseInt32("number_of_nodes", payload.ResponseBody)
+	clusterHealth.NumDataNodes = parseInt32("number_of_data_nodes", payload.ResponseBody)
+	clusterHealth.ActivePrimaryShards = parseInt32("active_primary_shards", payload.ResponseBody)
+	clusterHealth.ActiveShards = parseInt32("active_shards", payload.ResponseBody)
+	clusterHealth.RelocatingShards = parseInt32("relocating_shards", payload.ResponseBody)
+	clusterHealth.InitializingShards = parseInt32("initializing_shards", payload.ResponseBody)
+	clusterHealth.UnassignedShards = parseInt32("unassigned_shards", payload.ResponseBody)
+	clusterHealth.PendingTasks = parseInt32("number_of_pending_tasks", payload.ResponseBody)
+
+	return clusterHealth, nil
+}
+
+func GetClusterHealthStatus(clusterName, namespace string, client client.Client) (string, error) {
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
@@ -383,6 +440,223 @@ func DoSynchronizedFlush(clusterName, namespace string, client client.Client) (b
 	return (payload.StatusCode == 200), payload.Error
 }
 
+// This will idempompotently update the index templates and update indices' replica count
+func UpdateReplicaCount(clusterName, namespace string, client client.Client, replicaCount int32) (bool, error) {
+
+	if ok, _ := updateAllIndexTemplateReplicas(clusterName, namespace, client, replicaCount); ok {
+		if ok, _ = updateAllIndexReplicas(clusterName, namespace, client, replicaCount); ok {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func updateAllIndexReplicas(clusterName, namespace string, client client.Client, replicaCount int32) (bool, error) {
+
+	indexHealth, _ := getIndexHealth(clusterName, namespace, client)
+
+	// get list of indices and call updateIndexReplicas for each one
+	for index, health := range indexHealth {
+		// only update replicas for indices that don't have same replica count
+		if parseInt32("replicas", health.(map[string]interface{})) != replicaCount {
+			// best effort initially?
+			logrus.Debugf("Updating %v from %d replicas to %d", index, parseInt32("replicas", health.(map[string]interface{})), replicaCount)
+			updateIndexReplicas(clusterName, namespace, client, index, replicaCount)
+		}
+	}
+
+	return true, nil
+}
+
+func getIndexHealth(clusterName, namespace string, client client.Client) (map[string]interface{}, error) {
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    "_cat/indices?h=health,status,index,pri,rep",
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	response := make(map[string]interface{})
+	if payload, ok := payload.ResponseBody["results"].(string); ok {
+		response = parseIndexHealth(payload)
+	}
+
+	return response, payload.Error
+}
+
+// ---
+// method: GET
+// uri: _cat/indices?h=health,status,index,pri,rep
+// requestbody: ""
+// statuscode: 200
+// responsebody:
+//   results: |
+//	 	green open .searchguard           1 0
+//		green open .kibana                1 0
+//		green open .operations.2019.07.01 1 0
+// error: null
+func parseIndexHealth(results string) map[string]interface{} {
+
+	indexHealth := make(map[string]interface{})
+
+	for _, result := range strings.Split(results, "\n") {
+
+		fields := []string{}
+		for _, val := range strings.Split(result, " ") {
+			if len(val) > 0 {
+				fields = append(fields, val)
+			}
+		}
+
+		if len(fields) == 5 {
+			primary, err := strconv.ParseFloat(fields[3], 64)
+			if err != nil {
+				primary = float64(-1)
+			}
+			replicas, err := strconv.ParseFloat(fields[4], 64)
+			if err != nil {
+				replicas = float64(-1)
+			}
+
+			indexHealth[fields[2]] = map[string]interface{}{
+				"health":   fields[0],
+				"status":   fields[1],
+				"primary":  primary,
+				"replicas": replicas,
+			}
+		}
+	}
+
+	return indexHealth
+}
+
+func updateAllIndexTemplateReplicas(clusterName, namespace string, client client.Client, replicaCount int32) (bool, error) {
+
+	// get list of all common.* index templates and update their replica count for each one
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    "_cat/templates/common.*",
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	commonTemplates := []string{}
+	if payload, ok := payload.ResponseBody["results"].(string); ok {
+		for _, result := range strings.Split(payload, "\n") {
+
+			fields := []string{}
+			for _, val := range strings.Split(result, " ") {
+				if len(val) > 0 {
+					fields = append(fields, val)
+				}
+			}
+
+			if len(fields) == 1 {
+				commonTemplates = append(commonTemplates, fields[0])
+			}
+		}
+	}
+
+	for _, template := range commonTemplates {
+		updateIndexTemplateReplicas(clusterName, namespace, client, template, replicaCount)
+	}
+
+	return true, nil
+}
+
+func updateIndexTemplateReplicas(clusterName, namespace string, client client.Client, templateName string, replicaCount int32) (bool, error) {
+
+	// get the index template and then update the replica and put it
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    fmt.Sprintf("_template/%s", templateName),
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	if template, ok := payload.ResponseBody[templateName].(map[string]interface{}); ok {
+		if settings, ok := template["settings"].(map[string]interface{}); ok {
+			if index, ok := settings["index"].(map[string]interface{}); ok {
+				currentReplicas, ok := index["number_of_replicas"].(string)
+				if ok && currentReplicas != fmt.Sprintf("%d", replicaCount) {
+					template["settings"].(map[string]interface{})["index"].(map[string]interface{})["number_of_replicas"] = fmt.Sprintf("%d", replicaCount)
+
+					templateJson, _ := json.Marshal(template)
+
+					logrus.Debugf("Updating template %v from %s replicas to %d", templateName, currentReplicas, replicaCount)
+
+					payload = &esCurlStruct{
+						Method:      http.MethodPut,
+						URI:         fmt.Sprintf("_template/%s", templateName),
+						RequestBody: string(templateJson),
+					}
+
+					curlESService(clusterName, namespace, payload, client)
+
+					acknowledged := false
+					if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+						acknowledged = acknowledgedBool
+					}
+					return (payload.StatusCode == 200 && acknowledged), payload.Error
+				}
+			}
+		}
+	}
+
+	return false, payload.Error
+}
+
+func updateIndexReplicas(clusterName, namespace string, client client.Client, index string, replicaCount int32) (bool, error) {
+	payload := &esCurlStruct{
+		Method:      http.MethodPut,
+		URI:         fmt.Sprintf("%s/_settings", index),
+		RequestBody: fmt.Sprintf("{%q:\"%d\"}}", "index.number_of_replicas", replicaCount),
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	acknowledged := false
+	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+		acknowledged = acknowledgedBool
+	}
+	return (payload.StatusCode == 200 && acknowledged), payload.Error
+}
+
+func ensureTokenHeader(header http.Header) http.Header {
+
+	if header == nil {
+		header = map[string][]string{}
+	}
+
+	if saToken, ok := readSAToken(k8sTokenFile); ok {
+		header["x-forwarded-access-token"] = []string{
+			saToken,
+		}
+	}
+
+	return header
+}
+
+// we want to read each time so that we can be sure to have the most up to date
+// token in the case where our perms change and a new token is mounted
+func readSAToken(tokenFile string) (string, bool) {
+	// read from /var/run/secrets/kubernetes.io/serviceaccount/token
+	token, err := ioutil.ReadFile(tokenFile)
+
+	if err != nil {
+		logrus.Errorf("Unable to read auth token from file [%s]: %v", tokenFile, err)
+		return "", false
+	}
+
+	if len(token) == 0 {
+		logrus.Errorf("Unable to read auth token from file [%s]: empty token", tokenFile)
+		return "", false
+	}
+
+	return string(token), true
+}
+
 // This will curl the ES service and provide the certs required for doing so
 //  it will also return the http and string response
 func curlESService(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
@@ -430,13 +704,86 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 		return
 	}
 
+	request.Header = ensureTokenHeader(request.Header)
 	httpClient := getClient(clusterName, namespace, client)
+	resp, err := httpClient.Do(request)
+
+	if resp != nil {
+		// TODO: eventually remove after all ES images have been updated to use SA token auth for EO?
+		if resp.StatusCode == http.StatusForbidden ||
+			resp.StatusCode == http.StatusUnauthorized {
+			// if we get a 401 that means that we couldn't read from the token and provided
+			// no header.
+			// if we get a 403 that means the ES cluster doesn't allow us to use
+			// our SA token.
+			// in both cases, try the old way.
+
+			// Not sure why, but just trying to reuse the request with the old client
+			// resulted in a 400 every time. Doing it this way got a 200 response as expected.
+			curlESServiceOldClient(clusterName, namespace, payload, client)
+			return
+		}
+
+		payload.StatusCode = resp.StatusCode
+		payload.ResponseBody = getMapFromBody(resp.Body)
+	}
+
+	payload.Error = err
+}
+
+func curlESServiceOldClient(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
+
+	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
+	urlURL, err := url.Parse(urlString)
+
+	if err != nil {
+		logrus.Warnf("Unable to parse URL %v: %v", urlString, err)
+		return
+	}
+
+	request := &http.Request{
+		Method: payload.Method,
+		URL:    urlURL,
+	}
+
+	switch payload.Method {
+	case http.MethodGet:
+		// no more to do to request...
+	case http.MethodPost:
+		if payload.RequestBody != "" {
+			// add to the request
+			request.Header = map[string][]string{
+				"Content-Type": []string{
+					"application/json",
+				},
+			}
+			request.Body = ioutil.NopCloser(bytes.NewReader([]byte(payload.RequestBody)))
+		}
+
+	case http.MethodPut:
+		if payload.RequestBody != "" {
+			// add to the request
+			request.Header = map[string][]string{
+				"Content-Type": []string{
+					"application/json",
+				},
+			}
+			request.Body = ioutil.NopCloser(bytes.NewReader([]byte(payload.RequestBody)))
+		}
+
+	default:
+		// unsupported method -- do nothing
+		return
+	}
+
+	httpClient := getOldClient(clusterName, namespace, client)
 	resp, err := httpClient.Do(request)
 
 	if resp != nil {
 		payload.StatusCode = resp.StatusCode
 		payload.ResponseBody = getMapFromBody(resp.Body)
 	}
+
 	payload.Error = err
 }
 
@@ -484,6 +831,31 @@ func getClientCertificates(clusterName, namespace string) []tls.Certificate {
 }
 
 func getClient(clusterName, namespace string, client client.Client) *http.Client {
+
+	// http.Transport sourced from go 1.10.7
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			// #nosec
+			// we cannot rely on certificates as they may rotate and therefore would be invalid
+			// since ES listens on https and presents a server cert, we need to not verify it
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+}
+
+func getOldClient(clusterName, namespace string, client client.Client) *http.Client {
 
 	// get the contents of the secret
 	extractSecret(clusterName, namespace, client)
@@ -533,7 +905,7 @@ func extractSecret(secretName, namespace string, client client.Client) {
 
 	// make sure that the dir === secretName exists
 	if _, err := os.Stat(path.Join(certLocalPath, secretName)); os.IsNotExist(err) {
-		err = os.MkdirAll(path.Join(certLocalPath, secretName), 0755)
+		err = os.MkdirAll(path.Join(certLocalPath, secretName), 0750)
 		if err != nil {
 			logrus.Errorf("Error creating dir %v: %v", path.Join(certLocalPath, secretName), err)
 		}
