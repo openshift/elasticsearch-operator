@@ -21,8 +21,8 @@ RUN_PID?=elasticsearch-operator.pid
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
-#.PHONY: all build clean install uninstall fmt simplify check run
-.PHONY: all build clean fmt simplify run
+#.PHONY: all build clean install uninstall fmt simplify check 
+.PHONY: all build clean fmt simplify
 
 all: build #check install
 
@@ -108,6 +108,14 @@ go-run: deploy deploy-example
 	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
 	KUBERNETES_CONFIG=/etc/origin/master/admin.kubeconfig \
 	go run cmd/elasticsearch-operator/main.go > $(RUN_LOG) 2>&1 & echo $$! > $(RUN_PID)
+
+run-local:
+	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \
+	RULES_FILE_PATH=files/prometheus_rules.yml \
+	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
+	KUBERNETES_CONFIG=$(KUBECONFIG) \
+	go run ${MAIN_PKG} LOG_LEVEL=debug
+.PHONY: run-local
 
 undeploy:
 	hack/undeploy.sh
