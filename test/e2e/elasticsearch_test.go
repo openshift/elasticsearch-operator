@@ -197,6 +197,30 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	}
 	t.Log("Created non-data statefulset")
 
+	// Scale up to SingleRedundancy
+	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {
+		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
+	}
+	exampleElasticsearch.Spec.RedundancyPolicy = elasticsearch.SingleRedundancy
+	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
+	if err != nil {
+		return fmt.Errorf("could not update exampleElasticsearch to be SingleRedundancy: %v", err)
+	}
+
+	/*
+	FIXME: this is commented out as we currently do not run our e2e tests in a container on the test cluster
+	 to be added back in as a follow up
+	err = utils.WaitForIndexTemplateReplicas(t, f.KubeClient, namespace, "example-elasticsearch", 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for all index templates to have correct replica count")
+	}
+
+	err = utils.WaitForIndexReplicas(t, f.KubeClient, namespace, "example-elasticsearch", 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for all indices to have correct replica count")
+	}
+	*/
+
 	// Incorrect scale up and verify we don't see a 4th master created
 	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {
 		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
@@ -230,7 +254,6 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 }
 
 func ElasticsearchCluster(t *testing.T) {
-	t.Parallel()
 	ctx := framework.NewTestCtx(t)
 	defer ctx.Cleanup()
 	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
