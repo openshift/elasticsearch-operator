@@ -19,6 +19,7 @@ type NodeTypeInterface interface {
 	name() string
 	updateReference(node NodeTypeInterface)
 	delete()
+	isMissing() bool
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment
