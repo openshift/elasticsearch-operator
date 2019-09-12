@@ -295,6 +295,17 @@ func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 	return err, (err == nil)
 }
 
+func (node *deploymentNode) isMissing() bool {
+	getNode := &apps.Deployment{}
+	if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: node.self.Namespace}, getNode); getErr != nil {
+		if errors.IsNotFound(getErr) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
@@ -350,6 +361,11 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
+
+		// if the node doesn't exist -- create it
+		if node.isMissing() {
+			node.create()
+		}
 
 		if err := node.setReplicaCount(1); err != nil {
 			logrus.Warnf("Unable to scale up %v", node.name())
