@@ -71,6 +71,38 @@ func createRequiredSecret(f *framework.Framework, ctx *framework.TestCtx) error 
 	return nil
 }
 
+func updateRequiredSecret(f *framework.Framework, ctx *framework.TestCtx) error {
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		return fmt.Errorf("Could not get namespace: %v", err)
+	}
+
+	elasticsearchSecret := &v1.Secret{}
+
+	secretName := types.NamespacedName{Name: elasticsearchCRName, Namespace: namespace}
+	if err = f.Client.Get(goctx.TODO(), secretName, elasticsearchSecret); err != nil {
+		return fmt.Errorf("Could not get secret %s: %v", elasticsearchCRName, err)
+	}
+
+	elasticsearchSecret.Data = map[string][]byte{
+		"elasticsearch.key": utils.GetFileContents("test/files/elasticsearch.key"),
+		"elasticsearch.crt": utils.GetFileContents("test/files/elasticsearch.crt"),
+		"logging-es.key":    utils.GetFileContents("test/files/logging-es.key"),
+		"logging-es.crt":    utils.GetFileContents("test/files/logging-es.crt"),
+		"admin-key":         utils.GetFileContents("test/files/system.admin.key"),
+		"admin-cert":        utils.GetFileContents("test/files/system.admin.crt"),
+		"admin-ca":          utils.GetFileContents("test/files/ca.crt"),
+		"dummy":             []byte("blah"),
+	}
+
+	err = f.Client.Update(goctx.TODO(), elasticsearchSecret)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
 	namespace, err := ctx.GetNamespace()
 	if err != nil {
@@ -208,18 +240,60 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	}
 
 	/*
-	FIXME: this is commented out as we currently do not run our e2e tests in a container on the test cluster
-	 to be added back in as a follow up
-	err = utils.WaitForIndexTemplateReplicas(t, f.KubeClient, namespace, "example-elasticsearch", 1, retryInterval, timeout)
+		FIXME: this is commented out as we currently do not run our e2e tests in a container on the test cluster
+		 to be added back in as a follow up
+		err = utils.WaitForIndexTemplateReplicas(t, f.KubeClient, namespace, "example-elasticsearch", 1, retryInterval, timeout)
+		if err != nil {
+			return fmt.Errorf("timed out waiting for all index templates to have correct replica count")
+		}
+
+		err = utils.WaitForIndexReplicas(t, f.KubeClient, namespace, "example-elasticsearch", 1, retryInterval, timeout)
+		if err != nil {
+			return fmt.Errorf("timed out waiting for all indices to have correct replica count")
+		}
+	*/
+
+	// Update the secret to force a full cluster redeploy
+	err = updateRequiredSecret(f, ctx)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for all index templates to have correct replica count")
+		return fmt.Errorf("Unable to update secret")
 	}
 
-	err = utils.WaitForIndexReplicas(t, f.KubeClient, namespace, "example-elasticsearch", 1, retryInterval, timeout)
-	if err != nil {
-		return fmt.Errorf("timed out waiting for all indices to have correct replica count")
+	// wait for pods to have "redeploy for certs" condition as true?
+	desiredCondition := elasticsearch.ElasticsearchNodeUpgradeStatus{
+		ScheduledForCertRedeploy: v1.ConditionTrue,
 	}
-	*/
+
+	utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*30)
+	if err != nil {
+		return fmt.Errorf("Timed out waiting for full cluster restart to begin")
+	}
+
+	// then wait for conditions to be gone
+	desiredClusterCondition := elasticsearch.ClusterCondition{
+		Type:   elasticsearch.Restarting,
+		Status: v1.ConditionFalse,
+	}
+	utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
+	if err != nil {
+		return fmt.Errorf("Timed out waiting for full cluster restart to complete")
+	}
+
+	// ensure all prior nodes are ready again
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Statefulset %v: %v", fmt.Sprintf("example-elasticsearch-cm-%v", nonDataUUID), err)
+	}
 
 	// Incorrect scale up and verify we don't see a 4th master created
 	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {

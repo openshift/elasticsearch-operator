@@ -85,8 +85,9 @@ func (node *deploymentNode) name() string {
 
 func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 
-	var rolloutForReload v1.ConditionStatus
+	//var rolloutForReload v1.ConditionStatus
 	var rolloutForUpdate v1.ConditionStatus
+	var rolloutForCertReload v1.ConditionStatus
 
 	// see if we need to update the deployment object
 	if node.isChanged() {
@@ -102,14 +103,14 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 	// check if the secretHash changed
 	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
 	if newSecretHash != node.secretHash {
-		rolloutForReload = v1.ConditionTrue
+		rolloutForCertReload = v1.ConditionTrue
 	}
 
 	return api.ElasticsearchNodeStatus{
 		DeploymentName: node.self.Name,
 		UpgradeStatus: api.ElasticsearchNodeUpgradeStatus{
-			ScheduledForUpgrade:  rolloutForUpdate,
-			ScheduledForRedeploy: rolloutForReload,
+			ScheduledForUpgrade:      rolloutForUpdate,
+			ScheduledForCertRedeploy: rolloutForCertReload,
 		},
 	}
 }
@@ -306,7 +307,7 @@ func (node *deploymentNode) isMissing() bool {
 	return false
 }
 
-func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) {
+func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
 		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
@@ -394,6 +395,63 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return
 		}
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
+		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
+	}
+}
+
+func (node *deploymentNode) fullClusterRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
+
+	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
+		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
+		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		if err != nil {
+			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
+			return
+		}
+		node.clusterSize = size
+	}
+
+	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
+		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
+
+		err, replicas := node.replicaCount()
+		if err != nil {
+			logrus.Warnf("Unable to get replica count for %v", node.name())
+		}
+
+		if replicas > 0 {
+			// check for available replicas empty
+			// node.self.Status.Replicas
+			// if we aren't at 0, then we need to scale down to 0
+			if err = node.setReplicaCount(0); err != nil {
+				logrus.Warnf("Unable to scale down %v", node.name())
+				return
+			}
+
+			if err, _ = node.waitForNodeLeaveCluster(); err != nil {
+				logrus.Infof("Timed out waiting for %v to leave the cluster", node.name())
+				return
+			}
+		}
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
+	}
+
+	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
+
+		if err := node.setReplicaCount(1); err != nil {
+			logrus.Warnf("Unable to scale up %v", node.name())
+			return
+		}
+
+		node.refreshHashes()
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.RecoveringData
+	}
+
+	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"io/ioutil"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
@@ -16,6 +18,9 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	goctx "context"
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -43,6 +48,76 @@ func Secret(secretName string, namespace string, data map[string][]byte) *v1.Sec
 		Type: "Opaque",
 		Data: data,
 	}
+}
+
+func WaitForNodeStatusCondition(t *testing.T, f *framework.Framework, namespace, name string, condition api.ElasticsearchNodeUpgradeStatus, retryInterval, timeout time.Duration) error {
+	elasticsearchCR := &api.Elasticsearch{}
+	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}
+
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		err = f.Client.Get(goctx.TODO(), elasticsearchName, elasticsearchCR)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Waiting for availability of %s elasticsearch\n", name)
+				return false, nil
+			}
+			return false, err
+		}
+
+		allMatch := true
+
+		for _, node := range elasticsearchCR.Status.Nodes {
+			if !reflect.DeepEqual(node.UpgradeStatus, condition) {
+				allMatch = false
+			}
+		}
+
+		if allMatch {
+			return true, nil
+		}
+		t.Logf("Waiting for full condition match of %s elasticsearch\n", name)
+		return false, nil
+	})
+	if err != nil {
+		return err
+	}
+	t.Logf("Full condition matches\n")
+	return nil
+}
+
+func WaitForClusterStatusCondition(t *testing.T, f *framework.Framework, namespace, name string, condition api.ClusterCondition, retryInterval, timeout time.Duration) error {
+	elasticsearchCR := &api.Elasticsearch{}
+	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}
+
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		err = f.Client.Get(goctx.TODO(), elasticsearchName, elasticsearchCR)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Waiting for availability of %s elasticsearch\n", name)
+				return false, nil
+			}
+			return false, err
+		}
+
+		contained := false
+
+		for _, clusterCondition := range elasticsearchCR.Status.Conditions {
+			if reflect.DeepEqual(clusterCondition, condition) {
+				contained = true
+			}
+		}
+
+		if contained {
+			return true, nil
+		}
+		t.Logf("Waiting for full condition match of %s elasticsearch\n", name)
+		return false, nil
+	})
+	if err != nil {
+		return err
+	}
+	t.Logf("Full condition matches\n")
+	return nil
 }
 
 func WaitForStatefulset(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, replicas int, retryInterval, timeout time.Duration) error {
