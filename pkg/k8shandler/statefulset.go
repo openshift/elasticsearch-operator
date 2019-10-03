@@ -213,6 +213,17 @@ func (node *statefulSetNode) replicaCount() (int32, error) {
 	return desired.Status.Replicas, nil
 }
 
+func (node *statefulSetNode) isMissing() bool {
+	getNode := node.self.DeepCopy()
+	if getErr := sdk.Get(getNode); getErr != nil {
+		if errors.IsNotFound(getErr) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
@@ -247,6 +258,12 @@ func (node *statefulSetNode) restart(upgradeStatus *api.ElasticsearchNodeStatus)
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
+
+		// if the node doesn't exist -- create it
+		// TODO: we can skip this logic after
+		if node.isMissing() {
+			node.create()
+		}
 
 		ordinal, err := node.partition()
 		if err != nil {
