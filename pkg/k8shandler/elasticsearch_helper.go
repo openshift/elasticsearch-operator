@@ -158,7 +158,7 @@ func updateAllIndexTemplateReplicas(clusterName, namespace string, client client
 
 						templateJson, _ := json.Marshal(template)
 
-						logrus.Debugf("Updating template %v from %d replicas to %d", templateName, currentReplicas, replicaCount)
+						logrus.Debugf("Updating template %v from %s replicas to %d", templateName, currentReplicas, replicaCount)
 
 						payload := &esCurlStruct{
 							Method:      http.MethodPut,

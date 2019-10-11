@@ -167,10 +167,16 @@ function login_to_registry() {
         fi
     fi
     podman login --tls-verify=false -u "$username" -p "$token" "$1" > /dev/null
+    echo "${username}:${token}"
 }
 
 function push_image() {
-    skopeo copy --dest-tls-verify=false docker-daemon:"$1" docker://"$2"
+    creds="$3"
+    if [ -z "$creds" ]; then
+        skopeo copy --dest-tls-verify=false docker-daemon:"$1" docker://"$2"
+    else
+        skopeo --debug copy --dest-creds "$creds" --dest-tls-verify=false docker-daemon:"$1" docker://"$2"
+    fi
 }
 
 if [ $REMOTE_REGISTRY = false ] ; then

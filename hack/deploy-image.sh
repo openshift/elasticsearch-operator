@@ -55,11 +55,11 @@ if [ $ii = 10 ] ; then
     exit 1
 fi
 
-login_to_registry "127.0.0.1:${LOCAL_PORT}"
+creds=$( login_to_registry "127.0.0.1:${LOCAL_PORT}" )
 echo "Pushing image ${IMAGE_TAG} to ${tag} ..."
 rc=0
 for ii in $( seq 1 5 ) ; do
-    if push_image ${IMAGE_TAG} ${tag} ; then
+    if push_image ${IMAGE_TAG} ${tag} ${creds} ; then
         rc=0
         break
     fi
