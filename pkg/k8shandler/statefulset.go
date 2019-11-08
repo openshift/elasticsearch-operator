@@ -86,10 +86,18 @@ func (node *statefulSetNode) state() api.ElasticsearchNodeStatus {
 		rolloutForReload = v1.ConditionTrue
 	}*/
 
-	// check if the secretHash changed
+	// check for a case where our hash is missing -- operator restarted?
 	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace)
-	if newSecretHash != node.secretHash {
-		rolloutForReload = v1.ConditionTrue
+	if node.secretHash == "" {
+		// if we were already scheduled to restart, don't worry? -- just grab
+		// the current hash -- we should have already had our upgradeStatus set if
+		// we required a restart...
+		node.secretHash = newSecretHash
+	} else {
+		// check if the secretHash changed
+		if newSecretHash != node.secretHash {
+			rolloutForReload = v1.ConditionTrue
+		}
 	}
 
 	return api.ElasticsearchNodeStatus{
