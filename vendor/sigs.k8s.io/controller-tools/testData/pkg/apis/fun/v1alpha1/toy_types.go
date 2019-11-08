@@ -24,6 +24,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// ToyS3LogConfig defines logs configs using S3 backend
+type ToyS3LogConfig struct {
+	// +kubebuilder:validation:MinLength=1
+	Bucket string `json:"bucket,omitempty"`
+}
+
 // ToySpec defines the desired state of Toy
 type ToySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -57,6 +63,9 @@ type ToySpec struct {
 
 	Comment []byte `json:"comment,omitempty"`
 
+	// This is a simple string without validation.
+	Description string `json:"description"`
+
 	// This is a comment on an object field.
 	Template v1.PodTemplateSpec `json:"template"`
 
@@ -70,8 +79,19 @@ type ToySpec struct {
 	// Using this for testing purpose.
 	Rook *intstr.IntOrString `json:"rook"`
 
+	// Used this for testing fieldNames with number.
+	S3Log ToyS3LogConfig `json:"s3Log"`
+
 	// This is a comment on a map field.
 	Location map[string]string `json:"location"`
+
+	// This is an IPv4 address.
+	// +kubebuilder:validation:Format=ipv4
+	Address string `json:"address"`
+
+	// This is a list of IPv4 addresses.
+	// +kubebuilder:validation:Format=ipv4
+	Addresses []string `json:"addresses"`
 }
 
 // ToyStatus defines the observed state of Toy
@@ -93,7 +113,8 @@ type ToyStatus struct {
 // +kubebuilder:printcolumn:name="toy",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description="descr1",format="date",priority=3
 // +kubebuilder:printcolumn:name="abc",type="integer",JSONPath="status",description="descr2",format="int32",priority=1
 // +kubebuilder:printcolumn:name="service",type="string",JSONPath=".status.conditions.ready",description="descr3",format="byte",priority=2
-// +kubebuilder:resource:path=services,shortName=ty
+// +kubebuilder:resource:path=services,shortName=to;ty
+// +kubebuilder:singular=toy
 type Toy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
