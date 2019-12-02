@@ -92,19 +92,33 @@ func CreateOrUpdateRBAC(dpl *api.Elasticsearch) error {
 		return err
 	}
 
-	subject = newSubject(
-		"ServiceAccount",
-		dpl.Name,
-		dpl.Namespace,
-	)
-	subject.APIGroup = ""
+	// Cluster role elasticsearch-proxy has to contain subjects for all ES instances
+	esList := &api.ElasticsearchList{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: api.SchemeGroupVersion.String(),
+			Kind:       "elasticsearch",
+		},
+	}
+	err := sdk.List("", esList)
+	if err != nil {
+		return err
+	}
+
+	subjects := []rbac.Subject{}
+	for _, es := range esList.Items {
+		subject = newSubject(
+			"ServiceAccount",
+			es.Name,
+			es.Namespace,
+		)
+		subject.APIGroup = ""
+		subjects = append(subjects, subject)
+	}
 
 	proxyRoleBinding := newClusterRoleBinding(
 		"elasticsearch-proxy",
 		"elasticsearch-proxy",
-		newSubjects(
-			subject,
-		),
+		subjects,
 	)
 
 	addOwnerRefToObject(proxyRoleBinding, owner)
