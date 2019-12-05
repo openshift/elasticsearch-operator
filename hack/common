@@ -10,7 +10,7 @@ repo_dir="$(dirname $0)/.."
 source "$repo_dir/hack/lib/init.sh"
 source "$repo_dir/hack/testing/utils"
 
-VERSION=${VERSION:-4.3}
+VERSION=${VERSION:-4.4}
 
 IMAGE_TAG=${IMAGE_TAG:-"quay.io/openshift/origin-elasticsearch-operator:latest"}
 
