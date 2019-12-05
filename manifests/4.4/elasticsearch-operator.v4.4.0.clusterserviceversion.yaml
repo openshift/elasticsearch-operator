@@ -52,6 +52,26 @@ metadata:
                     }
                   ]
                 }
+            },
+            {
+              "apiVersion": "logging.openshift.io/v1",
+              "kind": "Kibana",
+              "metadata": {
+                "name": "kibana"
+              },
+              "spec": {
+                "managementState": "Managed",
+                "replicas": 1,
+                "nodeSelector": {},
+                "resources": {
+                  "limits": {
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "memory": "512Mi"
+                  }
+                }
+              }
             }
         ]
 spec:
@@ -99,6 +119,12 @@ spec:
       - serviceAccountName: elasticsearch-operator
         rules:
         - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleexternalloglinks
+          verbs:
+          - "*"
+        - apiGroups:
           - logging.openshift.io
           resources:
           - "*"
@@ -119,6 +145,13 @@ spec:
           verbs:
           - "*"
         - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          - routes/custom-host
+          verbs:
+          - "*"
+        - apiGroups:
           - apps
           resources:
           - deployments
@@ -132,6 +165,12 @@ spec:
           resources:
           - prometheusrules
           - servicemonitors
+          verbs:
+          - "*"
+        - apiGroups:
+          - oauth.openshift.io
+          resources:
+          - oauthclients
           verbs:
           - "*"
         - apiGroups:
@@ -158,6 +197,21 @@ spec:
           - subjectaccessreviews
           verbs:
           - create
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - roles
+          - rolebindings
+          verbs:
+          - "*"
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - proxies
+          verbs:
+          - get
+          - list
+          - watch
       deployments:
       - name: elasticsearch-operator
         spec:
@@ -195,6 +249,10 @@ spec:
                       value: "quay.io/openshift/origin-oauth-proxy:latest"
                     - name: ELASTICSEARCH_IMAGE
                       value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
+                    - name: KIBANA_IMAGE
+                      value: registry.svc.ci.openshift.org/ocp/4.3:logging-kibana5
+                    - name: OAUTH_PROXY_IMAGE
+                      value: registry.svc.ci.openshift.org/ocp/4.3:oauth-proxy
   customresourcedefinitions:
     owned:
     - name: elasticsearches.logging.openshift.io
@@ -216,6 +274,8 @@ spec:
       - kind: Service
         version: v1
       - kind: Route
+        version: v1
+      - kind: Kibana
         version: v1
       specDescriptors:
       - description: Limits describes the minimum/maximum amount of compute resources required/allowed
@@ -279,3 +339,21 @@ spec:
         path: pods.master
         x-descriptors:
         - 'urn:alm:descriptor:com.tectonic.ui:podStatuses'
+    - name: kibanas.logging.openshift.io
+      version: v1
+      kind: Kibana
+      displayName: Kibana
+      description: Kibana instance
+      resources:
+      - kind: Deployment
+        version: v1
+      specDescriptors:
+      - description: The desired number of Kibana Pods for the Visualization component
+        displayName: Kibana Size
+        path: replicas
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:podCount'
+      - description: Resource requirements for the Kibana pods
+        displayName: Kibana Resource Requirements
+        path: resources
+        x-descriptors:
