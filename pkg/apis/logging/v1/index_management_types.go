@@ -36,7 +36,7 @@ type IndexManagementDeletePhaseSpec struct {
 
 // +k8s:openapi-gen=true
 type IndexManagementHotPhaseSpec struct {
-	Actions IndexManagementActionSpec `json:"actions"`
+	Actions IndexManagementActionsSpec `json:"actions"`
 }
 
 // +k8s:openapi-gen=true
@@ -82,6 +82,14 @@ type IndexManagementStatus struct {
 	Mappings    []IndexManagementMappingStatus `json:"mappings,omitempty"`
 }
 
+func NewIndexManagementStatus() *IndexManagementStatus {
+	return &IndexManagementStatus{
+		State:       IndexManagementStateAccepted,
+		Reason:      IndexManagementStatusReasonPassed,
+		LastUpdated: metav1.Now(),
+	}
+}
+
 //IndexManagementState of IndexManagment
 type IndexManagementState string
 
@@ -99,9 +107,9 @@ const (
 type IndexManagementStatusReason string
 
 const (
-	IndexManagementStatusReasonPassed        = "PassedValidation"
-	IndexManagementStatusReasonPolicyFailed  = "OneOrMorePoliciesFailedValidation"
-	IndexManagementStatusReasonMappingFailed = "OneOrMoreMappingFailedValidation"
+	IndexManagementStatusReasonPassed           = "PassedValidation"
+	IndexManagementStatusReasonUndefined        = "Undefined"
+	IndexManagementStatusReasonValidationFailed = "OneOrMoreValidationsFailed"
 )
 
 type IndexManagementMappingStatus struct {
@@ -120,6 +128,24 @@ type IndexManagementMappingStatus struct {
 
 	// LastUpdated represents the last time that the status was updated.
 	LastUpdated metav1.Time `json:"lastUpdated,omitempty"`
+}
+
+func NewIndexManagementMappingStatus(name string) *IndexManagementMappingStatus {
+	return &IndexManagementMappingStatus{
+		Name:        name,
+		State:       IndexManagementMappingStateAccepted,
+		Reason:      IndexManagementMappingReasonConditionsMet,
+		LastUpdated: metav1.Now(),
+	}
+}
+
+func (status *IndexManagementMappingStatus) AddPolicyMappingCondition(conditionType IndexManagementMappingConditionType, reason IndexManagementMappingConditionReason, message string) {
+	status.Conditions = append(status.Conditions, IndexManagementMappingCondition{
+		Type:    conditionType,
+		Reason:  reason,
+		Status:  corev1.ConditionFalse,
+		Message: message,
+	})
 }
 
 type IndexManagementMappingState string
@@ -178,6 +204,24 @@ type IndexManagementPolicyStatus struct {
 
 	// LastUpdated represents the last time that the status was updated.
 	LastUpdated metav1.Time `json:"lastUpdated,omitempty"`
+}
+
+func NewIndexManagementPolicyStatus(name string) *IndexManagementPolicyStatus {
+	return &IndexManagementPolicyStatus{
+		Name:        name,
+		State:       IndexManagementPolicyStateAccepted,
+		Reason:      IndexManagementPolicyReasonConditionsMet,
+		LastUpdated: metav1.Now(),
+	}
+}
+
+func (status *IndexManagementPolicyStatus) AddPolicyCondition(conditionType IndexManagementPolicyConditionType, reason IndexManagementPolicyConditionReason, message string) {
+	status.Conditions = append(status.Conditions, IndexManagementPolicyCondition{
+		Type:    conditionType,
+		Reason:  reason,
+		Status:  corev1.ConditionFalse,
+		Message: message,
+	})
 }
 
 type IndexManagementPolicyState string
