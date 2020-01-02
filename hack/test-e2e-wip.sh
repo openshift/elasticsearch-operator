@@ -22,9 +22,9 @@ else
 fi
 
 oc create -n ${TEST_NAMESPACE} -f \
-https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/prometheusrule.crd.yaml || :
+https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml ||:
 oc create -n ${TEST_NAMESPACE} -f \
-https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/servicemonitor.crd.yaml || :
+https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml ||:
 
 if [ "${REMOTE_CLUSTER:-true}" = false ] ; then
   sudo sysctl -w vm.max_map_count=262144 ||:
