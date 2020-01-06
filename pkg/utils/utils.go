@@ -8,6 +8,15 @@ import (
 	"os"
 )
 
+func GetInt64(value int64) *int64 {
+	i := value
+	return &i
+}
+func GetInt32(value int32) *int32 {
+	i := value
+	return &i
+}
+
 func ToJson(obj interface{}) (string, error) {
 	bytes, err := json.Marshal(obj)
 	if err != nil {

@@ -66,7 +66,6 @@ required = [
   name = "gopkg.in/fsnotify.v1"
   source = "https://github.com/fsnotify/fsnotify.git"
 
-
 [prune]
   go-tests = true
   non-go = true
@@ -78,3 +77,7 @@ required = [
   [[prune.project]]
     name = "k8s.io/gengo"
     non-go = false
+
+[[constraint]]
+  name = "github.com/onsi/ginkgo"
+  version = "1.10.3"
