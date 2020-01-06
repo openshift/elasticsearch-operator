@@ -3,9 +3,18 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 )
+
+func ToJson(obj interface{}) (string, error) {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
 
 func LookupEnvWithDefault(envName, defaultValue string) string {
 	if value, ok := os.LookupEnv(envName); ok {
