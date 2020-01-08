@@ -1,4 +1,4 @@
-package kibana_handler
+package kibana
 
 import (
 	"fmt"

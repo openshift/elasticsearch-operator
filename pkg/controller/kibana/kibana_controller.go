@@ -5,8 +5,7 @@ import (
 	"time"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana_handler"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,15 +40,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource Kibana
 	err = c.Watch(&source.Kind{Type: &loggingv1.Kibana{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to secondary resource Pods and requeue the owner Kibana
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &loggingv1.Kibana{},
-	})
 	if err != nil {
 		return err
 	}
@@ -95,7 +85,7 @@ func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, nil
 	}
 
-	if err = kibana_handler.ReconcileKibana(instance, r.client); err != nil {
+	if err = kibana.ReconcileKibana(instance, r.client); err != nil {
 		reqLogger.Info("Reconciling Kibana Error", err.Error())
 		return reconcileResult, err
 	}

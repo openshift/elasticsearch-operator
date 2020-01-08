@@ -1,4 +1,4 @@
-package kibana_handler
+package kibana
 
 import (
 	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"

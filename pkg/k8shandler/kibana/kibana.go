@@ -1,4 +1,4 @@
-package kibana_handler
+package kibana
 
 import (
 	"bytes"
@@ -70,11 +70,6 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client)
 	if err := clusterKibanaRequest.createOrUpdateKibanaRoute(); err != nil {
 		return err
 	}
-
-	//Kibana secrets are handled by cluster-logging-operator
-	//if err := clusterKibanaRequest.createOrUpdateKibanaSecret(); err != nil {
-	//	return err
-	//}
 
 	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleExternalLogLink(); err != nil {
 		return err
@@ -497,43 +492,6 @@ func (clusterRequest *ClusterKibanaRequest) createOrUpdateKibanaService() error 
 	err := clusterRequest.Create(kibanaService)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Kibana service for %q: %v", clusterRequest.cluster.Name, err)
-	}
-
-	return nil
-}
-
-func (clusterRequest *ClusterKibanaRequest) createOrUpdateKibanaSecret() error {
-
-	kibanaSecret := NewSecret(
-		"kibana",
-		clusterRequest.cluster.Namespace,
-		map[string][]byte{
-			"ca":   utils.GetWorkingDirFileContents("ca.crt"),
-			"key":  utils.GetWorkingDirFileContents("system.logging.kibana.key"),
-			"cert": utils.GetWorkingDirFileContents("system.logging.kibana.crt"),
-		})
-
-	utils.AddOwnerRefToObject(kibanaSecret, utils.AsOwner(clusterRequest.cluster))
-
-	err := clusterRequest.CreateOrUpdateSecret(kibanaSecret)
-	if err != nil {
-		return err
-	}
-
-	proxySecret := NewSecret(
-		"kibana-proxy",
-		clusterRequest.cluster.Namespace,
-		map[string][]byte{
-			"session-secret": utils.GetRandomWord(32),
-			"server-key":     utils.GetWorkingDirFileContents("kibana-internal.key"),
-			"server-cert":    utils.GetWorkingDirFileContents("kibana-internal.crt"),
-		})
-
-	utils.AddOwnerRefToObject(proxySecret, utils.AsOwner(clusterRequest.cluster))
-
-	err = clusterRequest.CreateOrUpdateSecret(proxySecret)
-	if err != nil {
-		return err
 	}
 
 	return nil
