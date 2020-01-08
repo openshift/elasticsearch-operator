@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	goctx "context"
+
 	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	v1 "k8s.io/api/core/v1"
@@ -19,7 +20,7 @@ import (
 
 var (
 	retryInterval        = time.Second * 2
-	timeout              = time.Second * 300
+	timeout              = time.Second * 1200
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
 	elasticsearchCRName  = "example-elasticsearch"
@@ -109,7 +110,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	cpuValue, _ := resource.ParseQuantity("500m")
+	cpuValue, _ := resource.ParseQuantity("250m")
 	memValue, _ := resource.ParseQuantity("2Gi")
 
 	dataUUID := utils.GenerateUUID()
@@ -264,7 +265,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		ScheduledForCertRedeploy: v1.ConditionTrue,
 	}
 
-	utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*30)
+	err = utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*30)
 	if err != nil {
 		return fmt.Errorf("Timed out waiting for full cluster restart to begin")
 	}
@@ -274,7 +275,8 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		Type:   elasticsearch.Restarting,
 		Status: v1.ConditionFalse,
 	}
-	utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
+
+	err = utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
 	if err != nil {
 		return fmt.Errorf("Timed out waiting for full cluster restart to complete")
 	}

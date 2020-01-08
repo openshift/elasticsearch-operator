@@ -232,7 +232,10 @@ func (clusterRequest *ClusterKibanaRequest) createOrUpdateKibanaDeployment(proxy
 		}
 
 		// kibana-trusted-ca-bundle
-		kibanaTrustBundleName := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: constants.OpenshiftNS}
+		kibanaTrustBundleName := types.NamespacedName{
+			Name:      constants.KibanaTrustedCAName,
+			Namespace: clusterRequest.cluster.Namespace,
+		}
 		if err := clusterRequest.client.Get(context.TODO(), kibanaTrustBundleName, kibanaTrustBundle); err != nil {
 			if !errors.IsNotFound(err) {
 				return err
