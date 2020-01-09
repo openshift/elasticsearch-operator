@@ -705,7 +705,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:63708a2bcd353bb6b8392bf265d125c6a11ba8ae284e3548ef75360f11118fdd"
+  digest = "1:9502fc6cda0a919c2790e1123ee4beeb437a5d5886d25b0d78f681e76613c4fa"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -721,7 +721,7 @@
     "trace",
   ]
   pruneopts = "NT"
-  revision = "eb5bcb51f2a31c7d5141d810b70815c05d9c9146"
+  revision = "c0dbc17a35534bf2e581d7a942408dc936316da4"
 
 [[projects]]
   branch = "master"
@@ -1278,8 +1278,6 @@
     "github.com/sirupsen/logrus",
     "github.com/spf13/pflag",
     "k8s.io/api/apps/v1",
-    "k8s.io/api/batch/v1",
-    "k8s.io/api/batch/v1beta1",
     "k8s.io/api/core/v1",
     "k8s.io/api/rbac/v1",
     "k8s.io/apimachinery/pkg/api/errors",
