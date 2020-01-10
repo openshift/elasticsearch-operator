@@ -103,6 +103,20 @@ deploy-example: deploy
 	@oc create -n openshift-logging -f hack/cr.yaml
 .PHONY: deploy-example
 
+deploy-example-secret:
+	mkdir /tmp/example-secrets && \
+	hack/cert_generation.sh /tmp/example-secrets openshift-logging elasticsearch && \
+	  oc create secret generic elasticsearch -n openshift-logging \
+      --from-file=admin-key=/tmp/example-secrets/system.admin.key \
+      --from-file=admin-cert=/tmp/example-secrets/system.admin.crt \
+      --from-file=admin-ca=/tmp/example-secrets/ca.crt \
+      --from-file=/tmp/example-secrets/elasticsearch.crt \
+      --from-file=/tmp/example-secrets/logging-es.key \
+      --from-file=/tmp/example-secrets/logging-es.crt \
+      --from-file=/tmp/example-secrets/elasticsearch.key ; \
+	rm -rf /tmp/example-secrets
+.PHONY: deploy-example-secret
+
 run: deploy deploy-example
 	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \
 	RULES_FILE_PATH=files/prometheus_rules.yml \
