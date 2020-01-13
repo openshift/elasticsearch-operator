@@ -71,10 +71,6 @@ var (
 
 func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Kibana...")
-	defer func() {
-		reqLogger.Info("Reconciling Kibana finised")
-	}()
 
 	// Fetch the Kibana instance
 	instance := &loggingv1.Kibana{}
@@ -100,7 +96,7 @@ func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 
 	if err = kibana.ReconcileKibana(instance, r.client, proxyConfig); err != nil {
-		reqLogger.Info("Reconciling Kibana Error", err.Error())
+		reqLogger.Error(err, "Reconciling Kibana Error")
 		return reconcileResult, err
 	}
 
