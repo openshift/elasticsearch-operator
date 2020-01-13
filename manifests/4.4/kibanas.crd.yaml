@@ -18,7 +18,7 @@ spec:
       properties:
         spec:
           type: object
-          description: Specification of the desired behavior of the Kibana cluster
+          description: Specification of the desired behavior of the Kibana
           properties:
             image:
               type: string

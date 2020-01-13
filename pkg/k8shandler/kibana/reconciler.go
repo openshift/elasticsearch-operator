@@ -15,7 +15,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -36,19 +35,10 @@ var (
 	}
 )
 
-func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client) error {
+func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client, proxyConfig *configv1.Proxy) error {
 	clusterKibanaRequest := ClusterKibanaRequest{
 		client:  requestClient,
 		cluster: requestCluster,
-	}
-
-	proxyNamespacedName := types.NamespacedName{Name: constants.ProxyName}
-	proxyConfig := &configv1.Proxy{}
-	if err := requestClient.Get(context.TODO(), proxyNamespacedName, proxyConfig); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("Encountered unexpected error getting %v. Error: %s", proxyNamespacedName,
-				err.Error())
-		}
 	}
 
 	if clusterKibanaRequest.cluster == nil {
@@ -172,14 +162,6 @@ func (clusterRequest *ClusterKibanaRequest) removeKibana() (err error) {
 		}
 
 		if err = clusterRequest.RemoveOAuthClient(proxyName); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveSecret(name); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveSecret(proxyName); err != nil {
 			return
 		}
 

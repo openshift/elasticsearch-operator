@@ -65,7 +65,7 @@ metadata:
                 "nodeSelector": {},
                 "resources": {
                   "limits": {
-                    "memory": "1Gi"
+                    "memory": "512Mi"
                   },
                   "requests": {
                     "memory": "512Mi"
@@ -250,9 +250,9 @@ spec:
                     - name: ELASTICSEARCH_IMAGE
                       value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
                     - name: KIBANA_IMAGE
-                      value: registry.svc.ci.openshift.org/ocp/4.3:logging-kibana5
+                      value: "quay.io/openshift/origin-logging-kibana5:latest"
                     - name: OAUTH_PROXY_IMAGE
-                      value: registry.svc.ci.openshift.org/ocp/4.3:oauth-proxy
+                      value: "quay.io/openshift/origin-oauth-proxy:latest"
   customresourcedefinitions:
     owned:
     - name: elasticsearches.logging.openshift.io

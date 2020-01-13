@@ -62,7 +62,7 @@ build: fmt
 	@GOPATH=$(BUILD_GOPATH) $(GOBUILD) $(LDFLAGS) -o $(TARGET) $(MAIN_PKG)
 
 build-fast:
-	@go build -o elastic-search-opeator $(MAIN_PKG)
+	@go build -o elastic-search-operator $(MAIN_PKG)
 
 clean:
 	@rm -rf $(TARGET_DIR)

@@ -2,12 +2,17 @@ package kibana
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -85,7 +90,16 @@ func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result
 		return reconcile.Result{}, nil
 	}
 
-	if err = kibana.ReconcileKibana(instance, r.client); err != nil {
+	proxyNamespacedName := types.NamespacedName{Name: constants.ProxyName}
+	proxyConfig := &configv1.Proxy{}
+	if err := r.client.Get(context.TODO(), proxyNamespacedName, proxyConfig); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return reconcile.Result{}, fmt.Errorf("Encountered unexpected error getting %v. Error: %s", proxyNamespacedName,
+				err.Error())
+		}
+	}
+
+	if err = kibana.ReconcileKibana(instance, r.client, proxyConfig); err != nil {
 		reqLogger.Info("Reconciling Kibana Error", err.Error())
 		return reconcileResult, err
 	}

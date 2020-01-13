@@ -9,3 +9,5 @@ const (
 	TrustedCABundleHashName    = "logging.openshift.io/hash"
 	KibanaTrustedCAName        = "kibana-trusted-ca-bundle"
 )
+
+var ReconcileForGlobalProxyList = []string{KibanaTrustedCAName}
