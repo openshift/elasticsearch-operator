@@ -136,6 +136,13 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					elasticsearchRequest.cluster.Namespace,
 					elasticsearchRequest.client,
 					int32(calculateReplicaCount(elasticsearchRequest.cluster)))
+
+				// attempt to migrate Kibana index if required ?
+				// TODO: not do this all the time?
+				MigrateKibanaIndex(
+					elasticsearchRequest.cluster.Name,
+					elasticsearchRequest.cluster.Namespace,
+					elasticsearchRequest.client)
 			}
 		}
 	}

@@ -456,7 +456,7 @@ func MigrateKibanaIndex(clusterName, namespace string, client client.Client) (bo
 			if len(mappings) > 1 {
 				// if .kibana_1 doesn't exist, reindex
 				payload := &esCurlStruct{
-					Method: http.MethodGet,
+					Method: http.MethodHead,
 					URI:    ".kibana_1",
 				}
 
@@ -494,6 +494,7 @@ func MigrateKibanaIndex(clusterName, namespace string, client client.Client) (bo
 
 				curlESService(clusterName, namespace, payload, client)
 
+				// TODO: what do we do if we fail in here? -- how to recover?
 				if kibanaBody, ok := payload.ResponseBody[".kibana_1"].(map[string]interface{}); ok {
 					if kibanaMappings, ok := kibanaBody["mappings"].(map[string]interface{}); ok {
 						if doc, ok := kibanaMappings["doc"].(map[string]interface{}); ok {

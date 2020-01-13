@@ -256,6 +256,8 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 	switch payload.Method {
 	case http.MethodGet:
 		// no more to do to request...
+	case http.MethodHead:
+		// no more to do to request...
 	case http.MethodPost:
 		if payload.RequestBody != "" {
 			// add to the request
@@ -327,6 +329,8 @@ func curlESServiceOldClient(clusterName, namespace string, payload *esCurlStruct
 
 	switch payload.Method {
 	case http.MethodGet:
+		// no more to do to request...
+	case http.MethodHead:
 		// no more to do to request...
 	case http.MethodPost:
 		if payload.RequestBody != "" {
