@@ -18,6 +18,8 @@ KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
+OPERATOR_NAMESPACE=openshift-operators-redhat
+DEPLOYMENT_NAMESPACE=openshift-logging
 
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -69,7 +71,7 @@ image: imagebuilder
 	then hack/build-image.sh $(IMAGE_TAG) $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) ; \
 	fi
 
-test-e2e:
+test-e2e: gen-example-certs
 	hack/test-e2e.sh
 
 test-unit:
@@ -100,20 +102,38 @@ deploy-image: image
 .PHONY: deploy-image
 
 deploy-example: deploy
-	@oc create -n openshift-logging -f hack/cr.yaml
+	@oc create -n $(DEPLOYMENT_NAMESPACE) -f hack/cr.yaml
 .PHONY: deploy-example
+
+deploy-example-secret: gen-example-certs
+	@oc -n $(DEPLOYMENT_NAMESPACE) delete secret elasticsearch ||: && \
+	oc -n $(DEPLOYMENT_NAMESPACE) create secret generic elasticsearch  \
+		--from-file=admin-key=/tmp/example-secrets/system.admin.key \
+		--from-file=admin-cert=/tmp/example-secrets/system.admin.crt \
+		--from-file=admin-ca=/tmp/example-secrets/ca.crt \
+		--from-file=/tmp/example-secrets/elasticsearch.crt \
+		--from-file=/tmp/example-secrets/logging-es.key \
+		--from-file=/tmp/example-secrets/logging-es.crt \
+		--from-file=/tmp/example-secrets/elasticsearch.key
+.PHONY: deploy-example-secret
+
+gen-example-certs:
+	@rm -rf /tmp/example-secrets ||: \
+	mkdir /tmp/example-secrets && \
+	hack/cert_generation.sh /tmp/example-secrets $(DEPLOYMENT_NAMESPACE) elasticsearch
+.PHONY: gen-example-certs
 
 run: deploy deploy-example
 	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \
 	RULES_FILE_PATH=files/prometheus_rules.yml \
-	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
+	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=$(DEPLOYMENT_NAMESPACE) \
 	KUBERNETES_CONFIG=/etc/origin/master/admin.kubeconfig \
 	go run ${MAIN_PKG} > $(RUN_LOG) 2>&1 & echo $$! > $(RUN_PID)
 
 run-local:
 	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \
 	RULES_FILE_PATH=files/prometheus_rules.yml \
-	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=openshift-logging \
+	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=$(DEPLOYMENT_NAMESPACE) \
 	KUBERNETES_CONFIG=$(KUBECONFIG) \
 	go run ${MAIN_PKG} LOG_LEVEL=debug
 .PHONY: run-local
