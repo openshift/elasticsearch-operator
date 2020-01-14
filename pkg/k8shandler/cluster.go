@@ -59,14 +59,18 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 
 		if _, ok := containsNodeTypeInterface(upgradeInProgressNode, scheduledUpgradeNodes); ok {
 			logrus.Debugf("Continuing update for %v", upgradeInProgressNode.name())
-			upgradeInProgressNode.update(nodeStatus)
+			if err := upgradeInProgressNode.update(nodeStatus); err != nil {
+				return err
+			}
 		} else {
 			logrus.Debugf("Continuing restart for %v", upgradeInProgressNode.name())
 			upgradeInProgressNode.rollingRestart(nodeStatus)
 		}
 
 		addNodeState(upgradeInProgressNode, nodeStatus)
-		elasticsearchRequest.setNodeStatus(upgradeInProgressNode, nodeStatus, clusterStatus)
+		if err := elasticsearchRequest.setNodeStatus(upgradeInProgressNode, nodeStatus, clusterStatus); err != nil {
+			return err
+		}
 
 	} else {
 
@@ -79,7 +83,9 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 				err := node.update(nodeStatus)
 
 				addNodeState(node, nodeStatus)
-				elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus)
+				if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
+					return err
+				}
 
 				if err != nil {
 					logrus.Warnf("Error occurred while updating node %v: %v", node.name(), err)
@@ -100,7 +106,9 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					node.rollingRestart(nodeStatus)
 
 					addNodeState(node, nodeStatus)
-					elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus)
+					if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
+						return err
+					}
 				}
 
 			} else {
@@ -125,13 +133,15 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					}
 
 					addNodeState(node, nodeStatus)
-					elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus)
+					if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
+						return err
+					}
 
 					elasticsearchRequest.updateMinMasters()
 				}
 
 				// we only want to update our replicas if we aren't in the middle up an upgrade
-				UpdateReplicaCount(
+				return UpdateReplicaCount(
 					elasticsearchRequest.cluster.Name,
 					elasticsearchRequest.cluster.Namespace,
 					elasticsearchRequest.client,
@@ -362,7 +372,7 @@ func addNodeState(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatu
 	nodeStatus.StatefulSetName = nodeState.StatefulSetName
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) {
+func (elasticsearchRequest *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) error {
 
 	index, _ := getNodeStatus(node.name(), clusterStatus)
 
@@ -372,7 +382,7 @@ func (elasticsearchRequest *ElasticsearchRequest) setNodeStatus(node NodeTypeInt
 		clusterStatus.Nodes[index] = *nodeStatus
 	}
 
-	elasticsearchRequest.updateNodeStatus(*clusterStatus)
+	return elasticsearchRequest.updateNodeStatus(*clusterStatus)
 }
 
 func (elasticsearchRequest *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus) error {
