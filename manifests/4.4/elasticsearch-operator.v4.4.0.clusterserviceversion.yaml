@@ -251,8 +251,6 @@ spec:
                       value: "quay.io/openshift/origin-logging-elasticsearch5:latest"
                     - name: KIBANA_IMAGE
                       value: "quay.io/openshift/origin-logging-kibana5:latest"
-                    - name: OAUTH_PROXY_IMAGE
-                      value: "quay.io/openshift/origin-oauth-proxy:latest"
   customresourcedefinitions:
     owned:
     - name: elasticsearches.logging.openshift.io

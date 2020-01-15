@@ -15,3 +15,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-oauth-proxy:latest
+  - name: kibana
+    from:
+      kind: DockerImage
+      name: "quay.io/openshift/origin-logging-kibana5:latest"

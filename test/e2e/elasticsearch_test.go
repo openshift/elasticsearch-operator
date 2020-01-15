@@ -110,7 +110,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	cpuValue, _ := resource.ParseQuantity("250m")
+	cpuValue, _ := resource.ParseQuantity("150m")
 	memValue, _ := resource.ParseQuantity("2Gi")
 
 	dataUUID := utils.GenerateUUID()

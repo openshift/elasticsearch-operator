@@ -29,7 +29,7 @@ const (
 // COMPONENT_IMAGES are thee keys are based on the "container name" + "-{image,version}"
 var COMPONENT_IMAGES = map[string]string{
 	"kibana":       "KIBANA_IMAGE",
-	"kibana-proxy": "OAUTH_PROXY_IMAGE",
+	"kibana-proxy": "PROXY_IMAGE",
 }
 
 func LookupEnvWithDefault(envName, defaultValue string) string {
