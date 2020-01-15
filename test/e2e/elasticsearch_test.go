@@ -153,7 +153,6 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 				Image: "",
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
-						v1.ResourceCPU:    cpuValue,
 						v1.ResourceMemory: memValue,
 					},
 					Requests: v1.ResourceList{
