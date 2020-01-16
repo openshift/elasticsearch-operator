@@ -33,10 +33,23 @@ func TestElasticsearch(t *testing.T) {
 			APIVersion: elasticsearch.SchemeGroupVersion.String(),
 		},
 	}
+
+	kibanaList := &elasticsearch.KibanaList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Kibana",
+			APIVersion: elasticsearch.SchemeGroupVersion.String(),
+		},
+	}
 	err := framework.AddToFrameworkScheme(elasticsearch.SchemeBuilder.AddToScheme, elasticsearchList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
+
+	err = framework.AddToFrameworkScheme(elasticsearch.SchemeBuilder.AddToScheme, kibanaList)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
 	// run subtests
 	t.Run("elasticsearch-group", func(t *testing.T) {
 		t.Run("Cluster", ElasticsearchCluster)
