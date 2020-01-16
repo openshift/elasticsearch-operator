@@ -273,8 +273,6 @@ spec:
         version: v1
       - kind: Route
         version: v1
-      - kind: Kibana
-        version: v1
       specDescriptors:
       - description: Limits describes the minimum/maximum amount of compute resources required/allowed
         displayName: Resource Requirements
