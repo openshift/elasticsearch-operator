@@ -72,7 +72,7 @@ image: imagebuilder
 	fi
 
 test-e2e: gen-example-certs
-	hack/test-e2e.sh
+	REMOTE_CLUSTER=true hack/test-e2e.sh
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
