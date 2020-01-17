@@ -109,7 +109,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	cpuValue, _ := resource.ParseQuantity("500m")
+	cpuValue, _ := resource.ParseQuantity("100m")
 	memValue, _ := resource.ParseQuantity("2Gi")
 
 	dataUUID := utils.GenerateUUID()
@@ -152,7 +152,6 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 				Image: "",
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
-						v1.ResourceCPU:    cpuValue,
 						v1.ResourceMemory: memValue,
 					},
 					Requests: v1.ResourceList{
@@ -329,7 +328,6 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 
 func ElasticsearchCluster(t *testing.T) {
 	ctx := framework.NewTestCtx(t)
-	defer ctx.Cleanup()
 	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatalf("failed to initialize cluster resources: %v", err)
