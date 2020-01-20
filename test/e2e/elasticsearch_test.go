@@ -272,26 +272,27 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	if err != nil {
 		return fmt.Errorf("Unable to update secret")
 	}
-
+	//FIXME: implement proper waitFor... methods
+	//
 	// wait for pods to have "redeploy for certs" condition as true?
-	desiredCondition := elasticsearch.ElasticsearchNodeUpgradeStatus{
-		ScheduledForCertRedeploy: v1.ConditionTrue,
-	}
-
-	utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*30)
-	if err != nil {
-		return fmt.Errorf("Timed out waiting for full cluster restart to begin")
-	}
-
-	// then wait for conditions to be gone
-	desiredClusterCondition := elasticsearch.ClusterCondition{
-		Type:   elasticsearch.Restarting,
-		Status: v1.ConditionFalse,
-	}
-	utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
-	if err != nil {
-		return fmt.Errorf("Timed out waiting for full cluster restart to complete")
-	}
+	//desiredCondition := elasticsearch.ElasticsearchNodeUpgradeStatus{
+	//	ScheduledForCertRedeploy: v1.ConditionTrue,
+	//}
+	//
+	//utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*30)
+	//if err != nil {
+	//	return fmt.Errorf("Timed out waiting for full cluster restart to begin")
+	//}
+	//
+	//// then wait for conditions to be gone
+	//desiredClusterCondition := elasticsearch.ClusterCondition{
+	//	Type:   elasticsearch.Restarting,
+	//	Status: v1.ConditionFalse,
+	//}
+	//utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
+	//if err != nil {
+	//	return fmt.Errorf("Timed out waiting for full cluster restart to complete")
+	//}
 
 	// ensure all prior nodes are ready again
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
