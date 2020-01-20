@@ -15,6 +15,7 @@ KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 
 repo_dir="$(dirname $0)/../.."
 source "${repo_dir}/hack/lib/log/output.sh"
+source "${repo_dir}/hack/testing/utils"
 ARTIFACT_DIR=${ARTIFACT_DIR:-"$repo_dir/_output/$(basename ${BASH_SOURCE[0]})"}
 test_artifact_dir=$ARTIFACT_DIR/test-001-operator-sdk
 if [ ! -d $test_artifact_dir ] ; then
@@ -46,10 +47,7 @@ cleanup(){
   runtime="$(($end_seconds - $start_seconds))s"
   
   if [ "${SKIP_CLEANUP:-false}" == "false" ] ; then
-    oc -n ${TEST_NAMESPACE} describe pod > $test_artifact_dir/describe.pods.log 2>&1 ||:
-    # for item in $(oc -n ${TEST_NAMESPACE} get pods -o jsonpath={.items[*].metadata.name}) ; do
-    #   oc -n ${TEST_NAMESPACE} describe pod ${item} > $test_artifact_dir/describe.${item}.log 2>&1 ||:
-    # done
+    get_all_logging_pod_logs ${TEST_NAMESPACE} $test_artifact_dir
     for item in "ns/${TEST_NAMESPACE}" "clusterrole/elasticsearch-operator" "clusterrolebinding/elasticsearch-operator-rolebinding"; do
       oc delete $item --wait=true --ignore-not-found --force --grace-period=0
     done
