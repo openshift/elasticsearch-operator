@@ -5,6 +5,12 @@ metadata:
   name: elasticsearch-operator
 rules:
 - apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleexternalloglinks
+  verbs:
+  - "*"
+- apiGroups:
   - logging.openshift.io
   resources:
   - "*"
@@ -25,6 +31,13 @@ rules:
   verbs:
   - "*"
 - apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  - routes/custom-host
+  verbs:
+  - "*"
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -38,6 +51,12 @@ rules:
   resources:
   - prometheusrules
   - servicemonitors
+  verbs:
+  - "*"
+- apiGroups:
+  - oauth.openshift.io
+  resources:
+  - oauthclients
   verbs:
   - "*"
 - apiGroups:
@@ -64,3 +83,18 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - "*"
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - proxies
+  verbs:
+  - get
+  - list
+  - watch
