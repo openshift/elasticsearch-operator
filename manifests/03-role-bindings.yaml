@@ -6,7 +6,6 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: elasticsearch-operator
-  namespace: openshift-logging
 roleRef:
   kind: ClusterRole
   name: elasticsearch-operator
