@@ -160,6 +160,9 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      elasticsearchCRName,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"elasticsearch.openshift.io/develLogAppender": "console",
+			},
 		},
 		Spec: elasticsearch.ElasticsearchSpec{
 			Spec: elasticsearch.ElasticsearchNodeSpec{
