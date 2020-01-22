@@ -28,6 +28,7 @@ rules:
   - configmaps
   - secrets
   - serviceaccounts
+  - namespaces
   verbs:
   - "*"
 - apiGroups:
