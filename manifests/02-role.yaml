@@ -84,13 +84,6 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - roles
-  - rolebindings
-  verbs:
-  - "*"
-- apiGroups:
   - config.openshift.io
   resources:
   - proxies
