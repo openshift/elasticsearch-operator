@@ -40,9 +40,7 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 	}
 
 	if clusterKibanaRequest.cluster == nil {
-		if err := clusterKibanaRequest.removeKibana(); err != nil {
-			return err
-		}
+		return nil
 	}
 
 	if err := clusterKibanaRequest.CreateOrUpdateServiceAccount(kibanaServiceAccountName, &kibanaServiceAccountAnnotations); err != nil {
@@ -143,51 +141,6 @@ func compareKibanaStatus(lhs, rhs []kibana.KibanaStatus) bool {
 	}
 
 	return true
-}
-
-func (clusterRequest *ClusterKibanaRequest) removeKibana() (err error) {
-	if clusterRequest.isManaged() {
-		name := "kibana"
-		proxyName := "kibana-proxy"
-		if err = clusterRequest.RemoveDeployment(name); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveOAuthClient(proxyName); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveRoute(name); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveConfigMap(name); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveConfigMap("sharing-config"); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveConfigMap(constants.KibanaTrustedCAName); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveService(name); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveServiceAccount(name); err != nil {
-			return
-		}
-
-		if err = clusterRequest.RemoveConsoleExternalLogLink(name); err != nil {
-			return
-		}
-
-	}
-
-	return nil
 }
 
 func (clusterRequest *ClusterKibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy) (err error) {
