@@ -2,6 +2,7 @@ package kibana
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
@@ -72,5 +73,115 @@ func (clusterRequest *ClusterKibanaRequest) RemoveRoute(routeName string) error 
 		return fmt.Errorf("Failure deleting %v route %v", routeName, err)
 	}
 
+	return nil
+}
+
+func (clusterRequest *ClusterKibanaRequest) createOrUpdateKibanaRoute() error {
+
+	cluster := clusterRequest.cluster
+
+	kibanaRoute := NewRoute(
+		"kibana",
+		cluster.Namespace,
+		"Kibana",
+		utils.GetWorkingDirFilePath("ca.crt"),
+	)
+
+	utils.AddOwnerRefToObject(kibanaRoute, utils.AsOwner(cluster))
+
+	err := clusterRequest.Create(kibanaRoute)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("Failure creating Kibana route for %q: %v", cluster.Name, err)
+	}
+
+	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
+	if err != nil {
+		return err
+	}
+
+	sharedConfig := createSharedConfig(cluster.Namespace, kibanaURL, kibanaURL)
+	utils.AddOwnerRefToObject(sharedConfig, utils.AsOwner(cluster))
+
+	err = clusterRequest.Create(sharedConfig)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("Failure creating Kibana route shared config: %v", err)
+	}
+
+	sharedRole := NewRole(
+		"sharing-config-reader",
+		cluster.Namespace,
+		NewPolicyRules(
+			NewPolicyRule(
+				[]string{""},
+				[]string{"configmaps"},
+				[]string{"sharing-config"},
+				[]string{"get"},
+			),
+		),
+	)
+
+	utils.AddOwnerRefToObject(sharedRole, utils.AsOwner(clusterRequest.cluster))
+
+	err = clusterRequest.Create(sharedRole)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("Failure creating Kibana route shared config role for %q: %v", cluster.Name, err)
+	}
+
+	sharedRoleBinding := NewRoleBinding(
+		"openshift-logging-sharing-config-reader-binding",
+		cluster.Namespace,
+		"sharing-config-reader",
+		NewSubjects(
+			NewSubject(
+				"Group",
+				"system:authenticated",
+			),
+		),
+	)
+
+	utils.AddOwnerRefToObject(sharedRoleBinding, utils.AsOwner(clusterRequest.cluster))
+
+	err = clusterRequest.Create(sharedRoleBinding)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("Failure creating Kibana route shared config role binding for %q: %v", cluster.Name, err)
+	}
+
+	return nil
+}
+
+func (clusterRequest *ClusterKibanaRequest) createOrUpdateKibanaConsoleExternalLogLink() (err error) {
+	cluster := clusterRequest.cluster
+
+	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
+	if err != nil {
+		return err
+	}
+
+	consoleExternalLogLink := NewConsoleExternalLogLink(
+		"kibana",
+		cluster.Namespace,
+		"Show in Kibana",
+		strings.Join([]string{kibanaURL,
+			"/app/kibana#/discover?_g=(time:(from:now-1w,mode:relative,to:now))&_a=(columns:!(kubernetes.container_name,message),query:(query_string:(analyze_wildcard:!t,query:'",
+			strings.Join([]string{
+				"kubernetes.pod_name:\"${resourceName}\"",
+				"kubernetes.namespace_name:\"${resourceNamespace}\"",
+				"kubernetes.container_name.raw:\"${containerName}\"",
+			}, " AND "),
+			"')),sort:!('@timestamp',desc))"},
+			""),
+	)
+
+	utils.AddOwnerRefToObject(consoleExternalLogLink, utils.AsOwner(cluster))
+
+	// In case the object already exists we delete it first
+	if err = clusterRequest.RemoveConsoleExternalLogLink("kibana"); err != nil {
+		return
+	}
+
+	err = clusterRequest.Create(consoleExternalLogLink)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("Failure creating Kibana console external log link for %q: %v", cluster.Name, err)
+	}
 	return nil
 }
