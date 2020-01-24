@@ -49,10 +49,6 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 		return err
 	}
 
-	if err := clusterKibanaRequest.RemoveClusterRoleBinding("kibana-proxy-oauth-delegator"); err != nil {
-		return err
-	}
-
 	if err := clusterKibanaRequest.createOrUpdateKibanaService(); err != nil {
 		return err
 	}
@@ -62,10 +58,6 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 	}
 
 	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleExternalLogLink(); err != nil {
-		return err
-	}
-
-	if err := clusterKibanaRequest.RemoveOAuthClient("kibana-proxy"); err != nil {
 		return err
 	}
 
