@@ -60,7 +60,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 		if _, ok := containsNodeTypeInterface(upgradeInProgressNode, scheduledUpgradeNodes); ok {
 			logrus.Debugf("Continuing update for %v", upgradeInProgressNode.name())
 			if err := upgradeInProgressNode.update(nodeStatus); err != nil {
-				return err
+				logrus.Errorf("unable to update node. E: %s", err.Error())
 			}
 		} else {
 			logrus.Debugf("Continuing restart for %v", upgradeInProgressNode.name())
@@ -69,7 +69,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 
 		addNodeState(upgradeInProgressNode, nodeStatus)
 		if err := elasticsearchRequest.setNodeStatus(upgradeInProgressNode, nodeStatus, clusterStatus); err != nil {
-			return err
+			logrus.Errorf("unable to update node status: E: %s", err)
 		}
 
 	} else {
@@ -141,11 +141,13 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 				}
 
 				// we only want to update our replicas if we aren't in the middle up an upgrade
-				return UpdateReplicaCount(
+				if err := UpdateReplicaCount(
 					elasticsearchRequest.cluster.Name,
 					elasticsearchRequest.cluster.Namespace,
 					elasticsearchRequest.client,
-					int32(calculateReplicaCount(elasticsearchRequest.cluster)))
+					int32(calculateReplicaCount(elasticsearchRequest.cluster))); err != nil {
+					logrus.Error(err)
+				}
 			}
 		}
 	}

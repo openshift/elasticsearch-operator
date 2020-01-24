@@ -1,7 +1,6 @@
 package k8shandler
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -322,8 +321,8 @@ func DoSynchronizedFlush(clusterName, namespace string, client client.Client) (b
 // This will idempotently update the index templates and update indices' replica count
 func UpdateReplicaCount(clusterName, namespace string, client client.Client, replicaCount int32) error {
 	if ok, _ := updateAllIndexTemplateReplicas(clusterName, namespace, client, replicaCount); ok {
-		if ok, _ = updateAllIndexReplicas(clusterName, namespace, client, replicaCount); ok {
-			return errors.New("unable to update index replica")
+		if _, err := updateAllIndexReplicas(clusterName, namespace, client, replicaCount); err != nil {
+			return err
 		}
 	}
 	return nil

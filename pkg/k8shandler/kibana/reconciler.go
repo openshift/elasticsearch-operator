@@ -24,9 +24,8 @@ import (
 )
 
 const (
-	annotationOauthSecretUpdatedAt = "logging.openshift.io/oauthSecretUpdatedAt"
-	kibanaServiceAccountName       = "kibana"
-	kibanaOAuthRedirectReference   = "{\"kind\":\"OAuthRedirectReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"Route\",\"name\":\"kibana\"}}"
+	kibanaServiceAccountName     = "kibana"
+	kibanaOAuthRedirectReference = "{\"kind\":\"OAuthRedirectReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"Route\",\"name\":\"kibana\"}}"
 )
 
 var (
@@ -42,7 +41,9 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 	}
 
 	if clusterKibanaRequest.cluster == nil {
-		return nil
+		if err := clusterKibanaRequest.removeKibana(); err != nil {
+			return err
+		}
 	}
 
 	if err := clusterKibanaRequest.CreateOrUpdateServiceAccount(kibanaServiceAccountName, &kibanaServiceAccountAnnotations); err != nil {
