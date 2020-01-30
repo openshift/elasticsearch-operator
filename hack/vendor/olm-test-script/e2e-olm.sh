@@ -70,6 +70,14 @@ if [ -n "${OPERATOR_IMAGE:-}" ] ; then
   CSV=$(echo "$CSV" | sed -e "s~image:.*~image: ${OPERATOR_IMAGE}\n~" | indent ApiVersion)
 fi
 
+if [ -n "$OPERAND_IMAGES" ] ; then
+  for entry in ${OPERAND_IMAGES} ; do
+    key=$(echo ${entry} | cut -d "=" -f1)
+    value=$(echo ${entry} | cut -d "=" -f2)
+    CSV=$(echo "$CSV" | sed -e "/name: ${key}/{n;s~value:.*~value: ${value}~}" | indent ApiVersion)
+  done
+fi
+
 cat > /tmp/configmap.yaml <<EOF | sed 's/^  *$//'
 kind: ConfigMap
 apiVersion: v1

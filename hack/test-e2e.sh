@@ -10,7 +10,8 @@ IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-quay.io/openshift/o
 if [ -n "${IMAGE_FORMAT:-}" ] ; then
   IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
 fi
-ELASTICSEARCH_IMAGE=${ELASTICSEARCH_IMAGE:-registry.svc.ci.openshift.org/ocp/feature-es6x:logging-elasticsearch6}
+LOGGING_IMAGE_STREAM=${LOGGING_IMAGE_STREAM:-stable}
+ELASTICSEARCH_IMAGE=${ELASTICSEARCH_IMAGE:-registry.svc.ci.openshift.org/ocp/$LOGGING_IMAGE_STREAM:logging-elasticsearch6}
 
 KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 
