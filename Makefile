@@ -18,6 +18,7 @@ KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
+LOGGING_IMAGE_STREAM?=feature-es6x
 
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -70,7 +71,7 @@ image: imagebuilder
 	fi
 
 test-e2e:
-	hack/test-e2e.sh
+	LOGGING_IMAGE_STREAM=$(LOGGING_IMAGE_STREAM) hack/test-e2e.sh
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
