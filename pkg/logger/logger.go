@@ -29,6 +29,11 @@ func Errorf(format string, objects ...interface{}) {
 	logrus.Errorf(format, objects...)
 }
 
+//Error logs messages at level error
+func Error(message string) {
+	logrus.Error(message)
+}
+
 //Infof logs messages at level info
 func Infof(format string, objects ...interface{}) {
 	logrus.Infof(format, objects...)
