@@ -247,9 +247,10 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 			},
 		},
 		Args: []string{
+			"--http-address=:4180",
 			"--https-address=:60000",
 			"--provider=openshift",
-			"--upstream=https://127.0.0.1:9200",
+			"--upstream=https://localhost:9200",
 			"--tls-cert=/etc/proxy/secrets/tls.crt",
 			"--tls-key=/etc/proxy/secrets/tls.key",
 			"--upstream-ca=/etc/proxy/elasticsearch/admin-ca",
