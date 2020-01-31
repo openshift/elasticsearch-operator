@@ -47,6 +47,8 @@ cleanup(){
   runtime="$(($end_seconds - $start_seconds))s"
   
   if [ "${SKIP_CLEANUP:-false}" == "false" ] ; then
+    oc -n ${TEST_NAMESPACE} get configmap elasticsearch -o yaml > $test_artifact_dir/elasticsearch-configmap.yaml 2>&1 ||:
+    oc -n ${TEST_NAMESPACE} get secret -o yaml > $test_artifact_dir/secrets.yaml 2>&1 ||:
     get_all_logging_pod_logs ${TEST_NAMESPACE} $test_artifact_dir
     for item in "ns/${TEST_NAMESPACE}" "clusterrole/elasticsearch-operator" "clusterrolebinding/elasticsearch-operator-rolebinding"; do
       oc delete $item --wait=true --ignore-not-found --force --grace-period=0

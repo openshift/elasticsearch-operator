@@ -14,9 +14,6 @@ node:
   data: ${HAS_DATA}
   max_local_storage_nodes: 1
 
-network:
-  host: 0.0.0.0
-
 discovery.zen:
   ping.unicast.hosts: {{.EsUnicastHost}}
   minimum_master_nodes: {{.NodeQuorum}}
