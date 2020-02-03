@@ -13,11 +13,11 @@ try_until_text() {
   local expire=$(($now + $timeout))
   while [ $now -lt $expire ]; do
       if [[ "$($cmd)" == "${expected}" ]] ; then
-      exit 0
+      return 0
     fi  
     now=$(date +%s)
   done
-  exit 1
+  return 1
 }
 
 wait_for_deployment_to_be_ready(){
@@ -26,6 +26,27 @@ wait_for_deployment_to_be_ready(){
   local timeout=$3
   try_until_text "oc -n $namespace get deployment $name -o jsonpath={.status.availableReplicas} --ignore-not-found" "1" $timeout
 }
+
+get_all_logging_pod_logs() {
+  set +e
+  local LOGGING_NS=$1
+  local outdir=${2:-$ARTIFACT_DIR}
+  local p
+  local container
+  for p in $(oc get pods -n ${LOGGING_NS} -o jsonpath='{.items[*].metadata.name}') ; do
+    oc -n ${LOGGING_NS} describe pod $p > $outdir/$p.describe 2>&1 || :
+    oc -n ${LOGGING_NS} get pod $p -o yaml > $outdir/$p.yaml 2>&1 || :
+    for container in $(oc -n ${LOGGING_NS} get po $p -o jsonpath='{.spec.containers[*].name}') ; do
+      oc logs -n ${LOGGING_NS} -c $container $p > $outdir/$p.$container.log 2>&1
+      case "$container" in
+        elasticsearch*) oc exec -n ${LOGGING_NS} -c elasticsearch $p  -- logs > $outdir/$p.$container.exec.log 2>&1 ;;
+        *) continue ;;
+      esac
+    done
+   done
+  set -e
+}
+
 
 deploy_marketplace_operator(){
   local namespace=$1
@@ -177,7 +198,7 @@ function deploy_operator() {
 
     if [ "$?" != "0" ] ; then
 	    os::log::error "Error deploying operator via OLM using manifest: $manifest"
-	    exit 1
+	    return 1
     fi
 
     wait_for_deployment_to_be_ready $namespace $operatorName $timeout

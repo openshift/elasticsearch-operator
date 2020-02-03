@@ -24,6 +24,8 @@ const (
 	heapDumpLocation        = "/elasticsearch/persistent/heapdump.hprof"
 
 	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
+	logAppenderAnnotation = "elasticsearch.openshift.io/develLogAppender"
 )
 
 func kibanaIndexMode(mode string) (string, error) {
@@ -40,7 +42,10 @@ func esUnicastHost(clusterName, namespace string) string {
 	return fmt.Sprintf("%v-cluster.%v.svc", clusterName, namespace)
 }
 
-func rootLogger() string {
+func rootLogger(cluster *api.Elasticsearch) string {
+	if value, ok := cluster.GetAnnotations()[log4jConfig]; ok {
+		return value
+	}
 	return "rolling"
 }
 
