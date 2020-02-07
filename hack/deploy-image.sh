@@ -1,6 +1,9 @@
 #!/bin/bash
 
-set -euxo pipefail
+if [ "${DEBUG:-}" = "true" ]; then
+  set -x
+fi
+set -euo pipefail
 
 if [ "${REMOTE_REGISTRY:-true}" = false ] ; then
     exit 0
@@ -32,15 +35,20 @@ if [ "${USE_IMAGE_STREAM:-false}" = true ] ; then
 fi
 
 IMAGE_TAGGER=${IMAGE_TAGGER:-docker tag}
+DOCKER_HOST_ADDR=$( ([[ "$(go env GOHOSTOS)" = "darwin" ]] && echo "0.0.0.0") || echo "127.0.0.1" )
 LOCAL_PORT=${LOCAL_PORT:-5000}
 
-image_tag=$( echo "$IMAGE_TAG" | sed -e 's,quay.io/,,' )
-tag=${tag:-"127.0.0.1:${LOCAL_PORT}/$image_tag"}
+image_tag=$( echo "$IMAGE_TAG" | gnu_sed -e 's,quay.io/,,' )
+tag=${tag:-"${DOCKER_HOST_ADDR}:${LOCAL_PORT}/$image_tag"}
 
 ${IMAGE_TAGGER} ${IMAGE_TAG} ${tag}
 
 echo "Setting up port-forwarding to remote registry..."
-oc --loglevel=9 -n openshift-image-registry port-forward service/image-registry ${LOCAL_PORT}:5000 > pf.log 2>&1 &
+PORT_FORWARD_ADDR=""
+if [[ "$(go env GOHOSTOS)" = "darwin" ]]; then
+    PORT_FORWARD_ADDR="--address=${DOCKER_HOST_ADDR}"
+fi
+oc --loglevel=9 -n openshift-image-registry port-forward "${PORT_FORWARD_ADDR}" service/image-registry "${LOCAL_PORT}":5000 > pf.log 2>&1 &
 forwarding_pid=$!
 
 trap "kill -15 ${forwarding_pid}" EXIT
@@ -55,7 +63,7 @@ if [ $ii = 10 ] ; then
     exit 1
 fi
 
-login_to_registry "127.0.0.1:${LOCAL_PORT}"
+login_to_registry "${DOCKER_HOST_ADDR}:${LOCAL_PORT}"
 echo "Pushing image ${IMAGE_TAG} to ${tag} ..."
 rc=0
 for ii in $( seq 1 5 ) ; do

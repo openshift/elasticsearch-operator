@@ -135,8 +135,8 @@ function get_private_repo_dir() {
             done
             touch repos/redhat.repo
             chmod 0444 repos/redhat.repo
-            sed -i -e 's,^sslclientkey.*$,sslclientkey = /etc/yum.repos.d/ops-mirror.pem,' \
-                   -e 's,^sslclientcert.*$,sslclientcert = /etc/yum.repos.d/ops-mirror.pem,' repos/*.repo
+            gnu_sed -i -e 's,^sslclientkey.*$,sslclientkey = /etc/yum.repos.d/ops-mirror.pem,' \
+                       -e 's,^sslclientcert.*$,sslclientcert = /etc/yum.repos.d/ops-mirror.pem,' repos/*.repo
         fi
         INTERNAL_REPO_DIR=$( pwd )/repos
         popd > /dev/null
@@ -188,7 +188,12 @@ function login_to_registry() {
 }
 
 function push_image() {
-    skopeo copy --dest-tls-verify=false docker-daemon:"$1" docker://"$2"
+    local dest_creds=""
+    if [[ "$(go env GOHOSTOS)" = "darwin" ]]; then
+        dest_creds="--dest-creds=openshift:$(oc whoami -t)"
+    fi
+
+    skopeo copy "${dest_creds}" --dest-tls-verify=false docker-daemon:"$1" docker://"$2"
 }
 
 if [ $REMOTE_REGISTRY = false ] ; then

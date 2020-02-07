@@ -1,6 +1,9 @@
 #!/bin/bash
 
-set -euxo pipefail
+if [ "${DEBUG:-}" = "true" ]; then
+  set -x
+fi
+set -euo pipefail
 
 source "$(dirname $0)/common"
 
@@ -8,7 +11,7 @@ IMAGE_TAG=$1
 IMAGE_BUILDER=${2:-imagebuilder}
 IMAGE_BUILDER_OPTS=${3:-}
 
-workdir=${WORKDIR:-$( mktemp --tmpdir -d elasticsearch-operator-build-XXXXXXXXXX )}
+workdir=${WORKDIR:-$( mktempdir -d elasticsearch-operator-build-XXXXXXXXXX )}
 if [ -z "${WORKDIR:-}" ] ; then
     trap "rm -rf $workdir" EXIT
 fi

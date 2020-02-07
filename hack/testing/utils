@@ -1,8 +1,30 @@
 #!/bin/bash
 
+gnu_sed() {
+    local gnu_sed="sed"
+    if [[ "$(go env GOHOSTOS)" = "darwin" ]]; then
+        gnu_sed="gsed"
+
+        if [[ $(command -v "gsed") = "" ]]; then
+            echo "Error: Missing gnu sed on darwin platform (e.g. brew install gnused)"
+            exit 1
+        fi
+    fi
+
+    $gnu_sed "$@"
+}
+
+mktempdir() {
+    if [[ "$(go env GOHOSTOS)" == "darwin" ]]; then
+		mktemp "$@"
+	else
+		mktemp --tempdir "$@"
+	fi
+}
+
 indent() {
   INDENT="      "
-  sed "s/^/$INDENT/" | sed "s/^${INDENT}\($1\)/${INDENT:0:-2}- \1/"
+  os::util::sed "s/^/$INDENT/" | os::util::sed "s/^${INDENT}\($1\)/${INDENT:0:-2}- \1/"
 }
 
 try_until_text() {
@@ -124,16 +146,16 @@ deploy_config_map_catalog_source() {
 
   local version=$(basename $(find $manifest_dir -type d | sort -r | head -n 1))
 
-  local CRD=$(sed '/^#!.*$/d' $manifest_dir/$version/*crd.yaml | grep -v -- "---" | indent apiVersion)
-  local PKG=$(sed '/^#!.*$/d' $manifest_dir/*package.yaml | indent packageName)
-  local CSV=$(sed '/^#!.*$/d' $manifest_dir/$version/*version.yaml | sed 's/namespace: placeholder/namespace: '$namespace'/' |grep -v -- "---" |  indent apiVersion)
-  local PACKAGE_NAME=$(sed -nr 's,.*packageName: (.*),\1,p' $manifest_dir/*package.yaml)
+  local CRD=$(os::util::sed '/^#!.*$/d' $manifest_dir/$version/*crd.yaml | grep -v -- "---" | indent apiVersion)
+  local PKG=$(os::util::sed '/^#!.*$/d' $manifest_dir/*package.yaml | indent packageName)
+  local CSV=$(os::util::sed '/^#!.*$/d' $manifest_dir/$version/*version.yaml | os::util::sed 's/namespace: placeholder/namespace: '$namespace'/' |grep -v -- "---" |  indent apiVersion)
+  local PACKAGE_NAME=$(os::util::sed -nr 's,.*packageName: (.*),\1,p' $manifest_dir/*package.yaml)
   if [ -n "${image:-}" ] ; then
-    CSV=$(echo "$CSV" | sed -e "s~containerImage:.*~containerImage: ${image}~" | indent apiVersion)
-    CSV=$(echo "$CSV" | sed -e "s~image:.*~image: ${image}\n~" | indent ApiVersion)
+    CSV=$(echo "$CSV" | os::util::sed -e "s~containerImage:.*~containerImage: ${image}~" | indent apiVersion)
+    CSV=$(echo "$CSV" | os::util::sed -e "s~image:.*~image: ${image}\n~" | indent ApiVersion)
   fi
 
-  cat <<EOF | sed 's/^  *$//' | oc create -n $namespace -f -
+  cat <<EOF | os::util::sed 's/^  *$//' | oc create -n $namespace -f -
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -162,7 +184,7 @@ EOF
 
 function deploy_elasticsearch_operator() {
     if [ -n "${IMAGE_FORMAT:-}" ] ; then
-        IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
+        IMAGE_ELASTICSEARCH_OPERATOR=$(os::util::sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
     else
         IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/origin/$VERSION:elasticsearch-operator}
     fi
