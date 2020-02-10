@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"encoding/json"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -44,6 +45,16 @@ func IsDebugEnabled() bool {
 	return logrus.GetLevel() == logrus.DebugLevel
 }
 
+//DebugObject pretty prints the given object
+func DebugObject(sprintfMessage string, object interface{}) {
+	if IsDebugEnabled() && object != nil {
+		pretty, err := json.MarshalIndent(object, "", "  ")
+		if err != nil {
+			logrus.Debugf("Error marshalling object %v for debug log: %v", object, err)
+		}
+		logrus.Debugf(sprintfMessage, string(pretty))
+	}
+}
 func init() {
 	level := os.Getenv("LOG_LEVEL")
 	parsed, err := logrus.ParseLevel(level)

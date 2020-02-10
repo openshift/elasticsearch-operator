@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestIndexManagementHandler(t *testing.T) {
+func TestIndexManagement(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "IndexManagement Suite")
 }

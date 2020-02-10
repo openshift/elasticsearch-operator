@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
 )
 
 var (
@@ -425,8 +426,8 @@ func TestPodNodeSelectors(t *testing.T) {
 	if len(podSpec.NodeSelector) != 1 {
 		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
 	}
-	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
-		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	if podSpec.NodeSelector[utils.OsNodeLabel] != utils.LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", utils.OsNodeLabel, utils.LinuxValue)
 	}
 
 	// Create podSpecTemplate providing some custom node selectors, we expect the PodTemplateSpec.Spec selectors
@@ -439,13 +440,13 @@ func TestPodNodeSelectors(t *testing.T) {
 	if len(podSpec.NodeSelector) != 3 {
 		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
 	}
-	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
-		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	if podSpec.NodeSelector[utils.OsNodeLabel] != utils.LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", utils.OsNodeLabel, utils.LinuxValue)
 	}
 
 	// Create podSpecTemplate providing node selector with some custom value, we expect the PodTemplateSpec.Spec selector
 	// will override the node selector to linux one.
-	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{OsNodeLabel: "foo"}).Spec
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{utils.OsNodeLabel: "foo"}).Spec
 
 	if podSpec.NodeSelector == nil {
 		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
@@ -453,8 +454,8 @@ func TestPodNodeSelectors(t *testing.T) {
 	if len(podSpec.NodeSelector) != 1 {
 		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
 	}
-	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
-		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	if podSpec.NodeSelector[utils.OsNodeLabel] != utils.LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", utils.OsNodeLabel, utils.LinuxValue)
 	}
 }
 

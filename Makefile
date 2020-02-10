@@ -21,7 +21,7 @@ RUN_PID?=elasticsearch-operator.pid
 LOGGING_IMAGE_STREAM?=feature-es6x
 OPERATOR_NAMESPACE=openshift-operators-redhat
 DEPLOYMENT_NAMESPACE=openshift-logging
-
+REPLICAS?=0
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 
@@ -138,6 +138,14 @@ run-local:
 	KUBERNETES_CONFIG=$(KUBECONFIG) \
 	go run ${MAIN_PKG} LOG_LEVEL=debug
 .PHONY: run-local
+
+scale-cvo:
+	@oc -n openshift-cluster-version scale deployment/cluster-version-operator --replicas=$(REPLICAS)
+.PHONEY: scale-cvo
+
+scale-olm:
+	@oc -n openshift-operator-lifecycle-manager scale deployment/olm-operator --replicas=$(REPLICAS)
+.PHONEY: scale-olm
 
 undeploy:
 	hack/undeploy.sh

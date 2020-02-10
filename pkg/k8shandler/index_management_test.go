@@ -62,7 +62,8 @@ var _ = Describe("Index Management", func() {
 
 	Describe("#cullIndexManagement", func() {
 		var (
-			mappings []elasticsearch.IndexManagementPolicyMappingSpec
+			mappings  []elasticsearch.IndexManagementPolicyMappingSpec
+			policyMap = elasticsearch.PolicyMap{}
 		)
 		BeforeEach(func() {
 			mappings = []elasticsearch.IndexManagementPolicyMappingSpec{mapping}
@@ -83,9 +84,9 @@ var _ = Describe("Index Management", func() {
 				},
 			)
 		})
-		Context("when a template does not have a policy mapping", func() {
+		Context("when an Elasticsearch template does not have an associated policy mapping", func() {
 			It("should be culled from Elasticsearch", func() {
-				request.cullIndexManagement(mappings)
+				request.cullIndexManagement(mappings, policyMap)
 				_, found := chatter.GetRequest("_template/user-created")
 				Expect(found).To(BeFalse(), "to not delete a user created template")
 				_, found = chatter.GetRequest("_template/ocp-gen-node.infra")

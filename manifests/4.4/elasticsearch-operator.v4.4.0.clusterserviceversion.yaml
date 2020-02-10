@@ -128,6 +128,12 @@ spec:
           verbs:
           - "*"
         - apiGroups:
+          - batch
+          resources:
+          - cronjobs
+          verbs:
+          - "*"
+        - apiGroups:
           - monitoring.coreos.com
           resources:
           - prometheusrules

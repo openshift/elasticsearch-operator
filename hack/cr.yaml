@@ -21,3 +21,20 @@ spec:
     - master
     storage: {}
   redundancyPolicy: ZeroRedundancy
+  indexManagement:
+    policies:
+    - name: infra-policy
+      pollInterval: 1m
+      phases:
+        hot:
+          actions:
+            rollover:
+              maxAge:   2m
+        delete:
+          minAge: 5m
+    mappings:
+    - name:  infra
+      policyRef: infra-policy
+      aliases:
+      - infra
+      - logs.infra
