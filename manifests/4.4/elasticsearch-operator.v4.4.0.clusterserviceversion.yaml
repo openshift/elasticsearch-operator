@@ -6,8 +6,8 @@ metadata:
   name: elasticsearch-operator.v4.4.0
   namespace: placeholder
   annotations:
-    operatorframework.io/suggested-namespace: openshift-operators-redhat
-    operatorframework.io/cluster-monitoring: true
+    "operatorframework.io/suggested-namespace": openshift-operators-redhat
+    "operatorframework.io/cluster-monitoring": "true"
     categories: "OpenShift Optional, Logging & Tracing"
     capabilities: "Seamless Upgrades"
     certified: "false"
