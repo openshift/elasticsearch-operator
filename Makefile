@@ -19,7 +19,7 @@ MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
 OPERATOR_NAMESPACE=openshift-operators-redhat
-DEPLOYMENT_NAMESPACE=openshift-logging
+DEPLOYMENT_NAMESPACE?=openshift-logging
 
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -101,7 +101,7 @@ deploy-image: image
 	hack/deploy-image.sh
 .PHONY: deploy-image
 
-deploy-example: deploy
+deploy-example: deploy deploy-example-secret
 	@oc create -n $(DEPLOYMENT_NAMESPACE) -f hack/cr.yaml
 .PHONY: deploy-example
 
