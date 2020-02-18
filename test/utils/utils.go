@@ -21,7 +21,7 @@ import (
 	goctx "context"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	framework "github.com/operator-framework/operator-sdk/pkg/test"
+	"github.com/openshift/elasticsearch-operator/test/helpers"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -51,7 +51,7 @@ func Secret(secretName string, namespace string, data map[string][]byte) *v1.Sec
 	}
 }
 
-func WaitForNodeStatusCondition(t *testing.T, f *framework.Framework, namespace, name string, condition api.ElasticsearchNodeUpgradeStatus, retryInterval, timeout time.Duration) error {
+func WaitForNodeStatusCondition(t *testing.T, f *helpers.E2ETestFramework, namespace, name string, condition api.ElasticsearchNodeUpgradeStatus, retryInterval, timeout time.Duration) error {
 	elasticsearchCR := &api.Elasticsearch{}
 	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}
 
@@ -91,7 +91,7 @@ func WaitForNodeStatusCondition(t *testing.T, f *framework.Framework, namespace,
 	return nil
 }
 
-func WaitForClusterStatusCondition(t *testing.T, f *framework.Framework, namespace, name string, condition api.ClusterCondition, retryInterval, timeout time.Duration) error {
+func WaitForClusterStatusCondition(t *testing.T, f *helpers.E2ETestFramework, namespace, name string, condition api.ClusterCondition, retryInterval, timeout time.Duration) error {
 	elasticsearchCR := &api.Elasticsearch{}
 	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}
 

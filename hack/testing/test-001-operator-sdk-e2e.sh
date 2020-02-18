@@ -5,7 +5,6 @@ if [ -n "${DEBUG:-}" ]; then
     set -x
 fi
 
-
 KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 
 repo_dir="$(dirname $0)/../.."
@@ -59,25 +58,17 @@ cleanup(){
 }
 trap cleanup exit
 
-if oc get project ${TEST_NAMESPACE} > /dev/null 2>&1 ; then
-  echo using existing project ${TEST_NAMESPACE}
-else
-  oc create namespace ${TEST_NAMESPACE}
+if [ "${DO_SETUP:-true}" == "true" ] ; then
+  for item in "${TEST_NAMESPACE}" "openshift-operators-redhat"; do
+    if oc get project ${item} > /dev/null 2>&1 ; then
+      echo using existing project ${item}
+    else
+      oc create namespace ${item}
+    fi
+  done
+
+  deploy_elasticsearch_operator
 fi
 
-sed -i "s/namespace: openshift-logging/namespace: ${TEST_NAMESPACE}/g" ${manifest}
+TEST_NAMESPACE=${TEST_NAMESPACE} go test ./test/e2e/. -root=$(pwd) -timeout 1200s -parallel=1 -v
 
-oc create -n ${TEST_NAMESPACE} -f \
-https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml ||:
-oc create -n ${TEST_NAMESPACE} -f \
-https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml ||:
-
-TEST_NAMESPACE=${TEST_NAMESPACE} go test ./test/e2e/... \
-  -root=$(pwd) \
-  -kubeconfig=${KUBECONFIG} \
-  -globalMan manifests/04-crd.yaml \
-  -namespacedMan ${manifest} \
-  -v \
-  -parallel=1 \
-  -singleNamespace \
-  -timeout 1200s

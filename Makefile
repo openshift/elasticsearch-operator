@@ -18,7 +18,6 @@ KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
-LOGGING_IMAGE_STREAM?=stable
 OPERATOR_NAMESPACE=openshift-operators-redhat
 DEPLOYMENT_NAMESPACE=openshift-logging
 REPLICAS?=0
@@ -77,7 +76,7 @@ image: imagebuilder
 	fi
 
 test-e2e: gen-example-certs
-	LOGGING_IMAGE_STREAM=$(LOGGING_IMAGE_STREAM) REMOTE_CLUSTER=true hack/test-e2e.sh
+	REMOTE_CLUSTER=true hack/test-e2e.sh
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
