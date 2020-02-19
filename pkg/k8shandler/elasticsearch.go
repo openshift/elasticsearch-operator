@@ -8,6 +8,10 @@ import (
 
 	"github.com/inhies/go-bytesize"
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -328,4 +332,188 @@ func UpdateReplicaCount(clusterName, namespace string, client client.Client, rep
 	}
 
 	return false, nil
+}
+
+func (req *ElasticsearchRequest) CreateIndex(name string, index *estypes.Index) error {
+	body, err := utils.ToJson(index)
+	if err != nil {
+		return err
+	}
+	payload := &esCurlStruct{
+		Method:      http.MethodPut,
+		URI:         name,
+		RequestBody: body,
+	}
+	logger.DebugObject("CreateIndex with payload: %s", index)
+	req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, payload, req.client)
+	if payload.Error != nil {
+		return payload.Error
+	}
+	if payload.StatusCode != 200 && payload.StatusCode != 201 {
+		return fmt.Errorf("There was an error creating index %s. Error code: %v, %v", index.Name, payload.StatusCode != 200, payload.ResponseBody)
+	}
+	return nil
+}
+func (req *ElasticsearchRequest) CreateIndexTemplate(name string, template *estypes.IndexTemplate) error {
+	body, err := utils.ToJson(template)
+	if err != nil {
+		return err
+	}
+	payload := &esCurlStruct{
+		Method:      http.MethodPut,
+		URI:         fmt.Sprintf("_template/%s", name),
+		RequestBody: body,
+	}
+
+	logger.DebugObject("CreateIndexTemplate with payload: %s", template)
+	req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, payload, req.client)
+	if payload.Error != nil {
+		return payload.Error
+	}
+	if payload.StatusCode != 200 && payload.StatusCode != 201 {
+		return fmt.Errorf("There was an error creating index template %s. Error code: %v, %v", name, payload.StatusCode != 200, payload.ResponseBody)
+	}
+	return nil
+}
+
+func (req *ElasticsearchRequest) DeleteIndexTemplate(name string) error {
+	payload := &esCurlStruct{
+		Method: http.MethodDelete,
+		URI:    fmt.Sprintf("_template/%s", name),
+	}
+
+	req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, payload, req.client)
+	if payload.Error != nil {
+		return payload.Error
+	}
+	if payload.StatusCode != 200 && payload.StatusCode != 404 {
+		return fmt.Errorf("There was an error deleting template %s. Error code: %v", name, payload.StatusCode)
+	}
+	return nil
+}
+
+//ListTemplates returns a list of templates
+func (req *ElasticsearchRequest) ListTemplates() (sets.String, error) {
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    "_template",
+	}
+
+	req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, payload, req.client)
+	if payload.Error != nil {
+		return nil, payload.Error
+	}
+	if payload.StatusCode != 200 {
+		return nil, fmt.Errorf("There was an error retrieving list of templates. Error code: %v, %v", payload.StatusCode != 200, payload.ResponseBody)
+	}
+	response := sets.NewString()
+	for name := range payload.ResponseBody {
+		response.Insert(name)
+	}
+	return response, nil
+}
+
+//ListIndicesForAlias returns a list of indices and the alias for the given pattern (e.g. foo-*, *-write)
+func (req *ElasticsearchRequest) ListIndicesForAlias(aliasPattern string) ([]string, error) {
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    fmt.Sprintf("_alias/%s", aliasPattern),
+	}
+
+	req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, payload, req.client)
+	if payload.Error != nil {
+		return nil, payload.Error
+	}
+	if payload.StatusCode == 404 {
+		return []string{}, nil
+	}
+	if payload.StatusCode != 200 {
+		return nil, fmt.Errorf("There was an error retrieving list of indices aliased to %s. Error code: %v, %v", aliasPattern, payload.StatusCode != 200, payload.ResponseBody)
+	}
+	response := []string{}
+	for index := range payload.ResponseBody {
+		response = append(response, index)
+	}
+	return response, nil
+}
+
+func (req *ElasticsearchRequest) AddAliasForOldIndices() bool {
+	// get .operations.*/_alias
+	// get project.*/_alias
+	/*
+		{
+			"project.test.107d38b1-413b-11ea-a2cd-0a3ee645943a.2020.01.27" : {
+				"aliases" : {
+					"test" : { }
+				}
+			},
+			"project.test2.8fe8b95e-4147-11ea-91e1-062a8c33f2ae.2020.01.27" : {
+				"aliases" : { }
+			}
+		}
+	*/
+
+	successful := true
+
+	payload := &esCurlStruct{
+		Method: http.MethodGet,
+		URI:    "project.*,.operations.*/_alias",
+	}
+
+	req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, payload, req.client)
+
+	// alias name choice based on https://github.com/openshift/enhancements/blob/master/enhancements/cluster-logging/cluster-logging-es-rollover-data-design.md#data-model
+	for index := range payload.ResponseBody {
+		// iterate over each index, if they have no aliases that match the new format
+		// then PUT the alias
+
+		indexAlias := ""
+		if strings.HasPrefix(index, "project.") {
+			// it is a container log index
+			indexAlias = "app"
+		} else {
+			// it is an operations index
+			indexAlias = "infra"
+		}
+
+		if payload.ResponseBody[index] != nil {
+			indexBody := payload.ResponseBody[index].(map[string]interface{})
+			if indexBody["aliases"] != nil {
+				aliasBody := indexBody["aliases"].(map[string]interface{})
+
+				found := false
+				for alias := range aliasBody {
+					if alias == indexAlias {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					// put <index>/_alias/<alias>
+					putPayload := &esCurlStruct{
+						Method: http.MethodPut,
+						URI:    fmt.Sprintf("%s/_alias/%s", index, indexAlias),
+					}
+
+					req.FnCurlEsService(req.cluster.Name, req.cluster.Namespace, putPayload, req.client)
+					// check the response here -- if any failed then we want to return "false"
+					// but want to continue trying to process as many as we can now.
+					if putPayload.Error != nil || !parseBool("acknowledged", putPayload.ResponseBody) {
+						successful = false
+					}
+				}
+			} else {
+				// if for some reason we received a response without an "aliases" field
+				// we want to retry -- es may not be in a good state?
+				successful = false
+			}
+		} else {
+			// if for some reason we received a response without an index field
+			// we want to retry -- es may not be in a good state?
+			successful = false
+		}
+	}
+
+	return successful
 }

@@ -10,6 +10,8 @@ IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-quay.io/openshift/o
 if [ -n "${IMAGE_FORMAT:-}" ] ; then
   IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
 fi
+LOGGING_IMAGE_STREAM=${LOGGING_IMAGE_STREAM:-stable}
+ELASTICSEARCH_IMAGE=${ELASTICSEARCH_IMAGE:-registry.svc.ci.openshift.org/ocp/$LOGGING_IMAGE_STREAM:logging-elasticsearch6}
 
 KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 
@@ -31,6 +33,7 @@ pushd manifests;
 popd
 # update the manifest with the image built by ci
 sed -i "s,quay.io/openshift/origin-elasticsearch-operator:latest,${IMAGE_ELASTICSEARCH_OPERATOR}," ${manifest}
+sed -i "s,quay.io/openshift/origin-logging-elasticsearch6:latest,${ELASTICSEARCH_IMAGE}," ${manifest}
 
 if [ "${REMOTE_CLUSTER:-false}" = false ] ; then
   sudo sysctl -w vm.max_map_count=262144 ||:
