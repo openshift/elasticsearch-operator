@@ -18,10 +18,14 @@ KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
-LOGGING_IMAGE_STREAM?=feature-es6x
 OPERATOR_NAMESPACE=openshift-operators-redhat
 DEPLOYMENT_NAMESPACE=openshift-logging
 REPLICAS?=0
+
+LOGGING_IMAGE_STREAM?=stable
+LOGGING_IMAGE_REGISTRY?=registry.svc.ci.openshift.org
+ELASTICSEARCH_IMAGE?=$(LOGGING_IMAGE_REGISTRY)/ocp/$(LOGGING_IMAGE_STREAM):logging-elasticsearch6
+OPERAND_IMAGES?="ELASTICSEARCH_IMAGE=$(ELASTICSEARCH_IMAGE)"
 
 # go source files, ignore vendor directory
 SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
@@ -74,7 +78,7 @@ image: imagebuilder
 	fi
 
 test-e2e: gen-example-certs
-	LOGGING_IMAGE_STREAM=$(LOGGING_IMAGE_STREAM) REMOTE_CLUSTER=true hack/test-e2e.sh
+	LOGGING_IMAGE_STREAM=$(LOGGING_IMAGE_STREAM) OPERAND_IMAGES=$(OPERAND_IMAGES) REMOTE_CLUSTER=true hack/test-e2e.sh
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
@@ -92,11 +96,11 @@ simplify:
 	@gofmt -s -l -w $(SRC)
 
 deploy: deploy-image
-	hack/deploy.sh
+	 OPERAND_IMAGES=$(OPERAND_IMAGES) hack/deploy.sh
 .PHONY: deploy
 
 deploy-no-build:
-	hack/deploy.sh
+	 OPERAND_IMAGES=$(OPERAND_IMAGES) hack/deploy.sh
 .PHONY: deploy-no-build
 
 deploy-image: image

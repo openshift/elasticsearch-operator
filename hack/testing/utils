@@ -161,15 +161,13 @@ EOF
 }
 
 function deploy_elasticsearch_operator() {
-    OPERAND_IMAGES=""
     if [ -n "${IMAGE_FORMAT:-}" ] ; then
         IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
-        OPERAND_IMAGES+="ELASTICSEARCH_IMAGE=registry.svc.ci.openshift.org/ocp/${LOGGING_IMAGE_STREAM:-stable}:logging-elasticsearch6"
     else
         IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/origin/$VERSION:elasticsearch-operator}
     fi
     manifest=${repo_dir}/manifests
-    OPERAND_IMAGES=$OPERAND_IMAGES GLOBAL=true deploy_operator "openshift-operators-redhat" "elasticsearch-operator" $manifest $IMAGE_ELASTICSEARCH_OPERATOR $((2 * $minute))
+    OPERAND_IMAGES="${OPERAND_IMAGES:-}" GLOBAL=true deploy_operator "openshift-operators-redhat" "elasticsearch-operator" $manifest $IMAGE_ELASTICSEARCH_OPERATOR $((2 * $minute))
 }
 
 function deploy_operator() {
