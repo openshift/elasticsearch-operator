@@ -9,13 +9,13 @@ import (
 const (
 	modeUnique    = "unique"
 	modeSharedOps = "shared_ops"
-	defaultMode   = modeSharedOps
 
+	defaultMode               = modeSharedOps
 	defaultMasterCPURequest   = "100m"
 	defaultCPURequest         = "100m"
 	defaultMemoryLimit        = "4Gi"
 	defaultMemoryRequest      = "1Gi"
-	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch5"
+	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch6"
 
 	maxMasterCount = 3
 

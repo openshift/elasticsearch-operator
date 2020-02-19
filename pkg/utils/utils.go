@@ -3,9 +3,52 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/sirupsen/logrus"
 )
+
+const (
+	OsNodeLabel = "kubernetes.io/os"
+	LinuxValue  = "linux"
+)
+
+// EnsureLinuxNodeSelector takes given selector map and returns a selector map with linux node selector added into it.
+// If there is already a node type selector and is different from "linux" then it is overridden and warning is logged.
+// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#interlude-built-in-node-labels
+func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
+	if selectors == nil {
+		return map[string]string{OsNodeLabel: LinuxValue}
+	}
+	if os, ok := selectors[OsNodeLabel]; ok {
+		if os == LinuxValue {
+			return selectors
+		}
+		// Selector is provided but is not "linux"
+		logrus.Warnf("Overriding node selector value: %s=%s to %s", OsNodeLabel, os, LinuxValue)
+	}
+	selectors[OsNodeLabel] = LinuxValue
+	return selectors
+}
+
+func GetInt64(value int64) *int64 {
+	i := value
+	return &i
+}
+func GetInt32(value int32) *int32 {
+	i := value
+	return &i
+}
+
+func ToJson(obj interface{}) (string, error) {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
 
 func LookupEnvWithDefault(envName, defaultValue string) string {
 	if value, ok := os.LookupEnv(envName); ok {

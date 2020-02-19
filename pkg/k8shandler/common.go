@@ -8,15 +8,16 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // addOwnerRefToObject appends the desired OwnerReference to the object
+// deprecated in favor of Elasticsearch#AddOwnerRefTo
 func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 	if (metav1.OwnerReference{}) != r {
 		o.SetOwnerReferences(append(o.GetOwnerReferences(), r))
@@ -365,7 +366,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 	selectors := mergeSelectors(node.NodeSelector, commonSpec.NodeSelector)
 	// We want to make sure the pod ends up allocated on linux node. Thus we make sure the
 	// linux node selectors is always present. See LOG-411
-	selectors = ensureLinuxNodeSelector(selectors)
+	selectors = utils.EnsureLinuxNodeSelector(selectors)
 
 	tolerations := appendTolerations(node.Tolerations, commonSpec.Tolerations)
 	tolerations = appendTolerations(tolerations, []v1.Toleration{

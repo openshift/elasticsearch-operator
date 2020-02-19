@@ -161,13 +161,15 @@ EOF
 }
 
 function deploy_elasticsearch_operator() {
+    OPERAND_IMAGES=""
     if [ -n "${IMAGE_FORMAT:-}" ] ; then
         IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
+        OPERAND_IMAGES+="ELASTICSEARCH_IMAGE=registry.svc.ci.openshift.org/ocp/${LOGGING_IMAGE_STREAM:-stable}:logging-elasticsearch6"
     else
         IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/origin/$VERSION:elasticsearch-operator}
     fi
     manifest=${repo_dir}/manifests
-    GLOBAL=true deploy_operator "openshift-operators-redhat" "elasticsearch-operator" $manifest $IMAGE_ELASTICSEARCH_OPERATOR $((2 * $minute))
+    OPERAND_IMAGES=$OPERAND_IMAGES GLOBAL=true deploy_operator "openshift-operators-redhat" "elasticsearch-operator" $manifest $IMAGE_ELASTICSEARCH_OPERATOR $((2 * $minute))
 }
 
 function deploy_operator() {
@@ -177,7 +179,6 @@ function deploy_operator() {
     local operatorImage=$4
     local timeout=$5
 
-
     local version=$(basename $(find $manifest -type d | sort -r | head -n 1))
 
     KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
@@ -186,6 +187,7 @@ function deploy_operator() {
     oc create ns ${namespace} || :
     
     os::log::info "Deploying operator from ${manifest}"
+    OPERAND_IMAGES=${OPERAND_IMAGES:-""} \
     GLOBAL=${GLOBAL:-false} \
     VERSION=${version} \
     OPERATOR_IMAGE=${operatorImage} \
