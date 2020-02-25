@@ -19,3 +19,7 @@ spec:
     from:
       kind: DockerImage
       name: "quay.io/openshift/origin-logging-kibana6:latest"
+  - name: elasticsearch-proxy
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-elasticsearch-proxy:latest

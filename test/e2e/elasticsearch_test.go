@@ -184,6 +184,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 			RedundancyPolicy: elasticsearch.ZeroRedundancy,
 		},
 	}
+	t.Log("Creating initial deployment...")
 	err = f.Client.Create(goctx.TODO(), exampleElasticsearch, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		return fmt.Errorf("could not create exampleElasticsearch: %v", err)
@@ -202,6 +203,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
 	}
 	exampleElasticsearch.Spec.Nodes[0].NodeCount = int32(2)
+	t.Logf("Updating node count to %d", exampleElasticsearch.Spec.Nodes[0].NodeCount)
 	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
 	if err != nil {
 		return fmt.Errorf("could not update exampleElasticsearch with 2 replicas: %v", err)
@@ -222,6 +224,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
 	}
 	exampleElasticsearch.Spec.Nodes = append(exampleElasticsearch.Spec.Nodes, esNonDataNode)
+	t.Log("Updating a non-data node to the ES cluster...")
 	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
 	if err != nil {
 		return fmt.Errorf("could not update exampleElasticsearch with an additional node: %v", err)
@@ -251,6 +254,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	}
 
 	exampleElasticsearch.Spec.RedundancyPolicy = elasticsearch.SingleRedundancy
+	t.Logf("Updating redunancy policy to %s...", exampleElasticsearch.Spec.RedundancyPolicy)
 	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
 	if err != nil {
 		return fmt.Errorf("could not update exampleElasticsearch to be SingleRedundancy: %v", err)
@@ -271,6 +275,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	*/
 
 	// Update the secret to force a full cluster redeploy
+	t.Log("Updating secret to force full cluster restart...")
 	err = updateRequiredSecret(f, ctx)
 	if err != nil {
 		return fmt.Errorf("Unable to update secret")
