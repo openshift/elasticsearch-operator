@@ -22,7 +22,7 @@ metadata:
     containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
     createdAt: 2019-02-20T08:00:00Z
     support: AOS Cluster Logging, Jaeger
-    olm.skipRange: ">=4.2.0 <4.3.0"
+    olm.skipRange: ">=4.1.0 <4.3.0"
     alm-examples: |-
         [
             {
