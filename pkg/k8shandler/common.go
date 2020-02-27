@@ -289,6 +289,10 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 			},
 		},
 		v1.EnvVar{
+			Name:  "KUBERNETES_MASTER",
+			Value: "https://kubernetes.default.svc",
+		},
+		v1.EnvVar{
 			Name:  "KUBERNETES_TRUST_CERT",
 			Value: "true",
 		},
