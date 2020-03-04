@@ -232,6 +232,8 @@ spec:
               labels:
                 name: elasticsearch-operator
             spec:
+              nodeSelector:
+                kubernetes.io/os: linux
               serviceAccountName: elasticsearch-operator
               containers:
                 - name: elasticsearch-operator
