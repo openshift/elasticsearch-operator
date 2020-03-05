@@ -83,10 +83,10 @@ func isPodReady(pod v1.Pod) bool {
 	return true
 }
 
-func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[string][]kibana.ClusterCondition, error) {
+func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[string]kibana.ClusterConditions, error) {
 	// Get all pods based on status.Nodes[] and check their conditions
 	// get pod with label 'node-name=node.getName()'
-	podConditions := make(map[string][]kibana.ClusterCondition)
+	podConditions := make(map[string]kibana.ClusterConditions)
 
 	nodePodList := &core.PodList{
 		TypeMeta: metav1.TypeMeta{
@@ -106,7 +106,7 @@ func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[str
 
 	for _, nodePod := range nodePodList.Items {
 
-		conditions := []kibana.ClusterCondition{}
+		var conditions []kibana.ClusterCondition
 
 		isUnschedulable := false
 		for _, podCondition := range nodePod.Status.Conditions {

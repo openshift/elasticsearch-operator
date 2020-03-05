@@ -25,12 +25,14 @@ type ProxySpec struct {
 // KibanaStatus defines the observed state of Kibana
 // +k8s:openapi-gen=true
 type KibanaStatus struct {
-	Replicas    int32                         `json:"replicas"`
-	Deployment  string                        `json:"deployment"`
-	ReplicaSets []string                      `json:"replicaSets"`
-	Pods        PodStateMap                   `json:"pods"`
-	Conditions  map[string][]ClusterCondition `json:"clusterCondition,omitempty"`
+	Replicas    int32                        `json:"replicas"`
+	Deployment  string                       `json:"deployment"`
+	ReplicaSets []string                     `json:"replicaSets"`
+	Pods        PodStateMap                  `json:"pods"`
+	Conditions  map[string]ClusterConditions `json:"clusterCondition,omitempty"`
 }
+
+type ClusterConditions []ClusterCondition
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
