@@ -357,7 +357,7 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 
 func TestProxyContainerResourcesDefined(t *testing.T) {
 
-	imageName := "openshift/oauth-proxy:1.1"
+	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
 	expectedCPU := resource.MustParse("100m")
@@ -390,6 +390,46 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 		}
 	} else {
 		t.Errorf("Proxy container is missing memory limit. Expected limit %s", expectedMemory.String())
+	}
+}
+
+func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
+	imageName := "openshift/elasticsearch-proxy:1.1"
+	clusterName := "elasticsearch"
+
+	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	if err != nil {
+		t.Errorf("Failed to populate Proxy container: %v", err)
+	}
+
+	want := []string{
+		"--tls-cert=/etc/proxy/elasticsearch/logging-es.crt",
+		"--tls-key=/etc/proxy/elasticsearch/logging-es.key",
+		"--tls-client-ca=/etc/proxy/elasticsearch/admin-ca",
+		"--auth-whitelisted-name=CN=system.logging.kibana,OU=OpenShift,O=Logging",
+		"--auth-whitelisted-name=CN=system.logging.fluentd,OU=OpenShift,O=Logging",
+		"--auth-whitelisted-name=CN=system.logging.curator,OU=OpenShift,O=Logging",
+		"--auth-whitelisted-name=CN=system.admin,OU=OpenShift,O=Logging",
+		"--auth-whitelisted-name=CN=user.jaeger,OU=OpenShift,O=Logging",
+	}
+
+	for _, arg := range want {
+		if !sliceContainsString(proxyContainer.Args, arg) {
+			t.Errorf("Missing tls client auth argument: %s", arg)
+		}
+	}
+
+	wantVolumeMount := v1.VolumeMount{Name: "certificates", MountPath: "/etc/proxy/elasticsearch"}
+
+	hasMount := false
+	for _, vm := range proxyContainer.VolumeMounts {
+		if reflect.DeepEqual(vm, wantVolumeMount) {
+			hasMount = true
+		}
+	}
+
+	if !hasMount {
+		t.Errorf("Missing volume mount for tls client auth PKI: %#v", wantVolumeMount)
 	}
 }
 
