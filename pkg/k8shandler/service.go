@@ -63,7 +63,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		dpl.Namespace,
 		dpl.Name,
 		"restapi",
-		60000,
+		60001,
 		selectorForES("es-node-client", dpl.Name),
 		annotations,
 		false,

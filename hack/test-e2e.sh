@@ -9,7 +9,7 @@ current_dir=$(dirname "${BASH_SOURCE[0]}" )
 source "${current_dir}/lib/init.sh"
 source "${current_dir}/lib/util/logs.sh"
 
-EXCLUDES="verify-es-metrics"
+EXCLUDES=""
 for test in $( find "${current_dir}/testing" -type f -name 'test-*.sh' | sort); do
 	if [[ ${test} =~ .*${EXCLUDES}.* ]] ; then
 		os::log::info "==============================================================="
