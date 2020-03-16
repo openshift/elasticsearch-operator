@@ -146,3 +146,43 @@ scale-olm:
 undeploy:
 	hack/undeploy.sh
 .PHONY: undeploy
+
+
+# to use these targets, ensure the following env vars are set:
+# either each IMAGE env var:
+# IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY
+# IMAGE_ELASTICSEARCH_OPERATOR
+# IMAGE_ELASTICSEARCH6
+# IMAGE_LOGGING_KIBANA6
+# IMAGE_OAUTH_PROXY
+# or the image format:
+# IMAGE_FORMAT
+# 
+# You must also set:
+# ELASTICSEARCH_OPERATOR_NAMESPACE (Default: openshift-operators-redhat)
+test-e2e-olm: gen-example-certs
+	hack/test-e2e-olm.sh
+
+elasticsearch-catalog: elasticsearch-catalog-build elasticsearch-catalog-deploy
+
+elasticsearch-cleanup: elasticsearch-operator-uninstall elasticsearch-catalog-uninstall
+
+# builds an operator-registry image containing the elasticsearch operator
+elasticsearch-catalog-build:
+	olm_deploy/scripts/catalog-build.sh
+
+# deploys the operator registry image and creates a catalogsource referencing it
+elasticsearch-catalog-deploy:
+	olm_deploy/scripts/catalog-deploy.sh
+
+# deletes the catalogsource and catalog namespace
+elasticsearch-catalog-uninstall:
+	olm_deploy/scripts/catalog-uninstall.sh
+
+# installs the elasticsearch operator from the deployed operator-registry/catalogsource.
+elasticsearch-operator-install:
+	olm_deploy/scripts/operator-install.sh
+
+# uninstalls the elasticsearch operator
+elasticsearch-operator-uninstall:
+	olm_deploy/scripts/operator-uninstall.sh
