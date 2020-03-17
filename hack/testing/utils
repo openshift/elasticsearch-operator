@@ -29,15 +29,19 @@ expect_success(){
   fi  
   return 1
 }
+
 expect_success_and_text(){
   local cmd=$1
   local expected=$2
-  log::debug "Running '$cmd'"
+  log::info "Running '$cmd'"
   response=$($cmd)
-  log::debug "Response '${response}'" 
-  if [[ "${response}" == "${expected}" ]] ; then
+  result=$?
+  log::info "Response '${response}'" 
+  if [ $result == 0 ] && [[ ${response} =~ ${expected} ]] ; then
+    log::info "Passed"
     return 0
   fi  
+  log::info "Fail: Expected response to rematch $expected"
   return 1
 }
 
@@ -49,11 +53,13 @@ try_until_failure() {
   local expire=$(($now + $timeout))
   while [ $now -lt $expire ]; do
     if ! $cmd ; then
+      log::info "Passed"
       return 0
     fi  
     sleep $interval
     now=$(date +%s%3N)
   done
+  log::info "Fail"
   return 1
 }
 try_until_success() {
@@ -64,11 +70,13 @@ try_until_success() {
   local expire=$(($now + $timeout))
   while [ $now -lt $expire ]; do
     if $cmd ; then
+      log::info "Passed"
       return 0
     fi  
     sleep $interval
     now=$(date +%s%3N)
   done
+  log::info "Fail"
   return 1
 }
 
@@ -79,11 +87,13 @@ try_until_text() {
   local now=$(date +%s%3N)
   local expire=$(($now + $timeout))
   while [ $now -lt $expire ]; do
-      if [[ "$($cmd)" == "${expected}" ]] ; then
+    if [[ "$($cmd)" == "${expected}" ]] ; then
+      log::info "Passed"
       return 0
     fi  
     now=$(date +%s%3N)
   done
+  log::info "Fail"
   return 1
 }
 
@@ -101,7 +111,7 @@ gather_logging_resources() {
   oc -n ${LOGGING_NS} extract secret/elasticsearch --to=$outdir ||:
   oc -n ${LOGGING_NS} extract configmap/fluentd --to=$outdir ||:
 
-  get_all_logging_pod_logs $@
+  get_all_logging_pod_logs ${LOGGING_NS} $outdir
   set -e
 }
 
@@ -111,14 +121,15 @@ get_all_logging_pod_logs() {
   local outdir=${2:-$ARTIFACT_DIR}
   local p
   local container
-  oc get pods -n ${LOGGING_NS} -o wide > $outdir/pods.txt 2>&1
-  for p in $(oc get pods -n ${LOGGING_NS} -o jsonpath='{.items[*].metadata.name}') ; do
+  oc -n ${LOGGING_NS} get pods -o wide > $outdir/pods.txt 2>&1
+
+  for p in $(oc  -n ${LOGGING_NS} get pods -o jsonpath='{.items[*].metadata.name}') ; do
     oc -n ${LOGGING_NS} describe pod $p > $outdir/$p.describe 2>&1 || :
     oc -n ${LOGGING_NS} get pod $p -o yaml > $outdir/$p.yaml 2>&1 || :
     for container in $(oc -n ${LOGGING_NS} get po $p -o jsonpath='{.spec.containers[*].name}') ; do
       oc logs -n ${LOGGING_NS} -c $container $p > $outdir/$p.$container.log 2>&1
       case "$container" in
-        elasticsearch*) oc exec -n ${LOGGING_NS} -c elasticsearch $p  -- logs > $outdir/$p.$container.exec.log 2>&1 ;;
+        elasticsearch*) oc -n ${LOGGING_NS} exec -c elasticsearch $p  -- logs > $outdir/$p.$container.exec.log 2>&1 ;;
         *) continue ;;
       esac
     done
@@ -267,7 +278,7 @@ EOF
 }
 
 function deploy_elasticsearch_operator() {
-    OPERAND_IMAGES="ELASTICSEARCH_IMAGE=$(format_image logging-elasticsearch6) ELASTICSEARCH_PROXY=$(format_image elasticsearch-proxy)"
+    OPERAND_IMAGES="ELASTICSEARCH_IMAGE=${ELASTICSEARCH_IMAGE:-$(format_image logging-elasticsearch6)} ELASTICSEARCH_PROXY=${ELASTICSEARCH_PROXY:-$(format_image elasticsearch-proxy)}"
     IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-$(format_image elasticsearch-operator)}
     manifest=${repo_dir}/manifests
     OPERAND_IMAGES=$OPERAND_IMAGES GLOBAL=true deploy_operator "openshift-operators-redhat" "elasticsearch-operator" $manifest $IMAGE_ELASTICSEARCH_OPERATOR $((2 * $minute))

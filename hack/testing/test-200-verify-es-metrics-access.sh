@@ -11,7 +11,6 @@ repo_dir="$(dirname $0)/../.."
 source "${repo_dir}/hack/testing/utils"
 
 ARTIFACT_DIR=${ARTIFACT_DIR:-"$(pwd)/_output"}/$(basename ${BASH_SOURCE[0]})
-
 if [ ! -d $ARTIFACT_DIR ] ; then
   mkdir -p $ARTIFACT_DIR
 fi
