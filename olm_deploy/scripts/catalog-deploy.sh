@@ -8,11 +8,11 @@ export IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-registry.svc.ci.openshift.org/ocp/
 ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}
 
 if [ -n "${IMAGE_FORMAT:-}" ] ; then
-  export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=$(sed -e "s,\${component},elasticsearch-operator-registry," <(echo $IMAGE_FORMAT))
-  export IMAGE_ELASTICSEARCH_OPERATOR=$(sed -e "s,\${component},elasticsearch-operator," <(echo $IMAGE_FORMAT))
-  export IMAGE_ELASTICSEARCH6=$(sed -e "s,\${component},logging-elasticsearch6," <(echo $IMAGE_FORMAT))
-  export IMAGE_LOGGING_KIBANA6=$(sed -e "s,\${component},logging-kibana6," <(echo $IMAGE_FORMAT))
-  export IMAGE_OAUTH_PROXY=$(sed -e "s,\${component},oauth-proxy," <(echo $IMAGE_FORMAT))
+  export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator-registry,")
+  export IMAGE_ELASTICSEARCH_OPERATOR=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator,")
+  export IMAGE_ELASTICSEARCH6=$(echo $IMAGE_FORMAT | sed -e "s,\${component},logging-elasticsearch6,")
+  export IMAGE_LOGGING_KIBANA6=$(echo $IMAGE_FORMAT | sed -e "s,\${component},logging-kibana6,")
+  export IMAGE_OAUTH_PROXY=$(echo $IMAGE_FORMAT | sed -e "s,\${component},oauth-proxy,")
 fi
 
 echo "Using images: "
