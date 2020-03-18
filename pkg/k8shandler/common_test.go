@@ -1,6 +1,8 @@
 package k8shandler
 
 import (
+	. "github.com/onsi/ginkgo"
+
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -10,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
+	"github.com/openshift/elasticsearch-operator/test/helpers"
 )
 
 var (
@@ -557,3 +561,20 @@ func printResource(resource v1.ResourceRequirements) string {
 	}
 	return string(pretty)
 }
+
+var _ = Describe("common.go", func() {
+	defer GinkgoRecover()
+
+	Describe("#newEnvVars", func() {
+		var (
+			envVars []v1.EnvVar
+		)
+		BeforeEach(func() {
+			envVars = newEnvVars("theNodeName", "theClusterName", "theInstanceRam", map[api.ElasticsearchNodeRole]bool{})
+		})
+
+		It("should define POD_IP so IPV4 or IPV6 deployments are possible", func() {
+			helpers.ExpectEnvVars(envVars).ToIncludeName("POD_IP").WithFieldRefPath("status.podIP")
+		})
+	})
+})
