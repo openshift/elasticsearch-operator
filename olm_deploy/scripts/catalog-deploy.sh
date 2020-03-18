@@ -22,6 +22,8 @@ echo "elastic6: ${IMAGE_ELASTICSEARCH6}"
 echo "kibana: ${IMAGE_LOGGING_KIBANA6}"
 echo "oauth proxy: ${IMAGE_OAUTH_PROXY}"
 
+echo "In namespace: ${ELASTICSEARCH_OPERATOR_NAMESPACE}"
+
 if oc get project ${ELASTICSEARCH_OPERATOR_NAMESPACE} > /dev/null 2>&1 ; then
   echo using existing project ${ELASTICSEARCH_OPERATOR_NAMESPACE} for operator catalog deployment
 else
