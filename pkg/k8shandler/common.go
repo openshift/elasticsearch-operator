@@ -287,6 +287,14 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 			},
 		},
 		v1.EnvVar{
+			Name: "POD_IP",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		v1.EnvVar{
 			Name:  "KUBERNETES_MASTER",
 			Value: "https://kubernetes.default.svc",
 		},
