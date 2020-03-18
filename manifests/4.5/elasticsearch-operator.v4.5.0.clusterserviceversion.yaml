@@ -115,7 +115,7 @@ spec:
   - type: AllNamespaces
     supported: true
   install:
-    strategy: deployment
+    strategy: dployment
     spec:
       clusterPermissions:
       - serviceAccountName: elasticsearch-operator
