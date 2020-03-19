@@ -256,6 +256,7 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 			`--auth-backend-role=sg_role_admin={"namespace": "default", "verb": "view", "resource": "pods/metrics"}`,
 			`--auth-backend-role=prometheus={"verb": "get", "resource": "/metrics"}`,
 			`--auth-backend-role=jaeger={"verb": "get", "resource": "/jaeger", "resourceAPIGroup": "elasticsearch.jaegertracing.io"}`,
+			`--auth-backend-role=elasticsearch-operator={"namespace": "*", "verb": "*", "resource": "*", "resourceAPIGroup": "logging.openshift.io"}`,
 			`--cl-infra-role-name=sg_role_admin`,
 		},
 		Resources: v1.ResourceRequirements{
