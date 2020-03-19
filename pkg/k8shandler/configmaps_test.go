@@ -15,18 +15,20 @@ var _ = Describe("configmaps", func() {
 	Describe("#renderEsYml", func() {
 		It("should produce an elasticsearch.yml for our managed elasticsearch instance", func() {
 			result := &bytes.Buffer{}
-			Expect(renderEsYml(result, "", "my.unicast.host", "7", "4")).To(BeNil(), "Exp. no errors when rendering the configuration")
+			Expect(renderEsYml(result, "unique", "my.unicast.host", "7", "4")).To(BeNil(), "Exp. no errors when rendering the configuration")
 			helpers.ExpectYaml(result.String()).ToEqual(`
 cluster:
   name: ${CLUSTER_NAME}
+
+script:
+  inline: true
+  stored: true
 
 node:
   name: ${DC_NAME}
   master: ${IS_MASTER}
   data: ${HAS_DATA}
   max_local_storage_nodes: 1
-
-action.auto_create_index: "-*-write,+*"
 
 network:
   publish_host: ${POD_IP}
@@ -41,14 +43,29 @@ gateway:
   expected_nodes: 4
   recover_after_time: ${RECOVER_AFTER_TIME}
 
+io.fabric8.elasticsearch.kibana.mapping.app: /usr/share/elasticsearch/index_patterns/com.redhat.viaq-openshift.index-pattern.json
+io.fabric8.elasticsearch.kibana.mapping.ops: /usr/share/elasticsearch/index_patterns/com.redhat.viaq-openshift.index-pattern.json
+io.fabric8.elasticsearch.kibana.mapping.empty: /usr/share/elasticsearch/index_patterns/com.redhat.viaq-openshift.index-pattern.json
+
+openshift.config:
+  use_common_data_model: true
+  project_index_prefix: "project"
+  time_field_name: "@timestamp"
+
+openshift.searchguard:
+  keystore.path: /etc/elasticsearch/secret/admin.jks
+  truststore.path: /etc/elasticsearch/secret/searchguard.truststore
+
+openshift.kibana.index.mode: unique
+
 path:
   data: /elasticsearch/persistent/${CLUSTER_NAME}/data
   logs: /elasticsearch/persistent/${CLUSTER_NAME}/logs
 
-opendistro_security:
+searchguard:
   authcz.admin_dn:
   - CN=system.admin,OU=OpenShift,O=Logging
-  config_index_name: ".security"
+  config_index_name: ".searchguard"
   ssl:
     transport:
       enabled: true
