@@ -409,11 +409,6 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 		"--tls-cert=/etc/proxy/elasticsearch/logging-es.crt",
 		"--tls-key=/etc/proxy/elasticsearch/logging-es.key",
 		"--tls-client-ca=/etc/proxy/elasticsearch/admin-ca",
-		"--auth-whitelisted-name=CN=system.logging.kibana,OU=OpenShift,O=Logging",
-		"--auth-whitelisted-name=CN=system.logging.fluentd,OU=OpenShift,O=Logging",
-		"--auth-whitelisted-name=CN=system.logging.curator,OU=OpenShift,O=Logging",
-		"--auth-whitelisted-name=CN=system.admin,OU=OpenShift,O=Logging",
-		"--auth-whitelisted-name=CN=user.jaeger,OU=OpenShift,O=Logging",
 	}
 
 	for _, arg := range want {
@@ -433,6 +428,41 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 
 	if !hasMount {
 		t.Errorf("Missing volume mount for tls client auth PKI: %#v", wantVolumeMount)
+	}
+}
+
+func TestProxyContainerMetricsTLSDefined(t *testing.T) {
+	imageName := "openshift/elasticsearch-proxy:1.1"
+	clusterName := "elasticsearch"
+
+	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	if err != nil {
+		t.Errorf("Failed to populate Proxy container: %v", err)
+	}
+
+	want := []string{
+		"--metrics-listening-address=:60001",
+		"--metrics-tls-cert=/etc/proxy/secrets/tls.crt",
+		"--metrics-tls-key=/etc/proxy/secrets/tls.key",
+	}
+
+	for _, arg := range want {
+		if !sliceContainsString(proxyContainer.Args, arg) {
+			t.Errorf("Missing tls client auth argument: %s", arg)
+		}
+	}
+
+	wantVolumeMount := v1.VolumeMount{Name: "elasticsearch-metrics", MountPath: "/etc/proxy/secrets"}
+
+	hasMount := false
+	for _, vm := range proxyContainer.VolumeMounts {
+		if reflect.DeepEqual(vm, wantVolumeMount) {
+			hasMount = true
+		}
+	}
+
+	if !hasMount {
+		t.Errorf("Missing volume mount for tls metrics PKI: %#v", wantVolumeMount)
 	}
 }
 

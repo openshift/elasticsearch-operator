@@ -242,16 +242,18 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 			},
 		},
 		Args: []string{
+			// HTTPS default listener for Elasticsearch
 			"--listening-address=:60000",
 			"--tls-cert=/etc/proxy/elasticsearch/logging-es.crt",
 			"--tls-key=/etc/proxy/elasticsearch/logging-es.key",
 			"--tls-client-ca=/etc/proxy/elasticsearch/admin-ca",
+
+			// HTTPs listener for metrics
+			"--metrics-listening-address=:60001",
+			"--metrics-tls-cert=/etc/proxy/secrets/tls.crt",
+			"--metrics-tls-key=/etc/proxy/secrets/tls.key",
+
 			"--upstream-ca=/etc/proxy/elasticsearch/admin-ca",
-			"--auth-whitelisted-name=CN=system.logging.kibana,OU=OpenShift,O=Logging",
-			"--auth-whitelisted-name=CN=system.logging.fluentd,OU=OpenShift,O=Logging",
-			"--auth-whitelisted-name=CN=system.logging.curator,OU=OpenShift,O=Logging",
-			"--auth-whitelisted-name=CN=system.admin,OU=OpenShift,O=Logging",
-			"--auth-whitelisted-name=CN=user.jaeger,OU=OpenShift,O=Logging",
 			"--cache-expiry=60s",
 			`--auth-backend-role=sg_role_admin={"namespace": "default", "verb": "view", "resource": "pods/metrics"}`,
 			`--auth-backend-role=prometheus={"verb": "get", "resource": "/metrics"}`,
