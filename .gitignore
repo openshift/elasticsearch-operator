@@ -3,7 +3,6 @@
 tmp/_output
 tmp/_test
 _output
-pf.log
 
 # GoLand
 .idea
