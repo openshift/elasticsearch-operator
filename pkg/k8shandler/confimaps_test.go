@@ -26,8 +26,6 @@ node:
   data: ${HAS_DATA}
   max_local_storage_nodes: 1
 
-action.auto_create_index: "-*-write,+*"
-
 network:
   publish_host: ${POD_IP}
   bind_host: ["${POD_IP}",_local_]
