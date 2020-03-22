@@ -101,20 +101,25 @@ func updateAllIndexReplicas(clusterName, namespace string, client client.Client,
 
 	// get list of indices and call updateIndexReplicas for each one
 	for index, health := range indexHealth {
-		// only update replicas for indices that don't have same replica count
-		if numberOfReplicas := parseString("settings.index.number_of_replicas", health.(map[string]interface{})); numberOfReplicas != "" {
-			currentReplicas, err := strconv.ParseInt(numberOfReplicas, 10, 32)
-			if err != nil {
-				return false, err
-			}
+		if healthMap, ok := health.(map[string]interface{}); ok {
+			// only update replicas for indices that don't have same replica count
+			if numberOfReplicas := parseString("settings.index.number_of_replicas", healthMap); numberOfReplicas != "" {
+				currentReplicas, err := strconv.ParseInt(numberOfReplicas, 10, 32)
+				if err != nil {
+					return false, err
+				}
 
-			if int32(currentReplicas) != replicaCount {
-				// best effort initially?
-				logrus.Debugf("Updating %v from %d replicas to %d", index, currentReplicas, replicaCount)
-				if ack, err := updateIndexReplicas(clusterName, namespace, client, index, replicaCount); err != nil {
-					return ack, err
+				if int32(currentReplicas) != replicaCount {
+					// best effort initially?
+					logrus.Debugf("Updating %v from %d replicas to %d", index, currentReplicas, replicaCount)
+					if ack, err := updateIndexReplicas(clusterName, namespace, client, index, replicaCount); err != nil {
+						return ack, err
+					}
 				}
 			}
+		} else {
+			logrus.Warnf("Unable to evaluate the number of replicas for index %q: %v. cluster: %s, namespace: %s ", index, health, clusterName, namespace)
+			return false, fmt.Errorf("Unable to evaluate number of replicas for index")
 		}
 	}
 
