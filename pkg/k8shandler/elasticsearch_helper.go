@@ -210,15 +210,12 @@ func updateIndexReplicas(clusterName, namespace string, client client.Client, in
 }
 
 func ensureTokenHeader(header http.Header) http.Header {
-
 	if header == nil {
 		header = map[string][]string{}
 	}
 
 	if saToken, ok := readSAToken(k8sTokenFile); ok {
-		header["x-forwarded-access-token"] = []string{
-			saToken,
-		}
+		header.Set("Authorization", fmt.Sprintf("Bearer %s", saToken))
 	}
 
 	return header
