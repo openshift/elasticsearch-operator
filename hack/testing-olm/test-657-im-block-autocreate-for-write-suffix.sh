@@ -51,7 +51,7 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
   expect_success "oc -n ${TEST_NAMESPACE} create -f ${repo_dir}/hack/cr.yaml"
 
   log::info "Waiting for elasticsearch-operator to deploy the cluster..."
-  try_until_success "oc -n ${TEST_NAMESPACE} get deployment -l component=elasticsearch -o jsonpath={.items[0].metadata.name}) --ignore-not-found" $((2 * $minute))
+  try_until_success "oc -n ${TEST_NAMESPACE} get deployment -l component=elasticsearch -o jsonpath={.items[0].metadata.name})" $((2 * $minute))
 
 fi
 #wait for pod
