@@ -22,6 +22,7 @@ LOGGING_IMAGE_STREAM?=stable
 OPERATOR_NAMESPACE=openshift-operators-redhat
 DEPLOYMENT_NAMESPACE=openshift-logging
 REPLICAS?=0
+OCP_VERSION?=4.5
 OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
 .PHONY: all build clean fmt generate gobindir gosec imagebuilder operator-sdk run sec test-e2e test-unit
@@ -67,6 +68,8 @@ $(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
 	operator-sdk generate k8s
 	operator-sdk generate crds
 	@$(MAKE) fmt
+	cp deploy/crds/*.yaml manifests/$(OCP_VERSION)
+	rm -rf deploy
 	@touch $@
 
 regenerate:
