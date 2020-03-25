@@ -41,7 +41,7 @@ expect_success_and_text(){
     log::info "Passed"
     return 0
   fi  
-  log::info "Fail: Expected response to rematch $expected"
+  log::info "Fail: Expected response to match $expected"
   return 1
 }
 
