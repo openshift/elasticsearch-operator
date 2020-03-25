@@ -1,8 +1,9 @@
 CURPATH=$(PWD)
-TARGET_DIR=$(CURPATH)/_output
 
-GOBUILD=go build
-BUILD_GOPATH=$(TARGET_DIR):$(TARGET_DIR)/vendor:$(CURPATH)/cmd
+export GOFLAGS=-mod=vendor
+export GO111MODULE=on
+export GOBIN=$(CURDIR)/bin
+export PATH:=$(CURDIR)/bin:$(PATH)
 
 IMAGE_BUILDER_OPTS=
 IMAGE_BUILDER?=imagebuilder
@@ -13,7 +14,6 @@ export APP_NAME=elasticsearch-operator
 IMAGE_TAG?=quay.io/openshift/origin-$(APP_NAME):latest
 export IMAGE_TAG
 APP_REPO=github.com/openshift/$(APP_NAME)
-TARGET=$(TARGET_DIR)/bin/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
 RUN_LOG?=elasticsearch-operator.log
@@ -22,54 +22,69 @@ LOGGING_IMAGE_STREAM?=stable
 OPERATOR_NAMESPACE=openshift-operators-redhat
 DEPLOYMENT_NAMESPACE=openshift-logging
 REPLICAS?=0
+OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-# go source files, ignore vendor directory
-SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+.PHONY: all build clean fmt generate gobindir gosec imagebuilder operator-sdk run sec test-e2e test-unit
 
-#.PHONY: all build clean install uninstall fmt simplify check run
-.PHONY: all build clean fmt simplify run sec
+all: build
 
-all: build #check install
+gobindir:
+	@mkdir -p $(GOBIN)
 
-operator-sdk: get-dep
-	@if ! type -p operator-sdk ; \
-	then if [ ! -d $(GOPATH)/src/github.com/operator-framework/operator-sdk ] ; \
-	  then git clone https://github.com/operator-framework/operator-sdk --branch master $(GOPATH)/src/github.com/operator-framework/operator-sdk ; \
-	  fi ; \
-	  cd $(GOPATH)/src/github.com/operator-framework/operator-sdk ; \
-	  make dep ; \
-	  make install || sudo make install || cd commands/operator-sdk && sudo go install ; \
+GOSEC_VERSION?=2.2.0
+GOSEC_URL=https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_${OS_NAME}_amd64.tar.gz
+gosec: gobindir
+	@type -p gosec > /dev/null && \
+	gosec version | grep -q $(GOSEC_VERSION) || \
+	curl -sSfL  ${GOSEC_URL} | tar -z -C ./bin -x $@
+	@chmod +x $(GOBIN)/$@
+
+imagebuilder: gobindir
+	@if [ $${USE_IMAGE_STREAM:-false} = false ] && ! type -p imagebuilder > /dev/null ; \
+	then GOFLAGS="" GO111MODULE=off go get -u github.com/openshift/imagebuilder/cmd/imagebuilder ; \
 	fi
 
-gendeepcopy: operator-sdk
-	@operator-sdk generate k8s
+OPERATOR_SDK_VERSION?=v0.16.0
+OPERATOR_SDK_URL=https://github.com/operator-framework/operator-sdk/releases/download/${OPERATOR_SDK_VERSION}/operator-sdk-${OPERATOR_SDK_VERSION}-$(shell uname -i)-${OS_NAME}-gnu
+operator-sdk: gobindir
+	@type -p operator_sdk > /dev/null && \
+	operator-sdk version | grep -q $(OPERATOR_SDK_VERSION) || \
+	curl -sSfL -o $(GOBIN)/$@ ${OPERATOR_SDK_URL}
+	@chmod +x $(GOBIN)/$@
 
-imagebuilder:
-	@if [ $${USE_IMAGE_STREAM:-false} = false ] && ! type -p imagebuilder ; \
-	then go get -u github.com/openshift/imagebuilder/cmd/imagebuilder ; \
-	fi
+GOLANGCI_LINT_VERSION?=1.24.0
+GOLANGCI_LINT_URL=https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-${OS_NAME}-amd64.tar.gz
+golangci-lint: gobindir
+	@type -p golangci-lint > /dev/null && \
+	golangci-lint version | grep -q $(GOLANGCI_LINT_VERSION) || \
+	curl -sSfL ${GOLANGCI_LINT_URL} | tar -z --strip-components=1 -C ./bin -x golangci-lint-${GOLANGCI_LINT_VERSION}-${OS_NAME}-amd64/$@
+	@chmod +x $(GOBIN)/$@\
 
-get-dep:
-	@if ! type -p dep ; then \
-		cd $(GOPATH) ; \
-		if [ ! -d $(GOPATH)/bin ]; then \
-			mkdir bin; \
-			fi; \
-			curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh ; \
-	fi
+GEN_TIMESTAMP=.zz_generate_timestamp
+generate: $(GEN_TIMESTAMP)
+$(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
+	@$(MAKE) operator-sdk
+	operator-sdk generate k8s
+	operator-sdk generate crds
+	@$(MAKE) fmt
+	@touch $@
 
+regenerate:
+	@rm -f $(GEN_TIMESTAMP)
+	@$(MAKE) generate
 
-build: fmt
-	@mkdir -p $(TARGET_DIR)/src/$(APP_REPO)
-	@cp -ru $(CURPATH)/pkg $(TARGET_DIR)/src/$(APP_REPO)
-	@cp -ru $(CURPATH)/vendor/* $(TARGET_DIR)/src
-	@GOPATH=$(BUILD_GOPATH) $(GOBUILD) $(LDFLAGS) -o $(TARGET) $(MAIN_PKG)
-
-build-fast:
-	@go build -o elasticsearch-operator $(MAIN_PKG)
+build: fmt generate
+	@go build -o $(GOBIN)/elasticsearch-operator $(MAIN_PKG)
 
 clean:
-	@rm -rf $(TARGET_DIR)
+	@rm bin/*
+	go clean -cache -testcache ./...
+
+fmt:
+	@gofmt -s -l -w $(shell find pkg cmd test -name '*.go')
+
+lint: golangci-lint fmt
+	@golangci-lint run -c golangci.yaml
 
 image: imagebuilder
 	@if [ $${USE_IMAGE_STREAM:-false} = false ] && [ $${SKIP_BUILD:-false} = false ] ; \
@@ -82,17 +97,8 @@ test-e2e: gen-example-certs
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
 
-sec:
-	go get -u github.com/securego/gosec/cmd/gosec
-	gosec -severity medium -confidence medium -exclude G304 -quiet ./...
-
-fmt:
-	@gofmt -l -w cmd && \
-	gofmt -l -w pkg && \
-	gofmt -l -w test
-
-simplify:
-	@gofmt -s -l -w $(SRC)
+test-sec: gosec
+	@gosec -severity medium -confidence medium -exclude G304 -quiet ./...
 
 deploy: deploy-image
 	hack/deploy.sh
@@ -137,11 +143,11 @@ run-local:
 
 scale-cvo:
 	@oc -n openshift-cluster-version scale deployment/cluster-version-operator --replicas=$(REPLICAS)
-.PHONEY: scale-cvo
+.PHONY: scale-cvo
 
 scale-olm:
 	@oc -n openshift-operator-lifecycle-manager scale deployment/olm-operator --replicas=$(REPLICAS)
-.PHONEY: scale-olm
+.PHONY: scale-olm
 
 undeploy:
 	hack/undeploy.sh
@@ -157,7 +163,7 @@ undeploy:
 # IMAGE_OAUTH_PROXY
 # or the image format:
 # IMAGE_FORMAT
-# 
+#
 # You must also set:
 # ELASTICSEARCH_OPERATOR_NAMESPACE (Default: openshift-operators-redhat)
 test-e2e-olm: gen-example-certs
