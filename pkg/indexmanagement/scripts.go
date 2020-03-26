@@ -7,10 +7,9 @@ code=$(curl "$ES_SERVICE/$POLICY_MAPPING-write/_rollover?pretty" \
   -w "%{response_code}" \
   -sv \
   --cacert /etc/indexmanagement/keys/admin-ca \
-  --cert /etc/indexmanagement/keys/admin-cert \
-  --key /etc/indexmanagement/keys/admin-key \
   -HContent-Type:application/json \
   -XPOST \
+  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
   -d $decoded)
 if [ "$code" == "200" ] ; then
@@ -24,8 +23,7 @@ set -euox pipefail
 
 indices=$(curl -s $ES_SERVICE/$ALIAS/_settings/index.creation_date \
   --cacert /etc/indexmanagement/keys/admin-ca \
-	--cert /etc/indexmanagement/keys/admin-cert \
-	--key /etc/indexmanagement/keys/admin-key \
+  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
 CMD=$(cat <<END
@@ -65,9 +63,8 @@ fi
 code=$(curl -sv $ES_SERVICE/${indices}?pretty \
   -w "%{response_code}" \
   --cacert /etc/indexmanagement/keys/admin-ca \
-  --cert /etc/indexmanagement/keys/admin-cert \
-  --key /etc/indexmanagement/keys/admin-key \
   -HContent-Type:application/json \
+  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
   -XDELETE )
 
