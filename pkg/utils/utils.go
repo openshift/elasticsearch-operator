@@ -447,7 +447,7 @@ func EnvVarResourceFieldSelectorEqual(resource1, resource2 v1.ResourceFieldSelec
 	return false
 }
 
-func SetProxyEnvVars(proxyConfig *configv1.Proxy) []v1.EnvVar {
+func SetProxyEnvVars(proxyConfig *configv1.Proxy, oauthIssuer string) []v1.EnvVar {
 	envVars := []v1.EnvVar{}
 	if proxyConfig == nil {
 		return envVars
@@ -475,11 +475,11 @@ func SetProxyEnvVars(proxyConfig *configv1.Proxy) []v1.EnvVar {
 	if len(proxyConfig.Status.NoProxy) != 0 {
 		envVars = append(envVars, v1.EnvVar{
 			Name:  "NO_PROXY",
-			Value: proxyConfig.Status.NoProxy,
+			Value: fmt.Sprintf("%s,%s", oauthIssuer, proxyConfig.Status.NoProxy),
 		},
 			v1.EnvVar{
 				Name:  "no_proxy",
-				Value: proxyConfig.Status.NoProxy,
+				Value: fmt.Sprintf("%s,%s", oauthIssuer, proxyConfig.Status.NoProxy),
 			})
 	}
 	return envVars

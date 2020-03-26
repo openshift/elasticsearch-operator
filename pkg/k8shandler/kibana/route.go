@@ -43,6 +43,21 @@ func NewRoute(routeName, namespace, serviceName, cafilePath string) *route.Route
 	}
 }
 
+//GetRouterCanonicalHostname retrieves the router hostname from a given route and namespace
+func (clusterRequest *ClusterLoggingRequest) GetRouterCanonicalHostname(routeName string) (string, error) {
+
+	foundRoute := &route.Route{}
+
+	if err := clusterRequest.Get(routeName, foundRoute); err != nil {
+		if !errors.IsNotFound(err) {
+			logrus.Errorf("Failed to check for ClusterLogging object: %v", err)
+		}
+		return "", err
+	}
+
+	return foundRoute.Status.Ingress[0].RouterCanonicalHostname, nil
+}
+
 //GetRouteURL retrieves the route URL from a given route and namespace
 func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, error) {
 
