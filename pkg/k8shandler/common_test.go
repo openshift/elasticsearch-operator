@@ -469,7 +469,7 @@ func TestProxyContainerMetricsTLSDefined(t *testing.T) {
 func TestPodSpecHasTaintTolerations(t *testing.T) {
 
 	expectedTolerations := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -535,7 +535,7 @@ func TestPodNodeSelectors(t *testing.T) {
 func TestPodDiskToleration(t *testing.T) {
 
 	expectedToleration := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,

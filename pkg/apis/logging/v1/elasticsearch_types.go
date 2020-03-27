@@ -78,7 +78,7 @@ type ElasticsearchStatus struct {
 	Cluster                ClusterHealth                         `json:"cluster"`
 	ShardAllocationEnabled ShardAllocationState                  `json:"shardAllocationEnabled"`
 	Pods                   map[ElasticsearchNodeRole]PodStateMap `json:"pods"`
-	Conditions             ClusterConditions                     `json:"conditions"`
+	Conditions             []ClusterCondition                    `json:"conditions"`
 	IndexManagementStatus  *IndexManagementStatus                `json:"indexManagement,omitempty"`
 }
 
@@ -128,7 +128,7 @@ type ElasticsearchNodeStatus struct {
 	Status          string                         `json:"status,omitempty"`
 	UpgradeStatus   ElasticsearchNodeUpgradeStatus `json:"upgradeStatus,omitempty"`
 	Roles           []ElasticsearchNodeRole        `json:"roles,omitempty"`
-	Conditions      ClusterConditions              `json:"conditions,omitempty"`
+	Conditions      []ClusterCondition             `json:"conditions,omitempty"`
 }
 
 type ElasticsearchNodeUpgradeStatus struct {
@@ -149,8 +149,6 @@ type ClusterCondition struct {
 	// Human-readable message indicating details about last transition.
 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
-
-type ClusterConditions []ClusterCondition
 
 // +kubebuilder:validation:Enum=FullRedundancy;MultipleRedundancy;SingleRedundancy;ZeroRedundancy
 

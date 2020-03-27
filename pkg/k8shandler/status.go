@@ -153,9 +153,9 @@ func rolePodStateMap(namespace, clusterName string, client client.Client) map[ap
 
 func podStateMap(podList []v1.Pod) api.PodStateMap {
 	stateMap := map[api.PodStateType][]string{
-		api.PodStateTypeReady:    {},
-		api.PodStateTypeNotReady: {},
-		api.PodStateTypeFailed:   {},
+		api.PodStateTypeReady:    []string{},
+		api.PodStateTypeNotReady: []string{},
+		api.PodStateTypeFailed:   []string{},
 	}
 
 	for _, pod := range podList {
@@ -200,7 +200,7 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 		refreshDiskWatermarkThresholds(clusterName, namespace, client)
 	}
 
-	for nodeIndex := range status.Nodes {
+	for nodeIndex, _ := range status.Nodes {
 		node := &status.Nodes[nodeIndex]
 
 		nodeName := "unknown name"

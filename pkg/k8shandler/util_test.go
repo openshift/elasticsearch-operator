@@ -273,7 +273,7 @@ func TestNoTolerations(t *testing.T) {
 
 func TestNoNodeTolerations(t *testing.T) {
 	commonTolerations := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -283,7 +283,7 @@ func TestNoNodeTolerations(t *testing.T) {
 	nodeTolerations := []v1.Toleration{}
 
 	expected := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -301,7 +301,7 @@ func TestNoCommonTolerations(t *testing.T) {
 	commonTolerations := []v1.Toleration{}
 
 	nodeTolerations := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -309,7 +309,7 @@ func TestNoCommonTolerations(t *testing.T) {
 	}
 
 	expected := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -325,7 +325,7 @@ func TestNoCommonTolerations(t *testing.T) {
 
 func TestTolerations(t *testing.T) {
 	commonTolerations := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -333,7 +333,7 @@ func TestTolerations(t *testing.T) {
 	}
 
 	nodeTolerations := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/memory-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -341,12 +341,12 @@ func TestTolerations(t *testing.T) {
 	}
 
 	expected := []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
 		},
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/memory-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -361,12 +361,12 @@ func TestTolerations(t *testing.T) {
 
 	// ensure that ordering does not make a difference
 	expected = []v1.Toleration{
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/memory-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
 		},
-		{
+		v1.Toleration{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,

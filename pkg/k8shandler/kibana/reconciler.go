@@ -140,7 +140,7 @@ func compareKibanaStatus(lhs, rhs []kibana.KibanaStatus) bool {
 	}
 
 	if len(lhs) > 0 {
-		for index := range lhs {
+		for index, _ := range lhs {
 			if lhs[index].Deployment != rhs[index].Deployment {
 				return false
 			}

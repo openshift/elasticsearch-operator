@@ -31,9 +31,9 @@ var _ = Describe("Index Management", func() {
 				Spec: elasticsearch.ElasticsearchSpec{
 					RedundancyPolicy: elasticsearch.SingleRedundancy,
 					Nodes: []elasticsearch.ElasticsearchNode{
-						{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
-						{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
-						{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
+						elasticsearch.ElasticsearchNode{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
+						elasticsearch.ElasticsearchNode{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
+						elasticsearch.ElasticsearchNode{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
 					},
 				},
 			},
@@ -69,14 +69,14 @@ var _ = Describe("Index Management", func() {
 			mappings = []elasticsearch.IndexManagementPolicyMappingSpec{mapping}
 			chatter = helpers.NewFakeElasticsearchChatter(
 				map[string]helpers.FakeElasticsearchResponse{
-					"_template": {
+					"_template": helpers.FakeElasticsearchResponse{
 						nil, 200, `{
 							"ocp-gen-my-deleted-one": {},
 							"ocp-gen-node.infra": {},
 							"user-created": {}
 						}`,
 					},
-					"_template/ocp-gen-my-deleted-one": {
+					"_template/ocp-gen-my-deleted-one": helpers.FakeElasticsearchResponse{
 						nil, 200, `{
 							"acknowleged": true
 						}`,
@@ -101,7 +101,7 @@ var _ = Describe("Index Management", func() {
 		BeforeEach(func() {
 			chatter = helpers.NewFakeElasticsearchChatter(
 				map[string]helpers.FakeElasticsearchResponse{
-					"_template/ocp-gen-node.infra": {
+					"_template/ocp-gen-node.infra": helpers.FakeElasticsearchResponse{
 						nil, 200, `{ "acknowledged": true}`,
 					},
 				},
@@ -129,10 +129,10 @@ var _ = Describe("Index Management", func() {
 			It("should create it", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(
 					map[string]helpers.FakeElasticsearchResponse{
-						"_alias/node.infra-write": {
+						"_alias/node.infra-write": helpers.FakeElasticsearchResponse{
 							nil, 404, `{ "error": "some error", "status": 404}`,
 						},
-						"node.infra-000001": {
+						"node.infra-000001": helpers.FakeElasticsearchResponse{
 							nil, 200, `{ "acknowledged": true}`,
 						},
 					},
@@ -159,13 +159,13 @@ var _ = Describe("Index Management", func() {
 			It("should not try creating it", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(
 					map[string]helpers.FakeElasticsearchResponse{
-						"_alias/node.infra-write": {
+						"_alias/node.infra-write": helpers.FakeElasticsearchResponse{
 							nil, 200, `{
 								"node.infra-000003": {},
 								"node.infra-000004": {}
 							}`,
 						},
-						"node.infra-000001": {
+						"node.infra-000001": helpers.FakeElasticsearchResponse{
 							nil, 400, `{ "error": "exists"}`,
 						},
 					},
