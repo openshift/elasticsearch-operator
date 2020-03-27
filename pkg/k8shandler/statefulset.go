@@ -49,13 +49,13 @@ func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node 
 	}
 
 	partition := int32(0)
-
+	logConfig := getLogConfig(cluster.GetAnnotations())
 	statefulSet.Spec = apps.StatefulSetSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: newLabelSelector(cluster.Name, nodeName, roleMap),
 		},
-		Template: newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client),
+		Template: newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client, logConfig),
 		UpdateStrategy: apps.StatefulSetUpdateStrategy{
 			Type: apps.RollingUpdateStatefulSetStrategyType,
 			RollingUpdate: &apps.RollingUpdateStatefulSetStrategy{

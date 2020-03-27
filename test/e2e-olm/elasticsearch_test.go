@@ -162,6 +162,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 			Namespace: namespace,
 			Annotations: map[string]string{
 				"elasticsearch.openshift.io/develLogAppender": "console",
+				"elasticsearch.openshift.io/loglevel":         "trace",
 			},
 		},
 		Spec: elasticsearch.ElasticsearchSpec{

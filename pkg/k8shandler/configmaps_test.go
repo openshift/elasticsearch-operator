@@ -1,59 +1,23 @@
 package k8shandler
 
-const esYmlTmpl = `
-cluster:
-  name: ${CLUSTER_NAME}
+import (
+	"bytes"
 
-node:
-  name: ${DC_NAME}
-  master: ${IS_MASTER}
-  data: ${HAS_DATA}
-  max_local_storage_nodes: 1
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
 
-action.auto_create_index: "-*-write,+*"
+var _ = Describe("configmaps.go", func() {
+	defer GinkgoRecover()
+	var ()
 
-network:
-  publish_host: ${POD_IP}
-  bind_host: ["${POD_IP}",_local_]
+	Describe("#renderLog4j2Properties", func() {
 
-discovery.zen:
-  ping.unicast.hosts: {{.EsUnicastHost}}
-  minimum_master_nodes: {{.NodeQuorum}}
-
-gateway:
-  recover_after_nodes: {{.NodeQuorum}}
-  expected_nodes: {{.RecoverExpectedShards}}
-  recover_after_time: ${RECOVER_AFTER_TIME}
-
-path:
-  data: /elasticsearch/persistent/${CLUSTER_NAME}/data
-  logs: /elasticsearch/persistent/${CLUSTER_NAME}/logs
-
-opendistro_security:
-  authcz.admin_dn:
-  - CN=system.admin,OU=OpenShift,O=Logging
-  config_index_name: ".security"
-  ssl:
-    transport:
-      enabled: true
-      enforce_hostname_verification: false
-      keystore_type: JKS
-      keystore_filepath: /etc/elasticsearch/secret/searchguard.key
-      keystore_password: kspass
-      truststore_type: JKS
-      truststore_filepath: /etc/elasticsearch/secret/searchguard.truststore
-      truststore_password: tspass
-    http:
-      enabled: true
-      keystore_type: JKS
-      keystore_filepath: /etc/elasticsearch/secret/key
-      keystore_password: kspass
-      clientauth_mode: OPTIONAL
-      truststore_type: JKS
-      truststore_filepath: /etc/elasticsearch/secret/truststore
-      truststore_password: tspass`
-
-const log4j2PropertiesTmpl = `
+		It("should create a well-formed file without error", func() {
+			out := bytes.NewBufferString("")
+			logConfig := LogConfig{"debug", "trace", "mylogger"}
+			renderLog4j2Properties(out, logConfig)
+			Expect(out.String()).To(Equal(`
 status = error
 
 # log action execution errors for easier debugging
@@ -61,7 +25,7 @@ logger.action.name = org.elasticsearch.action
 logger.action.level = debug
 
 logger.security.name = com.amazon.opendistroforelasticsearch.security
-logger.security.level = {{.SecurityLogLevel}}  
+logger.security.level = debug  
 
 appender.console.type = Console
 appender.console.name = console
@@ -83,8 +47,8 @@ appender.rolling.policies.size.size=100MB
 appender.rolling.strategy.type=DefaultRolloverStrategy
 appender.rolling.strategy.max=5
 
-rootLogger.level = {{.LogLevel}}
-rootLogger.appenderRef.{{.RootLogger}}.ref = {{.RootLogger}}
+rootLogger.level = trace
+rootLogger.appenderRef.mylogger.ref = mylogger
 
 appender.deprecation_rolling.type = RollingFile
 appender.deprecation_rolling.name = deprecation_rolling
@@ -133,9 +97,8 @@ appender.index_indexing_slowlog_rolling.policies.time.modulate = true
 logger.index_indexing_slowlog.name = index.indexing.slowlog.index
 logger.index_indexing_slowlog.level = trace
 logger.index_indexing_slowlog.appenderRef.index_indexing_slowlog_rolling.ref = index_indexing_slowlog_rolling
-logger.index_indexing_slowlog.additivity = false`
+logger.index_indexing_slowlog.additivity = false`))
+		})
 
-const indexSettingsTmpl = `
-PRIMARY_SHARDS={{.PrimaryShards}}
-REPLICA_SHARDS={{.ReplicaShards}}
-`
+	})
+})

@@ -209,7 +209,7 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 	}
 }
 
-func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
+func newProxyContainer(imageName, clusterName string, logConfig LogConfig) (v1.Container, error) {
 	cpuLimit, err := resource.ParseQuantity("100m")
 	if err != nil {
 		return v1.Container{}, err
@@ -229,6 +229,12 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 				Name:          "restapi",
 				ContainerPort: 60000,
 				Protocol:      v1.ProtocolTCP,
+			},
+		},
+		Env: []v1.EnvVar{
+			{
+				Name:  "LOG_LEVEL",
+				Value: logConfig.LogLevel,
 			},
 		},
 		VolumeMounts: []v1.VolumeMount{
@@ -369,11 +375,11 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 	}
 }
 
-func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client) v1.PodTemplateSpec {
+func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
 
 	resourceRequirements := newResourceRequirements(node.Resources, commonSpec.Resources)
 	proxyImage := utils.LookupEnvWithDefault("ELASTICSEARCH_PROXY", "quay.io/openshift/origin-elasticsearch-proxy:latest")
-	proxyContainer, _ := newProxyContainer(proxyImage, clusterName)
+	proxyContainer, _ := newProxyContainer(proxyImage, clusterName, logConfig)
 
 	selectors := mergeSelectors(node.NodeSelector, commonSpec.NodeSelector)
 	// We want to make sure the pod ends up allocated on linux node. Thus we make sure the

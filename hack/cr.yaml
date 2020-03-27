@@ -3,6 +3,8 @@ apiVersion: "logging.openshift.io/v1"
 kind: "Elasticsearch"
 metadata:
   name: "elasticsearch"
+  annotations:
+      elasticsearch.openshift.io/loglevel: trace
 spec:
   managementState: "Managed"
   nodeSpec:
