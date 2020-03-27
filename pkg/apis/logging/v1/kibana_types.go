@@ -32,8 +32,6 @@ type KibanaStatus struct {
 	Conditions  map[string]ClusterConditions `json:"clusterCondition,omitempty"`
 }
 
-type ClusterConditions []ClusterCondition
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Kibana is the Schema for the kibanas API

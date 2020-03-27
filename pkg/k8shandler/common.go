@@ -169,12 +169,12 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 		ImagePullPolicy: "IfNotPresent",
 		Env:             envVars,
 		Ports: []v1.ContainerPort{
-			v1.ContainerPort{
+			{
 				Name:          "cluster",
 				ContainerPort: 9300,
 				Protocol:      v1.ProtocolTCP,
 			},
-			v1.ContainerPort{
+			{
 				ContainerPort: 9200,
 				Protocol:      v1.ProtocolTCP,
 			},
@@ -192,15 +192,15 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 			},
 		},
 		VolumeMounts: []v1.VolumeMount{
-			v1.VolumeMount{
+			{
 				Name:      "elasticsearch-storage",
 				MountPath: "/elasticsearch/persistent",
 			},
-			v1.VolumeMount{
+			{
 				Name:      "elasticsearch-config",
 				MountPath: elasticsearchConfigPath,
 			},
-			v1.VolumeMount{
+			{
 				Name:      "certificates",
 				MountPath: elasticsearchCertsPath,
 			},
@@ -225,18 +225,18 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 		Image:           imageName,
 		ImagePullPolicy: "IfNotPresent",
 		Ports: []v1.ContainerPort{
-			v1.ContainerPort{
+			{
 				Name:          "restapi",
 				ContainerPort: 60000,
 				Protocol:      v1.ProtocolTCP,
 			},
 		},
 		VolumeMounts: []v1.VolumeMount{
-			v1.VolumeMount{
+			{
 				Name:      fmt.Sprintf("%s-%s", clusterName, "metrics"),
 				MountPath: "/etc/proxy/secrets",
 			},
-			v1.VolumeMount{
+			{
 				Name:      "certificates",
 				MountPath: "/etc/proxy/elasticsearch",
 			},
@@ -277,11 +277,11 @@ func newProxyContainer(imageName, clusterName string) (v1.Container, error) {
 func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.ElasticsearchNodeRole]bool) []v1.EnvVar {
 
 	return []v1.EnvVar{
-		v1.EnvVar{
+		{
 			Name:  "DC_NAME",
 			Value: nodeName,
 		},
-		v1.EnvVar{
+		{
 			Name: "NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
@@ -289,7 +289,7 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 				},
 			},
 		},
-		v1.EnvVar{
+		{
 			Name: "POD_IP",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
@@ -297,47 +297,47 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 				},
 			},
 		},
-		v1.EnvVar{
+		{
 			Name:  "KUBERNETES_MASTER",
 			Value: "https://kubernetes.default.svc",
 		},
-		v1.EnvVar{
+		{
 			Name:  "KUBERNETES_TRUST_CERT",
 			Value: "true",
 		},
-		v1.EnvVar{
+		{
 			Name:  "SERVICE_DNS",
 			Value: fmt.Sprintf("%s-cluster", clusterName),
 		},
-		v1.EnvVar{
+		{
 			Name:  "CLUSTER_NAME",
 			Value: clusterName,
 		},
-		v1.EnvVar{
+		{
 			Name:  "INSTANCE_RAM",
 			Value: instanceRam,
 		},
-		v1.EnvVar{
+		{
 			Name:  "HEAP_DUMP_LOCATION",
 			Value: heapDumpLocation,
 		},
-		v1.EnvVar{
+		{
 			Name:  "RECOVER_AFTER_TIME",
 			Value: "5m",
 		},
-		v1.EnvVar{
+		{
 			Name:  "READINESS_PROBE_TIMEOUT",
 			Value: "30",
 		},
-		v1.EnvVar{
+		{
 			Name:  "POD_LABEL",
 			Value: fmt.Sprintf("cluster=%s", clusterName),
 		},
-		v1.EnvVar{
+		{
 			Name:  "IS_MASTER",
 			Value: strconv.FormatBool(roleMap[api.ElasticsearchRoleMaster]),
 		},
-		v1.EnvVar{
+		{
 			Name:  "HAS_DATA",
 			Value: strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
 		},
@@ -382,7 +382,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 
 	tolerations := appendTolerations(node.Tolerations, commonSpec.Tolerations)
 	tolerations = appendTolerations(tolerations, []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -561,7 +561,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 
 func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) []v1.Volume {
 	return []v1.Volume{
-		v1.Volume{
+		{
 			Name: "elasticsearch-config",
 			VolumeSource: v1.VolumeSource{
 				ConfigMap: &v1.ConfigMapVolumeSource{
@@ -571,11 +571,11 @@ func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchN
 				},
 			},
 		},
-		v1.Volume{
+		{
 			Name:         "elasticsearch-storage",
 			VolumeSource: newVolumeSource(clusterName, nodeName, namespace, node, client),
 		},
-		v1.Volume{
+		{
 			Name: "certificates",
 			VolumeSource: v1.VolumeSource{
 				Secret: &v1.SecretVolumeSource{
@@ -583,7 +583,7 @@ func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchN
 				},
 			},
 		},
-		v1.Volume{
+		{
 			Name: fmt.Sprintf("%s-%s", clusterName, "metrics"),
 			VolumeSource: v1.VolumeSource{
 				Secret: &v1.SecretVolumeSource{
@@ -637,7 +637,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 
 func sortDataHashKeys(dataHash map[string][32]byte) []string {
 	keys := []string{}
-	for key, _ := range dataHash {
+	for key := range dataHash {
 		keys = append(keys, key)
 	}
 

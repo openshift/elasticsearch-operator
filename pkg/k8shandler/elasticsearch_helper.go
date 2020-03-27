@@ -153,7 +153,7 @@ func updateAllIndexTemplateReplicas(clusterName, namespace string, client client
 	// get the index template and then update the replica and put it
 	indexTemplates, _ := GetIndexTemplates(clusterName, namespace, client)
 
-	for templateName, _ := range indexTemplates {
+	for templateName := range indexTemplates {
 
 		if template, ok := indexTemplates[templateName].(map[string]interface{}); ok {
 			if settings, ok := template["settings"].(map[string]interface{}); ok {
@@ -264,7 +264,7 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 		if payload.RequestBody != "" {
 			// add to the request
 			request.Header = map[string][]string{
-				"Content-Type": []string{
+				"Content-Type": {
 					"application/json",
 				},
 			}
@@ -275,7 +275,7 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 		if payload.RequestBody != "" {
 			// add to the request
 			request.Header = map[string][]string{
-				"Content-Type": []string{
+				"Content-Type": {
 					"application/json",
 				},
 			}
@@ -336,7 +336,7 @@ func curlESServiceOldClient(clusterName, namespace string, payload *esCurlStruct
 		if payload.RequestBody != "" {
 			// add to the request
 			request.Header = map[string][]string{
-				"Content-Type": []string{
+				"Content-Type": {
 					"application/json",
 				},
 			}
@@ -347,7 +347,7 @@ func curlESServiceOldClient(clusterName, namespace string, payload *esCurlStruct
 		if payload.RequestBody != "" {
 			// add to the request
 			request.Header = map[string][]string{
-				"Content-Type": []string{
+				"Content-Type": {
 					"application/json",
 				},
 			}

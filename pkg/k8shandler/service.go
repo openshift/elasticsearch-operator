@@ -145,7 +145,7 @@ func newService(serviceName, namespace, clusterName, targetPortName string, port
 		Spec: v1.ServiceSpec{
 			Selector: selector,
 			Ports: []v1.ServicePort{
-				v1.ServicePort{
+				{
 					Port:       port,
 					Protocol:   "TCP",
 					TargetPort: intstr.FromString(targetPortName),

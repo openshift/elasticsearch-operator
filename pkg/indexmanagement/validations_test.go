@@ -27,7 +27,7 @@ var _ = Describe("Index Management", func() {
 			Spec: esapi.ElasticsearchSpec{
 				IndexManagement: &esapi.IndexManagementSpec{
 					Policies: []esapi.IndexManagementPolicySpec{
-						esapi.IndexManagementPolicySpec{
+						{
 							Name:         "my-policy",
 							PollInterval: "10s",
 							Phases: esapi.IndexManagementPhasesSpec{
@@ -45,7 +45,7 @@ var _ = Describe("Index Management", func() {
 						},
 					},
 					Mappings: []esapi.IndexManagementPolicyMappingSpec{
-						esapi.IndexManagementPolicyMappingSpec{
+						{
 							Name:      "foo",
 							PolicyRef: "my-policy",
 							Aliases:   []string{"somevalue"},
