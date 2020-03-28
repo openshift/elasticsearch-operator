@@ -1,5 +1,6 @@
 CURPATH=$(PWD)
 
+export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
 export GOBIN=$(CURDIR)/bin
