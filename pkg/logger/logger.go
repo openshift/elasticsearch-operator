@@ -3,6 +3,7 @@ package logger
 import (
 	"encoding/json"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
@@ -61,10 +62,13 @@ func DebugObject(sprintfMessage string, object interface{}) {
 }
 func init() {
 	level := os.Getenv("LOG_LEVEL")
+	if strings.TrimSpace(level) == "" {
+		return
+	}
 	parsed, err := logrus.ParseLevel(level)
 	if err != nil {
-		parsed = logrus.InfoLevel
-		logrus.Warnf("Unable to parse loglevel %q", level)
+		logrus.Warnf("Unable to parse LOG_LEVEL %q", level)
+		return
 	}
 	logrus.SetLevel(parsed)
 }

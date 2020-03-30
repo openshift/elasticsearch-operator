@@ -53,7 +53,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 	}
 
 	progressDeadlineSeconds := int32(1800)
-
+	logConfig := getLogConfig(cluster.GetAnnotations())
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
@@ -64,7 +64,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 		},
 		ProgressDeadlineSeconds: &progressDeadlineSeconds,
 		Paused:                  false,
-		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client),
+		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client, logConfig),
 	}
 
 	addOwnerRefToObject(&deployment, getOwnerRef(cluster))

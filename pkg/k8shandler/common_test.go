@@ -366,7 +366,7 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 	expectedCPU := resource.MustParse("100m")
 	expectedMemory := resource.MustParse("64Mi")
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	proxyContainer, err := newProxyContainer(imageName, clusterName, LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -400,7 +400,7 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	proxyContainer, err := newProxyContainer(imageName, clusterName, LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestProxyContainerMetricsTLSDefined(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	proxyContainer, err := newProxyContainer(imageName, clusterName, LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 		},
 	}
 
-	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
@@ -570,7 +570,8 @@ func preparePodTemplateSpecProvidingNodeSelectors(selectors map[string]string) v
 		api.ElasticsearchNodeSpec{},
 		map[string]string{},
 		map[api.ElasticsearchNodeRole]bool{},
-		nil)
+		nil,
+		LogConfig{})
 }
 
 func buildResource(cpuLimit, cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {

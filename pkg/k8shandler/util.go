@@ -13,6 +13,41 @@ import (
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
+const (
+	loglevelAnnotation          = "elasticsearch.openshift.io/loglevel"
+	serverLogAppenderAnnotation = "elasticsearch.openshift.io/develLogAppender"
+	serverLoglevelAnnotation    = "elasticsearch.openshift.io/esloglevel"
+)
+
+type LogConfig struct {
+	//LogLevel of the proxy and server security
+	LogLevel string
+	//ServerLogLevel of the remainder of Elasticsearch
+	ServerLoglevel string
+	//ServerAppender where to log messages
+	ServerAppender string
+}
+
+func getLogConfig(annotations map[string]string) LogConfig {
+	config := LogConfig{"info", "info", "console"}
+	if value, found := annotations[loglevelAnnotation]; found {
+		if strings.TrimSpace(value) != "" {
+			config.LogLevel = value
+		}
+	}
+	if value, found := annotations[serverLoglevelAnnotation]; found {
+		if strings.TrimSpace(value) != "" {
+			config.ServerLoglevel = value
+		}
+	}
+	if value, found := annotations[serverLogAppenderAnnotation]; found {
+		if strings.TrimSpace(value) != "" {
+			config.ServerAppender = value
+		}
+	}
+	return config
+}
+
 func selectorForES(nodeRole string, clusterName string) map[string]string {
 
 	return map[string]string{
