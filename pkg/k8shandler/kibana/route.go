@@ -87,7 +87,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 		utils.GetWorkingDirFilePath("ca.crt"),
 	)
 
-	utils.AddOwnerRefToObject(kibanaRoute, utils.AsOwner(cluster))
+	utils.AddOwnerRefToObject(kibanaRoute, getOwnerRef(cluster))
 
 	err := clusterRequest.Create(kibanaRoute)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -100,7 +100,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 	}
 
 	sharedConfig := createSharedConfig(cluster.Namespace, kibanaURL, kibanaURL)
-	utils.AddOwnerRefToObject(sharedConfig, utils.AsOwner(cluster))
+	utils.AddOwnerRefToObject(sharedConfig, getOwnerRef(cluster))
 
 	err = clusterRequest.Create(sharedConfig)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -120,7 +120,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 		),
 	)
 
-	utils.AddOwnerRefToObject(sharedRole, utils.AsOwner(clusterRequest.cluster))
+	utils.AddOwnerRefToObject(sharedRole, getOwnerRef(clusterRequest.cluster))
 
 	err = clusterRequest.Create(sharedRole)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -139,7 +139,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 		),
 	)
 
-	utils.AddOwnerRefToObject(sharedRoleBinding, utils.AsOwner(clusterRequest.cluster))
+	utils.AddOwnerRefToObject(sharedRoleBinding, getOwnerRef(clusterRequest.cluster))
 
 	err = clusterRequest.Create(sharedRoleBinding)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -172,7 +172,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 			""),
 	)
 
-	utils.AddOwnerRefToObject(consoleExternalLogLink, utils.AsOwner(cluster))
+	utils.AddOwnerRefToObject(consoleExternalLogLink, getOwnerRef(cluster))
 
 	// In case the object already exists we delete it first
 	if err = clusterRequest.RemoveConsoleExternalLogLink("kibana"); err != nil {

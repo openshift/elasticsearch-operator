@@ -40,7 +40,7 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 		}
 	}
 
-	utils.AddOwnerRefToObject(serviceAccount, utils.AsOwner(clusterRequest.cluster))
+	utils.AddOwnerRefToObject(serviceAccount, getOwnerRef(clusterRequest.cluster))
 
 	logger.DebugObject("Attempting to create serviceacccount %v", serviceAccount)
 	if err := clusterRequest.Create(serviceAccount); err != nil {
