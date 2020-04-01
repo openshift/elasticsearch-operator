@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
@@ -75,13 +74,11 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 		}
 	}
 	logger.Debugf("Expecting to have cronjobs in %s: %v", cluster.Namespace, expected.List())
-	selector := labels.NewSelector()
-	for k, v := range imLabels {
-		req, _ := labels.NewRequirement(k, selection.Equals, []string{v})
-		selector.Add(*req)
-	}
+
+	labelSelector := labels.SelectorFromSet(imLabels)
+
 	cronList := &batch.CronJobList{}
-	if err := apiclient.List(context.TODO(), &client.ListOptions{Namespace: cluster.Namespace, LabelSelector: selector}, cronList); err != nil {
+	if err := apiclient.List(context.TODO(), &client.ListOptions{Namespace: cluster.Namespace, LabelSelector: labelSelector}, cronList); err != nil {
 		return err
 	}
 	existing := sets.NewString()
