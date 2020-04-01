@@ -25,9 +25,9 @@ type statefulSetNode struct {
 	// prior hash for secret content
 	secretHash string
 
-	clusterName       string
-	clusterSize       int32
-	priorReplicaCount int32
+	clusterName string
+	clusterSize int32
+	//priorReplicaCount int32
 
 	client client.Client
 }
@@ -260,7 +260,9 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 			return
 		}
 
-		node.setPartition(replicas)
+		if err := node.setPartition(replicas); err != nil {
+			logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+		}
 		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
 	}
 
@@ -277,7 +279,9 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 		// if the node doesn't exist -- create it
 		// TODO: we can skip this logic after
 		if node.isMissing() {
-			node.create()
+			if err := node.create(); err != nil {
+				logrus.Warnf("unable to create a node. E: %s\r\n", err.Error())
+			}
 		}
 
 		ordinal, err := node.partition()
@@ -309,7 +313,9 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 			}
 
 			// used for tracking in case of timeout
-			node.setPartition(index - 1)
+			if err := node.setPartition(index - 1); err != nil {
+				logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+			}
 		}
 
 		if err, _ := node.waitForNodeRejoinCluster(); err != nil {
@@ -344,7 +350,9 @@ func (node *statefulSetNode) fullClusterRestart(upgradeStatus *api.Elasticsearch
 			return
 		}
 
-		node.setPartition(replicas)
+		if err := node.setPartition(replicas); err != nil {
+			logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+		}
 		node.clusterSize = size
 		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
 	}
@@ -382,7 +390,9 @@ func (node *statefulSetNode) fullClusterRestart(upgradeStatus *api.Elasticsearch
 			}
 
 			// used for tracking in case of timeout
-			node.setPartition(index - 1)
+			if err := node.setPartition(index - 1); err != nil {
+				logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+			}
 		}
 
 		node.refreshHashes()
@@ -397,8 +407,8 @@ func (node *statefulSetNode) fullClusterRestart(upgradeStatus *api.Elasticsearch
 	}
 }
 
-func (node *statefulSetNode) delete() {
-	node.client.Delete(context.TODO(), &node.self)
+func (node *statefulSetNode) delete() error {
+	return node.client.Delete(context.TODO(), &node.self)
 }
 
 func (node *statefulSetNode) create() error {
@@ -458,7 +468,9 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 			return fmt.Errorf("Unable to get number of replicas prior to restart for %v", node.name())
 		}
 
-		node.setPartition(replicas)
+		if err := node.setPartition(replicas); err != nil {
+			logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+		}
 		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
 	}
 
@@ -491,7 +503,9 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 			}
 
 			// update partition to cause next pod to be updated
-			node.setPartition(index - 1)
+			if err := node.setPartition(index - 1); err != nil {
+				logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+			}
 
 			// wait for the node to leave the cluster
 			if err, _ := node.waitForNodeLeaveCluster(); err != nil {
@@ -547,7 +561,9 @@ func (node *statefulSetNode) scale() {
 		node.self.Spec.Replicas = desired.Spec.Replicas
 		logrus.Infof("Resource '%s' has different container replicas than desired", node.self.Name)
 
-		node.setReplicaCount(*node.self.Spec.Replicas)
+		if err := node.setReplicaCount(*node.self.Spec.Replicas); err != nil {
+			logrus.Warnf("unable to set replicate count. E: %s\r\n", err.Error())
+		}
 	}
 }
 

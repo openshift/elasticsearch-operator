@@ -123,8 +123,8 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 	}
 }
 
-func (node *deploymentNode) delete() {
-	node.client.Delete(context.TODO(), &node.self)
+func (node *deploymentNode) delete() error {
+	return node.client.Delete(context.TODO(), &node.self)
 }
 
 func (node *deploymentNode) create() error {
@@ -373,7 +373,9 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 
 		// if the node doesn't exist -- create it
 		if node.isMissing() {
-			node.create()
+			if err := node.create(); err != nil {
+				logrus.Warnf("unable to create node. E: %s\r\n", err.Error())
+			}
 		}
 
 		if err := node.setReplicaCount(1); err != nil {
@@ -508,7 +510,9 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
 
 		// do a unpause, wait, and pause again
-		node.unpause()
+		if err := node.unpause(); err != nil {
+			logrus.Warnf("unable to unpause node. E: %s\r\n", err.Error())
+		}
 
 		// wait for rollout
 		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
@@ -517,7 +521,9 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		}
 
 		// pause again
-		node.pause()
+		if err := node.pause(); err != nil {
+			logrus.Warnf("unable to pause node. E: %s\r\n", err.Error())
+		}
 
 		// once we've restarted this is taken care of
 		node.refreshHashes()
@@ -583,8 +589,12 @@ func (node *deploymentNode) progressUnshedulableNode(upgradeStatus *api.Elastics
 		if err := node.unpause(); err != nil {
 			return err
 		}
-		// if unpause is succesfull, always try to pause
-		defer node.pause()
+		// if unpause is successful, always try to pause
+		defer func() {
+			if err := node.pause(); err != nil {
+				logrus.Warnf("unable to unpause node. E: %s\r\n", err.Error())
+			}
+		}()
 
 		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
 

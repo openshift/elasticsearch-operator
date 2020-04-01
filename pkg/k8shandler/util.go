@@ -56,13 +56,6 @@ func selectorForES(nodeRole string, clusterName string) map[string]string {
 	}
 }
 
-func labelsForESCluster(clusterName string) map[string]string {
-
-	return map[string]string{
-		"cluster-name": clusterName,
-	}
-}
-
 func appendDefaultLabel(clusterName string, labels map[string]string) map[string]string {
 	if _, ok := labels["cluster-name"]; ok {
 		return labels
@@ -155,15 +148,6 @@ func appendTolerations(nodeTolerations, commonTolerations []v1.Toleration) []v1.
 	return append(commonTolerations, nodeTolerations...)
 }
 
-// getPodNames returns the pod names of the array of pods passed in
-func getPodNames(pods []v1.Pod) []string {
-	var podNames []string
-	for _, pod := range pods {
-		podNames = append(podNames, pod.Name)
-	}
-	return podNames
-}
-
 func getMasterCount(dpl *api.Elasticsearch) int32 {
 	masterCount := int32(0)
 	for _, node := range dpl.Spec.Nodes {
@@ -183,17 +167,6 @@ func getDataCount(dpl *api.Elasticsearch) int32 {
 		}
 	}
 	return dataCount
-}
-
-func getClientCount(dpl *api.Elasticsearch) int32 {
-	clientCount := int32(0)
-	for _, node := range dpl.Spec.Nodes {
-		if isClientNode(node) {
-			clientCount = clientCount + node.NodeCount
-		}
-	}
-
-	return clientCount
 }
 
 func isValidMasterCount(dpl *api.Elasticsearch) bool {

@@ -590,24 +590,6 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	return kibanaPodSpec
 }
 
-func updateCurrentImages(current *apps.Deployment, desired *apps.Deployment) *apps.Deployment {
-
-	containers := current.Spec.Template.Spec.Containers
-
-	for index, curr := range current.Spec.Template.Spec.Containers {
-		for _, des := range desired.Spec.Template.Spec.Containers {
-			// Only compare the images of containers with the same name
-			if curr.Name == des.Name {
-				if curr.Image != des.Image {
-					containers[index].Image = des.Image
-				}
-			}
-		}
-	}
-
-	return current
-}
-
 func createSharedConfig(namespace, kibanaAppURL, kibanaInfraURL string) *v1.ConfigMap {
 	return NewConfigMap(
 		"sharing-config",

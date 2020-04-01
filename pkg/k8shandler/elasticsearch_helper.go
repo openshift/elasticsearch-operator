@@ -308,7 +308,9 @@ func curlESService(clusterName, namespace string, payload *esCurlStruct, client 
 		}
 
 		payload.StatusCode = resp.StatusCode
-		payload.ResponseBody = getMapFromBody(resp.Body)
+		if payload.ResponseBody, err = getMapFromBody(resp.Body); err != nil {
+			logrus.Warnf("getMapFromBody failed. E: %s\r\n", err.Error())
+		}
 	}
 
 	payload.Error = err
@@ -364,7 +366,9 @@ func curlESServiceOldClient(clusterName, namespace string, payload *esCurlStruct
 
 	if resp != nil {
 		payload.StatusCode = resp.StatusCode
-		payload.ResponseBody = getMapFromBody(resp.Body)
+		if payload.ResponseBody, err = getMapFromBody(resp.Body); err != nil {
+			logrus.Warnf("getMapFromBody failed. E: %s\r\n", err.Error())
+		}
 	}
 
 	payload.Error = err
@@ -385,9 +389,11 @@ func getRootCA(clusterName, namespace string) *x509.CertPool {
 	return certPool
 }
 
-func getMapFromBody(body io.ReadCloser) map[string]interface{} {
+func getMapFromBody(body io.ReadCloser) (map[string]interface{}, error) {
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(body)
+	if _, err := buf.ReadFrom(body); err != nil {
+		return make(map[string]interface{}), err
+	}
 
 	var results map[string]interface{}
 	err := json.Unmarshal([]byte(buf.String()), &results)
@@ -396,7 +402,7 @@ func getMapFromBody(body io.ReadCloser) map[string]interface{} {
 		results["results"] = buf.String()
 	}
 
-	return results
+	return results, nil
 }
 
 func getClientCertificates(clusterName, namespace string) []tls.Certificate {

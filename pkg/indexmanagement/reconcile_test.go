@@ -102,9 +102,6 @@ var _ = Describe("Index Management", func() {
 		})
 	})
 	Describe("#ReconcileCurationCronjob", func() {
-		const (
-			rolloverCronName = "ocp-index-mgm-delete-foo"
-		)
 		BeforeEach(func() {
 			selector := map[string]string{}
 			tolerations := []core.Toleration{}
@@ -161,9 +158,6 @@ var _ = Describe("Index Management", func() {
 		})
 	})
 	Describe("#ReconcileRolloverCronjob", func() {
-		const (
-			rolloverCronName = "ocp-index-mgm-rollover-foo"
-		)
 		BeforeEach(func() {
 			selector := map[string]string{}
 			tolerations := []core.Toleration{}

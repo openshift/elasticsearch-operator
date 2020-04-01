@@ -10,7 +10,6 @@ import (
 
 type statusTestContext struct {
 	cluster          *esapi.Elasticsearch
-	spec             *esapi.IndexManagementSpec
 	policyStatus     *esapi.IndexManagementPolicyStatus
 	policyCondition  *esapi.IndexManagementPolicyCondition
 	mappingStatus    *esapi.IndexManagementMappingStatus

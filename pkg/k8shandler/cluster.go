@@ -17,8 +17,6 @@ import (
 var wrongConfig bool
 var nodes map[string][]NodeTypeInterface
 
-var aliasNeededMap map[string]bool
-
 func FlushNodes(clusterName, namespace string) {
 	nodes[nodeMapKey(clusterName, namespace)] = []NodeTypeInterface{}
 }
@@ -170,6 +168,9 @@ func (elasticsearchRequest *ElasticsearchRequest) updateMinMasters() {
 
 	desiredMasterCount := getMasterCount(cluster)/2 + 1
 	currentNodeCount, err := GetClusterNodeCount(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
+	if err != nil {
+		logrus.Warnf("unable to get cluster node count. E: %s\r\n", err.Error())
+	}
 
 	// check that we have the required number of master nodes in the cluster...
 	if currentNodeCount >= desiredMasterCount {
@@ -294,7 +295,9 @@ func (elasticsearchRequest *ElasticsearchRequest) getNodes() {
 				elasticsearchRequest.updateMinMasters()
 				minMasterUpdated = true
 			}
-			node.delete()
+			if err := node.delete(); err != nil {
+				logrus.Warnf("unable to delete node. E: %s\r\n", err.Error())
+			}
 
 			// remove from status.Nodes
 			if index, _ := getNodeStatus(node.name(), &cluster.Status); index != NOT_FOUND_INDEX {
@@ -476,7 +479,9 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 				_, nodeStatus := getNodeStatus(node.name(), clusterStatus)
 				node.fullClusterRestart(nodeStatus)
 				addNodeState(node, nodeStatus)
-				elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus)
+				if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
+					logrus.Warnf("unable to set node status. %s", err.Error())
+				}
 			}
 
 			// check that all nodes have been restarted by seeing if they still have the need to cert restart

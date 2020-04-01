@@ -11,7 +11,6 @@ const (
 	modeSharedOps = "shared_ops"
 
 	defaultMode               = modeSharedOps
-	defaultMasterCPURequest   = "100m"
 	defaultCPURequest         = "100m"
 	defaultMemoryLimit        = "4Gi"
 	defaultMemoryRequest      = "1Gi"
