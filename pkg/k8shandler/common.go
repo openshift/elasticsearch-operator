@@ -179,7 +179,7 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 	}
 }
 
-func newProxyContainer(imageName, clusterName string, logConfig LogConfig) (v1.Container, error) {
+func newProxyContainer(imageName, clusterName, namespace string, logConfig LogConfig) (v1.Container, error) {
 	cpuLimit, err := resource.ParseQuantity("100m")
 	if err != nil {
 		return v1.Container{}, err
@@ -235,6 +235,7 @@ func newProxyContainer(imageName, clusterName string, logConfig LogConfig) (v1.C
 			`--auth-backend-role=prometheus={"verb": "get", "resource": "/metrics"}`,
 			`--auth-backend-role=jaeger={"verb": "get", "resource": "/jaeger", "resourceAPIGroup": "elasticsearch.jaegertracing.io"}`,
 			`--auth-backend-role=elasticsearch-operator={"namespace": "*", "verb": "*", "resource": "*", "resourceAPIGroup": "logging.openshift.io"}`,
+			fmt.Sprintf("--auth-backend-role=index-management={\"namespace\":\"%s\", \"verb\": \"*\", \"resource\": \"indices\", \"resourceAPIGroup\": \"elasticsearch.openshift.io\"}", namespace),
 			`--cl-infra-role-name=sg_role_admin`,
 		},
 		Resources: v1.ResourceRequirements{
@@ -349,7 +350,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 
 	resourceRequirements := newResourceRequirements(node.Resources, commonSpec.Resources)
 	proxyImage := utils.LookupEnvWithDefault("ELASTICSEARCH_PROXY", "quay.io/openshift/origin-elasticsearch-proxy:latest")
-	proxyContainer, _ := newProxyContainer(proxyImage, clusterName, logConfig)
+	proxyContainer, _ := newProxyContainer(proxyImage, clusterName, namespace, logConfig)
 
 	selectors := mergeSelectors(node.NodeSelector, commonSpec.NodeSelector)
 	// We want to make sure the pod ends up allocated on linux node. Thus we make sure the

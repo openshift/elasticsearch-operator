@@ -366,7 +366,7 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 	expectedCPU := resource.MustParse("100m")
 	expectedMemory := resource.MustParse("64Mi")
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName, LogConfig{})
+	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -400,7 +400,7 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName, LogConfig{})
+	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestProxyContainerMetricsTLSDefined(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName, LogConfig{})
+	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
