@@ -213,7 +213,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	kibanaDeployment.Spec.Template.ObjectMeta.Annotations = annotations
 
-	utils.AddOwnerRefToObject(kibanaDeployment, utils.AsOwner(clusterRequest.cluster))
+	utils.AddOwnerRefToObject(kibanaDeployment, getOwnerRef(clusterRequest.cluster))
 
 	err = clusterRequest.Create(kibanaDeployment)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -393,7 +393,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 			}},
 		})
 
-	utils.AddOwnerRefToObject(kibanaService, utils.AsOwner(clusterRequest.cluster))
+	utils.AddOwnerRefToObject(kibanaService, getOwnerRef(clusterRequest.cluster))
 
 	err := clusterRequest.Create(kibanaService)
 	if err != nil && !errors.IsAlreadyExists(err) {
@@ -617,4 +617,15 @@ func createSharedConfig(namespace, kibanaAppURL, kibanaInfraURL string) *v1.Conf
 			"kibanaInfraURL": kibanaInfraURL,
 		},
 	)
+}
+
+func getOwnerRef(v *kibana.Kibana) metav1.OwnerReference {
+	trueVar := true
+	return metav1.OwnerReference{
+		APIVersion: kibana.SchemeGroupVersion.String(),
+		Kind:       "Kibana",
+		Name:       v.Name,
+		UID:        v.UID,
+		Controller: &trueVar,
+	}
 }
