@@ -5,11 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 )
-
-var log logr.Logger
 
 //Debug logs messages at level 2
 func Debug(message string) {

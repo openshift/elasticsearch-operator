@@ -621,10 +621,6 @@ func areResourcesSame(lhs, rhs v1.ResourceRequirements) bool {
 	return reflect.DeepEqual(lhs, rhs)
 }
 
-func areQuantitiesSame(lhs, rhs *resource.Quantity) bool {
-	return lhs.Cmp(*rhs) == 0
-}
-
 func printResource(resource v1.ResourceRequirements) string {
 	pretty, err := json.MarshalIndent(resource, "", "  ")
 	if err != nil {

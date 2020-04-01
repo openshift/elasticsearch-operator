@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"bytes"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,7 +17,9 @@ var _ = Describe("configmaps.go", func() {
 		It("should create a well-formed file without error", func() {
 			out := bytes.NewBufferString("")
 			logConfig := LogConfig{"debug", "trace", "mylogger"}
-			renderLog4j2Properties(out, logConfig)
+			if err := renderLog4j2Properties(out, logConfig); err != nil {
+				Fail(fmt.Sprintf("unable to render Log4J properties. %s\r\n", err.Error()))
+			}
 			Expect(out.String()).To(Equal(`
 status = error
 

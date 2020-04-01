@@ -69,36 +69,6 @@ func getOwnerRef(v *api.Elasticsearch) metav1.OwnerReference {
 	}
 }
 
-func isOnlyClientNode(node api.ElasticsearchNode) bool {
-	for _, role := range node.Roles {
-		if role != api.ElasticsearchRoleClient {
-			return false
-		}
-	}
-
-	return true
-}
-
-func isClientNode(node api.ElasticsearchNode) bool {
-	for _, role := range node.Roles {
-		if role == api.ElasticsearchRoleClient {
-			return true
-		}
-	}
-
-	return false
-}
-
-func isOnlyMasterNode(node api.ElasticsearchNode) bool {
-	for _, role := range node.Roles {
-		if role != api.ElasticsearchRoleMaster {
-			return false
-		}
-	}
-
-	return true
-}
-
 func isMasterNode(node api.ElasticsearchNode) bool {
 	for _, role := range node.Roles {
 		if role == api.ElasticsearchRoleMaster {

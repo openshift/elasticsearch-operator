@@ -74,7 +74,7 @@ regenerate:
 	@rm -f $(GEN_TIMESTAMP)
 	@$(MAKE) generate
 
-build: fmt generate
+build: fmt lint generate
 	@go build -o $(GOBIN)/elasticsearch-operator $(MAIN_PKG)
 
 clean:

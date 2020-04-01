@@ -70,14 +70,18 @@ var _ = Describe("Index Management", func() {
 			chatter = helpers.NewFakeElasticsearchChatter(
 				map[string]helpers.FakeElasticsearchResponse{
 					"_template": {
-						nil, 200, `{
+						Error:      nil,
+						StatusCode: 200,
+						Body: `{
 							"ocp-gen-my-deleted-one": {},
 							"ocp-gen-node.infra": {},
 							"user-created": {}
 						}`,
 					},
 					"_template/ocp-gen-my-deleted-one": {
-						nil, 200, `{
+						Error:      nil,
+						StatusCode: 200,
+						Body: `{
 							"acknowleged": true
 						}`,
 					},
@@ -102,7 +106,9 @@ var _ = Describe("Index Management", func() {
 			chatter = helpers.NewFakeElasticsearchChatter(
 				map[string]helpers.FakeElasticsearchResponse{
 					"_template/ocp-gen-node.infra": {
-						nil, 200, `{ "acknowledged": true}`,
+						Error:      nil,
+						StatusCode: 200,
+						Body:       `{ "acknowledged": true}`,
 					},
 				},
 			)
@@ -130,10 +136,14 @@ var _ = Describe("Index Management", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(
 					map[string]helpers.FakeElasticsearchResponse{
 						"_alias/node.infra-write": {
-							nil, 404, `{ "error": "some error", "status": 404}`,
+							Error:      nil,
+							StatusCode: 404,
+							Body:       `{ "error": "some error", "status": 404}`,
 						},
 						"node.infra-000001": {
-							nil, 200, `{ "acknowledged": true}`,
+							Error:      nil,
+							StatusCode: 200,
+							Body:       `{ "acknowledged": true}`,
 						},
 					},
 				)
@@ -160,13 +170,17 @@ var _ = Describe("Index Management", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(
 					map[string]helpers.FakeElasticsearchResponse{
 						"_alias/node.infra-write": {
-							nil, 200, `{
+							Error:      nil,
+							StatusCode: 200,
+							Body: `{
 								"node.infra-000003": {},
 								"node.infra-000004": {}
 							}`,
 						},
 						"node.infra-000001": {
-							nil, 400, `{ "error": "exists"}`,
+							Error:      nil,
+							StatusCode: 400,
+							Body:       `{ "error": "exists"}`,
 						},
 					},
 				)
