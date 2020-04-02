@@ -46,6 +46,11 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 		return nil
 	}
 
+	// ensure that we have the certs pulled in from the secret first... required for route generation
+	if err := clusterKibanaRequest.readSecrets(); err != nil {
+		return err
+	}
+
 	if err := clusterKibanaRequest.CreateOrUpdateServiceAccount(kibanaServiceAccountName, &kibanaServiceAccountAnnotations); err != nil {
 		return err
 	}
@@ -403,6 +408,22 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 	return nil
 }
 
+func getImage(commonImage string) string {
+	image := commonImage
+	if image == "" {
+		image = utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
+	}
+	return image
+}
+
+func getProxyImage(commonImage string) string {
+	image := commonImage
+	if image == "" {
+		image = utils.LookupEnvWithDefault("PROXY_IMAGE", kibanaProxyDefaultImage)
+	}
+	return image
+}
+
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
 	trustedCABundleCM *v1.ConfigMap) v1.PodSpec {
 	visSpec := kibana.KibanaSpec{}
@@ -419,13 +440,14 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 			},
 		}
 	}
+
+	kibanaImage := getImage(visSpec.Image)
 	kibanaContainer := NewContainer(
 		"kibana",
-		"kibana",
+		kibanaImage,
 		v1.PullIfNotPresent,
 		*kibanaResources,
 	)
-
 	var endpoint bytes.Buffer
 
 	endpoint.WriteString("https://")
@@ -469,9 +491,11 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 			},
 		}
 	}
+
+	proxyImage := getProxyImage(visSpec.ProxySpec.Image)
 	kibanaProxyContainer := NewContainer(
 		"kibana-proxy",
-		"kibana-proxy",
+		proxyImage,
 		v1.PullIfNotPresent,
 		*kibanaProxyResources,
 	)

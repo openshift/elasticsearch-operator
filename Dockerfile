@@ -11,7 +11,9 @@ ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_rules.yml"
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/bin/elasticsearch-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/files/ /etc/elasticsearch-operator/files/
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/manifests /manifests
-RUN rm /manifests/art.yaml
+RUN rm /manifests/art.yaml && \
+    mkdir /tmp/ocp-eo && \
+    chmod og+w /tmp/ocp-eo
 
 WORKDIR /usr/bin
 ENTRYPOINT ["elasticsearch-operator"]
