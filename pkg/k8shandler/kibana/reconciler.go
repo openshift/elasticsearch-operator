@@ -62,15 +62,7 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 		return err
 	}
 
-	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleLinks(); err != nil {
-		return err
-	}
-
 	if err := clusterKibanaRequest.createOrUpdateKibanaDeployment(proxyConfig); err != nil {
-		return err
-	}
-
-	if err := clusterKibanaRequest.removeSharedConfigMapPre45x(); err != nil {
 		return err
 	}
 
@@ -596,6 +588,17 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	}
 
 	return kibanaPodSpec
+}
+
+func createSharedConfig(namespace, kibanaAppURL, kibanaInfraURL string) *v1.ConfigMap {
+	return NewConfigMap(
+		"sharing-config",
+		namespace,
+		map[string]string{
+			"kibanaAppURL":   kibanaAppURL,
+			"kibanaInfraURL": kibanaInfraURL,
+		},
+	)
 }
 
 func getOwnerRef(v *kibana.Kibana) metav1.OwnerReference {
