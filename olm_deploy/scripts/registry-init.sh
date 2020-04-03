@@ -8,12 +8,14 @@ echo -e "\n\n"
 
 IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-quay.io/openshift/origin-elasticsearch-operator:latest}
 IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-quay.io/openshift/origin-logging-elasticsearch6:latest}
+IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-quay.io/openshift/origin-elasticsearch-proxy:latest}
 IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-quay.io/openshift/origin-oauth-proxy:latest}
-IMAGE_LOGGING_KIBANA6=${IMAGE_OAUTH_PROXY:-quay.io/openshift/origin-logging-kibana6:latest}
+IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-quay.io/openshift/origin-logging-kibana6:latest}
 
 # update the manifest with the image built by ci
 sed -i "s,quay.io/openshift/origin-elasticsearch-operator:latest,${IMAGE_ELASTICSEARCH_OPERATOR}," /manifests/*/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift/origin-logging-elasticsearch6:latest,${IMAGE_ELASTICSEARCH6}," /manifests/*/*clusterserviceversion.yaml
+sed -i "s,quay.io/openshift/origin-elasticsearch-proxy:latest,${IMAGE_ELASTICSEARCH_PROXY}," /manifests/*/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift/origin-oauth-proxy:latest,${IMAGE_OAUTH_PROXY}," /manifests/*/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift/origin-logging-kibana6:latest,${IMAGE_LOGGING_KIBANA6}," /manifests/*/*clusterserviceversion.yaml
 
