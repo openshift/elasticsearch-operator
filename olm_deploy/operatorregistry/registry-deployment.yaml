@@ -29,6 +29,8 @@ spec:
           value: ${IMAGE_ELASTICSEARCH_OPERATOR}
         - name: IMAGE_ELASTICSEARCH6
           value: ${IMAGE_ELASTICSEARCH6}
+        - name: IMAGE_ELASTICSEARCH_PROXY
+          value: ${IMAGE_ELASTICSEARCH_PROXY}
         - name: IMAGE_OAUTH_PROXY
           value: ${IMAGE_OAUTH_PROXY}
         - name: IMAGE_LOGGING_KIBANA6
