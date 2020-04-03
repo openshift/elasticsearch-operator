@@ -2,11 +2,13 @@ package kibana
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 
 	route "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,6 +78,34 @@ func (clusterRequest *KibanaRequest) RemoveRoute(routeName string) error {
 	return nil
 }
 
+func (clusterRequest *KibanaRequest) CreateOrUpdateRoute(newRoute *route.Route) error {
+
+	err := clusterRequest.Create(newRoute)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("Failure creating route for %q: %v", clusterRequest.cluster.Name, err)
+		}
+
+		// else -- try to update it if its a valid change (e.g. spec.tls)
+		current := &route.Route{}
+
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := clusterRequest.Get(newRoute.Name, current); err != nil {
+				return fmt.Errorf("Failed to get route: %v", err)
+			}
+
+			if !reflect.DeepEqual(current.Spec.TLS, newRoute.Spec.TLS) {
+				current.Spec.TLS = newRoute.Spec.TLS
+				return clusterRequest.Update(current)
+			}
+
+			return nil
+		})
+	}
+
+	return nil
+}
+
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 
 	cluster := clusterRequest.cluster
@@ -83,15 +113,16 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 	kibanaRoute := NewRoute(
 		"kibana",
 		cluster.Namespace,
-		"Kibana",
+		"kibana",
 		utils.GetWorkingDirFilePath("ca.crt"),
 	)
 
 	utils.AddOwnerRefToObject(kibanaRoute, getOwnerRef(cluster))
 
-	err := clusterRequest.Create(kibanaRoute)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana route for %q: %v", cluster.Name, err)
+	if err := clusterRequest.CreateOrUpdateRoute(kibanaRoute); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("Failure creating Kibana route for %q: %v", cluster.Name, err)
+		}
 	}
 
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")

@@ -60,9 +60,10 @@ var (
 )
 
 func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+
 	if err := kibana.ReconcileKibanaInstance(request, r.client); err != nil {
 		return reconcileResult, err
 	}
 
-	return reconcile.Result{}, nil
+	return reconcileResult, nil
 }
