@@ -37,7 +37,7 @@ const (
 var (
 	defaultCPURequest      = resource.MustParse("100m")
 	defaultMemoryRequest   = resource.MustParse("32Mi")
-	jobHistoryLimitFailed  = utils.GetInt32(2)
+	jobHistoryLimitFailed  = utils.GetInt32(1)
 	jobHistoryLimitSuccess = utils.GetInt32(1)
 
 	millisPerSecond = uint64(1000)
@@ -324,6 +324,7 @@ func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelect
 			Labels:    imLabels,
 		},
 		Spec: batch.CronJobSpec{
+			ConcurrencyPolicy:          batch.ForbidConcurrent,
 			SuccessfulJobsHistoryLimit: jobHistoryLimitSuccess,
 			FailedJobsHistoryLimit:     jobHistoryLimitFailed,
 			Schedule:                   schedule,
