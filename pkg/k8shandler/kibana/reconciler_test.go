@@ -19,13 +19,19 @@ import (
 )
 
 func TestNewKibanaPodSpecSetsProxyToUseServiceAccountAsOAuthClient(t *testing.T) {
-	cluster := &KibanaRequest{}
+	cluster := &KibanaRequest{
+		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
+		},
+	}
 	spec := newKibanaPodSpec(cluster, "kibana", nil, nil)
 	for _, arg := range spec.Containers[1].Args {
 		keyValue := strings.Split(arg, "=")
 		if len(keyValue) >= 2 && keyValue[0] == "-client-id" {
-			if keyValue[1] != "system:serviceaccount:openshift-logging:kibana" {
-				t.Error("Exp. the proxy container arg 'client-id=system:serviceaccount:openshift-logging:kibana'")
+			if keyValue[1] != "system:serviceaccount:test-namespace:kibana" {
+				t.Error("Exp. the proxy container arg 'client-id=system:serviceaccount:test-namespace:kibana'")
 			}
 		}
 		if len(keyValue) >= 2 && keyValue[0] == "-scope" {
@@ -38,7 +44,13 @@ func TestNewKibanaPodSpecSetsProxyToUseServiceAccountAsOAuthClient(t *testing.T)
 
 func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 
-	cluster := &KibanaRequest{}
+	cluster := &KibanaRequest{
+		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
+		},
+	}
 	podSpec := newKibanaPodSpec(cluster, "test-app-name", nil, nil)
 
 	if len(podSpec.Containers) != 2 {
@@ -77,6 +89,9 @@ func TestNewKibanaPodSpecWhenResourcesAreDefined(t *testing.T) {
 	clusterRequest := &KibanaRequest{
 		client: nil,
 		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
 			Spec: kibana.KibanaSpec{
 				Resources: newResourceRequirements("100Gi", "", "120Gi", "500m"),
 				ProxySpec: kibana.ProxySpec{
@@ -132,6 +147,9 @@ func TestNewKibanaPodSpecWhenNodeSelectorIsDefined(t *testing.T) {
 	clusterRequest := &KibanaRequest{
 		client: nil,
 		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
 			Spec: kibana.KibanaSpec{
 				NodeSelector: expSelector,
 			},
@@ -152,6 +170,9 @@ func TestNewKibanaPodNoTolerations(t *testing.T) {
 	clusterRequest := &KibanaRequest{
 		client: nil,
 		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
 			Spec: kibana.KibanaSpec{},
 		},
 	}
@@ -177,6 +198,9 @@ func TestNewKibanaPodWithTolerations(t *testing.T) {
 	clusterRequest := &KibanaRequest{
 		client: nil,
 		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
 			Spec: kibana.KibanaSpec{
 				Tolerations: expTolerations,
 			},
@@ -196,6 +220,9 @@ func TestNewKibanaPodSpecWhenProxyConfigExists(t *testing.T) {
 	clusterRequest := &KibanaRequest{
 		client: nil,
 		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
 			Spec: kibana.KibanaSpec{},
 		},
 	}

@@ -1,7 +1,6 @@
 package kibana
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -102,7 +101,12 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 
 func ReconcileKibanaInstance(request reconcile.Request, rClient client.Client) error {
 	kibanaInstance := &kibana.Kibana{}
-	err := rClient.Get(context.TODO(), request.NamespacedName, kibanaInstance)
+	key := types.NamespacedName{
+		Namespace: request.Namespace,
+		Name:      constants.KibanaInstanceName,
+	}
+
+	err := rClient.Get(context.TODO(), key, kibanaInstance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -200,7 +204,11 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 		}
 	}
 
-	kibanaPodSpec := newKibanaPodSpec(clusterRequest, "elasticsearch.openshift-logging.svc.cluster.local", proxyConfig, kibanaTrustBundle)
+	kibanaPodSpec := newKibanaPodSpec(clusterRequest,
+		fmt.Sprintf("elasticsearch.%s.svc.cluster.local", clusterRequest.cluster.Namespace),
+		proxyConfig,
+		kibanaTrustBundle)
+
 	kibanaDeployment := NewDeployment(
 		"kibana",
 		clusterRequest.cluster.Namespace,
@@ -272,7 +280,7 @@ func (clusterRequest *KibanaRequest) getKibanaAnnotations(deployment *apps.Deplo
 	annotations := deployment.Spec.Template.ObjectMeta.Annotations
 
 	kibanaTrustBundle := &v1.ConfigMap{}
-	kibanaTrustBundleName := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: constants.OpenshiftNS}
+	kibanaTrustBundleName := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: clusterRequest.cluster.Namespace}
 	if err := clusterRequest.client.Get(context.TODO(), kibanaTrustBundleName, kibanaTrustBundle); err != nil {
 		if !errors.IsNotFound(err) {
 			return annotations, err
@@ -448,15 +456,16 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		v1.PullIfNotPresent,
 		*kibanaResources,
 	)
-	var endpoint bytes.Buffer
 
-	endpoint.WriteString("https://")
-	endpoint.WriteString(elasticsearchName)
-	endpoint.WriteString(":9200")
+	endpoints := fmt.Sprintf(`["https://%s:9200"]`, elasticsearchName)
 
 	kibanaContainer.Env = []v1.EnvVar{
-		{Name: "ELASTICSEARCH_URL", Value: endpoint.String()},
-		{Name: "KIBANA_MEMORY_LIMIT",
+		{
+			Name:  "ELASTICSEARCH_HOSTS",
+			Value: endpoints,
+		},
+		{
+			Name: "KIBANA_MEMORY_LIMIT",
 			ValueFrom: &v1.EnvVarSource{
 				ResourceFieldRef: &v1.ResourceFieldSelector{
 					ContainerName: "kibana",
@@ -504,7 +513,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		"--upstream-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
 		"--https-address=:3000",
 		"-provider=openshift",
-		"-client-id=system:serviceaccount:openshift-logging:kibana",
+		fmt.Sprintf("-client-id=system:serviceaccount:%s:kibana", cluster.cluster.Namespace),
 		"-client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token",
 		"-cookie-secret-file=/secret/session-secret",
 		"-upstream=http://localhost:5601",
