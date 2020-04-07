@@ -15,7 +15,7 @@ if [ ! -d $ARTIFACT_DIR ] ; then
   mkdir -p $ARTIFACT_DIR
 fi
 
-LOGGING_NS=${LOGGING_NS:-openshift-logging}
+TEST_NAMESPACE="${TEST_NAMESPACE:-e2e-test-${RANDOM}}"
 suffix=$RANDOM
 UNAUTHORIZED_SA="unauthorized-sa-${suffix}"
 AUTHORIZED_SA="authorized-sa-${suffix}"
@@ -27,11 +27,11 @@ function cleanup() {
 
     if [ "${DO_CLEANUP:-true}" == "true" ] ; then  
 
-      oc -n ${LOGGING_NS} exec $(oc ${LOGGING_NS} get pods -l component=elasticsearch -o jsonpath={.items[0].metadata.name}) -c elasticsearch -- cat /tmp/metrics.txt ||: >$ARTIFACT_DIR/metrics.log
-      oc -n ${LOGGING_NS} get configmap/elasticsearch  -o jsonpath={.data}> $ARTIFACT_DIR/configmap-elasticsearch.log 2>&1
-      get_all_logging_pod_logs ${LOGGING_NS} $ARTIFACT_DIR
+      oc -n ${TEST_NAMESPACE} exec $(oc ${TEST_NAMESPACE} get pods -l component=elasticsearch -o jsonpath={.items[0].metadata.name}) -c elasticsearch -- cat /tmp/metrics.txt ||: >$ARTIFACT_DIR/metrics.log
+      oc -n ${TEST_NAMESPACE} get configmap/elasticsearch  -o jsonpath={.data}> $ARTIFACT_DIR/configmap-elasticsearch.log 2>&1
+      get_all_logging_pod_logs ${TEST_NAMESPACE} $ARTIFACT_DIR
 
-      for name in "ns/openshift-operators-redhat" "ns/${LOGGING_NS}" ; do
+      for name in "ns/openshift-operators-redhat" "ns/${TEST_NAMESPACE}" ; do
           oc delete ${name}  > $ARTIFACT_DIR/cleanup.log 2>&1
           try_until_failure "oc get ${name}" "$((1 * $minute))"
       done
@@ -48,17 +48,17 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
   deploy_elasticsearch_operator
 
   #deploy elasticsearch cluster
-  expect_success "oc -n ${LOGGING_NS} create ns ${LOGGING_NS}"
-  expect_success "${repo_dir}/hack/deploy-example-secrets.sh  ${LOGGING_NS}"
-  expect_success "oc -n ${LOGGING_NS} create -f ${repo_dir}/hack/cr.yaml"
+  expect_success "oc -n ${TEST_NAMESPACE} create ns ${TEST_NAMESPACE}"
+  expect_success "${repo_dir}/hack/deploy-example-secrets.sh  ${TEST_NAMESPACE}"
+  expect_success "oc -n ${TEST_NAMESPACE} create -f ${repo_dir}/hack/cr.yaml"
   
   #wait for pod
-  wait_for_deployment_to_be_ready ${LOGGING_NS} $(oc -n ${LOGGING_NS} get deployment -l component=elasticsearch -o jsonpath={.items[0].metadata.name}) $((2 * $minute))
+  wait_for_deployment_to_be_ready ${TEST_NAMESPACE} $(oc -n ${TEST_NAMESPACE} get deployment -l component=elasticsearch -o jsonpath={.items[0].metadata.name}) $((2 * $minute))
 fi
 
 log::info Creating serviceaccounts to verify metrics
-oc -n ${LOGGING_NS} create serviceaccount ${UNAUTHORIZED_SA}
-oc -n ${LOGGING_NS} create serviceaccount ${AUTHORIZED_SA}
+oc -n ${TEST_NAMESPACE} create serviceaccount ${UNAUTHORIZED_SA}
+oc -n ${TEST_NAMESPACE} create serviceaccount ${AUTHORIZED_SA}
 
 result=$(oc get clusterrole ${CLUSTERROLE} --ignore-not-found ||:)
 if [ "$result" == "" ] ; then
@@ -67,36 +67,36 @@ fi
 result=$(oc get clusterrolebinding ${CLUSTERROLE} --ignore-not-found ||:)
 if [ "$result" == "" ] ; then
   log::info Binding ${AUTHORIZED_SA} to be cable of reading metrics
-  oc create clusterrolebinding --clusterrole=${CLUSTERROLE} ${CLUSTERROLE} --serviceaccount=${LOGGING_NS}:${AUTHORIZED_SA}
+  oc create clusterrolebinding --clusterrole=${CLUSTERROLE} ${CLUSTERROLE} --serviceaccount=${TEST_NAMESPACE}:${AUTHORIZED_SA}
 fi
 result=$(oc get clusterrolebinding view-${CLUSTERROLE} --ignore-not-found ||:)
 if [ "$result" == "" ] ; then
   log::info Binding ${AUTHORIZED_SA} to be cable of getting namespaces
-  oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE} --serviceaccount=${LOGGING_NS}:${AUTHORIZED_SA}
+  oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE} --serviceaccount=${TEST_NAMESPACE}:${AUTHORIZED_SA}
 fi
 result=$(oc get clusterrolebinding view-${CLUSTERROLE}-unauth --ignore-not-found ||:)
 if [ "$result" == "" ] ; then
   log::info Binding ${UNAUTHORIZED_SA} to be cable of getting namespaces
-  oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE}-unauth --serviceaccount=${LOGGING_NS}:${UNAUTHORIZED_SA}
+  oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE}-unauth --serviceaccount=${TEST_NAMESPACE}:${UNAUTHORIZED_SA}
 fi
 
-es_pod=$(oc -n ${LOGGING_NS} get pod -l component=elasticsearch -o jsonpath={.items[0].metadata.name})
+es_pod=$(oc -n ${TEST_NAMESPACE} get pod -l component=elasticsearch -o jsonpath={.items[0].metadata.name})
 
 push_test_script_to_es(){
   es_pod=$1
   token=$2
-  service_ip=elasticsearch-metrics.${LOGGING_NS}.svc
+  service_ip=elasticsearch-metrics.${TEST_NAMESPACE}.svc
   echo "curl -ks -o /tmp/metrics.txt https://${service_ip}:60000/_prometheus/metrics -H Authorization:'Bearer ${token}' -w '%{response_code}\n'" > /tmp/test
-  expect_success "oc -n ${LOGGING_NS} cp /tmp/test ${es_pod}:/tmp/test -c elasticsearch"
-  expect_success "oc -n ${LOGGING_NS} exec ${es_pod} -c elasticsearch -- chmod 777 /tmp/test"
+  expect_success "oc -n ${TEST_NAMESPACE} cp /tmp/test ${es_pod}:/tmp/test -c elasticsearch"
+  expect_success "oc -n ${TEST_NAMESPACE} exec ${es_pod} -c elasticsearch -- chmod 777 /tmp/test"
 }
 
 log::info Checking ${UNAUTHORIZED_SA} ability to read metrics through metrics service
-token=$(oc -n ${LOGGING_NS} serviceaccounts get-token $UNAUTHORIZED_SA)
+token=$(oc -n ${TEST_NAMESPACE} serviceaccounts get-token $UNAUTHORIZED_SA)
 push_test_script_to_es $es_pod $token
-expect_success_and_text "oc -n ${LOGGING_NS} exec ${es_pod} -c elasticsearch -- bash -c /tmp/test" '403'
+expect_success_and_text "oc -n ${TEST_NAMESPACE} exec ${es_pod} -c elasticsearch -- bash -c /tmp/test" '403'
 
 log::info Checking ${AUTHORIZED_SA} ability to read metrics
-token=$(oc -n ${LOGGING_NS} serviceaccounts get-token $AUTHORIZED_SA)
+token=$(oc -n ${TEST_NAMESPACE} serviceaccounts get-token $AUTHORIZED_SA)
 push_test_script_to_es $es_pod $token
-expect_success_and_text "oc -n ${LOGGING_NS} exec ${es_pod} -c elasticsearch -- bash -c /tmp/test" '200'
+expect_success_and_text "oc -n ${TEST_NAMESPACE} exec ${es_pod} -c elasticsearch -- bash -c /tmp/test" '200'
