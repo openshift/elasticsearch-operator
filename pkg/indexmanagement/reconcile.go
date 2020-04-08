@@ -179,7 +179,7 @@ func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsear
 	}
 	name := fmt.Sprintf("%s-delete-%s", indexManagmentNamePrefix, mapping.Name)
 	envvars := []core.EnvVar{
-		{Name: "ALIAS", Value: mapping.Name},
+		{Name: "POLICY_MAPPING", Value: mapping.Name},
 		{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
 	}
 	fnContainerHandler := func(container *core.Container) {
