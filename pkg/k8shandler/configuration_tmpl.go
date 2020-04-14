@@ -15,7 +15,8 @@ node:
   max_local_storage_nodes: 1
 
 network:
-  host: 0.0.0.0
+  publish_host: ${POD_IP}
+  bind_host: ["${POD_IP}",_local_]
 
 discovery.zen:
   ping.unicast.hosts: {{.EsUnicastHost}}
