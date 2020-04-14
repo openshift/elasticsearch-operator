@@ -51,7 +51,7 @@ var _ = Describe("Index Management", func() {
 		}
 		selector := map[string]string{}
 		tolerations := []core.Toleration{}
-		name := fmt.Sprintf("%s-rollover-%s", indexManagmentNamePrefix, policy.Name)
+		name := fmt.Sprintf("%s-rollover-%s", cluster.Name, policy.Name)
 		cronjob = newCronJob(cluster.Name, "animage", cluster.Namespace, name, "*/5 * * * *", selector, tolerations, []core.EnvVar{}, fnContainerHandler)
 	})
 	Describe("#reconcileCronJob", func() {
@@ -105,7 +105,7 @@ var _ = Describe("Index Management", func() {
 		BeforeEach(func() {
 			selector := map[string]string{}
 			tolerations := []core.Toleration{}
-			name := fmt.Sprintf("%s-delete-%s", indexManagmentNamePrefix, policy.Name)
+			name := fmt.Sprintf("%s-delete-%s", cluster.Name, policy.Name)
 			cronjob = newCronJob(cluster.Name, "anImage", cluster.Namespace, name, "*/5 * * * *", selector, tolerations, []core.EnvVar{}, fnContainerHandler)
 			policy.Phases.Delete = &apis.IndexManagementDeletePhaseSpec{
 				MinAge: "7d",
@@ -161,7 +161,7 @@ var _ = Describe("Index Management", func() {
 		BeforeEach(func() {
 			selector := map[string]string{}
 			tolerations := []core.Toleration{}
-			name := fmt.Sprintf("%s-rollover-%s", indexManagmentNamePrefix, policy.Name)
+			name := fmt.Sprintf("%s-rollover-%s", cluster.Name, policy.Name)
 			cronjob = newCronJob(cluster.Name, "animage", cluster.Namespace, name, "*/5 * * * *", selector, tolerations, []core.EnvVar{}, fnContainerHandler)
 			policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{
 				Actions: apis.IndexManagementActionsSpec{

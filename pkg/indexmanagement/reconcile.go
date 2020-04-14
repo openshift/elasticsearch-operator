@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	indexManagmentNamePrefix = "ocp-index-mgm"
 	indexManagementConfigmap = "indexmanagement-scripts"
 	defaultShardSize         = int32(40)
 )
@@ -67,10 +66,10 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 	for _, mapping := range mappings {
 		policy := policies[mapping.PolicyRef]
 		if policy.Phases.Hot != nil {
-			expected.Insert(fmt.Sprintf("%s-rollover-%s", indexManagmentNamePrefix, mapping.Name))
+			expected.Insert(fmt.Sprintf("%s-rollover-%s", cluster.Name, mapping.Name))
 		}
 		if policy.Phases.Delete != nil {
-			expected.Insert(fmt.Sprintf("%s-delete-%s", indexManagmentNamePrefix, mapping.Name))
+			expected.Insert(fmt.Sprintf("%s-delete-%s", cluster.Name, mapping.Name))
 		}
 	}
 	logger.Debugf("Expecting to have cronjobs in %s: %v", cluster.Namespace, expected.List())
@@ -142,7 +141,7 @@ func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsear
 		return err
 	}
 	conditions := calculateConditions(policy, primaryShards)
-	name := fmt.Sprintf("%s-rollover-%s", indexManagmentNamePrefix, mapping.Name)
+	name := fmt.Sprintf("%s-rollover-%s", cluster.Name, mapping.Name)
 	payload, err := utils.ToJson(map[string]rolloverConditions{"conditions": conditions})
 	if err != nil {
 		return fmt.Errorf("There was an error serializing the rollover conditions to JSON: %v", err)
@@ -177,7 +176,7 @@ func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsear
 	if err != nil {
 		return err
 	}
-	name := fmt.Sprintf("%s-delete-%s", indexManagmentNamePrefix, mapping.Name)
+	name := fmt.Sprintf("%s-delete-%s", cluster.Name, mapping.Name)
 	envvars := []core.EnvVar{
 		{Name: "ALIAS", Value: mapping.Name},
 		{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
