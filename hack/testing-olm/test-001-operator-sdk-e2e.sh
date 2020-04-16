@@ -28,7 +28,7 @@ cleanup(){
   runtime="$(($end_seconds - $start_seconds))s"
   
   if [ "${SKIP_CLEANUP:-false}" == "false" ] ; then
-    get_all_logging_pod_logs ${TEST_NAMESPACE} $test_artifact_dir
+    gather_logging_resources ${TEST_NAMESPACE} $test_artifact_dir
   
     ${repo_dir}/olm_deploy/scripts/catalog-uninstall.sh
     ${repo_dir}/olm_deploy/scripts/operator-uninstall.sh
