@@ -5,8 +5,9 @@ FROM registry.svc.ci.openshift.org/openshift/release:golang-1.12
 WORKDIR /
 COPY manifests/ /manifests
 
+
 # TODO: update this when we remove the 0*.yaml files from the repo
-RUN rm /manifests/0*.yaml /manifests/art.yaml /manifests/*/image-references
+RUN chmod -R o+w /manifests && rm /manifests/0*.yaml /manifests/art.yaml /manifests/*/image-references
 
 COPY olm_deploy/scripts/registry-init.sh /scripts/
 
