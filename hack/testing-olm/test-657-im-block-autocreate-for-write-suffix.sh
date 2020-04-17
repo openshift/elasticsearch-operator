@@ -45,6 +45,7 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
     fi
   done
 
+  export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
   deploy_elasticsearch_operator
   #deploy elasticsearch cluster
   expect_success "${repo_dir}/hack/deploy-example-secrets.sh  ${TEST_NAMESPACE}"
