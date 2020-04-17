@@ -674,7 +674,6 @@ func (node *deploymentNode) isChanged() bool {
 		node.self.Spec.Template.Spec.Tolerations = desired.Spec.Template.Spec.Tolerations
 		changed = true
 	}
-
 	// Only Image and Resources (CPU & memory) differences trigger rolling restart
 	for index := 0; index < len(node.self.Spec.Template.Spec.Containers); index++ {
 		nodeContainer := node.self.Spec.Template.Spec.Containers[index]
@@ -693,7 +692,8 @@ func (node *deploymentNode) isChanged() bool {
 		}
 		if !reflect.DeepEqual(desiredContainer.Args, nodeContainer.Args) {
 			nodeContainer.Args = desiredContainer.Args
-			logger.Debugf("Container Args are different between current and desired for %s", nodeContainer.Name)
+			logger.Debugf("Container Args are different between current and desired for %s",
+				nodeContainer.Name)
 			changed = true
 		}
 		if !reflect.DeepEqual(desiredContainer.Ports, nodeContainer.Ports) {

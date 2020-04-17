@@ -654,7 +654,8 @@ func (node *statefulSetNode) isChanged() bool {
 
 		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
 			nodeContainer.Env = desiredContainer.Env
-			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
+			logger.Debugf("Container EnvVars are different between current and desired for %s",
+				nodeContainer.Name)
 			changed = true
 		}
 		if !reflect.DeepEqual(desiredContainer.Ports, nodeContainer.Ports) {
