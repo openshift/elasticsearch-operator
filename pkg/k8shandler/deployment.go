@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
+
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -648,6 +650,12 @@ func (node *deploymentNode) isChanged() bool {
 		if nodeContainer.Image != desiredContainer.Image {
 			logrus.Debugf("Resource '%s' has different container image than desired", node.self.Name)
 			nodeContainer.Image = desiredContainer.Image
+			changed = true
+		}
+
+		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
+			nodeContainer.Env = desiredContainer.Env
+			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
 
