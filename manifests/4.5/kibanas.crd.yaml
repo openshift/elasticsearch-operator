@@ -15,6 +15,7 @@ spec:
   version: v1
   validation:
     openAPIV3Schema:
+      type: object
       properties:
         spec:
           type: object
@@ -26,13 +27,16 @@ spec:
             resources:
               type: object
               description: The resource requirements for Kibana
+              nullable: true
               properties:
                 limits:
                   type: object
                   description: 'Limits describes the maximum amount of compute
                     resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  nullable: true
                 requests:
                   type: object
+                  nullable: true
                   description: 'Requests describes the minimum amount of compute
                     resources required. If Requests is omitted for a container,
                     it defaults to Limits if that is explicitly specified, otherwise
@@ -51,14 +55,17 @@ spec:
                 resources:
                   type: object
                   description: The resource requirements for Kibana
+                  nullable: true
                   properties:
                     limits:
                       description: 'Limits describes the maximum amount of compute
                         resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                       type: object
+                      nullable: true
                     requests:
                       description: 'Requests describes the minimum amount of compute
                         resources required. If Requests is omitted for a container,
                         it defaults to Limits if that is explicitly specified, otherwise
                         to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                       type: object
+                      nullable: true
