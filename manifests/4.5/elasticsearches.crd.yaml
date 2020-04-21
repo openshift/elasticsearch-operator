@@ -150,6 +150,7 @@ spec:
                 image:
                   description: The image to use for the Elasticsearch nodes
                   type: string
+                  nullable: true
                 resources:
                   description: The resource requirements for the Elasticsearch nodes
                   type: object

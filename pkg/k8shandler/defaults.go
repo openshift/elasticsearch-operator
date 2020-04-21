@@ -10,11 +10,10 @@ const (
 	modeUnique    = "unique"
 	modeSharedOps = "shared_ops"
 
-	defaultMode               = modeSharedOps
-	defaultCPURequest         = "100m"
-	defaultMemoryLimit        = "4Gi"
-	defaultMemoryRequest      = "1Gi"
-	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch6"
+	defaultMode          = modeSharedOps
+	defaultCPURequest    = "100m"
+	defaultMemoryLimit   = "4Gi"
+	defaultMemoryRequest = "1Gi"
 
 	maxMasterCount = 3
 
