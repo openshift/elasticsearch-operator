@@ -231,12 +231,11 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 
 			"--upstream-ca=/etc/proxy/elasticsearch/admin-ca",
 			"--cache-expiry=60s",
-			`--auth-backend-role=sg_role_admin={"namespace": "default", "verb": "view", "resource": "pods/log"}`,
+			`--auth-backend-role=admin_reader={"namespace": "default", "verb": "get", "resource": "pods/log"}`,
 			`--auth-backend-role=prometheus={"verb": "get", "resource": "/metrics"}`,
 			`--auth-backend-role=jaeger={"verb": "get", "resource": "/jaeger", "resourceAPIGroup": "elasticsearch.jaegertracing.io"}`,
 			`--auth-backend-role=elasticsearch-operator={"namespace": "*", "verb": "*", "resource": "*", "resourceAPIGroup": "logging.openshift.io"}`,
 			fmt.Sprintf("--auth-backend-role=index-management={\"namespace\":\"%s\", \"verb\": \"*\", \"resource\": \"indices\", \"resourceAPIGroup\": \"elasticsearch.openshift.io\"}", namespace),
-			`--cl-infra-role-name=sg_role_admin`,
 		},
 		Resources: v1.ResourceRequirements{
 			Limits: v1.ResourceList{
