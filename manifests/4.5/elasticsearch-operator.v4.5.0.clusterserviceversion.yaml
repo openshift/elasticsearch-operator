@@ -220,6 +220,14 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments/finalizers
+          resourceNames:
+          - "elasticsearch-operator"
+          verbs:
+          - "update"
       deployments:
       - name: elasticsearch-operator
         spec:
