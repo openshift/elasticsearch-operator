@@ -4,18 +4,17 @@ const esYmlTmpl = `
 cluster:
   name: ${CLUSTER_NAME}
 
-script:
-  inline: true
-  stored: true
-
 node:
   name: ${DC_NAME}
   master: ${IS_MASTER}
   data: ${HAS_DATA}
   max_local_storage_nodes: 1
 
+action.auto_create_index: "-*-write,+*"
+
 network:
-  host: 0.0.0.0
+  publish_host: ${POD_IP}
+  bind_host: ["${POD_IP}",_local_]
 
 discovery.zen:
   ping.unicast.hosts: {{.EsUnicastHost}}
@@ -26,29 +25,14 @@ gateway:
   expected_nodes: {{.RecoverExpectedShards}}
   recover_after_time: ${RECOVER_AFTER_TIME}
 
-io.fabric8.elasticsearch.kibana.mapping.app: /usr/share/elasticsearch/index_patterns/com.redhat.viaq-openshift.index-pattern.json
-io.fabric8.elasticsearch.kibana.mapping.ops: /usr/share/elasticsearch/index_patterns/com.redhat.viaq-openshift.index-pattern.json
-io.fabric8.elasticsearch.kibana.mapping.empty: /usr/share/elasticsearch/index_patterns/com.redhat.viaq-openshift.index-pattern.json
-
-openshift.config:
-  use_common_data_model: true
-  project_index_prefix: "project"
-  time_field_name: "@timestamp"
-
-openshift.searchguard:
-  keystore.path: /etc/elasticsearch/secret/admin.jks
-  truststore.path: /etc/elasticsearch/secret/searchguard.truststore
-
-openshift.kibana.index.mode: {{.KibanaIndexMode}}
-
 path:
   data: /elasticsearch/persistent/${CLUSTER_NAME}/data
   logs: /elasticsearch/persistent/${CLUSTER_NAME}/logs
 
-searchguard:
+opendistro_security:
   authcz.admin_dn:
   - CN=system.admin,OU=OpenShift,O=Logging
-  config_index_name: ".searchguard"
+  config_index_name: ".security"
   ssl:
     transport:
       enabled: true
@@ -76,6 +60,9 @@ status = error
 logger.action.name = org.elasticsearch.action
 logger.action.level = debug
 
+logger.security.name = com.amazon.opendistroforelasticsearch.security
+logger.security.level = {{.SecurityLogLevel}}  
+
 appender.console.type = Console
 appender.console.name = console
 appender.console.layout.type = PatternLayout
@@ -96,7 +83,7 @@ appender.rolling.policies.size.size=100MB
 appender.rolling.strategy.type=DefaultRolloverStrategy
 appender.rolling.strategy.max=5
 
-rootLogger.level = info
+rootLogger.level = {{.LogLevel}}
 rootLogger.appenderRef.{{.RootLogger}}.ref = {{.RootLogger}}
 
 appender.deprecation_rolling.type = RollingFile

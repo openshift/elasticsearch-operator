@@ -1,0 +1,319 @@
+#!/bin/bash
+
+millisecond=1
+second=$(( 1000 * millisecond ))
+minute=$(( 60 * second ))
+
+function log::warning() {
+	echo "[WARNING] ${*}"
+}
+function log::info() {
+	echo "[INFO] ${*}"
+}
+function log::debug() {
+  if [[ -n "${DEBUG:-}" ]]; then
+	  echo "[DEBUG] ${*}"
+  fi
+}
+
+indent() {
+  INDENT="      "
+  sed "s/^/$INDENT/" | sed "s/^${INDENT}\($1\)/${INDENT:0:-2}- \1/"
+}
+
+expect_success(){
+  local cmd=$1
+  echo "Running '$cmd'"
+  if $cmd ; then
+    return 0
+  fi  
+  return 1
+}
+expect_success_and_text(){
+  local cmd=$1
+  local expected=$2
+  log::debug "Running '$cmd'"
+  response=$($cmd)
+  log::debug "Response '${response}'" 
+  if [[ "${response}" == "${expected}" ]] ; then
+    return 0
+  fi  
+  return 1
+}
+
+try_until_failure() {
+  local cmd=$1
+  local timeout=$2
+  local interval=${3:-0.2}
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if ! $cmd ; then
+      return 0
+    fi  
+    sleep $interval
+    now=$(date +%s%3N)
+  done
+  return 1
+}
+try_until_success() {
+  local cmd=$1
+  local timeout=$2
+  local interval=${3:-0.2}
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if $cmd ; then
+      return 0
+    fi  
+    sleep $interval
+    now=$(date +%s%3N)
+  done
+  return 1
+}
+
+try_until_text() {
+  local cmd=$1
+  local expected=$2
+  local timeout=$3
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+      if [[ "$($cmd)" == "${expected}" ]] ; then
+      return 0
+    fi  
+    now=$(date +%s%3N)
+  done
+  return 1
+}
+
+gather_logging_resources() {
+  set +e
+  local LOGGING_NS=$1
+  local outdir=${2:-$ARTIFACT_DIR}
+  oc -n ${LOGGING_NS} get configmaps -o yaml > $outdir/configmaps.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get secrets -o yaml > $outdir/secrets.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get cronjobs -o yaml > $outdir/cronjobs.yaml 2>&1 || :
+  
+  oc -n ${LOGGING_NS} get deployments -o wide > $outdir/deployments.txt 2>&1 || :
+  oc -n ${LOGGING_NS} get pods -o wide > $outdir/pods.txt 2>&1 || :
+
+  oc -n ${LOGGING_NS} extract secret/elasticsearch --to=$outdir ||:
+  oc -n ${LOGGING_NS} extract configmap/fluentd --to=$outdir ||:
+
+  get_all_logging_pod_logs $@
+  set -e
+}
+
+get_all_logging_pod_logs() {
+  set +e
+  local LOGGING_NS=$1
+  local outdir=${2:-$ARTIFACT_DIR}
+  local p
+  local container
+  oc get pods -n ${LOGGING_NS} -o wide > $outdir/pods.txt 2>&1
+  for p in $(oc get pods -n ${LOGGING_NS} -o jsonpath='{.items[*].metadata.name}') ; do
+    oc -n ${LOGGING_NS} describe pod $p > $outdir/$p.describe 2>&1 || :
+    oc -n ${LOGGING_NS} get pod $p -o yaml > $outdir/$p.yaml 2>&1 || :
+    for container in $(oc -n ${LOGGING_NS} get po $p -o jsonpath='{.spec.containers[*].name}') ; do
+      oc logs -n ${LOGGING_NS} -c $container $p > $outdir/$p.$container.log 2>&1
+      case "$container" in
+        elasticsearch*) oc exec -n ${LOGGING_NS} -c elasticsearch $p  -- logs > $outdir/$p.$container.exec.log 2>&1 ;;
+        *) continue ;;
+      esac
+    done
+  done
+  set -e
+}
+
+wait_for_deployment_to_be_ready(){
+  local namespace=$1
+  local name=$2
+  local timeout=$3
+  try_until_text "oc -n $namespace get deployment $name -o jsonpath={.status.availableReplicas} --ignore-not-found" "1" $timeout
+}
+
+get_all_logging_pod_logs() {
+  set +e
+  local LOGGING_NS=$1
+  local outdir=${2:-$ARTIFACT_DIR}
+  local p
+  local container
+  for p in $(oc get pods -n ${LOGGING_NS} -o jsonpath='{.items[*].metadata.name}') ; do
+    oc -n ${LOGGING_NS} describe pod $p > $outdir/$p.describe 2>&1 || :
+    oc -n ${LOGGING_NS} get pod $p -o yaml > $outdir/$p.yaml 2>&1 || :
+    for container in $(oc -n ${LOGGING_NS} get po $p -o jsonpath='{.spec.containers[*].name}') ; do
+      oc logs -n ${LOGGING_NS} -c $container $p > $outdir/$p.$container.log 2>&1
+      case "$container" in
+        elasticsearch*) oc exec -n ${LOGGING_NS} -c elasticsearch $p  -- logs > $outdir/$p.$container.exec.log 2>&1 ;;
+        *) continue ;;
+      esac
+    done
+   done
+  set -e
+}
+
+
+deploy_marketplace_operator(){
+  local namespace=$1
+  local name=$2
+  local channel=$3
+  local package=${4:-$name}
+  local global=${5:-false}
+  if [ "${global}" = "false" ] ; then 
+    cat <<EOL | oc create -f -
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: "$ns"
+- apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: "$ns"
+    namespace: "$ns"
+  spec:
+    targetNamespaces: 
+    - "$ns"
+    packages: "$name"    
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    channel: "$channel"
+    installPlanApproval: Automatic
+    name: "$package"
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+EOL
+  else
+    cat <<EOL | oc create -f -
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: "$ns"
+- apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: "$ns"
+    namespace: "$ns"
+  spec:
+    packages: "$name"    
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    channel: "$channel"
+    installPlanApproval: Automatic
+    name: "$package"
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+EOL
+
+fi
+  wait_for_deployment_to_be_ready $namespace $name $((2 * $minute))
+}
+
+deploy_config_map_catalog_source() {
+  local namespace=$1
+  local manifest_dir=$2
+  local image=${3:-}
+
+  local version=$(basename $(find $manifest_dir -type d | sort -r | head -n 1))
+
+  local CRD=$(sed '/^#!.*$/d' $manifest_dir/$version/*crd.yaml | grep -v -- "---" | indent apiVersion)
+  local PKG=$(sed '/^#!.*$/d' $manifest_dir/*package.yaml | indent packageName)
+  local CSV=$(sed '/^#!.*$/d' $manifest_dir/$version/*version.yaml | sed 's/namespace: placeholder/namespace: '$namespace'/' |grep -v -- "---" |  indent apiVersion)
+  local PACKAGE_NAME=$(sed -nr 's,.*packageName: (.*),\1,p' $manifest_dir/*package.yaml)
+  if [ -n "${image:-}" ] ; then
+    CSV=$(echo "$CSV" | sed -e "s~containerImage:.*~containerImage: ${image}~" | indent apiVersion)
+    CSV=$(echo "$CSV" | sed -e "s~image:.*~image: ${image}\n~" | indent ApiVersion)
+  fi
+
+  cat <<EOF | sed 's/^  *$//' | oc create -n $namespace -f -
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: $PACKAGE_NAME
+data:
+  customResourceDefinitions: |-
+$CRD
+  clusterServiceVersions: |-
+$CSV
+  packages: |-
+$PKG
+EOF
+  cat <<EOF | oc create -n $namespace -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: $PACKAGE_NAME
+spec:
+  sourceType: internal
+  configMap: $PACKAGE_NAME
+  displayName: $PACKAGE_NAME
+  publisher: Operator Framework
+EOF
+
+}
+
+function deploy_elasticsearch_operator() {
+    OPERAND_IMAGES="ELASTICSEARCH_IMAGE=$(format_image logging-elasticsearch6) ELASTICSEARCH_PROXY=$(format_image elasticsearch-proxy)"
+    IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-$(format_image elasticsearch-operator)}
+    manifest=${repo_dir}/manifests
+    OPERAND_IMAGES=$OPERAND_IMAGES GLOBAL=true deploy_operator "openshift-operators-redhat" "elasticsearch-operator" $manifest $IMAGE_ELASTICSEARCH_OPERATOR $((2 * $minute))
+}
+
+function format_image() {
+    local component=$1
+    if [ -n "${IMAGE_FORMAT:-}" ] ; then
+        export component; eval image="${IMAGE_FORMAT}" 
+        echo ${image}
+    else
+        local manifest=${repo_dir}/manifests
+        local version=$(basename $(find $manifest -type d | sort -r | head -n 1))
+        local image=registry.svc.ci.openshift.org/ocp/$version:$component
+        echo ${image}
+    fi
+}
+
+function deploy_operator() {
+    local namespace=$1
+    local operatorName=$2
+    local manifest=$3
+    local operatorImage=$4
+    local timeout=$5
+
+    local version=$(basename $(find $manifest -type d | sort -r | head -n 1))
+
+    KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+
+    log::info "Creating namespace: ${namespace}"
+    oc create ns ${namespace} || :
+    
+    log::info "Deploying operator from ${manifest}"
+    OPERAND_IMAGES=${OPERAND_IMAGES:-""} \
+    GLOBAL=${GLOBAL:-false} \
+    VERSION=${version} \
+    OPERATOR_IMAGE=${operatorImage} \
+    MANIFEST_DIR=${manifest} \
+    TEST_NAMESPACE=${namespace} \
+    TARGET_NAMESPACE=${namespace} \
+    ${repo_dir}/hack/vendor/olm-test-script/e2e-olm.sh
+
+    if [ "$?" != "0" ] ; then
+	    os::log::error "Error deploying operator via OLM using manifest: $manifest"
+	    return 1
+    fi
+
+    wait_for_deployment_to_be_ready $namespace $operatorName $timeout
+}

@@ -56,13 +56,14 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		return fmt.Errorf("Failure creating service %v", err)
 	}
 
+	//legacy metrics service that likely can be rolled into the single service that goes through the proxy
 	annotations["service.alpha.openshift.io/serving-cert-secret-name"] = fmt.Sprintf("%s-%s", dpl.Name, "metrics")
 	err = createOrUpdateService(
 		fmt.Sprintf("%s-%s", dpl.Name, "metrics"),
 		dpl.Namespace,
 		dpl.Name,
-		"metrics",
-		60000,
+		"restapi",
+		60001,
 		selectorForES("es-node-client", dpl.Name),
 		annotations,
 		false,
@@ -144,7 +145,7 @@ func newService(serviceName, namespace, clusterName, targetPortName string, port
 		Spec: v1.ServiceSpec{
 			Selector: selector,
 			Ports: []v1.ServicePort{
-				v1.ServicePort{
+				{
 					Port:       port,
 					Protocol:   "TCP",
 					TargetPort: intstr.FromString(targetPortName),

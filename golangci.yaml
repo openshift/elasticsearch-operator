@@ -1,0 +1,7 @@
+linters:
+  disable:
+    - megacheck
+  enable:
+    - gosimple
+    - staticcheck
+    - unused

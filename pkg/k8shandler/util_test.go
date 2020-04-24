@@ -3,9 +3,35 @@ package k8shandler
 import (
 	"testing"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	v1 "k8s.io/api/core/v1"
 )
+
+var _ = Describe("util.go", func() {
+	defer GinkgoRecover()
+	Describe("#getLogConfig", func() {
+		It("should return 'info' when annotation is missing", func() {
+			Expect(getLogConfig(map[string]string{}).LogLevel).To(Equal("info"))
+			Expect(getLogConfig(map[string]string{}).ServerLoglevel).To(Equal("info"))
+			Expect(getLogConfig(map[string]string{}).ServerAppender).To(Equal("console"))
+		})
+		It("should return 'info' when annotation value is empty", func() {
+			annotations := map[string]string{"elasticsearch.openshift.io/loglevel": "", "elasticsearch.openshift.io/develLogAppender": "", "elasticsearch.openshift.io/esloglevel": ""}
+			Expect(getLogConfig(annotations).LogLevel).To(Equal("info"))
+			Expect(getLogConfig(annotations).ServerLoglevel).To(Equal("info"))
+			Expect(getLogConfig(annotations).ServerAppender).To(Equal("console"))
+		})
+		It("should return the value when annotation value is not empty", func() {
+			annotations := map[string]string{"elasticsearch.openshift.io/loglevel": "foo", "elasticsearch.openshift.io/develLogAppender": "bar", "elasticsearch.openshift.io/esloglevel": "xyz"}
+			Expect(getLogConfig(annotations).LogLevel).To(Equal("foo"))
+			Expect(getLogConfig(annotations).ServerLoglevel).To(Equal("xyz"))
+			Expect(getLogConfig(annotations).ServerAppender).To(Equal("bar"))
+		})
+	})
+})
 
 func TestSelectorsBothUndefined(t *testing.T) {
 
@@ -273,7 +299,7 @@ func TestNoTolerations(t *testing.T) {
 
 func TestNoNodeTolerations(t *testing.T) {
 	commonTolerations := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -283,7 +309,7 @@ func TestNoNodeTolerations(t *testing.T) {
 	nodeTolerations := []v1.Toleration{}
 
 	expected := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -301,7 +327,7 @@ func TestNoCommonTolerations(t *testing.T) {
 	commonTolerations := []v1.Toleration{}
 
 	nodeTolerations := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -309,7 +335,7 @@ func TestNoCommonTolerations(t *testing.T) {
 	}
 
 	expected := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -325,7 +351,7 @@ func TestNoCommonTolerations(t *testing.T) {
 
 func TestTolerations(t *testing.T) {
 	commonTolerations := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -333,7 +359,7 @@ func TestTolerations(t *testing.T) {
 	}
 
 	nodeTolerations := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/memory-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -341,12 +367,12 @@ func TestTolerations(t *testing.T) {
 	}
 
 	expected := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
 		},
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/memory-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -361,12 +387,12 @@ func TestTolerations(t *testing.T) {
 
 	// ensure that ordering does not make a difference
 	expected = []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/memory-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
 		},
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,

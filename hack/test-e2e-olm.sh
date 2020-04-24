@@ -1,0 +1,40 @@
+#!/bin/bash
+
+if [ "${DEBUG:-}" = "true" ]; then
+  set -x
+fi
+set -euo pipefail
+
+current_dir=$(dirname "${BASH_SOURCE[0]}" )
+source "${current_dir}/lib/init.sh"
+source "${current_dir}/lib/util/logs.sh"
+
+EXCLUDES="verify-es-metrics"
+for test in $( find "${current_dir}/testing-olm" -type f -name 'test-*.sh' | sort); do
+	if [[ ${test} =~ .*${EXCLUDES}.* ]] ; then
+		os::log::info "==============================================================="
+		os::log::info "skipping e2e that was excluded $test "
+		os::log::info "==============================================================="
+		continue
+	fi
+	os::log::info "==============================================================="
+	os::log::info "running e2e $test "
+	os::log::info "==============================================================="
+	if "${test}" ; then
+		os::log::info "==========================================================="
+		os::log::info "e2e $test succeeded at $( date )"
+		os::log::info "==========================================================="
+	else
+
+		os::log::error "============= FAILED FAILED ============= "
+		os::log::error "e2e $test failed at $( date )"
+		os::log::error "============= FAILED FAILED ============= "
+		failed="true"
+	fi
+done
+
+get_logging_pod_logs
+
+if [[ -n "${failed:-}" ]]; then
+    exit 1
+fi

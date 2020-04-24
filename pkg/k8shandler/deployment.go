@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
+
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,7 +55,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 	}
 
 	progressDeadlineSeconds := int32(1800)
-
+	logConfig := getLogConfig(cluster.GetAnnotations())
 	deployment.Spec = apps.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
@@ -64,7 +66,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 		},
 		ProgressDeadlineSeconds: &progressDeadlineSeconds,
 		Paused:                  false,
-		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client),
+		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client, logConfig),
 	}
 
 	addOwnerRefToObject(&deployment, getOwnerRef(cluster))
@@ -85,8 +87,9 @@ func (node *deploymentNode) name() string {
 
 func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 
-	var rolloutForReload v1.ConditionStatus
+	//var rolloutForReload v1.ConditionStatus
 	var rolloutForUpdate v1.ConditionStatus
+	var rolloutForCertReload v1.ConditionStatus
 
 	// see if we need to update the deployment object
 	if node.isChanged() {
@@ -99,23 +102,31 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 		rolloutForReload = v1.ConditionTrue
 	}*/
 
-	// check if the secretHash changed
+	// check for a case where our hash is missing -- operator restarted?
 	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
-	if newSecretHash != node.secretHash {
-		rolloutForReload = v1.ConditionTrue
+	if node.secretHash == "" {
+		// if we were already scheduled to restart, don't worry? -- just grab
+		// the current hash -- we should have already had our upgradeStatus set if
+		// we required a restart...
+		node.secretHash = newSecretHash
+	} else {
+		// check if the secretHash changed
+		if newSecretHash != node.secretHash {
+			rolloutForCertReload = v1.ConditionTrue
+		}
 	}
 
 	return api.ElasticsearchNodeStatus{
 		DeploymentName: node.self.Name,
 		UpgradeStatus: api.ElasticsearchNodeUpgradeStatus{
-			ScheduledForUpgrade:  rolloutForUpdate,
-			ScheduledForRedeploy: rolloutForReload,
+			ScheduledForUpgrade:      rolloutForUpdate,
+			ScheduledForCertRedeploy: rolloutForCertReload,
 		},
 	}
 }
 
-func (node *deploymentNode) delete() {
-	node.client.Delete(context.TODO(), &node.self)
+func (node *deploymentNode) delete() error {
+	return node.client.Delete(context.TODO(), &node.self)
 }
 
 func (node *deploymentNode) create() error {
@@ -295,7 +306,18 @@ func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 	return err, (err == nil)
 }
 
-func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) {
+func (node *deploymentNode) isMissing() bool {
+	getNode := &apps.Deployment{}
+	if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: node.self.Namespace}, getNode); getErr != nil {
+		if errors.IsNotFound(getErr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
 		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
@@ -351,6 +373,13 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
 
+		// if the node doesn't exist -- create it
+		if node.isMissing() {
+			if err := node.create(); err != nil {
+				logrus.Warnf("unable to create node. E: %s\r\n", err.Error())
+			}
+		}
+
 		if err := node.setReplicaCount(1); err != nil {
 			logrus.Warnf("Unable to scale up %v", node.name())
 			return
@@ -378,6 +407,63 @@ func (node *deploymentNode) restart(upgradeStatus *api.ElasticsearchNodeStatus) 
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return
 		}
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
+		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
+	}
+}
+
+func (node *deploymentNode) fullClusterRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
+
+	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
+		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
+		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		if err != nil {
+			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
+			return
+		}
+		node.clusterSize = size
+	}
+
+	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
+		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
+
+		err, replicas := node.replicaCount()
+		if err != nil {
+			logrus.Warnf("Unable to get replica count for %v", node.name())
+		}
+
+		if replicas > 0 {
+			// check for available replicas empty
+			// node.self.Status.Replicas
+			// if we aren't at 0, then we need to scale down to 0
+			if err = node.setReplicaCount(0); err != nil {
+				logrus.Warnf("Unable to scale down %v", node.name())
+				return
+			}
+
+			if err, _ = node.waitForNodeLeaveCluster(); err != nil {
+				logrus.Infof("Timed out waiting for %v to leave the cluster", node.name())
+				return
+			}
+		}
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
+	}
+
+	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
+
+		if err := node.setReplicaCount(1); err != nil {
+			logrus.Warnf("Unable to scale up %v", node.name())
+			return
+		}
+
+		node.refreshHashes()
+
+		upgradeStatus.UpgradeStatus.UpgradePhase = api.RecoveringData
+	}
+
+	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
@@ -426,7 +512,9 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.NodeRestarting {
 
 		// do a unpause, wait, and pause again
-		node.unpause()
+		if err := node.unpause(); err != nil {
+			logrus.Warnf("unable to unpause node. E: %s\r\n", err.Error())
+		}
 
 		// wait for rollout
 		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
@@ -435,7 +523,9 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		}
 
 		// pause again
-		node.pause()
+		if err := node.pause(); err != nil {
+			logrus.Warnf("unable to pause node. E: %s\r\n", err.Error())
+		}
 
 		// once we've restarted this is taken care of
 		node.refreshHashes()
@@ -501,8 +591,12 @@ func (node *deploymentNode) progressUnshedulableNode(upgradeStatus *api.Elastics
 		if err := node.unpause(); err != nil {
 			return err
 		}
-		// if unpause is succesfull, always try to pause
-		defer node.pause()
+		// if unpause is successful, always try to pause
+		defer func() {
+			if err := node.pause(); err != nil {
+				logrus.Warnf("unable to unpause node. E: %s\r\n", err.Error())
+			}
+		}()
 
 		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
 
@@ -566,6 +660,12 @@ func (node *deploymentNode) isChanged() bool {
 		if nodeContainer.Image != desiredContainer.Image {
 			logrus.Debugf("Resource '%s' has different container image than desired", node.self.Name)
 			nodeContainer.Image = desiredContainer.Image
+			changed = true
+		}
+
+		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
+			nodeContainer.Env = desiredContainer.Env
+			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
 
