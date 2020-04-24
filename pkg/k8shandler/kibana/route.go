@@ -10,8 +10,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
+	consolev1 "github.com/openshift/api/console/v1"
 	route "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	AppLogsConsoleLinkName   = "kibana-app-public-url"
+	InfraLogsConsoleLinkName = "kibana-infra-public-url"
 )
 
 //NewRoute stubs an instance of a Route
@@ -107,7 +113,6 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateRoute(newRoute *route.Route) 
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
-
 	cluster := clusterRequest.cluster
 
 	kibanaRoute := NewRoute(
@@ -125,59 +130,59 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 		}
 	}
 
+	return nil
+}
+
+func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLinks() error {
+	cluster := clusterRequest.cluster
+
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
 		return err
 	}
 
-	sharedConfig := createSharedConfig(cluster.Namespace, kibanaURL, kibanaURL)
-	utils.AddOwnerRefToObject(sharedConfig, getOwnerRef(cluster))
+	consoleAppLogsLink := NewConsoleLink(AppLogsConsoleLinkName, kibanaURL)
+	utils.AddOwnerRefToObject(consoleAppLogsLink, getOwnerRef(cluster))
 
-	err = clusterRequest.Create(sharedConfig)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana route shared config: %v", err)
+	if err := clusterRequest.createOrUpdateConsoleLink(consoleAppLogsLink); err != nil {
+		return fmt.Errorf("Failure creating or updating console app logs link for kibana CR %q: %v", cluster.Name, err)
 	}
 
-	sharedRole := NewRole(
-		"sharing-config-reader",
-		cluster.Namespace,
-		NewPolicyRules(
-			NewPolicyRule(
-				[]string{""},
-				[]string{"configmaps"},
-				[]string{"sharing-config"},
-				[]string{"get"},
-			),
-		),
-	)
+	consoleInfraLogsLink := NewConsoleLink(InfraLogsConsoleLinkName, kibanaURL)
+	utils.AddOwnerRefToObject(consoleInfraLogsLink, getOwnerRef(cluster))
 
-	utils.AddOwnerRefToObject(sharedRole, getOwnerRef(clusterRequest.cluster))
-
-	err = clusterRequest.Create(sharedRole)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana route shared config role for %q: %v", cluster.Name, err)
-	}
-
-	sharedRoleBinding := NewRoleBinding(
-		"openshift-logging-sharing-config-reader-binding",
-		cluster.Namespace,
-		"sharing-config-reader",
-		NewSubjects(
-			NewSubject(
-				"Group",
-				"system:authenticated",
-			),
-		),
-	)
-
-	utils.AddOwnerRefToObject(sharedRoleBinding, getOwnerRef(clusterRequest.cluster))
-
-	err = clusterRequest.Create(sharedRoleBinding)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana route shared config role binding for %q: %v", cluster.Name, err)
+	if err := clusterRequest.createOrUpdateConsoleLink(consoleInfraLogsLink); err != nil {
+		return fmt.Errorf("Failure creating or updating console infra logs link for kibana CR %q: %v", cluster.Name, err)
 	}
 
 	return nil
+}
+
+func (clusterRequest *KibanaRequest) createOrUpdateConsoleLink(desired *consolev1.ConsoleLink) error {
+	linkName := desired.GetName()
+	err := clusterRequest.Create(desired)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("Failure creating Kibana link for %q: %v", clusterRequest.cluster.GetName(), err)
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &consolev1.ConsoleLink{}
+		if err := clusterRequest.Get(linkName, current); err != nil {
+			if errors.IsNotFound(err) {
+				logrus.Debugf("The console link %q was not found even though create previously succeeded.  Was it culled?", linkName)
+				return nil
+			}
+			return fmt.Errorf("Failed to get Kibana console link: %v", err)
+		}
+
+		ok := consoleLinksEqual(current, desired)
+		if !ok {
+			current.Spec = desired.Spec
+			return clusterRequest.Update(current)
+		}
+
+		return nil
+	})
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink() (err error) {
@@ -214,5 +219,29 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure creating Kibana console external log link for %q: %v", cluster.Name, err)
 	}
+	return nil
+}
+
+func (clusterRequest *KibanaRequest) removeSharedConfigMapPre45x() error {
+	cluster := clusterRequest.cluster
+
+	sharedConfig := NewConfigMap("sharing-config", cluster.GetNamespace(), map[string]string{})
+	err := clusterRequest.Delete(sharedConfig)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("Failure deleting Kibana route shared config: %v", err)
+	}
+
+	sharedRole := NewRole("sharing-config-reader", cluster.Namespace, nil)
+	err = clusterRequest.Delete(sharedRole)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("Failure deleting Kibana route shared config role %q for %q: %v", sharedRole.Name, cluster.Name, err)
+	}
+
+	sharedRoleBinding := NewRoleBinding("openshift-logging-sharing-config-reader-binding", cluster.Namespace, "", nil)
+	err = clusterRequest.Delete(sharedRoleBinding)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("Failure deleting Kibana route shared config role binding %q for %q: %v", sharedRoleBinding.Name, cluster.Name, err)
+	}
+
 	return nil
 }

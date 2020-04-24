@@ -123,9 +123,13 @@ spec:
         - apiGroups:
           - console.openshift.io
           resources:
+          - consolelinks
           - consoleexternalloglinks
           verbs:
-          - "*"
+          - get
+          - create
+          - update
+          - delete
         - apiGroups:
           - logging.openshift.io
           resources:
