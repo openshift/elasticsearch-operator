@@ -533,6 +533,11 @@ func isPodUnschedulableConditionTrue(conditions []api.ClusterCondition) bool {
 	return condition != nil && condition.Status == v1.ConditionTrue
 }
 
+func isPodImagePullBackOff(conditions []api.ClusterCondition) bool {
+	condition := getESNodeConditionWithReason(conditions, api.ESContainerWaiting, "ImagePullBackOff")
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+
 func getESNodeCondition(conditions []api.ClusterCondition, conditionType api.ClusterConditionType) (int, *api.ClusterCondition) {
 	if conditions == nil {
 		return -1, nil
@@ -543,6 +548,20 @@ func getESNodeCondition(conditions []api.ClusterCondition, conditionType api.Clu
 		}
 	}
 	return -1, nil
+}
+
+func getESNodeConditionWithReason(conditions []api.ClusterCondition, conditionType api.ClusterConditionType, conditionReason string) *api.ClusterCondition {
+	if conditions == nil {
+		return nil
+	}
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			if conditions[i].Reason == conditionReason {
+				return &conditions[i]
+			}
+		}
+	}
+	return nil
 }
 
 func updateESNodeCondition(status *api.ElasticsearchStatus, condition *api.ClusterCondition) bool {
