@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -27,7 +28,7 @@ func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 func getImage(commonImage string) string {
 	image := commonImage
 	if image == "" {
-		image = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", elasticsearchDefaultImage)
+		image = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
 	}
 	return image
 }

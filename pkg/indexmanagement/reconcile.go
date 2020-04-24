@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
 	k8s "github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
@@ -157,7 +158,7 @@ func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsear
 			"/tmp/scripts/rollover",
 		}
 	}
-	desired := newCronJob(cluster.Name, cluster.Spec.Spec.Image, cluster.Namespace, name, schedule, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, fnContainerHandler)
+	desired := newCronJob(cluster.Name, constants.PackagedElasticsearchImage(), cluster.Namespace, name, schedule, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, fnContainerHandler)
 
 	cluster.AddOwnerRefTo(desired)
 	return reconcileCronJob(apiclient, cluster, desired, areCronJobsSame)
@@ -188,7 +189,7 @@ func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsear
 			"/tmp/scripts/delete",
 		}
 	}
-	desired := newCronJob(cluster.Name, cluster.Spec.Spec.Image, cluster.Namespace, name, schedule, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, fnContainerHandler)
+	desired := newCronJob(cluster.Name, constants.PackagedElasticsearchImage(), cluster.Namespace, name, schedule, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, fnContainerHandler)
 
 	cluster.AddOwnerRefTo(desired)
 	return reconcileCronJob(apiclient, cluster, desired, areCronJobsSame)
