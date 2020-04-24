@@ -199,7 +199,8 @@ func getNodeUpgradeInProgress(cluster *api.Elasticsearch) NodeTypeInterface {
 
 func progressUnshedulableNodes(cluster *api.Elasticsearch) {
 	for _, node := range cluster.Status.Nodes {
-		if isPodUnschedulableConditionTrue(node.Conditions) {
+		if isPodUnschedulableConditionTrue(node.Conditions) ||
+			isPodImagePullBackOff(node.Conditions) {
 			for _, nodeTypeInterface := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
 				if node.DeploymentName == nodeTypeInterface.name() ||
 					node.StatefulSetName == nodeTypeInterface.name() {
