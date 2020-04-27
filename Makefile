@@ -92,9 +92,6 @@ image: imagebuilder
 	then hack/build-image.sh $(IMAGE_TAG) $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) ; \
 	fi
 
-test-e2e: gen-example-certs
-	LOGGING_IMAGE_STREAM=$(LOGGING_IMAGE_STREAM) REMOTE_CLUSTER=true hack/test-e2e.sh
-
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
 
