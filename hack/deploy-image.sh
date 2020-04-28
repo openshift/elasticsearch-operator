@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euxo pipefail
+set -euo pipefail
 
 if [ "${REMOTE_REGISTRY:-true}" = false ] ; then
     exit 0
@@ -31,13 +31,12 @@ if [ "${USE_IMAGE_STREAM:-false}" = true ] ; then
     exit 0
 fi
 
-IMAGE_TAGGER=${IMAGE_TAGGER:-docker tag}
 LOCAL_PORT=${LOCAL_PORT:-5000}
 
 image_tag=$( echo "$IMAGE_TAG" | sed -e 's,quay.io/,,' )
 tag=${tag:-"127.0.0.1:${LOCAL_PORT}/$image_tag"}
 
-${IMAGE_TAGGER} ${IMAGE_TAG} ${tag}
+podman tag ${IMAGE_TAG} ${tag}
 
 echo "Setting up port-forwarding to remote registry..."
 oc --loglevel=9 -n openshift-image-registry port-forward service/image-registry ${LOCAL_PORT}:5000 > pf.log 2>&1 &
