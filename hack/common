@@ -8,7 +8,7 @@ alias oc=${OC:-oc}
 repo_dir="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )/.."
 
 source "$repo_dir/hack/lib/init.sh"
-source "$repo_dir/hack/testing/utils"
+source "$repo_dir/hack/testing-olm/utils"
 
 VERSION=${VERSION:-$(basename $(find ${repo_dir}/manifests -type d | sort -r | head -n 1))}
 
