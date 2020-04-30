@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
+
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -470,7 +472,13 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	// set our state to being under upgrade
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		var status string
+		var err error
+
+		if status, err = GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); err != nil {
+			logrus.Warnf("GetClusterHealthStatus error: %s\n", err.Error())
+		}
+		if status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before upgrading %v: %v / green", node.name(), status)
 			return fmt.Errorf("Cluster not in green state before beginning upgrade: %v", status)
 		}
@@ -654,6 +662,12 @@ func (node *deploymentNode) isChanged() bool {
 		var updatedContainer v1.Container
 		var resourceUpdated bool
 		if updatedContainer, resourceUpdated = updateResources(node, nodeContainer, desiredContainer); resourceUpdated {
+			changed = true
+		}
+
+		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
+			nodeContainer.Env = desiredContainer.Env
+			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
 
