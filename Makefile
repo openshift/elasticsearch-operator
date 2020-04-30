@@ -6,14 +6,8 @@ export GO111MODULE=on
 export GOBIN=$(CURDIR)/bin
 export PATH:=$(CURDIR)/bin:$(PATH)
 
-IMAGE_BUILDER_OPTS=
-IMAGE_BUILDER?=imagebuilder
-IMAGE_BUILD=$(IMAGE_BUILDER)
-export IMAGE_TAGGER?=docker tag
-
 export APP_NAME=elasticsearch-operator
-IMAGE_TAG?=quay.io/openshift/origin-$(APP_NAME):latest
-export IMAGE_TAG
+IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
@@ -39,11 +33,6 @@ gosec: gobindir
 	gosec version | grep -q $(GOSEC_VERSION) || \
 	curl -sSfL  ${GOSEC_URL} | tar -z -C ./bin -x $@
 	@chmod +x $(GOBIN)/$@
-
-imagebuilder: gobindir
-	@if [ $${USE_IMAGE_STREAM:-false} = false ] && ! type -p imagebuilder > /dev/null ; \
-	then GOFLAGS="" GO111MODULE=off go get -u github.com/openshift/imagebuilder/cmd/imagebuilder ; \
-	fi
 
 OPERATOR_SDK_VERSION?=v0.16.0
 OPERATOR_SDK_URL=https://github.com/operator-framework/operator-sdk/releases/download/${OPERATOR_SDK_VERSION}/operator-sdk-${OPERATOR_SDK_VERSION}-$(shell uname -i)-${OS_NAME}-gnu
@@ -87,9 +76,9 @@ fmt:
 lint: golangci-lint fmt
 	@golangci-lint run -c golangci.yaml
 
-image: imagebuilder
-	@if [ $${USE_IMAGE_STREAM:-false} = false ] && [ $${SKIP_BUILD:-false} = false ] ; \
-	then hack/build-image.sh $(IMAGE_TAG) $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) ; \
+image:
+	@if [ $${SKIP_BUILD:-false} = false ] ; then \
+		podman build -t $(IMAGE_TAG) . ; \
 	fi
 
 test-unit:
@@ -99,15 +88,18 @@ test-sec: gosec
 	@gosec -severity medium -confidence medium -exclude G304 -quiet ./...
 
 deploy: deploy-image
-	hack/deploy.sh
+	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \
+	$(MAKE) elasticsearch-catalog-build && \
+	IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=image-registry.openshift-image-registry.svc:5000/openshift/elasticsearch-operator-registry \
+	IMAGE_ELASTICSEARCH_OPERATOR=image-registry.openshift-image-registry.svc:5000/openshift/origin-elasticsearch-operator:latest \
+	$(MAKE) elasticsearch-catalog-deploy && \
+	IMAGE_ELASTICSEARCH_OPERATOR=image-registry.openshift-image-registry.svc:5000/openshift/origin-elasticsearch-operator:latest \
+	$(MAKE) elasticsearch-operator-install
+
 .PHONY: deploy
 
-deploy-no-build:
-	hack/deploy.sh
-.PHONY: deploy-no-build
-
 deploy-image: image
-	hack/deploy-image.sh
+	IMAGE_TAG=$(IMAGE_TAG) hack/deploy-image.sh
 .PHONY: deploy-image
 
 deploy-example: deploy deploy-example-secret
@@ -147,9 +139,9 @@ scale-olm:
 	@oc -n openshift-operator-lifecycle-manager scale deployment/olm-operator --replicas=$(REPLICAS)
 .PHONY: scale-olm
 
-undeploy:
-	hack/undeploy.sh
-.PHONY: undeploy
+uninstall:
+	$(MAKE) elasticsearch-catalog-uninstall
+.PHONY: uninstall
 
 
 # to use these targets, ensure the following env vars are set:
