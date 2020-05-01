@@ -230,6 +230,7 @@ const (
 	ProxyContainerTerminated ClusterConditionType = "ProxyContainerTerminated"
 	Unschedulable            ClusterConditionType = "Unschedulable"
 	NodeStorage              ClusterConditionType = "NodeStorage"
+	CustomImage              ClusterConditionType = "CustomImageIgnored"
 )
 
 type ClusterEvent string

@@ -25,12 +25,8 @@ func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
 	}
 }
 
-func getImage(commonImage string) string {
-	image := commonImage
-	if image == "" {
-		image = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
-	}
-	return image
+func getImage() string {
+	return utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
 }
 
 func getNodeRoleMap(node api.ElasticsearchNode) map[api.ElasticsearchNodeRole]bool {
@@ -374,7 +370,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 			Affinity: newAffinity(roleMap),
 			Containers: []v1.Container{
 				newElasticsearchContainer(
-					getImage(commonSpec.Image),
+					getImage(),
 					newEnvVars(nodeName, clusterName, resourceRequirements.Limits.Memory().String(), roleMap),
 					resourceRequirements,
 				),

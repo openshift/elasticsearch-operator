@@ -21,9 +21,6 @@ spec:
           type: object
           description: Specification of the desired behavior of the Kibana
           properties:
-            image:
-              type: string
-              description: Kibana image
             resources:
               type: object
               description: The resource requirements for Kibana
@@ -49,9 +46,6 @@ spec:
               type: object
               description: Specification of the Kibana Proxy component
               properties:
-                image:
-                  type: string
-                  description: Proxy image
                 resources:
                   type: object
                   description: The resource requirements for Kibana

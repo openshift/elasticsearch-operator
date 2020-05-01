@@ -37,7 +37,6 @@ var _ = Describe("Kibana", func() {
 				Namespace: "test-namespace",
 			},
 			Spec: kibana.KibanaSpec{
-				Image:           "hub/openshift/kibana:latest",
 				ManagementState: kibana.ManagementStateManaged,
 				Replicas:        2,
 			},
