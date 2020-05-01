@@ -184,11 +184,11 @@ function login_to_registry() {
             username=kubeadmin
         fi
     fi
-    docker login -u "$username" -p "$token" "$1" > /dev/null
+    podman login --tls-verify=false -u "$username" -p "$token" "$1" > /dev/null
 }
 
 function push_image() {
-    skopeo copy --dest-tls-verify=false docker-daemon:"$1" docker://"$2"
+    podman push --tls-verify=false "$1" "$2"
 }
 
 if [ $REMOTE_REGISTRY = false ] ; then
