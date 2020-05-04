@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
-	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -572,87 +572,18 @@ func (node *statefulSetNode) scale() {
 
 func (node *statefulSetNode) isChanged() bool {
 
-	changed := false
-
-	desired := node.self.DeepCopy()
+	desired := apps.StatefulSet{}
 	// we want to blank this out before a get to ensure we get the correct information back (possible sdk issue with maps?)
 	node.self.Spec = apps.StatefulSetSpec{}
 
 	err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self)
 	// error check that it exists, etc
 	if err != nil {
+		logger.Warnf("Unable to get %s/%s: %v", node.self.Namespace, node.self.Name, err)
 		// if it doesn't exist, return true
 		return false
 	}
-
-	// check the pod's nodeselector
-	if !areSelectorsSame(node.self.Spec.Template.Spec.NodeSelector, desired.Spec.Template.Spec.NodeSelector) {
-		logrus.Debugf("Resource '%s' has different nodeSelector than desired", node.self.Name)
-		node.self.Spec.Template.Spec.NodeSelector = desired.Spec.Template.Spec.NodeSelector
-		changed = true
-	}
-
-	// check the pod's tolerations
-	if !areTolerationsSame(node.self.Spec.Template.Spec.Tolerations, desired.Spec.Template.Spec.Tolerations) {
-		logrus.Debugf("Resource '%s' has different tolerations than desired", node.self.Name)
-		node.self.Spec.Template.Spec.Tolerations = desired.Spec.Template.Spec.Tolerations
-		changed = true
-	}
-
-	// Only Image and Resources (CPU & memory) differences trigger rolling restart
-	for index := 0; index < len(node.self.Spec.Template.Spec.Containers); index++ {
-		nodeContainer := node.self.Spec.Template.Spec.Containers[index]
-		desiredContainer := desired.Spec.Template.Spec.Containers[index]
-
-		if nodeContainer.Resources.Requests == nil {
-			nodeContainer.Resources.Requests = v1.ResourceList{}
-		}
-
-		if nodeContainer.Resources.Limits == nil {
-			nodeContainer.Resources.Limits = v1.ResourceList{}
-		}
-
-		// check that both exist
-
-		if nodeContainer.Image != desiredContainer.Image {
-			logrus.Debugf("Resource '%s' has different container image than desired", node.self.Name)
-			nodeContainer.Image = desiredContainer.Image
-			changed = true
-		}
-
-		if desiredContainer.Resources.Limits.Cpu().Cmp(*nodeContainer.Resources.Limits.Cpu()) != 0 {
-			logrus.Debugf("Resource '%s' has different CPU limit than desired", node.self.Name)
-			nodeContainer.Resources.Limits[v1.ResourceCPU] = *desiredContainer.Resources.Limits.Cpu()
-			changed = true
-		}
-		// Check memory limits
-		if desiredContainer.Resources.Limits.Memory().Cmp(*nodeContainer.Resources.Limits.Memory()) != 0 {
-			logrus.Debugf("Resource '%s' has different Memory limit than desired", node.self.Name)
-			nodeContainer.Resources.Limits[v1.ResourceMemory] = *desiredContainer.Resources.Limits.Memory()
-			changed = true
-		}
-		// Check CPU requests
-		if desiredContainer.Resources.Requests.Cpu().Cmp(*nodeContainer.Resources.Requests.Cpu()) != 0 {
-			logrus.Debugf("Resource '%s' has different CPU Request than desired", node.self.Name)
-			nodeContainer.Resources.Requests[v1.ResourceCPU] = *desiredContainer.Resources.Requests.Cpu()
-			changed = true
-		}
-		// Check memory requests
-		if desiredContainer.Resources.Requests.Memory().Cmp(*nodeContainer.Resources.Requests.Memory()) != 0 {
-			logrus.Debugf("Resource '%s' has different Memory Request than desired", node.self.Name)
-			nodeContainer.Resources.Requests[v1.ResourceMemory] = *desiredContainer.Resources.Requests.Memory()
-			changed = true
-		}
-
-		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
-			nodeContainer.Env = desiredContainer.Env
-			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
-			changed = true
-		}
-
-		node.self.Spec.Template.Spec.Containers[index] = nodeContainer
-	}
-	return changed
+	return elasticsearch.UpdatePodTemplateSpec(node.self.Name, &node.self.Spec.Template, &desired.Spec.Template)
 }
 
 func (node *statefulSetNode) progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error {

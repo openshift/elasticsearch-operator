@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
-
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -625,109 +624,17 @@ func (node *deploymentNode) refreshHashes() {
 
 func (node *deploymentNode) isChanged() bool {
 
-	changed := false
-
-	desired := node.self.DeepCopy()
+	desired := &apps.Deployment{}
 	// we want to blank this out before a get to ensure we get the correct information back (possible sdk issue with maps?)
 	node.self.Spec = apps.DeploymentSpec{}
 
 	err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self)
 	// error check that it exists, etc
 	if err != nil {
+		logger.Warnf("Unable to get %s/%s: %v", node.self.Namespace, node.self.Name, err)
 		// if it doesn't exist, return true
 		return false
 	}
 
-	// check the pod's nodeselector
-	if !areSelectorsSame(node.self.Spec.Template.Spec.NodeSelector, desired.Spec.Template.Spec.NodeSelector) {
-		logrus.Debugf("Resource '%s' has different nodeSelector than desired", node.self.Name)
-		node.self.Spec.Template.Spec.NodeSelector = desired.Spec.Template.Spec.NodeSelector
-		changed = true
-	}
-
-	// check the pod's tolerations
-	if !areTolerationsSame(node.self.Spec.Template.Spec.Tolerations, desired.Spec.Template.Spec.Tolerations) {
-		logrus.Debugf("Resource '%s' has different tolerations than desired", node.self.Name)
-		node.self.Spec.Template.Spec.Tolerations = desired.Spec.Template.Spec.Tolerations
-		changed = true
-	}
-
-	// Only Image and Resources (CPU & memory) differences trigger rolling restart
-	for index := 0; index < len(node.self.Spec.Template.Spec.Containers); index++ {
-		nodeContainer := node.self.Spec.Template.Spec.Containers[index]
-		desiredContainer := desired.Spec.Template.Spec.Containers[index]
-
-		if nodeContainer.Image != desiredContainer.Image {
-			logrus.Debugf("Resource '%s' has different container image than desired", node.self.Name)
-			nodeContainer.Image = desiredContainer.Image
-			changed = true
-		}
-
-		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
-			nodeContainer.Env = desiredContainer.Env
-			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
-			changed = true
-		}
-
-		var updatedContainer v1.Container
-		var resourceUpdated bool
-		if updatedContainer, resourceUpdated = updateResources(node, nodeContainer, desiredContainer); resourceUpdated {
-			changed = true
-		}
-
-		node.self.Spec.Template.Spec.Containers[index] = updatedContainer
-	}
-
-	return changed
-}
-
-//updateResources for the node; return true if an actual change is made
-func updateResources(node *deploymentNode, nodeContainer, desiredContainer v1.Container) (v1.Container, bool) {
-	changed := false
-	if nodeContainer.Resources.Requests == nil {
-		nodeContainer.Resources.Requests = v1.ResourceList{}
-	}
-
-	if nodeContainer.Resources.Limits == nil {
-		nodeContainer.Resources.Limits = v1.ResourceList{}
-	}
-
-	// Check CPU limits
-	if desiredContainer.Resources.Limits.Cpu().Cmp(*nodeContainer.Resources.Limits.Cpu()) != 0 {
-		logrus.Debugf("Resource '%s' has different CPU (%+v) limit than desired (%+v)", node.self.Name, *nodeContainer.Resources.Limits.Cpu(), desiredContainer.Resources.Limits.Cpu())
-		nodeContainer.Resources.Limits[v1.ResourceCPU] = *desiredContainer.Resources.Limits.Cpu()
-		if nodeContainer.Resources.Limits.Cpu().IsZero() {
-			delete(nodeContainer.Resources.Limits, v1.ResourceCPU)
-		}
-		changed = true
-	}
-	// Check memory limits
-	if desiredContainer.Resources.Limits.Memory().Cmp(*nodeContainer.Resources.Limits.Memory()) != 0 {
-		logrus.Debugf("Resource '%s' has different Memory limit than desired", node.self.Name)
-		nodeContainer.Resources.Limits[v1.ResourceMemory] = *desiredContainer.Resources.Limits.Memory()
-		if nodeContainer.Resources.Limits.Memory().IsZero() {
-			delete(nodeContainer.Resources.Limits, v1.ResourceMemory)
-		}
-		changed = true
-	}
-	// Check CPU requests
-	if desiredContainer.Resources.Requests.Cpu().Cmp(*nodeContainer.Resources.Requests.Cpu()) != 0 {
-		logrus.Debugf("Resource '%s' has different CPU Request than desired", node.self.Name)
-		nodeContainer.Resources.Requests[v1.ResourceCPU] = *desiredContainer.Resources.Requests.Cpu()
-		if nodeContainer.Resources.Requests.Cpu().IsZero() {
-			delete(nodeContainer.Resources.Requests, v1.ResourceCPU)
-		}
-		changed = true
-	}
-	// Check memory requests
-	if desiredContainer.Resources.Requests.Memory().Cmp(*nodeContainer.Resources.Requests.Memory()) != 0 {
-		logrus.Debugf("Resource '%s' has different Memory Request than desired", node.self.Name)
-		nodeContainer.Resources.Requests[v1.ResourceMemory] = *desiredContainer.Resources.Requests.Memory()
-		if nodeContainer.Resources.Requests.Memory().IsZero() {
-			delete(nodeContainer.Resources.Requests, v1.ResourceMemory)
-		}
-		changed = true
-	}
-
-	return nodeContainer, changed
+	return elasticsearch.UpdatePodTemplateSpec(node.self.Name, &node.self.Spec.Template, &desired.Spec.Template)
 }
