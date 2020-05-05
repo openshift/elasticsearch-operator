@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strconv"
@@ -297,4 +299,11 @@ func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interfac
 	}
 
 	return nil
+}
+func PrintResource(resource v1.ResourceRequirements) string {
+	pretty, err := json.MarshalIndent(resource, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshalling to json: %v", pretty)
+	}
+	return string(pretty)
 }
