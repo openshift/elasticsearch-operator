@@ -37,7 +37,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateIndexManagement(
 		}
 		//TODO: Can we have partial success?
 		if err := elasticsearchRequest.initializeIndexIfNeeded(mapping); err != nil {
-			logger.Errorf("Error intializing index for mapping %s: %v", mapping.Name, err)
+			logger.Errorf("Error initializing index for mapping %s: %v", mapping.Name, err)
 			return err
 		}
 	}

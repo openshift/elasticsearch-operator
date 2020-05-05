@@ -46,8 +46,8 @@ var (
 	millisPerDay    = uint64(millisPerHour * 24)
 	millisPerWeek   = uint64(millisPerDay * 7)
 
-	//fullExecMode 0777
-	fullExecMode = utils.GetInt32(int32(511))
+	//fullExecMode octal 0777
+	fullExecMode = utils.GetInt32(int32(0777))
 
 	imLabels = map[string]string{
 		"provider":      "openshift",
