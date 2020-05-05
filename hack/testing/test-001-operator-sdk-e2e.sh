@@ -65,9 +65,9 @@ fi
 
 sed -i "s/namespace: openshift-logging/namespace: ${TEST_NAMESPACE}/g" ${manifest}
 
-oc create -n ${TEST_NAMESPACE} -f \
+oc apply -n ${TEST_NAMESPACE} -f \
 https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml ||:
-oc create -n ${TEST_NAMESPACE} -f \
+oc apply -n ${TEST_NAMESPACE} -f \
 https://raw.githubusercontent.com/coreos/prometheus-operator/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml ||:
 
 TEST_NAMESPACE=${TEST_NAMESPACE} go test ./test/e2e/... \

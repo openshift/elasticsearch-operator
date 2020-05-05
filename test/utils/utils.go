@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	goctx "context"
+
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -128,16 +129,19 @@ func WaitForStatefulset(t *testing.T, kubeclient kubernetes.Interface, namespace
 				t.Logf("Waiting for availability of %s statefulset\n", name)
 				return false, nil
 			}
+			t.Logf("Error getting statefull set: %s\n", err.Error())
 			return false, err
 		}
 
 		if int(statefulset.Status.ReadyReplicas) == replicas {
+			t.Logf("Amount of replicas are equal to expected")
 			return true, nil
 		}
 		t.Logf("Waiting for full availability of %s statefulset (%d/%d)\n", name, statefulset.Status.ReadyReplicas, replicas)
 		return false, nil
 	})
 	if err != nil {
+		t.Logf("Poll error: %s\n", err.Error())
 		return err
 	}
 	t.Logf("Statefulset available (%d/%d)\n", replicas, replicas)

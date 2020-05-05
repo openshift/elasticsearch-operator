@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	goctx "context"
+
 	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	v1 "k8s.io/api/core/v1"
@@ -225,7 +226,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
 	}
 
-	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout)
+	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout*2)
 	if err != nil {
 		return fmt.Errorf("timed out waiting for Statefulset %v: %v", fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), err)
 	}

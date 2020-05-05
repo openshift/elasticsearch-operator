@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
+
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -622,6 +625,12 @@ func (node *statefulSetNode) isChanged() bool {
 		if desiredContainer.Resources.Requests.Memory().Cmp(*nodeContainer.Resources.Requests.Memory()) != 0 {
 			logrus.Debugf("Resource '%s' has different Memory Request than desired", node.self.Name)
 			nodeContainer.Resources.Requests[v1.ResourceMemory] = *desiredContainer.Resources.Requests.Memory()
+			changed = true
+		}
+
+		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
+			nodeContainer.Env = desiredContainer.Env
+			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
 
