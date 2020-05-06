@@ -1,12 +1,14 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -15,6 +17,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+
+	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // addOwnerRefToObject appends the desired OwnerReference to the object
@@ -622,4 +627,93 @@ func sortDataHashKeys(dataHash map[string][32]byte) []string {
 	sort.Strings(keys)
 
 	return keys
+}
+
+/*
+kind: NetworkPolicy
+apiVersion: extensions/v1beta1
+metadata:
+  name: restricted-es-access
+spec:
+  podSelector:
+    matchLabels:
+      component: elasticsearch
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: elasticsearch-operator
+    ports:
+    - protocol: TCP
+      port: 9200
+*/
+func newNetworkPolicy(namespace string) networking.NetworkPolicy {
+
+	protocol := v1.ProtocolTCP
+	port := intstr.FromInt(9200)
+
+	return networking.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "NetworkPolicy",
+			APIVersion: networking.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "restricted-es-policy",
+			Namespace: namespace,
+		},
+		Spec: networking.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component": "elasticsearch",
+				},
+			},
+			Ingress: []networking.NetworkPolicyIngressRule{
+				{
+					From: []networking.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"name": "elasticsearch-operator",
+								},
+							},
+						},
+					},
+					Ports: []networking.NetworkPolicyPort{
+						{
+							Protocol: &protocol,
+							Port:     &port,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func EnforceNetworkPolicy(namespace string, client client.Client, ownerRef []metav1.OwnerReference) error {
+
+	policy := newNetworkPolicy(namespace)
+	policy.ObjectMeta.OwnerReferences = ownerRef
+
+	err := client.Create(context.TODO(), &policy)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("Could not create network policy: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func RelaxNetworkPolicy(namespace string, client client.Client) error {
+
+	policy := newNetworkPolicy(namespace)
+	err := client.Delete(context.TODO(), &policy)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("Could not delete network policy: %v", err)
+		}
+	}
+
+	return nil
 }

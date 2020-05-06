@@ -350,6 +350,11 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 
 		if replicas > 0 {
 
+			if err := EnforceNetworkPolicy(node.self.Namespace, node.client, node.self.ObjectMeta.OwnerReferences); err != nil {
+				logrus.Warnf("Unable to create network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
+				return
+			}
+
 			// disable shard allocation
 			if ok, err := node.esClient.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
 				logrus.Warnf("Unable to disable shard allocation: %v", err)
@@ -408,6 +413,11 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
+
+		if err := RelaxNetworkPolicy(node.self.Namespace, node.client); err != nil {
+			logrus.Warnf("Unable to delete network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
+			return
+		}
 
 		if status, _ := node.esClient.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
 			logrus.Infof("Waiting for cluster to recover: %s / %v", status, desiredClusterStates)
@@ -497,6 +507,11 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
+		if err := EnforceNetworkPolicy(node.self.Namespace, node.client, node.self.ObjectMeta.OwnerReferences); err != nil {
+			logrus.Warnf("Unable to create network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
+			return err
+		}
+
 		// disable shard allocation
 		if ok, err := node.esClient.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
 			logrus.Warnf("Unable to disable shard allocation: %v", err)
@@ -552,6 +567,11 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
+
+		if err := RelaxNetworkPolicy(node.self.Namespace, node.client); err != nil {
+			logrus.Warnf("Unable to delete network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
+			return err
+		}
 
 		if status, err := node.esClient.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
 			logrus.Infof("Waiting for cluster to recover: %s / %v", status, desiredClusterStates)
