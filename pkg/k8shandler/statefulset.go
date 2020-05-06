@@ -571,18 +571,15 @@ func (node *statefulSetNode) scale() {
 }
 
 func (node *statefulSetNode) isChanged() bool {
+	desired := &apps.StatefulSet{}
 
-	desired := apps.StatefulSet{}
-	// we want to blank this out before a get to ensure we get the correct information back (possible sdk issue with maps?)
-	node.self.Spec = apps.StatefulSetSpec{}
-
-	err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self)
-	// error check that it exists, etc
+	key := types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}
+	err := node.client.Get(context.TODO(), key, desired)
 	if err != nil {
-		logger.Warnf("Unable to get %s/%s: %v", node.self.Namespace, node.self.Name, err)
-		// if it doesn't exist, return true
+		logger.Warnf("Unable to get %s: %v", key, err)
 		return false
 	}
+
 	return elasticsearch.UpdatePodTemplateSpec(node.self.Name, &node.self.Spec.Template, &desired.Spec.Template)
 }
 

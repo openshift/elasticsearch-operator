@@ -93,6 +93,7 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 	// see if we need to update the deployment object
 	if node.isChanged() {
 		rolloutForUpdate = v1.ConditionTrue
+		logrus.Warnf("STATE NODE CHANGED: %s", rolloutForUpdate)
 	}
 
 	// check if the configmapHash changed
@@ -351,6 +352,7 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 
 			if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok {
 				logrus.Warnf("Unable to perform synchronized flush: %v", err)
+				return
 			}
 
 			// check for available replicas empty
@@ -490,14 +492,17 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
+		logger.Debugf("CHANGED NODE containers: %#v\n\n", node.self.Spec.Template.Spec.Containers)
+
 		// disable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
+		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok || err != nil {
 			logrus.Warnf("Unable to disable shard allocation: %v", err)
 			return err
 		}
 
-		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok {
+		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok || err != nil {
 			logrus.Warnf("Unable to perform synchronized flush: %v", err)
+			return err
 		}
 
 		if err := node.executeUpdate(); err != nil {
@@ -563,6 +568,7 @@ func (node *deploymentNode) executeUpdate() error {
 		// isChanged() will get the latest revision from the apiserver
 		// and return false if there is nothing to change and will update the node object if required
 		if node.isChanged() {
+			logrus.Warnf("EXECUTE NODE UPDATE: %s", node.self.Name)
 			if logger.IsDebugEnabled() {
 				pretty, err := json.MarshalIndent(node.self, "", "  ")
 				if err != nil {
@@ -581,7 +587,7 @@ func (node *deploymentNode) executeUpdate() error {
 
 func (node *deploymentNode) progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error {
 	if node.isChanged() {
-		logrus.Infof("Requested to update node '%s', which is unschedulable. Skipping rolling restart scenario and performing redeploy now", upgradeStatus.DeploymentName)
+		logrus.Debugf("PROGRESS_UNSCHEDULABLE_NODE: %s", upgradeStatus.DeploymentName)
 
 		if err := node.executeUpdate(); err != nil {
 			return err
@@ -623,16 +629,12 @@ func (node *deploymentNode) refreshHashes() {
 }
 
 func (node *deploymentNode) isChanged() bool {
-
 	desired := &apps.Deployment{}
-	// we want to blank this out before a get to ensure we get the correct information back (possible sdk issue with maps?)
-	node.self.Spec = apps.DeploymentSpec{}
 
-	err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self)
-	// error check that it exists, etc
+	key := types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}
+	err := node.client.Get(context.TODO(), key, desired)
 	if err != nil {
-		logger.Warnf("Unable to get %s/%s: %v", node.self.Namespace, node.self.Name, err)
-		// if it doesn't exist, return true
+		logger.Warnf("Unable to get %s: %v", key, err)
 		return false
 	}
 

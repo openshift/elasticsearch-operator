@@ -317,9 +317,11 @@ func DoSynchronizedFlush(clusterName, namespace string, client client.Client) (b
 
 	if payload.Error == nil && failed != 0 {
 		payload.Error = fmt.Errorf("Failed to flush %d shards in preparation for cluster restart", failed)
+
+		logger.Errorf("ERROR FLUSHING payload: %#v", payload)
 	}
 
-	return payload.StatusCode == 200, payload.Error
+	return (payload.StatusCode == 200 && failed == 0), payload.Error
 }
 
 // This will idempotently update the index templates and update indices' replica count

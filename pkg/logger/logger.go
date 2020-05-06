@@ -2,7 +2,6 @@ package logger
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -58,7 +57,7 @@ func DebugObject(sprintfMessage string, object interface{}) {
 	}
 }
 func init() {
-	level := os.Getenv("LOG_LEVEL")
+	level := "debug" //os.Getenv("LOG_LEVEL")
 	if strings.TrimSpace(level) == "" {
 		return
 	}

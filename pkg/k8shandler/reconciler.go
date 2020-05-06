@@ -57,9 +57,9 @@ func Reconcile(requestCluster *elasticsearch.Elasticsearch, requestClient client
 	}
 
 	// Ensure index management is in place
-	if err := elasticsearchRequest.CreateOrUpdateIndexManagement(); err != nil {
-		return fmt.Errorf("Failed to reconcile IndexMangement for Elasticsearch cluster: %v", err)
-	}
+	// if err := elasticsearchRequest.CreateOrUpdateIndexManagement(); err != nil {
+	// 	return fmt.Errorf("Failed to reconcile IndexMangement for Elasticsearch cluster: %v", err)
+	// }
 
 	return nil
 }
