@@ -104,7 +104,7 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 				Status:             v1.ConditionTrue,
 				LastTransitionTime: metav1.Now(),
 				Reason:             "CustomImageUnsupported",
-				Message:            "Specifiying a custom image from the customer resource is not supported",
+				Message:            "Specifiying a custom image from the custom resource is not supported",
 			})
 		}
 

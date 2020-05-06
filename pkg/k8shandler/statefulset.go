@@ -3,6 +3,7 @@ package k8shandler
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
@@ -611,7 +612,11 @@ func (node *statefulSetNode) isChanged() bool {
 		if nodeContainer.Resources.Limits == nil {
 			nodeContainer.Resources.Limits = v1.ResourceList{}
 		}
-
+		if !reflect.DeepEqual(desiredContainer.Args, nodeContainer.Args) {
+			nodeContainer.Args = desiredContainer.Args
+			logger.Debugf("Container Args are different between current and desired for %s", nodeContainer.Name)
+			changed = true
+		}
 		// check that both exist
 
 		if nodeContainer.Image != desiredContainer.Image {

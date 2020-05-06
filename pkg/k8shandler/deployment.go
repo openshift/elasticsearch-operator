@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
@@ -668,7 +669,11 @@ func (node *deploymentNode) isChanged() bool {
 			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
-
+		if !reflect.DeepEqual(desiredContainer.Args, nodeContainer.Args) {
+			nodeContainer.Args = desiredContainer.Args
+			logger.Debugf("Container Args are different between current and desired for %s", nodeContainer.Name)
+			changed = true
+		}
 		var updatedContainer v1.Container
 		var resourceUpdated bool
 		if updatedContainer, resourceUpdated = updateResources(node, nodeContainer, desiredContainer); resourceUpdated {
