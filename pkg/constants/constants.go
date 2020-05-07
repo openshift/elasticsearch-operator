@@ -11,7 +11,7 @@ const (
 	TrustedCABundleHashName    = "logging.openshift.io/hash"
 	KibanaTrustedCAName        = "kibana-trusted-ca-bundle"
 	SecretHashPrefix           = "logging.openshift.io/"
-	KibanaInstanceName         = "instance"
+	KibanaInstanceName         = "kibana"
 	ElasticsearchDefaultImage  = "quay.io/openshift/origin-logging-elasticsearch6"
 )
 
