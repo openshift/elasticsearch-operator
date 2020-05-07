@@ -6,7 +6,9 @@ import (
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -83,6 +85,29 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 
 	if cluster.Spec.ManagementState == loggingv1.ManagementStateUnmanaged {
 		return reconcile.Result{}, nil
+	}
+
+	if cluster.Spec.Spec.Image != "" {
+		if cluster.Status.Conditions == nil {
+			cluster.Status.Conditions = []loggingv1.ClusterCondition{}
+		}
+		exists := false
+		for _, condition := range cluster.Status.Conditions {
+			if condition.Type == loggingv1.CustomImage {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			cluster.Status.Conditions = append(cluster.Status.Conditions, loggingv1.ClusterCondition{
+				Type:               loggingv1.CustomImage,
+				Status:             v1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "CustomImageUnsupported",
+				Message:            "Specifiying a custom image from the custom resource is not supported",
+			})
+		}
+
 	}
 
 	if err = k8shandler.Reconcile(cluster, r.client); err != nil {

@@ -443,20 +443,12 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 	return nil
 }
 
-func getImage(commonImage string) string {
-	image := commonImage
-	if image == "" {
-		image = utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
-	}
-	return image
+func getImage() string {
+	return utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
 }
 
-func getProxyImage(commonImage string) string {
-	image := commonImage
-	if image == "" {
-		image = utils.LookupEnvWithDefault("PROXY_IMAGE", kibanaProxyDefaultImage)
-	}
-	return image
+func getProxyImage() string {
+	return utils.LookupEnvWithDefault("PROXY_IMAGE", kibanaProxyDefaultImage)
 }
 
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
@@ -476,7 +468,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		}
 	}
 
-	kibanaImage := getImage(visSpec.Image)
+	kibanaImage := getImage()
 	kibanaContainer := NewContainer(
 		"kibana",
 		kibanaImage,
@@ -528,7 +520,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		}
 	}
 
-	proxyImage := getProxyImage(visSpec.ProxySpec.Image)
+	proxyImage := getProxyImage()
 	kibanaProxyContainer := NewContainer(
 		"kibana-proxy",
 		proxyImage,

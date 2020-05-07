@@ -1,22 +1,18 @@
-package elasticsearch_test
+package k8shandler
 
 import (
 	"testing"
 
-	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/elasticsearch"
-	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/openshift/elasticsearch-operator/test/utils"
 )
 
 var (
 	deployment                      apps.Deployment
 	nodeContainer, desiredContainer v1.Container
-	node                            string
+	node                            *deploymentNode
 )
 
 func setUp() {
@@ -53,7 +49,9 @@ func setUp() {
 			},
 		},
 	}
-	node = "anesnode"
+	node = &deploymentNode{
+		self: deployment,
+	}
 }
 
 func TestUpdateResourcesWhenDesiredCPULimitIsZero(t *testing.T) {
@@ -67,13 +65,13 @@ func TestUpdateResourcesWhenDesiredCPULimitIsZero(t *testing.T) {
 		v1.ResourceCPU:    resource.MustParse("600m"),
 	}
 
-	actual, changed := elasticsearch.UpdateResources(node, nodeContainer, desiredContainer)
+	actual, changed := updateResources(node, nodeContainer, desiredContainer)
 
 	if !changed {
 		t.Error("Expected updating the resources would recognized as changed, but it was not")
 	}
-	if !comparators.AreResourceRequementsSame(actual.Resources, desiredContainer.Resources) {
-		t.Errorf("Expected %v but got %v", utils.PrintResource(desiredContainer.Resources), utils.PrintResource(actual.Resources))
+	if !areResourcesSame(actual.Resources, desiredContainer.Resources) {
+		t.Errorf("Expected %v but got %v", printResource(desiredContainer.Resources), printResource(actual.Resources))
 	}
 }
 func TestUpdateResourcesWhenDesiredMemoryLimitIsZero(t *testing.T) {
@@ -86,13 +84,13 @@ func TestUpdateResourcesWhenDesiredMemoryLimitIsZero(t *testing.T) {
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 		v1.ResourceCPU:    resource.MustParse("600m"),
 	}
-	actual, changed := elasticsearch.UpdateResources(node, nodeContainer, desiredContainer)
+	actual, changed := updateResources(node, nodeContainer, desiredContainer)
 
 	if !changed {
 		t.Error("Expected updating the resources would recognized as changed, but it was not")
 	}
-	if !comparators.AreResourceRequementsSame(actual.Resources, desiredContainer.Resources) {
-		t.Errorf("Expected %v but got %v", utils.PrintResource(desiredContainer.Resources), utils.PrintResource(actual.Resources))
+	if !areResourcesSame(actual.Resources, desiredContainer.Resources) {
+		t.Errorf("Expected %v but got %v", printResource(desiredContainer.Resources), printResource(actual.Resources))
 	}
 }
 func TestUpdateResourcesWhenDesiredCPURequestIsZero(t *testing.T) {
@@ -106,13 +104,13 @@ func TestUpdateResourcesWhenDesiredCPURequestIsZero(t *testing.T) {
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 
-	actual, changed := elasticsearch.UpdateResources(node, nodeContainer, desiredContainer)
+	actual, changed := updateResources(node, nodeContainer, desiredContainer)
 
 	if !changed {
 		t.Error("Expected updating the resources would recognized as changed, but it was not")
 	}
-	if !comparators.AreResourceRequementsSame(actual.Resources, desiredContainer.Resources) {
-		t.Errorf("Expected %v but got %v", utils.PrintResource(desiredContainer.Resources), utils.PrintResource(actual.Resources))
+	if !areResourcesSame(actual.Resources, desiredContainer.Resources) {
+		t.Errorf("Expected %v but got %v", printResource(desiredContainer.Resources), printResource(actual.Resources))
 	}
 }
 func TestUpdateResourcesWhenDesiredMemoryRequestIsZero(t *testing.T) {
@@ -125,12 +123,12 @@ func TestUpdateResourcesWhenDesiredMemoryRequestIsZero(t *testing.T) {
 	desiredContainer.Resources.Requests = v1.ResourceList{
 		v1.ResourceCPU: resource.MustParse("600m"),
 	}
-	actual, changed := elasticsearch.UpdateResources(node, nodeContainer, desiredContainer)
+	actual, changed := updateResources(node, nodeContainer, desiredContainer)
 
 	if !changed {
 		t.Error("Expected updating the resources would recognized as changed, but it was not")
 	}
-	if !comparators.AreResourceRequementsSame(actual.Resources, desiredContainer.Resources) {
-		t.Errorf("Expected %v but got %v", utils.PrintResource(desiredContainer.Resources), utils.PrintResource(actual.Resources))
+	if !areResourcesSame(actual.Resources, desiredContainer.Resources) {
+		t.Errorf("Expected %v but got %v", printResource(desiredContainer.Resources), printResource(actual.Resources))
 	}
 }
