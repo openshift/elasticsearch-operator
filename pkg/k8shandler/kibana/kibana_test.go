@@ -2,19 +2,17 @@ package kibana
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	core "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
-	rbac "k8s.io/api/rbac/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var _ = Describe("Kibana", func() {
+var _ = Describe("Reconciling", func() {
 	defer GinkgoRecover()
 
 	_ = routev1.AddToScheme(scheme.Scheme)
@@ -31,18 +29,17 @@ var _ = Describe("Kibana", func() {
 	_ = loggingv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	var (
-		cluster = &kibana.Kibana{
+		cluster = &loggingv1.Kibana{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kibana",
 				Namespace: "test-namespace",
 			},
-			Spec: kibana.KibanaSpec{
-				ManagementState: kibana.ManagementStateManaged,
+			Spec: loggingv1.KibanaSpec{
+				ManagementState: loggingv1.ManagementStateManaged,
 				Replicas:        2,
 			},
 		}
-		caBundle        = fmt.Sprint("-----BEGIN CERTIFICATE-----\n<PEM_ENCODED_CERT>\n-----END CERTIFICATE-----\n")
-		trustedCABundle = &v1.ConfigMap{
+		kibanaCABundle = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.KibanaTrustedCAName,
 				Namespace: cluster.GetNamespace(),
@@ -51,16 +48,20 @@ var _ = Describe("Kibana", func() {
 				},
 			},
 			Data: map[string]string{
-				constants.TrustedCABundleKey: caBundle,
+				constants.TrustedCABundleKey: `
+                  -----BEGIN CERTIFICATE-----
+                  <PEM_ENCODED_CERT>
+                  -----END CERTIFICATE-------
+                `,
 			},
 		}
-		kibanaSecret = &core.Secret{
+		kibanaSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kibana",
 				Namespace: cluster.GetNamespace(),
 			},
 		}
-		kibanaProxySecret = &core.Secret{
+		kibanaProxySecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kibana-proxy",
 				Namespace: cluster.GetNamespace(),
@@ -69,60 +70,64 @@ var _ = Describe("Kibana", func() {
 		proxy = &configv1.Proxy{
 			Spec: configv1.ProxySpec{
 				TrustedCA: configv1.ConfigMapNameReference{
-					Name: constants.KibanaTrustedCAName,
-				},
-			},
-		}
-		consoleAppLogsLink = &consolev1.ConsoleLink{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: AppLogsConsoleLinkName,
-				OwnerReferences: []metav1.OwnerReference{
-					getOwnerRef(cluster),
-				},
-			},
-			Spec: consolev1.ConsoleLinkSpec{
-				Location: consolev1.ApplicationMenu,
-				Link: consolev1.Link{
-					Text: "Logging",
-					Href: "https://",
-				},
-				ApplicationMenu: &consolev1.ApplicationMenuSpec{
-					Section: "Monitoring",
-				},
-			},
-		}
-		consoleInfraLogsLink = &consolev1.ConsoleLink{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: InfraLogsConsoleLinkName,
-				OwnerReferences: []metav1.OwnerReference{
-					getOwnerRef(cluster),
-				},
-			},
-			Spec: consolev1.ConsoleLinkSpec{
-				Location: consolev1.ApplicationMenu,
-				Link: consolev1.Link{
-					Text: "Logging",
-					Href: "https://",
-				},
-				ApplicationMenu: &consolev1.ApplicationMenuSpec{
-					Section: "Monitoring",
+					Name: "custom-ca-bundle",
 				},
 			},
 		}
 	)
 
-	Describe("#CreateOrUpdateKibana", func() {
+	Describe("Kibana", func() {
 		var client client.Client
+
+		var (
+			consoleAppLogsLink = &consolev1.ConsoleLink{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: AppLogsConsoleLinkName,
+					OwnerReferences: []metav1.OwnerReference{
+						getOwnerRef(cluster),
+					},
+				},
+				Spec: consolev1.ConsoleLinkSpec{
+					Location: consolev1.ApplicationMenu,
+					Link: consolev1.Link{
+						Text: "Logging",
+						Href: "https://",
+					},
+					ApplicationMenu: &consolev1.ApplicationMenuSpec{
+						Section: "Monitoring",
+					},
+				},
+			}
+			consoleInfraLogsLink = &consolev1.ConsoleLink{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: InfraLogsConsoleLinkName,
+					OwnerReferences: []metav1.OwnerReference{
+						getOwnerRef(cluster),
+					},
+				},
+				Spec: consolev1.ConsoleLinkSpec{
+					Location: consolev1.ApplicationMenu,
+					Link: consolev1.Link{
+						Text: "Logging",
+						Href: "https://",
+					},
+					ApplicationMenu: &consolev1.ApplicationMenuSpec{
+						Section: "Monitoring",
+					},
+				},
+			}
+		)
 
 		Context("when creating Kibana for the first time on a new cluster", func() {
 			BeforeEach(func() {
 				client = fake.NewFakeClient(
 					cluster,
-					trustedCABundle,
+					kibanaCABundle,
 					kibanaSecret,
 					kibanaProxySecret,
 				)
 			})
+
 			It("should create two new console links for the Kibana route", func() {
 				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
 
@@ -180,7 +185,7 @@ var _ = Describe("Kibana", func() {
 			BeforeEach(func() {
 				client = fake.NewFakeClient(
 					cluster,
-					trustedCABundle,
+					kibanaCABundle,
 					kibanaSecret,
 					kibanaProxySecret,
 					sharingConfigMap,
@@ -209,18 +214,105 @@ var _ = Describe("Kibana", func() {
 
 				// Check old shared config map is deleted
 				key = types.NamespacedName{Name: "sharing-config", Namespace: cluster.GetNamespace()}
-				gotCmPre44x := &v1.ConfigMap{}
+				gotCmPre44x := &corev1.ConfigMap{}
 				Expect(errors.IsNotFound(client.Get(context.TODO(), key, gotCmPre44x))).To(BeTrue())
 
 				// Check old role to access the shared config map is deleted
 				key = types.NamespacedName{Name: "sharing-config-reader", Namespace: cluster.GetNamespace()}
-				gotRolePre45x := &rbac.Role{}
+				gotRolePre45x := &rbacv1.Role{}
 				Expect(errors.IsNotFound(client.Get(context.TODO(), key, gotRolePre45x))).To(BeTrue())
 
 				// Check old rolebinding for group system:autheticated is deleted
 				key = types.NamespacedName{Name: "openshift-logging-sharing-config-reader-binding", Namespace: cluster.GetNamespace()}
-				gotRoleBindingPre45x := &rbac.RoleBinding{}
+				gotRoleBindingPre45x := &rbacv1.RoleBinding{}
 				Expect(errors.IsNotFound(client.Get(context.TODO(), key, gotRoleBindingPre45x))).To(BeTrue())
+			})
+		})
+
+		Context("when cluster proxy present", func() {
+			var (
+				customCABundle = `
+                  -----BEGIN CERTIFICATE-----
+                  <PEM_ENCODED_CERT1>
+                  -----END CERTIFICATE-------
+                  -----BEGIN CERTIFICATE-----
+                  <PEM_ENCODED_CERT2>
+                  -----END CERTIFICATE-------
+                `
+				trustedCABundleVolume = corev1.Volume{
+					Name: constants.KibanaTrustedCAName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: constants.KibanaTrustedCAName,
+							},
+							Items: []corev1.KeyToPath{
+								{
+									Key:  constants.TrustedCABundleKey,
+									Path: constants.TrustedCABundleMountFile,
+								},
+							},
+						},
+					},
+				}
+				trustedCABundleVolumeMount = corev1.VolumeMount{
+					Name:      constants.KibanaTrustedCAName,
+					ReadOnly:  true,
+					MountPath: constants.TrustedCABundleMountDir,
+				}
+			)
+
+			BeforeEach(func() {
+				client = fake.NewFakeClient(
+					cluster,
+					kibanaCABundle,
+					kibanaSecret,
+					kibanaProxySecret,
+				)
+			})
+
+			It("should use the default CA bundle in kibana proxy", func() {
+				// Reconcile w/o custom CA bundle
+				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+
+				key := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: cluster.GetNamespace()}
+				kibanaCaBundle := &corev1.ConfigMap{}
+				err := client.Get(context.TODO(), key, kibanaCaBundle)
+				Expect(err).Should(Succeed())
+				Expect(kibanaCABundle.Data).To(Equal(kibanaCaBundle.Data))
+
+				key = types.NamespacedName{Name: constants.KibanaInstanceName, Namespace: cluster.GetNamespace()}
+				dpl := &appsv1.Deployment{}
+				err = client.Get(context.TODO(), key, dpl)
+				Expect(err).Should(Succeed())
+
+				trustedCABundleHash := dpl.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName]
+				Expect(calcTrustedCAHashValue(kibanaCABundle)).To(Equal(trustedCABundleHash))
+				Expect(dpl.Spec.Template.Spec.Volumes).To(ContainElement(trustedCABundleVolume))
+				Expect(dpl.Spec.Template.Spec.Containers[1].VolumeMounts).To(ContainElement(trustedCABundleVolumeMount))
+			})
+
+			It("should use the injected custom CA bundle in kibana proxy", func() {
+				// Reconcile w/o custom CA bundle
+				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+
+				// Inject custom CA bundle into kibana config map
+				injectedCABundle := kibanaCABundle.DeepCopy()
+				injectedCABundle.Data[constants.TrustedCABundleKey] = customCABundle
+				Expect(client.Update(context.TODO(), injectedCABundle)).Should(Succeed())
+
+				// Reconcile with injected custom CA bundle
+				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+
+				key := types.NamespacedName{Name: constants.KibanaInstanceName, Namespace: cluster.GetNamespace()}
+				dpl := &appsv1.Deployment{}
+				err := client.Get(context.TODO(), key, dpl)
+				Expect(err).Should(Succeed())
+
+				trustedCABundleHash := dpl.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName]
+				Expect(calcTrustedCAHashValue(injectedCABundle)).To(Equal(trustedCABundleHash))
+				Expect(dpl.Spec.Template.Spec.Volumes).To(ContainElement(trustedCABundleVolume))
+				Expect(dpl.Spec.Template.Spec.Containers[1].VolumeMounts).To(ContainElement(trustedCABundleVolumeMount))
 			})
 		})
 	})

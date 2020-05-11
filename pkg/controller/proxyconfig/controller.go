@@ -63,7 +63,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 var _ reconcile.Reconciler = &ReconcileProxyConfig{}
 
-// ReconcileProxyConfig reconciles a ClusterLogging object
+//ReconcileProxyConfig reconciles the kibana resource
+//create or update events of the cluster proxy.
 type ReconcileProxyConfig struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver

@@ -206,16 +206,18 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	// Create cluster proxy trusted CA bundle.
 	if proxyConfig != nil {
-		err = clusterRequest.createOrUpdateTrustedCABundleConfigMap(constants.KibanaTrustedCAName)
+		kibanaTrustBundle, err = clusterRequest.createOrGetTrustedCABundleConfigMap(constants.KibanaTrustedCAName)
 		if err != nil {
 			return
 		}
 	}
 
-	kibanaPodSpec := newKibanaPodSpec(clusterRequest,
+	kibanaPodSpec := newKibanaPodSpec(
+		clusterRequest,
 		fmt.Sprintf("elasticsearch.%s.svc.cluster.local", clusterRequest.cluster.Namespace),
 		proxyConfig,
-		kibanaTrustBundle)
+		kibanaTrustBundle,
+	)
 
 	kibanaDeployment := NewDeployment(
 		"kibana",
@@ -238,7 +240,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	err = clusterRequest.Create(kibanaDeployment)
 	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana deployment for %q: %v", clusterRequest.cluster.Name, err)
+		return fmt.Errorf("failed creating Kibana deployment for %q: %v", clusterRequest.cluster.Name, err)
 	}
 
 	if clusterRequest.isManaged() {
@@ -252,12 +254,15 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 					logrus.Debugf("Returning nil. The deployment %q was not found even though create previously failed.  Was it culled?", kibanaDeployment.Name)
 					return nil
 				}
-				return fmt.Errorf("Failed to get Kibana deployment: %v", err)
+				return fmt.Errorf("failed to get Kibana deployment: %v", err)
 			}
 
 			current, different := isDeploymentDifferent(current, kibanaDeployment)
 
-			if current.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName] != kibanaDeployment.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName] {
+			currentTrustedCAHash := current.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName]
+			desiredTrustedCAHash := kibanaDeployment.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName]
+			if currentTrustedCAHash != desiredTrustedCAHash {
+				current.Spec.Template.ObjectMeta.Annotations[constants.TrustedCABundleHashName] = desiredTrustedCAHash
 				different = true
 			}
 
@@ -567,7 +572,8 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 
 	addTrustedCAVolume := false
 	// If trusted CA bundle ConfigMap exists and its hash value is non-zero, mount the bundle.
-	if trustedCABundleCM != nil && hasTrustedCABundle(trustedCABundleCM) {
+
+	if hasTrustedCABundle(trustedCABundleCM) {
 		addTrustedCAVolume = true
 		kibanaProxyContainer.VolumeMounts = append(kibanaProxyContainer.VolumeMounts,
 			v1.VolumeMount{
