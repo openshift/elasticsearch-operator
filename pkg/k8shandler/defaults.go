@@ -9,13 +9,11 @@ import (
 const (
 	modeUnique    = "unique"
 	modeSharedOps = "shared_ops"
-	defaultMode   = modeSharedOps
 
-	defaultMasterCPURequest   = "100m"
-	defaultCPURequest         = "100m"
-	defaultMemoryLimit        = "4Gi"
-	defaultMemoryRequest      = "1Gi"
-	elasticsearchDefaultImage = "quay.io/openshift/origin-logging-elasticsearch5"
+	defaultMode          = modeSharedOps
+	defaultCPURequest    = "100m"
+	defaultMemoryLimit   = "4Gi"
+	defaultMemoryRequest = "1Gi"
 
 	maxMasterCount = 3
 
@@ -38,10 +36,6 @@ func kibanaIndexMode(mode string) (string, error) {
 
 func esUnicastHost(clusterName, namespace string) string {
 	return fmt.Sprintf("%v-cluster.%v.svc", clusterName, namespace)
-}
-
-func rootLogger() string {
-	return "rolling"
 }
 
 func calculateReplicaCount(dpl *api.Elasticsearch) int {

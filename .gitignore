@@ -1,9 +1,14 @@
+# Bin output
+bin/*
 
 # Temporary Build Files
 tmp/_output
 tmp/_test
 _output
+pf.log
 
+# GoLand
+.idea
 
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 
@@ -108,3 +113,4 @@ tags
 
 
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+/.zz_generate_timestamp

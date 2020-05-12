@@ -1,0 +1,168 @@
+#!/bin/bash
+
+millisecond=1
+second=$(( 1000 * millisecond ))
+minute=$(( 60 * second ))
+
+function log::warning() {
+	echo "[WARNING] ${*}"
+}
+function log::info() {
+	echo "[INFO] ${*}"
+}
+function log::debug() {
+  if [[ -n "${DEBUG:-}" ]]; then
+	  echo "[DEBUG] ${*}"
+  fi
+}
+
+indent() {
+  INDENT="      "
+  sed "s/^/$INDENT/" | sed "s/^${INDENT}\($1\)/${INDENT:0:-2}- \1/"
+}
+
+expect_success(){
+  local cmd=$1
+  echo "Running '$cmd'"
+  if $cmd ; then
+    return 0
+  fi  
+  return 1
+}
+
+expect_success_and_text(){
+  local cmd=$1
+  local expected=$2
+  log::info "Running '$cmd'"
+  response=$($cmd)
+  result=$?
+  log::info "Response '${response}'" 
+  if [ $result == 0 ] && [[ ${response} =~ ${expected} ]] ; then
+    log::info "Passed"
+    return 0
+  fi  
+  log::info "Fail: Expected response to match $expected"
+  return 1
+}
+
+try_until_failure() {
+  local cmd=$1
+  local timeout=$2
+  local interval=${3:-0.2}
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if ! $cmd ; then
+      log::info "Passed"
+      return 0
+    fi  
+    sleep $interval
+    now=$(date +%s%3N)
+  done
+  log::info "Fail"
+  return 1
+}
+try_until_success() {
+  local cmd=$1
+  local timeout=$2
+  local interval=${3:-0.2}
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if $cmd ; then
+      log::info "Passed"
+      return 0
+    fi  
+    sleep $interval
+    now=$(date +%s%3N)
+  done
+  log::info "Fail"
+  return 1
+}
+
+try_until_text() {
+  local cmd=$1
+  local expected=$2
+  local timeout=$3
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if [[ "$($cmd)" == "${expected}" ]] ; then
+      log::info "Passed"
+      return 0
+    fi  
+    now=$(date +%s%3N)
+  done
+  log::info "Fail"
+  return 1
+}
+
+gather_logging_resources() {
+  set +e
+  local LOGGING_NS=$1
+  local outdir=${2:-$ARTIFACT_DIR}
+  oc -n ${LOGGING_NS} get configmaps -o yaml > $outdir/configmaps.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get secrets -o yaml > $outdir/secrets.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get cronjobs -o yaml > $outdir/cronjobs.yaml 2>&1 || :
+  
+  oc -n ${LOGGING_NS} get deployments -o wide > $outdir/deployments.txt 2>&1 || :
+  oc -n ${LOGGING_NS} get pods -o wide > $outdir/pods.txt 2>&1 || :
+
+  oc -n ${LOGGING_NS} extract secret/elasticsearch --to=$outdir ||:
+  oc -n ${LOGGING_NS} extract configmap/fluentd --to=$outdir ||:
+
+  get_all_logging_pod_logs ${LOGGING_NS} $outdir
+  get_all_olm_logs $outdir
+  set -e
+}
+
+get_all_logging_pod_logs() {
+  set +e
+  local LOGGING_NS=$1
+  local outdir=${2:-$ARTIFACT_DIR}
+  local p
+  local container
+  oc -n ${LOGGING_NS} get pods -o wide > $outdir/pods.txt 2>&1
+
+  for p in $(oc  -n ${LOGGING_NS} get pods -o jsonpath='{.items[*].metadata.name}') ; do
+    oc -n ${LOGGING_NS} describe pod $p > $outdir/$p.describe 2>&1 || :
+    oc -n ${LOGGING_NS} get pod $p -o yaml > $outdir/$p.yaml 2>&1 || :
+
+    initContainers=$(oc -n ${LOGGING_NS} get po $p -o jsonpath='{.spec.initContainers[*].name}')
+    for container in $initContainers ; do
+        oc logs -n ${LOGGING_NS} -c $container $p > $outdir/$p.$container.init.log 2>&1
+    done
+
+    for container in $(oc -n ${LOGGING_NS} get po $p -o jsonpath='{.spec.containers[*].name}') ; do
+      oc logs -n ${LOGGING_NS} -c $container $p > $outdir/$p.$container.log 2>&1
+      case "$container" in
+        elasticsearch*) oc -n ${LOGGING_NS} exec -c elasticsearch $p  -- logs > $outdir/$p.$container.exec.log 2>&1 ;;
+        *) continue ;;
+      esac
+    done
+  done
+  set -e
+}
+
+get_all_olm_logs(){
+    set +e
+    local outdir=${1:-$ARTIFACT_DIR}
+    local runtime=${2:-"120s"}
+    oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/catalog-operator > $outdir/catalog-operator.logs 2>&1
+    oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/olm-operator > $outdir/olm-operator.logs 2>&1
+    set -e
+}
+
+wait_for_deployment_to_be_ready(){
+  local namespace=$1
+  local name=$2
+  local timeout=$3
+  try_until_text "oc -n $namespace get deployment $name -o jsonpath={.status.availableReplicas} --ignore-not-found" "1" $timeout
+}
+
+function deploy_elasticsearch_operator() {
+  # install the catalog containing the elasticsearch operator csv
+  ${repo_dir}/olm_deploy/scripts/catalog-deploy.sh
+  # install the elasticsearch operator from that catalog
+  ${repo_dir}/olm_deploy/scripts/operator-install.sh
+}

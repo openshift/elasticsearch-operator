@@ -1,6 +1,8 @@
 package k8shandler
 
 import (
+	. "github.com/onsi/ginkgo"
+
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -10,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
+	"github.com/openshift/elasticsearch-operator/test/helpers"
 )
 
 var (
@@ -356,13 +360,13 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 
 func TestProxyContainerResourcesDefined(t *testing.T) {
 
-	imageName := "openshift/oauth-proxy:1.1"
+	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
 	expectedCPU := resource.MustParse("100m")
 	expectedMemory := resource.MustParse("64Mi")
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName)
+	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
 	if err != nil {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
@@ -392,17 +396,87 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 	}
 }
 
+func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
+	imageName := "openshift/elasticsearch-proxy:1.1"
+	clusterName := "elasticsearch"
+
+	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
+	if err != nil {
+		t.Errorf("Failed to populate Proxy container: %v", err)
+	}
+
+	want := []string{
+		"--tls-cert=/etc/proxy/elasticsearch/logging-es.crt",
+		"--tls-key=/etc/proxy/elasticsearch/logging-es.key",
+		"--tls-client-ca=/etc/proxy/elasticsearch/admin-ca",
+	}
+
+	for _, arg := range want {
+		if !sliceContainsString(proxyContainer.Args, arg) {
+			t.Errorf("Missing tls client auth argument: %s", arg)
+		}
+	}
+
+	wantVolumeMount := v1.VolumeMount{Name: "certificates", MountPath: "/etc/proxy/elasticsearch"}
+
+	hasMount := false
+	for _, vm := range proxyContainer.VolumeMounts {
+		if reflect.DeepEqual(vm, wantVolumeMount) {
+			hasMount = true
+		}
+	}
+
+	if !hasMount {
+		t.Errorf("Missing volume mount for tls client auth PKI: %#v", wantVolumeMount)
+	}
+}
+
+func TestProxyContainerMetricsTLSDefined(t *testing.T) {
+	imageName := "openshift/elasticsearch-proxy:1.1"
+	clusterName := "elasticsearch"
+
+	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
+	if err != nil {
+		t.Errorf("Failed to populate Proxy container: %v", err)
+	}
+
+	want := []string{
+		"--metrics-listening-address=:60001",
+		"--metrics-tls-cert=/etc/proxy/secrets/tls.crt",
+		"--metrics-tls-key=/etc/proxy/secrets/tls.key",
+	}
+
+	for _, arg := range want {
+		if !sliceContainsString(proxyContainer.Args, arg) {
+			t.Errorf("Missing tls client auth argument: %s", arg)
+		}
+	}
+
+	wantVolumeMount := v1.VolumeMount{Name: "elasticsearch-metrics", MountPath: "/etc/proxy/secrets"}
+
+	hasMount := false
+	for _, vm := range proxyContainer.VolumeMounts {
+		if reflect.DeepEqual(vm, wantVolumeMount) {
+			hasMount = true
+		}
+	}
+
+	if !hasMount {
+		t.Errorf("Missing volume mount for tls metrics PKI: %#v", wantVolumeMount)
+	}
+}
+
 func TestPodSpecHasTaintTolerations(t *testing.T) {
 
 	expectedTolerations := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
 		},
 	}
 
-	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil)
+	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
@@ -425,8 +499,8 @@ func TestPodNodeSelectors(t *testing.T) {
 	if len(podSpec.NodeSelector) != 1 {
 		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
 	}
-	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
-		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	if podSpec.NodeSelector[utils.OsNodeLabel] != utils.LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", utils.OsNodeLabel, utils.LinuxValue)
 	}
 
 	// Create podSpecTemplate providing some custom node selectors, we expect the PodTemplateSpec.Spec selectors
@@ -439,13 +513,13 @@ func TestPodNodeSelectors(t *testing.T) {
 	if len(podSpec.NodeSelector) != 3 {
 		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
 	}
-	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
-		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	if podSpec.NodeSelector[utils.OsNodeLabel] != utils.LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", utils.OsNodeLabel, utils.LinuxValue)
 	}
 
 	// Create podSpecTemplate providing node selector with some custom value, we expect the PodTemplateSpec.Spec selector
 	// will override the node selector to linux one.
-	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{OsNodeLabel: "foo"}).Spec
+	podSpec = preparePodTemplateSpecProvidingNodeSelectors(map[string]string{utils.OsNodeLabel: "foo"}).Spec
 
 	if podSpec.NodeSelector == nil {
 		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
@@ -453,15 +527,15 @@ func TestPodNodeSelectors(t *testing.T) {
 	if len(podSpec.NodeSelector) != 1 {
 		t.Errorf("Exp. single nodeSelector but %d were found", len(podSpec.NodeSelector))
 	}
-	if podSpec.NodeSelector[OsNodeLabel] != LinuxValue {
-		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", OsNodeLabel, LinuxValue)
+	if podSpec.NodeSelector[utils.OsNodeLabel] != utils.LinuxValue {
+		t.Errorf("Exp. the nodeSelector to contains %s: %s pair", utils.OsNodeLabel, utils.LinuxValue)
 	}
 }
 
 func TestPodDiskToleration(t *testing.T) {
 
 	expectedToleration := []v1.Toleration{
-		v1.Toleration{
+		{
 			Key:      "node.kubernetes.io/disk-pressure",
 			Operator: v1.TolerationOpExists,
 			Effect:   v1.TaintEffectNoSchedule,
@@ -496,7 +570,8 @@ func preparePodTemplateSpecProvidingNodeSelectors(selectors map[string]string) v
 		api.ElasticsearchNodeSpec{},
 		map[string]string{},
 		map[api.ElasticsearchNodeRole]bool{},
-		nil)
+		nil,
+		LogConfig{})
 }
 
 func buildResource(cpuLimit, cpuRequest, memLimit, memRequest resource.Quantity) v1.ResourceRequirements {
@@ -546,10 +621,6 @@ func areResourcesSame(lhs, rhs v1.ResourceRequirements) bool {
 	return reflect.DeepEqual(lhs, rhs)
 }
 
-func areQuantitiesSame(lhs, rhs *resource.Quantity) bool {
-	return lhs.Cmp(*rhs) == 0
-}
-
 func printResource(resource v1.ResourceRequirements) string {
 	pretty, err := json.MarshalIndent(resource, "", "  ")
 	if err != nil {
@@ -557,3 +628,20 @@ func printResource(resource v1.ResourceRequirements) string {
 	}
 	return string(pretty)
 }
+
+var _ = Describe("common.go", func() {
+	defer GinkgoRecover()
+
+	Describe("#newEnvVars", func() {
+		var (
+			envVars []v1.EnvVar
+		)
+		BeforeEach(func() {
+			envVars = newEnvVars("theNodeName", "theClusterName", "theInstanceRam", map[api.ElasticsearchNodeRole]bool{})
+		})
+
+		It("should define POD_IP so IPV4 or IPV6 deployments are possible", func() {
+			helpers.ExpectEnvVars(envVars).ToIncludeName("POD_IP").WithFieldRefPath("status.podIP")
+		})
+	})
+})

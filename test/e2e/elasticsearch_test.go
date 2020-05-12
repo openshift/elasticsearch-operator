@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	goctx "context"
+
 	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	v1 "k8s.io/api/core/v1"
@@ -18,11 +19,11 @@ import (
 )
 
 var (
-	retryInterval        = time.Second * 2
-	timeout              = time.Second * 300
+	retryInterval        = time.Second * 1
+	timeout              = time.Second * 1200
 	cleanupRetryInterval = time.Second * 1
 	cleanupTimeout       = time.Second * 5
-	elasticsearchCRName  = "example-elasticsearch"
+	elasticsearchCRName  = "elasticsearch"
 )
 
 func TestElasticsearch(t *testing.T) {
@@ -32,10 +33,23 @@ func TestElasticsearch(t *testing.T) {
 			APIVersion: elasticsearch.SchemeGroupVersion.String(),
 		},
 	}
+
+	kibanaList := &elasticsearch.KibanaList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Kibana",
+			APIVersion: elasticsearch.SchemeGroupVersion.String(),
+		},
+	}
 	err := framework.AddToFrameworkScheme(elasticsearch.SchemeBuilder.AddToScheme, elasticsearchList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
+
+	err = framework.AddToFrameworkScheme(elasticsearch.SchemeBuilder.AddToScheme, kibanaList)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
 	// run subtests
 	t.Run("elasticsearch-group", func(t *testing.T) {
 		t.Run("Cluster", ElasticsearchCluster)
@@ -53,17 +67,49 @@ func createRequiredSecret(f *framework.Framework, ctx *framework.TestCtx) error 
 		elasticsearchCRName,
 		namespace,
 		map[string][]byte{
-			"elasticsearch.key": utils.GetFileContents("test/files/elasticsearch.key"),
-			"elasticsearch.crt": utils.GetFileContents("test/files/elasticsearch.crt"),
-			"logging-es.key":    utils.GetFileContents("test/files/logging-es.key"),
-			"logging-es.crt":    utils.GetFileContents("test/files/logging-es.crt"),
-			"admin-key":         utils.GetFileContents("test/files/system.admin.key"),
-			"admin-cert":        utils.GetFileContents("test/files/system.admin.crt"),
-			"admin-ca":          utils.GetFileContents("test/files/ca.crt"),
+			"elasticsearch.key": utils.GetFileContents("/tmp/example-secrets/elasticsearch.key"),
+			"elasticsearch.crt": utils.GetFileContents("/tmp/example-secrets/elasticsearch.crt"),
+			"logging-es.key":    utils.GetFileContents("/tmp/example-secrets/logging-es.key"),
+			"logging-es.crt":    utils.GetFileContents("/tmp/example-secrets/logging-es.crt"),
+			"admin-key":         utils.GetFileContents("/tmp/example-secrets/system.admin.key"),
+			"admin-cert":        utils.GetFileContents("/tmp/example-secrets/system.admin.crt"),
+			"admin-ca":          utils.GetFileContents("/tmp/example-secrets/ca.crt"),
 		},
 	)
 
 	err = f.Client.Create(goctx.TODO(), elasticsearchSecret, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateRequiredSecret(f *framework.Framework, ctx *framework.TestCtx) error {
+	namespace, err := ctx.GetNamespace()
+	if err != nil {
+		return fmt.Errorf("Could not get namespace: %v", err)
+	}
+
+	elasticsearchSecret := &v1.Secret{}
+
+	secretName := types.NamespacedName{Name: elasticsearchCRName, Namespace: namespace}
+	if err = f.Client.Get(goctx.TODO(), secretName, elasticsearchSecret); err != nil {
+		return fmt.Errorf("Could not get secret %s: %v", elasticsearchCRName, err)
+	}
+
+	elasticsearchSecret.Data = map[string][]byte{
+		"elasticsearch.key": utils.GetFileContents("/tmp/example-secrets/elasticsearch.key"),
+		"elasticsearch.crt": utils.GetFileContents("/tmp/example-secrets/elasticsearch.crt"),
+		"logging-es.key":    utils.GetFileContents("/tmp/example-secrets/logging-es.key"),
+		"logging-es.crt":    utils.GetFileContents("/tmp/example-secrets/logging-es.crt"),
+		"admin-key":         utils.GetFileContents("/tmp/example-secrets/system.admin.key"),
+		"admin-cert":        utils.GetFileContents("/tmp/example-secrets/system.admin.crt"),
+		"admin-ca":          utils.GetFileContents("/tmp/example-secrets/ca.crt"),
+		"dummy":             []byte("blah"),
+	}
+
+	err = f.Client.Update(goctx.TODO(), elasticsearchSecret)
 	if err != nil {
 		return err
 	}
@@ -77,7 +123,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	cpuValue, _ := resource.ParseQuantity("500m")
+	cpuValue, _ := resource.ParseQuantity("100m")
 	memValue, _ := resource.ParseQuantity("2Gi")
 
 	dataUUID := utils.GenerateUUID()
@@ -114,13 +160,15 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      elasticsearchCRName,
 			Namespace: namespace,
+			Annotations: map[string]string{
+				"elasticsearch.openshift.io/develLogAppender": "console",
+			},
 		},
 		Spec: elasticsearch.ElasticsearchSpec{
 			Spec: elasticsearch.ElasticsearchNodeSpec{
 				Image: "",
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
-						v1.ResourceCPU:    cpuValue,
 						v1.ResourceMemory: memValue,
 					},
 					Requests: v1.ResourceList{
@@ -136,37 +184,39 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 			RedundancyPolicy: elasticsearch.ZeroRedundancy,
 		},
 	}
+	t.Log("Creating initial deployment...")
 	err = f.Client.Create(goctx.TODO(), exampleElasticsearch, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		return fmt.Errorf("could not create exampleElasticsearch: %v", err)
 	}
 
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), err)
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
 	}
 	t.Log("Created initial deployment")
 
 	// Scale up current node
-	// then look for example-elasticsearch-cdm-0-2 and prior node
+	// then look for elasticsearch-cdm-0-2 and prior node
 	exampleName := types.NamespacedName{Name: elasticsearchCRName, Namespace: namespace}
 	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {
 		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
 	}
 	exampleElasticsearch.Spec.Nodes[0].NodeCount = int32(2)
+	t.Logf("Updating node count to %d", exampleElasticsearch.Spec.Nodes[0].NodeCount)
 	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
 	if err != nil {
 		return fmt.Errorf("could not update exampleElasticsearch with 2 replicas: %v", err)
 	}
 
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), err)
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
 	}
 
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), err)
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-2", dataUUID), err)
 	}
 	t.Log("Created additional deployment")
 
@@ -174,28 +224,105 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
 	}
 	exampleElasticsearch.Spec.Nodes = append(exampleElasticsearch.Spec.Nodes, esNonDataNode)
+	t.Log("Updating a non-data node to the ES cluster...")
 	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
 	if err != nil {
 		return fmt.Errorf("could not update exampleElasticsearch with an additional node: %v", err)
 	}
 
 	// Create another node
-	// then look for example-elasticsearch-cdm-1-1 and prior nodes
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
+	// then look for elasticsearch-cdm-1-1 and prior nodes
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), err)
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
 	}
 
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("example-elasticsearch-cdm-%v-1", dataUUID), err)
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
 	}
 
-	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout)
+	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout)
 	if err != nil {
-		return fmt.Errorf("timed out waiting for Statefulset %v: %v", fmt.Sprintf("example-elasticsearch-cm-%v", nonDataUUID), err)
+		return fmt.Errorf("timed out waiting for Statefulset %v: %v", fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), err)
 	}
 	t.Log("Created non-data statefulset")
+
+	// Scale up to SingleRedundancy
+	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {
+		return fmt.Errorf("failed to get exampleElasticsearch: %v", err)
+	}
+
+	exampleElasticsearch.Spec.RedundancyPolicy = elasticsearch.SingleRedundancy
+	t.Logf("Updating redunancy policy to %s...", exampleElasticsearch.Spec.RedundancyPolicy)
+	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
+	if err != nil {
+		return fmt.Errorf("could not update exampleElasticsearch to be SingleRedundancy: %v", err)
+	}
+
+	/*
+		FIXME: this is commented out as we currently do not run our e2e tests in a container on the test cluster
+		 to be added back in as a follow up
+		err = utils.WaitForIndexTemplateReplicas(t, f.KubeClient, namespace, "elasticsearch", 1, retryInterval, timeout)
+		if err != nil {
+			return fmt.Errorf("timed out waiting for all index templates to have correct replica count")
+		}
+
+		err = utils.WaitForIndexReplicas(t, f.KubeClient, namespace, "elasticsearch", 1, retryInterval, timeout)
+		if err != nil {
+			return fmt.Errorf("timed out waiting for all indices to have correct replica count")
+		}
+	*/
+
+	// Update the secret to force a full cluster redeploy
+	t.Log("Updating secret to force full cluster restart...")
+	err = updateRequiredSecret(f, ctx)
+	if err != nil {
+		return fmt.Errorf("Unable to update secret")
+	}
+
+	//FIXME: Update the WaitForCondition methods
+
+	// wait for pods to have "redeploy for certs" condition as true?
+	//desiredCondition := elasticsearch.ElasticsearchNodeUpgradeStatus{
+	//	ScheduledForCertRedeploy: v1.ConditionTrue,
+	//}
+	//
+	//err = utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*300)
+	//if err != nil {
+	//	d, _ := yaml.Marshal(desiredCondition)
+	//	t.Log("Desired condition", string(d))
+	//	return fmt.Errorf("Timed out waiting for full cluster restart to begin")
+	//}
+	//
+	//// then wait for conditions to be gone
+	//desiredClusterCondition := elasticsearch.ClusterCondition{
+	//	Type:   elasticsearch.Restarting,
+	//	Status: v1.ConditionFalse,
+	//}
+	//
+	//err = utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
+	//if err != nil {
+	//	d, _ := yaml.Marshal(desiredClusterCondition)
+	//	t.Log("Desired condition", string(d))
+	//	return fmt.Errorf("Timed out waiting for full cluster restart to complete")
+	//}
+
+	// ensure all prior nodes are ready again
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Statefulset %v: %v", fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), err)
+	}
 
 	// Incorrect scale up and verify we don't see a 4th master created
 	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {
@@ -207,9 +334,9 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		return fmt.Errorf("could not update exampleElasticsearch with an additional statefulset replica: %v", err)
 	}
 
-	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("example-elasticsearch-cm-%v", nonDataUUID), 2, retryInterval, time.Second*30)
+	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), 2, retryInterval, time.Second*30)
 	if err == nil {
-		return fmt.Errorf("unexpected statefulset replica count for %v found", fmt.Sprintf("example-elasticsearch-cm-%v", nonDataUUID))
+		return fmt.Errorf("unexpected statefulset replica count for %v found", fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID))
 	}
 
 	if err = f.Client.Get(goctx.TODO(), exampleName, exampleElasticsearch); err != nil {
@@ -220,7 +347,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 		if condition.Type == elasticsearch.InvalidMasters {
 			if condition.Status == v1.ConditionFalse ||
 				condition.Status == "" {
-				return fmt.Errorf("unexpected status condition for example-elasticsearch found: %v", condition.Status)
+				return fmt.Errorf("unexpected status condition for elasticsearch found: %v", condition.Status)
 			}
 		}
 	}
@@ -230,9 +357,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 }
 
 func ElasticsearchCluster(t *testing.T) {
-	t.Parallel()
 	ctx := framework.NewTestCtx(t)
-	defer ctx.Cleanup()
 	err := ctx.InitializeClusterResources(&framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
 	if err != nil {
 		t.Fatalf("failed to initialize cluster resources: %v", err)
