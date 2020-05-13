@@ -664,10 +664,9 @@ func (node *deploymentNode) isChanged() bool {
 		if updatedContainer, resourceUpdated = updateResources(node, nodeContainer, desiredContainer); resourceUpdated {
 			changed = true
 		}
-
 		if !comparators.EnvValueEqual(desiredContainer.Env, nodeContainer.Env) {
-			nodeContainer.Env = desiredContainer.Env
-			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
+			updatedContainer.Env = desiredContainer.Env
+			logger.Debugf("Setting Container %q EnvVars to desired: %v", updatedContainer.Name, updatedContainer.Env)
 			changed = true
 		}
 

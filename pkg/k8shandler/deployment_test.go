@@ -3,10 +3,16 @@ package k8shandler
 import (
 	"testing"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
 var (
@@ -132,3 +138,64 @@ func TestUpdateResourcesWhenDesiredMemoryRequestIsZero(t *testing.T) {
 		t.Errorf("Expected %v but got %v", printResource(desiredContainer.Resources), printResource(actual.Resources))
 	}
 }
+
+var _ = Describe("deployment", func() {
+	defer GinkgoRecover()
+
+	var (
+		current *deploymentNode = &deploymentNode{
+			self: apps.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "aName",
+					Namespace: "aNamespace",
+				},
+				Spec: apps.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								v1.Container{},
+							},
+						},
+					},
+				},
+			},
+		}
+		client = fake.NewFakeClient(&current.self)
+
+		elasticsearch = newElasticsearchContainer("someImage",
+			newEnvVars("mynodename", "clustername", "", map[api.ElasticsearchNodeRole]bool{}),
+			v1.ResourceRequirements{
+				Limits: v1.ResourceList{},
+			})
+
+		desired = &deploymentNode{
+			client: client,
+			self: apps.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      current.self.Name,
+					Namespace: current.self.Namespace,
+				},
+				Spec: apps.DeploymentSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								elasticsearch,
+							},
+						},
+					},
+				},
+			},
+		}
+	)
+
+	Context("isChanged()", func() {
+
+		//strange nameing in the method IMO.  The object to be updated is the node
+		//which in this case is "desired" since the spec is loaded from current and then
+		//reset to the value from "desired" if appropriate
+		It("should recognize container EnvVars when they change", func() {
+			Expect(desired.isChanged()).To(BeTrue())
+			Expect(desired.self.Spec.Template.Spec.Containers[0].Env).To(Equal(elasticsearch.Env))
+		})
+	})
+})
