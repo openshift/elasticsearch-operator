@@ -197,6 +197,11 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 				ContainerPort: 60000,
 				Protocol:      v1.ProtocolTCP,
 			},
+			{
+				Name:          "metrics",
+				ContainerPort: 60001,
+				Protocol:      v1.ProtocolTCP,
+			},
 		},
 		Env: []v1.EnvVar{
 			{

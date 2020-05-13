@@ -440,19 +440,38 @@ func TestProxyContainerMetricsTLSDefined(t *testing.T) {
 		t.Errorf("Failed to populate Proxy container: %v", err)
 	}
 
-	want := []string{
+	wantArgs := []string{
 		"--metrics-listening-address=:60001",
 		"--metrics-tls-cert=/etc/proxy/secrets/tls.crt",
 		"--metrics-tls-key=/etc/proxy/secrets/tls.key",
 	}
 
-	for _, arg := range want {
+	for _, arg := range wantArgs {
 		if !sliceContainsString(proxyContainer.Args, arg) {
 			t.Errorf("Missing tls client auth argument: %s", arg)
 		}
 	}
 
-	wantVolumeMount := v1.VolumeMount{Name: "elasticsearch-metrics", MountPath: "/etc/proxy/secrets"}
+	wantPort := v1.ContainerPort{
+		Name:          "metrics",
+		ContainerPort: 60001,
+		Protocol:      v1.ProtocolTCP,
+	}
+
+	hasPort := false
+	for _, port := range proxyContainer.Ports {
+		if port.Name == wantPort.Name && port.ContainerPort == wantPort.ContainerPort && port.Protocol == wantPort.Protocol {
+			hasPort = true
+		}
+	}
+	if !hasPort {
+		t.Errorf("Missing container port for tls metrics: %#v", wantPort)
+	}
+
+	wantVolumeMount := v1.VolumeMount{
+		Name:      "elasticsearch-metrics",
+		MountPath: "/etc/proxy/secrets",
+	}
 
 	hasMount := false
 	for _, vm := range proxyContainer.VolumeMounts {

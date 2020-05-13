@@ -62,7 +62,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		fmt.Sprintf("%s-%s", dpl.Name, "metrics"),
 		dpl.Namespace,
 		dpl.Name,
-		"restapi",
+		"metrics",
 		60001,
 		selectorForES("es-node-client", dpl.Name),
 		annotations,
