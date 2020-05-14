@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 
 	"github.com/sirupsen/logrus"
@@ -37,9 +38,11 @@ type deploymentNode struct {
 	clusterSize int32
 
 	client client.Client
+
+	esClient elasticsearch.Client
 }
 
-func (deploymentNode *deploymentNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client) {
+func (deploymentNode *deploymentNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client) {
 
 	labels := newLabels(cluster.Name, nodeName, roleMap)
 
@@ -76,6 +79,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 	deploymentNode.clusterName = cluster.Name
 
 	deploymentNode.client = client
+	deploymentNode.esClient = esClient
 }
 
 func (current *deploymentNode) updateReference(node NodeTypeInterface) {
@@ -281,7 +285,7 @@ func (node *deploymentNode) replicaCount() (error, int32) {
 
 func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		clusterSize, getErr := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size waiting for %v to rejoin cluster", node.name())
 			return false, getErr
@@ -295,7 +299,7 @@ func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 
 func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		clusterSize, getErr := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size waiting for %v to leave cluster", node.name())
 			return false, getErr
@@ -321,12 +325,12 @@ func (node *deploymentNode) isMissing() bool {
 func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		if status, _ := node.esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
 			return
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		size, err := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
 			return
@@ -346,12 +350,12 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 		if replicas > 0 {
 
 			// disable shard allocation
-			if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
+			if ok, err := node.esClient.SetShardAllocation(api.ShardAllocationNone); !ok {
 				logrus.Warnf("Unable to disable shard allocation: %v", err)
 				return
 			}
 
-			if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok {
+			if ok, err := node.esClient.DoSynchronizedFlush(); !ok {
 				logrus.Warnf("Unable to perform synchronized flush: %v", err)
 			}
 
@@ -394,7 +398,7 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 		node.refreshHashes()
 
 		// reenable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationAll, node.client); !ok {
+		if ok, err := node.esClient.SetShardAllocation(api.ShardAllocationAll); !ok {
 			logrus.Warnf("Unable to enable shard allocation: %v", err)
 			return
 		}
@@ -404,7 +408,7 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		if status, _ := node.esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return
 		}
@@ -418,7 +422,7 @@ func (node *deploymentNode) fullClusterRestart(upgradeStatus *api.ElasticsearchN
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
 		upgradeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		size, err := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
 			return
@@ -475,12 +479,12 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	// set our state to being under upgrade
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		if status, _ := node.esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before upgrading %v: %v / green", node.name(), status)
 			return fmt.Errorf("Cluster not in green state before beginning upgrade: %v", status)
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		size, err := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to update for %v", node.name())
 		}
@@ -493,12 +497,12 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
 		// disable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
+		if ok, err := node.esClient.SetShardAllocation(api.ShardAllocationNone); !ok {
 			logrus.Warnf("Unable to disable shard allocation: %v", err)
 			return err
 		}
 
-		if ok, err := DoSynchronizedFlush(node.clusterName, node.self.Namespace, node.client); !ok {
+		if ok, err := node.esClient.DoSynchronizedFlush(); !ok {
 			logrus.Warnf("Unable to perform synchronized flush: %v", err)
 		}
 
@@ -538,7 +542,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		}
 
 		// reenable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationAll, node.client); !ok {
+		if ok, err := node.esClient.SetShardAllocation(api.ShardAllocationAll); !ok {
 			logrus.Warnf("Unable to enable shard allocation: %v", err)
 			return err
 		}
@@ -548,7 +552,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
-		if status, err := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		if status, err := node.esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return err
 		}

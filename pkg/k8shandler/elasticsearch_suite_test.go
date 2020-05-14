@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestK8sHandler(t *testing.T) {
+func Testelasticsearch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "k8shandler Suite")
+	RunSpecs(t, "elasticsearch Suite")
 }

@@ -153,7 +153,7 @@ var _ = Describe("deployment", func() {
 					Template: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
-								v1.Container{},
+								{},
 							},
 						},
 					},

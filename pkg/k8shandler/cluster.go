@@ -29,6 +29,7 @@ func nodeMapKey(clusterName, namespace string) string {
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
+	esClient := elasticsearchRequest.esClient
 
 	// Verify that we didn't scale up too many masters
 	err := elasticsearchRequest.isValidConf()
@@ -143,11 +144,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 				}
 
 				// we only want to update our replicas if we aren't in the middle up an upgrade
-				if err := UpdateReplicaCount(
-					elasticsearchRequest.cluster.Name,
-					elasticsearchRequest.cluster.Namespace,
-					elasticsearchRequest.client,
-					int32(calculateReplicaCount(elasticsearchRequest.cluster))); err != nil {
+				if err := esClient.UpdateReplicaCount(int32(calculateReplicaCount(elasticsearchRequest.cluster))); err != nil {
 					logrus.Error(err)
 				}
 				if aliasNeededMap == nil {
@@ -156,7 +153,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 				if val, ok := aliasNeededMap[nodeMapKey(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace)]; !ok || val {
 					// add alias to old indices if they exist and don't have one
 					// this should be removed after one release...
-					successful := elasticsearchRequest.AddAliasForOldIndices()
+					successful := esClient.AddAliasForOldIndices()
 
 					if successful {
 						aliasNeededMap[nodeMapKey(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace)] = false
@@ -175,14 +172,15 @@ func (elasticsearchRequest *ElasticsearchRequest) updateMinMasters() {
 	// do as best effort -- whenever we create a node update min masters (if required)
 
 	cluster := elasticsearchRequest.cluster
+	esClient := elasticsearchRequest.esClient
 
-	currentMasterCount, err := GetMinMasterNodes(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
+	currentMasterCount, err := esClient.GetMinMasterNodes()
 	if err != nil {
 		logrus.Debugf("Unable to get current min master count for cluster %v", cluster.Name)
 	}
 
 	desiredMasterCount := getMasterCount(cluster)/2 + 1
-	currentNodeCount, err := GetClusterNodeCount(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
+	currentNodeCount, err := esClient.GetClusterNodeCount()
 	if err != nil {
 		logrus.Warnf("unable to get cluster node count. E: %s\r\n", err.Error())
 	}
@@ -190,7 +188,7 @@ func (elasticsearchRequest *ElasticsearchRequest) updateMinMasters() {
 	// check that we have the required number of master nodes in the cluster...
 	if currentNodeCount >= desiredMasterCount {
 		if currentMasterCount != desiredMasterCount {
-			if _, setErr := SetMinMasterNodes(cluster.Name, cluster.Namespace, desiredMasterCount, elasticsearchRequest.client); setErr != nil {
+			if _, setErr := esClient.SetMinMasterNodes(desiredMasterCount); setErr != nil {
 				logrus.Debugf("Unable to set min master count to %d for cluster %v", desiredMasterCount, cluster.Name)
 			}
 		}
@@ -446,6 +444,7 @@ func (elasticsearchRequest *ElasticsearchRequest) updateNodeStatus(status api.El
 // this is a very high priority action since the cluster may be fractured/unusable
 // in the case where certs aren't all rolled out correctly or are expired
 func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() error {
+	esClient := elasticsearchRequest.esClient
 
 	// make sure we have nodes that are scheduled for full cluster restart first
 	certRedeployNodes := getScheduledCertRedeployNodes(elasticsearchRequest.cluster)
@@ -472,12 +471,12 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 			containsClusterCondition(api.UpdatingSettings, v1.ConditionTrue, clusterStatus) {
 
 			// disable shard allocation
-			if ok, err := SetShardAllocation(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, api.ShardAllocationNone, elasticsearchRequest.client); !ok {
+			if ok, err := esClient.SetShardAllocation(api.ShardAllocationNone); !ok {
 				logrus.Warnf("Unable to disable shard allocation: %v", err)
 			}
 
 			// flush nodes
-			if ok, err := DoSynchronizedFlush(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, elasticsearchRequest.client); !ok {
+			if ok, err := esClient.DoSynchronizedFlush(); !ok {
 				logrus.Warnf("Unable to perform synchronized flush: %v", err)
 			}
 
@@ -525,7 +524,7 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 		}
 
 		// reenable shard allocation
-		if ok, err := SetShardAllocation(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, api.ShardAllocationAll, elasticsearchRequest.client); !ok {
+		if ok, err := esClient.SetShardAllocation(api.ShardAllocationAll); !ok {
 			logrus.Warnf("Unable to enable shard allocation: %v", err)
 			return err
 		}
@@ -536,7 +535,7 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 	// 5 -- recovery
 	// wait for cluster to go green again
 	if containsClusterCondition(api.Restarting, v1.ConditionTrue, clusterStatus) {
-		if status, _ := GetClusterHealthStatus(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, elasticsearchRequest.client); status != "green" {
+		if status, _ := esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
 			return fmt.Errorf("Cluster has not completed recovery after restart: %v / green", status)
 		}

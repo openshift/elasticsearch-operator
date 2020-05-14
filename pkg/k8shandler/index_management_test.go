@@ -9,7 +9,6 @@ import (
 	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -36,16 +35,6 @@ var _ = Describe("Index Management", func() {
 						{Roles: []elasticsearch.ElasticsearchNodeRole{elasticsearch.ElasticsearchRoleData}, NodeCount: 1},
 					},
 				},
-			},
-			FnCurlEsService: func(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
-				chatter.Requests[payload.URI] = payload.RequestBody
-				if val, found := chatter.GetResponse(payload.URI); found {
-					payload.Error = val.Error
-					payload.StatusCode = val.StatusCode
-					payload.ResponseBody = val.BodyAsResponseBody()
-				} else {
-					payload.Error = fmt.Errorf("No fake response found for uri %q: %v", payload.URI, payload)
-				}
 			},
 		}
 	)
@@ -87,6 +76,7 @@ var _ = Describe("Index Management", func() {
 					},
 				},
 			)
+			request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 		})
 		Context("when an Elasticsearch template does not have an associated policy mapping", func() {
 			It("should be culled from Elasticsearch", func() {
@@ -112,6 +102,7 @@ var _ = Describe("Index Management", func() {
 					},
 				},
 			)
+			request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 		})
 		It("should create an elasticsearch index template to support the index", func() {
 			Expect(request.createOrUpdateIndexTemplate(mapping)).To(BeNil())
@@ -147,6 +138,7 @@ var _ = Describe("Index Management", func() {
 						},
 					},
 				)
+				request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 				Expect(request.initializeIndexIfNeeded(mapping)).To(BeNil())
 				body, _ := chatter.GetRequest("node.infra-000001")
 				helpers.ExpectJson(body).ToEqual(
@@ -184,6 +176,7 @@ var _ = Describe("Index Management", func() {
 						},
 					},
 				)
+				request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 				Expect(request.initializeIndexIfNeeded(mapping)).To(BeNil())
 				_, found := chatter.GetRequest("node.infra-000001")
 				Expect(found).To(BeFalse(), "to not make a create request")

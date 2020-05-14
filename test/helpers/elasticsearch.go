@@ -1,10 +1,14 @@
 package helpers
 
 import (
-	. "github.com/onsi/ginkgo"
-
 	"encoding/json"
 	"fmt"
+
+	. "github.com/onsi/ginkgo"
+
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewFakeElasticsearchChatter(responses map[string]FakeElasticsearchResponse) *FakeElasticsearchChatter {
@@ -41,4 +45,24 @@ func (response *FakeElasticsearchResponse) BodyAsResponseBody() map[string]inter
 		Fail(fmt.Sprintf("Unable to convert to response body %q: %v", response.Body, err))
 	}
 	return *body
+}
+
+func NewFakeElasticsearchClient(cluster, namespace string, k8sClient client.Client, chatter *FakeElasticsearchChatter) elasticsearch.Client {
+	sendFakeRequest := NewFakeSendRequestFn(chatter)
+	c := elasticsearch.NewClient(cluster, namespace, k8sClient)
+	c.SetSendRequestFn(sendFakeRequest)
+	return c
+}
+
+func NewFakeSendRequestFn(chatter *FakeElasticsearchChatter) elasticsearch.FnEsSendRequest {
+	return func(cluster, namespace string, payload *elasticsearch.EsRequest, client client.Client) {
+		chatter.Requests[payload.URI] = payload.RequestBody
+		if val, found := chatter.GetResponse(payload.URI); found {
+			payload.Error = val.Error
+			payload.StatusCode = val.StatusCode
+			payload.ResponseBody = val.BodyAsResponseBody()
+		} else {
+			payload.Error = fmt.Errorf("No fake response found for uri %q: %v", payload.URI, payload)
+		}
+	}
 }
