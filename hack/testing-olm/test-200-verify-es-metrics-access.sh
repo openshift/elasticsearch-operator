@@ -99,7 +99,7 @@ es_pod=$(oc -n ${TEST_NAMESPACE} get pod -l component=elasticsearch -o jsonpath=
 log::info "---------------------------------------------------------------"
 log::info "Waiting until elasticsearch cluster initialization is completed"
 log::info "---------------------------------------------------------------"
-try_until_success "oc -n ${TEST_NAMESPACE} exec ${es_pod} -c elasticsearch -- test -f /opt/app-root/src/init_complete" $((2 * $minute))
+expect_success "oc -n ${TEST_NAMESPACE} wait --for=condition=Ready pod/${es_pod} --timeout=120s"
 
 push_test_script_to_es(){
   es_pod=$1

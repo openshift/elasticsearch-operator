@@ -53,8 +53,8 @@ func createElasticsearchCR(t *testing.T, f *framework.Framework, ctx *framework.
 		return nil, fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	cpuValue, _ := resource.ParseQuantity("100m")
-	memValue, _ := resource.ParseQuantity("2Gi")
+	cpuValue := resource.MustParse("100m")
+	memValue := resource.MustParse("2Gi")
 
 	esDataNode := elasticsearch.ElasticsearchNode{
 		Roles: []elasticsearch.ElasticsearchNodeRole{

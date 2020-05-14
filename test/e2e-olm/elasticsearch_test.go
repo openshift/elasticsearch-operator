@@ -7,6 +7,7 @@ import (
 
 	"github.com/openshift/elasticsearch-operator/test/utils"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	goctx "context"
@@ -35,14 +36,20 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	nonDataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for non data nodes: %v", nonDataUUID)
 
+	storageClassName := "gp2"
+	storageClassSize := resource.MustParse("2G")
+
 	esNonDataNode := elasticsearch.ElasticsearchNode{
 		Roles: []elasticsearch.ElasticsearchNodeRole{
 			elasticsearch.ElasticsearchRoleClient,
 			elasticsearch.ElasticsearchRoleMaster,
 		},
 		NodeCount: int32(1),
-		Storage:   elasticsearch.ElasticsearchStorageSpec{},
-		GenUUID:   &nonDataUUID,
+		Storage: elasticsearch.ElasticsearchStorageSpec{
+			StorageClassName: &storageClassName,
+			Size:             &storageClassSize,
+		},
+		GenUUID: &nonDataUUID,
 	}
 
 	exampleElasticsearch, err := createElasticsearchCR(t, f, ctx, dataUUID)
@@ -211,6 +218,66 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 				return fmt.Errorf("unexpected status condition for elasticsearch found: %v", condition.Status)
 			}
 		}
+	}
+
+	// Update the resource spec for the cluster
+	oldMemValue := exampleElasticsearch.Spec.Spec.Resources.Limits.Memory()
+
+	memValue := resource.MustParse("3Gi")
+	cpuValue := resource.MustParse("100m")
+	exampleElasticsearch.Spec.Spec.Resources = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			v1.ResourceMemory: memValue,
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpuValue,
+			v1.ResourceMemory: memValue,
+		},
+	}
+
+	t.Log("Updating Limits.Memory and Requests.Memory to trigger a rolling restart")
+	t.Logf("Updating from %s to %s", oldMemValue.String(), memValue.String())
+	err = f.Client.Update(goctx.TODO(), exampleElasticsearch)
+	if err != nil {
+		return fmt.Errorf("could not update exampleElasticsearch with an additional statefulset replica: %v", err)
+	}
+
+	// wait for node to not be ready (restart is happening)
+	/*desiredCondition := elasticsearch.ElasticsearchNodeUpgradeStatus{
+		UnderUpgrade: v1.ConditionTrue,
+	}*/
+
+	// This doesn't work correctly because we don't update the cluster status until we've failed out
+	// of our upgrade loop...
+	/*err = utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*300)
+	if err != nil {
+		d, _ := yaml.Marshal(desiredCondition)
+		t.Log("Desired condition", string(d))
+		return fmt.Errorf("Timed out waiting for full cluster restart to begin")
+	}*/
+
+	// due to gap mentioned above -- pause here for a few seconds to let the operator do its thing?
+	time.Sleep(10 * time.Second)
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 0, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	// ensure all prior nodes are ready again
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-2", dataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
+	}
+
+	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), 1, retryInterval, timeout)
+	if err != nil {
+		return fmt.Errorf("timed out waiting for Statefulset %v: %v", fmt.Sprintf("elasticsearch-cm-%v", nonDataUUID), err)
 	}
 
 	ctx.Cleanup()
