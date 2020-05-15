@@ -19,11 +19,13 @@ var (
 
 func TestCreateIndexTemplateWhenError(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"_template/foo": {
-				Error:      fmt.Errorf("test error %s", t.Name()),
-				StatusCode: http.StatusInternalServerError,
-				Body:       "{}",
+				{
+					Error:      fmt.Errorf("test error %s", t.Name()),
+					StatusCode: http.StatusInternalServerError,
+					Body:       "{}",
+				},
 			},
 		})
 	esClient := testhelpers.NewFakeElasticsearchClient(cluster, namespace, k8sClient, chatter)
@@ -35,11 +37,13 @@ func TestCreateIndexTemplateWhenError(t *testing.T) {
 
 func TestCreateIndexTemplateWhenResponseNot200(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"_template/foo": {
-				Error:      nil,
-				StatusCode: 500,
-				Body:       "{}",
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body:       "{}",
+				},
 			},
 		})
 	esClient := testhelpers.NewFakeElasticsearchClient(cluster, namespace, k8sClient, chatter)
@@ -51,11 +55,13 @@ func TestCreateIndexTemplateWhenResponseNot200(t *testing.T) {
 
 func TestCreateIndexTemplateWhenResponse200(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"_template/foo": {
-				Error:      nil,
-				StatusCode: 200,
-				Body:       "{}",
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body:       "{}",
+				},
 			},
 		})
 	esClient := testhelpers.NewFakeElasticsearchClient(cluster, namespace, k8sClient, chatter)
@@ -67,11 +73,13 @@ func TestCreateIndexTemplateWhenResponse200(t *testing.T) {
 
 func TestCreateIndexTemplateWhenResponse201(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"_template/foo": {
-				Error:      nil,
-				StatusCode: 201,
-				Body:       "{}",
+				{
+					Error:      nil,
+					StatusCode: 201,
+					Body:       "{}",
+				},
 			},
 		})
 	esClient := testhelpers.NewFakeElasticsearchClient(cluster, namespace, k8sClient, chatter)

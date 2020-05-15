@@ -10,6 +10,8 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/test/helpers"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -39,6 +41,7 @@ var _ = Describe("Reconciling", func() {
 				Replicas:        2,
 			},
 		}
+
 		kibanaCABundle = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.KibanaTrustedCAName,
@@ -78,6 +81,7 @@ var _ = Describe("Reconciling", func() {
 
 	Describe("Kibana", func() {
 		var client client.Client
+		var esClient elasticsearch.Client
 
 		var (
 			consoleAppLogsLink = &consolev1.ConsoleLink{
@@ -116,6 +120,28 @@ var _ = Describe("Reconciling", func() {
 					},
 				},
 			}
+
+			fakeResponses = map[string]helpers.FakeElasticsearchResponses{
+				"_cat/indices/.kibana?format=json": {
+					{
+						StatusCode: 200,
+						Body:       `[{"health":"green","status":"open","index":".kibana","uuid":"KNegGDiRSs6dxWzdxWqkaQ","pri":"1","rep":"1","docs.count":"1","docs.deleted":"0","store.size":"6.4kb","pri.store.size":"3.2kb"}]`,
+					},
+				},
+				"_cluster/stats": {
+					{
+						StatusCode: 200,
+						Body:       `{"nodes": {"versions": ["6.8.1"]}}`,
+					},
+				},
+				"_alias/.kibana": {
+					// Set migration completed
+					{
+						StatusCode: 200,
+						Body:       `{".kibana-6": {"aliases": []}}`,
+					},
+				},
+			}
 		)
 
 		Context("when creating Kibana for the first time on a new cluster", func() {
@@ -126,10 +152,11 @@ var _ = Describe("Reconciling", func() {
 					kibanaSecret,
 					kibanaProxySecret,
 				)
+				esClient = newFakeEsClient(client, fakeResponses)
 			})
 
 			It("should create two new console links for the Kibana route", func() {
-				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
 
 				key := types.NamespacedName{Name: AppLogsConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
@@ -194,10 +221,11 @@ var _ = Describe("Reconciling", func() {
 					consoleAppLogsLink,
 					consoleInfraLogsLink,
 				)
+				esClient = newFakeEsClient(client, fakeResponses)
 			})
 
 			It("should replace existing sharing confimap links with two console links", func() {
-				Expect(ReconcileKibana(cluster, client, nil)).Should(Succeed())
+				Expect(reconcileKibana(cluster, client, esClient, nil)).Should(Succeed())
 
 				key := types.NamespacedName{Name: AppLogsConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
@@ -269,11 +297,12 @@ var _ = Describe("Reconciling", func() {
 					kibanaSecret,
 					kibanaProxySecret,
 				)
+				esClient = newFakeEsClient(client, fakeResponses)
 			})
 
 			It("should use the default CA bundle in kibana proxy", func() {
 				// Reconcile w/o custom CA bundle
-				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
 
 				key := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: cluster.GetNamespace()}
 				kibanaCaBundle := &corev1.ConfigMap{}
@@ -281,7 +310,7 @@ var _ = Describe("Reconciling", func() {
 				Expect(err).Should(Succeed())
 				Expect(kibanaCABundle.Data).To(Equal(kibanaCaBundle.Data))
 
-				key = types.NamespacedName{Name: constants.KibanaInstanceName, Namespace: cluster.GetNamespace()}
+				key = types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
 				dpl := &appsv1.Deployment{}
 				err = client.Get(context.TODO(), key, dpl)
 				Expect(err).Should(Succeed())
@@ -294,7 +323,7 @@ var _ = Describe("Reconciling", func() {
 
 			It("should use the injected custom CA bundle in kibana proxy", func() {
 				// Reconcile w/o custom CA bundle
-				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
 
 				// Inject custom CA bundle into kibana config map
 				injectedCABundle := kibanaCABundle.DeepCopy()
@@ -302,9 +331,10 @@ var _ = Describe("Reconciling", func() {
 				Expect(client.Update(context.TODO(), injectedCABundle)).Should(Succeed())
 
 				// Reconcile with injected custom CA bundle
-				Expect(ReconcileKibana(cluster, client, proxy)).Should(Succeed())
+				esClient = newFakeEsClient(client, fakeResponses)
+				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
 
-				key := types.NamespacedName{Name: constants.KibanaInstanceName, Namespace: cluster.GetNamespace()}
+				key := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
 				dpl := &appsv1.Deployment{}
 				err := client.Get(context.TODO(), key, dpl)
 				Expect(err).Should(Succeed())
@@ -317,3 +347,9 @@ var _ = Describe("Reconciling", func() {
 		})
 	})
 })
+
+func newFakeEsClient(k8sClient client.Client, responses map[string]helpers.FakeElasticsearchResponses) elasticsearch.Client {
+	esChatter := helpers.NewFakeElasticsearchChatter(responses)
+	return helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", k8sClient, esChatter)
+
+}
