@@ -28,16 +28,17 @@ var DISK_WATERMARK_HIGH_ABS *resource.Quantity
 func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 
 	cluster := elasticsearchRequest.cluster
+	esClient := elasticsearchRequest.esClient
 
 	clusterStatus := cluster.Status.DeepCopy()
 
-	health, err := GetClusterHealth(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
+	health, err := esClient.GetClusterHealth()
 	if err != nil {
 		health.Status = healthUnknown
 	}
 	clusterStatus.Cluster = health
 
-	allocation, err := GetShardAllocation(cluster.Name, cluster.Namespace, elasticsearchRequest.client)
+	allocation, err := esClient.GetShardAllocation()
 	switch {
 	case allocation == "none":
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
@@ -49,7 +50,7 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 
 	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, elasticsearchRequest.client)
 	updateStatusConditions(clusterStatus)
-	updateNodeConditions(cluster.Name, cluster.Namespace, clusterStatus, elasticsearchRequest.client)
+	elasticsearchRequest.updateNodeConditions(clusterStatus)
 
 	if !reflect.DeepEqual(clusterStatus, cluster.Status) {
 		nretries := -1
@@ -187,17 +188,19 @@ func isPodReady(pod v1.Pod) bool {
 	return true
 }
 
-func updateNodeConditions(clusterName, namespace string, status *api.ElasticsearchStatus, client client.Client) {
+func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchStatus) {
+	esClient := er.esClient
+	cluster := er.cluster
 	// Get all pods based on status.Nodes[] and check their conditions
 	// get pod with label 'node-name=node.getName()'
-	thresholdEnabled, err := GetThresholdEnabled(clusterName, namespace, client)
+	thresholdEnabled, err := esClient.GetThresholdEnabled()
 	if err != nil {
-		logrus.Debugf("Unable to check if threshold is enabled for %v", clusterName)
+		logrus.Debugf("Unable to check if threshold is enabled for %v", cluster.Name)
 	}
 
 	if thresholdEnabled {
 		// refresh value of thresholds in case they changed...
-		refreshDiskWatermarkThresholds(clusterName, namespace, client)
+		er.refreshDiskWatermarkThresholds()
 	}
 
 	for nodeIndex := range status.Nodes {
@@ -213,13 +216,13 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 		}
 
 		nodePodList, _ := GetPodList(
-			namespace,
+			cluster.Namespace,
 			map[string]string{
 				"component":    "elasticsearch",
-				"cluster-name": clusterName,
+				"cluster-name": cluster.Name,
 				"node-name":    nodeName,
 			},
-			client,
+			er.client,
 		)
 		for _, nodePod := range nodePodList.Items {
 
@@ -313,7 +316,7 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 				continue
 			}
 
-			usage, percent, err := GetNodeDiskUsage(clusterName, namespace, nodeName, client)
+			usage, percent, err := esClient.GetNodeDiskUsage(nodeName)
 			if err != nil {
 				logrus.Debugf("Unable to get disk usage for %v", nodeName)
 				continue
@@ -344,9 +347,9 @@ func updateNodeConditions(clusterName, namespace string, status *api.Elasticsear
 	}
 }
 
-func refreshDiskWatermarkThresholds(clusterName, namespace string, client client.Client) {
+func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	//quantity, err := resource.ParseQuantity(string)
-	low, high, err := GetDiskWatermarks(clusterName, namespace, client)
+	low, high, err := er.esClient.GetDiskWatermarks()
 	if err != nil {
 		logrus.Debugf("Unable to refresh disk watermarks from cluster, using defaults")
 	}

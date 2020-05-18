@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 
@@ -34,9 +35,11 @@ type statefulSetNode struct {
 	//priorReplicaCount int32
 
 	client client.Client
+
+	esClient elasticsearch.Client
 }
 
-func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client) {
+func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client) {
 
 	labels := newLabels(cluster.Name, nodeName, roleMap)
 
@@ -75,6 +78,7 @@ func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node 
 	statefulSetNode.clusterName = cluster.Name
 
 	statefulSetNode.client = client
+	statefulSetNode.esClient = esClient
 }
 
 func (current *statefulSetNode) updateReference(desired NodeTypeInterface) {
@@ -126,7 +130,7 @@ func (node *statefulSetNode) name() string {
 
 func (node *statefulSetNode) waitForNodeRejoinCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		clusterSize, getErr := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size waiting for %v to rejoin cluster", node.name())
 			return false, getErr
@@ -140,7 +144,7 @@ func (node *statefulSetNode) waitForNodeRejoinCluster() (error, bool) {
 
 func (node *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		clusterSize, getErr := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size waiting for %v to leave cluster", node.name())
 			return false, getErr
@@ -246,12 +250,12 @@ func (node *statefulSetNode) isMissing() bool {
 func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		if status, _ := node.esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
 			return
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		size, err := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
 			return
@@ -348,7 +352,7 @@ func (node *statefulSetNode) fullClusterRestart(upgradeStatus *api.Elasticsearch
 			return
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		size, err := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
 			return
@@ -455,12 +459,12 @@ func (node *statefulSetNode) executeUpdate() error {
 
 func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) error {
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
+		if status, _ := node.esClient.GetClusterHealthStatus(); status != "green" {
 			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
 			return fmt.Errorf("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
 		}
 
-		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
+		size, err := node.esClient.GetClusterNodeCount()
 		if err != nil {
 			logrus.Warnf("Unable to get cluster size prior to restart for %v", node.name())
 		}
