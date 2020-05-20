@@ -22,7 +22,12 @@ const (
 	heapDumpLocation        = "/elasticsearch/persistent/heapdump.hprof"
 
 	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
+	yellowClusterState = "yellow"
+	greenClusterState  = "green"
 )
+
+var desiredClusterStates = []string{yellowClusterState, greenClusterState}
 
 func kibanaIndexMode(mode string) (string, error) {
 	if mode == "" {
