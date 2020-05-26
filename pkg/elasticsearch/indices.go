@@ -3,6 +3,7 @@ package elasticsearch
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
@@ -95,9 +96,23 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 		}
 
 		if payload.ResponseBody[index] != nil {
-			indexBody := payload.ResponseBody[index].(map[string]interface{})
+			indexBody, ok := payload.ResponseBody[index].(map[string]interface{})
+			if !ok {
+				logger.Warnf("unable to unmarshal index '%s' response body for cluster '%s'. Type: %s",
+					index,
+					ec.cluster,
+					reflect.TypeOf(payload.ResponseBody[index]).String())
+				continue
+			}
 			if indexBody["aliases"] != nil {
-				aliasBody := indexBody["aliases"].(map[string]interface{})
+				aliasBody, ok := indexBody["aliases"].(map[string]interface{})
+				if !ok {
+					logger.Warnf("unable to unmarshal alias index '%s' body for cluster '%s'. Type: %s",
+						index,
+						ec.cluster,
+						reflect.TypeOf(indexBody["aliases"]).String())
+					continue
+				}
 
 				found := false
 				for alias := range aliasBody {
