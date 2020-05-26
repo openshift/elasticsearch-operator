@@ -223,7 +223,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	// Update the resource spec for the cluster
 	oldMemValue := exampleElasticsearch.Spec.Spec.Resources.Limits.Memory()
 
-	memValue := resource.MustParse("3Gi")
+	memValue := resource.MustParse("1.5Gi")
 	cpuValue := resource.MustParse("100m")
 	exampleElasticsearch.Spec.Spec.Resources = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
@@ -259,7 +259,7 @@ func elasticsearchFullClusterTest(t *testing.T, f *framework.Framework, ctx *fra
 	// due to gap mentioned above -- pause here for a few seconds to let the operator do its thing?
 	time.Sleep(10 * time.Second)
 
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 0, retryInterval, timeout)
+	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), 1, retryInterval, timeout)
 	if err != nil {
 		return fmt.Errorf("timed out waiting for Deployment %v: %v", fmt.Sprintf("elasticsearch-cdm-%v-1", dataUUID), err)
 	}
