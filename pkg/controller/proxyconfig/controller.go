@@ -1,8 +1,11 @@
 package proxyconfig
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/k8shandler"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -77,7 +80,13 @@ type ReconcileProxyConfig struct {
 // When the user configured and/or system certs are updated, the change is propagated to the
 // configmap objects and this reconciler triggers to restart those pods.
 func (r *ReconcileProxyConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	if err := kibana.ReconcileKibanaInstance(request, r.client); err != nil {
+	es, err := k8shandler.GetElasticsearchCR(r.client, request.Namespace)
+	if err != nil {
+		return reconcileResult, fmt.Errorf("skipping proxy config reconciliation in %q: %s", request.Namespace, err)
+	}
+
+	esClient := elasticsearch.NewClient(es.Name, es.Namespace, r.client)
+	if err := kibana.Reconcile(request, r.client, esClient); err != nil {
 		return reconcileResult, err
 	}
 

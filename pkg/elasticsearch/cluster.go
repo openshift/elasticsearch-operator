@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
+	payload := &EsRequest{
+		Method: http.MethodGet,
+		URI:    "_cluster/stats",
+	}
+
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+
+	var nodeVersions []string
+	if versions := walkInterfaceMap("nodes.versions", payload.ResponseBody); versions != nil {
+		for _, value := range versions.([]interface{}) {
+			version := value.(string)
+			nodeVersions = append(nodeVersions, version)
+		}
+	}
+
+	return nodeVersions, nil
+}
+
 func (ec *esClient) GetThresholdEnabled() (bool, error) {
 
 	payload := &EsRequest{

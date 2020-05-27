@@ -13,32 +13,38 @@ var (
 
 func TestAliasAllNeededPass(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "project.test": {
-                        "aliases": {}
-                    },
-                    ".operations.date": {
-                        "aliases": {}
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                      "project.test": {
+                          "aliases": {}
+                      },
+                      ".operations.date": {
+                          "aliases": {}
+                      }
+                    }`,
+				},
 			},
 			"project.test/_alias/app": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "acknowledged": true
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                      "acknowledged": true
+                    }`,
+				},
 			},
 			".operations.date/_alias/infra": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "acknowledged": true
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                      "acknowledged": true
+                    }`,
+				},
 			},
 		},
 	)
@@ -52,22 +58,26 @@ func TestAliasAllNeededPass(t *testing.T) {
 
 func TestAliasProjectNeededPass(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "project.test": {
-                        "aliases": {}
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        "project.test": {
+                            "aliases": {}
+                        }
+                    }`,
+				},
 			},
 			"project.test/_alias/app": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "acknowledged": true
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        "acknowledged": true
+                    }`,
+				},
 			},
 		},
 	)
@@ -81,22 +91,26 @@ func TestAliasProjectNeededPass(t *testing.T) {
 
 func TestAliasOperationsNeededPass(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    ".operations.date": {
-                        "aliases": {}
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        ".operations.date": {
+                            "aliases": {}
+                        }
+                    }`,
+				},
 			},
 			".operations.date/_alias/infra": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "acknowledged": true
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        "acknowledged": true
+                    }`,
+				},
 			},
 		},
 	)
@@ -110,32 +124,38 @@ func TestAliasOperationsNeededPass(t *testing.T) {
 
 func TestAliasAllNeededFail(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "project.test": {
-                        "aliases": {}
-                    },
-                    ".operations.date": {
-                        "aliases": {}
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        "project.test": {
+                            "aliases": {}
+                        },
+                        ".operations.date": {
+                            "aliases": {}
+                        }
+                    }`,
+				},
 			},
 			"project.test/_alias/app": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 			".operations.date/_alias/infra": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 		},
 	)
@@ -149,22 +169,26 @@ func TestAliasAllNeededFail(t *testing.T) {
 
 func TestAliasProjectNeededFail(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "project.test": {
-                        "aliases": {}
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        "project.test": {
+                            "aliases": {}
+                        }
+                    }`,
+				},
 			},
 			"project.test/_alias/app": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 		},
 	)
@@ -178,22 +202,26 @@ func TestAliasProjectNeededFail(t *testing.T) {
 
 func TestAliasOperationsNeededFail(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    ".operations.date": {
-                        "aliases": {}
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        ".operations.date": {
+                            "aliases": {}
+                        }
+                    }`,
+				},
 			},
 			".operations.date/_alias/infra": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 		},
 	)
@@ -207,36 +235,42 @@ func TestAliasOperationsNeededFail(t *testing.T) {
 
 func TestAliasAllNotNeeded(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "project.test": {
-                        "aliases": {
-                            "app": {}
-                        }
-                    },
-                    ".operations.date": {
-                        "aliases": {
-                            "infra": {}
-                        }
-                    }
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                       "project.test": {
+                           "aliases": {
+                               "app": {}
+                           }
+                       },
+                       ".operations.date": {
+                           "aliases": {
+                               "infra": {}
+                           }
+                       }
+                   }`,
+				},
 			},
 			"project.test/_alias/app": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 			".operations.date/_alias/infra": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 		},
 	)
@@ -250,24 +284,28 @@ func TestAliasAllNotNeeded(t *testing.T) {
 
 func TestAliasProjectNotNeeded(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    "project.test": {
-                        "aliases": {
-                            "app": {}
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        "project.test": {
+                            "aliases": {
+                                "app": {}
+                            }
                         }
-                    }
-                }`,
+                    }`,
+				},
 			},
 			"project.test/_alias/app": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 		},
 	)
@@ -281,24 +319,28 @@ func TestAliasProjectNotNeeded(t *testing.T) {
 
 func TestAliasOperationsNotNeeded(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(
-		map[string]testhelpers.FakeElasticsearchResponse{
+		map[string]testhelpers.FakeElasticsearchResponses{
 			"project.*,.operations.*/_alias": {
-				Error:      nil,
-				StatusCode: 200,
-				Body: `{
-                    ".operations.date": {
-                        "aliases": {
-                            "infra": {}
+				{
+					Error:      nil,
+					StatusCode: 200,
+					Body: `{
+                        ".operations.date": {
+                            "aliases": {
+                                "infra": {}
+                            }
                         }
-                    }
-                }`,
+                    }`,
+				},
 			},
 			".operations.date/_alias/infra": {
-				Error:      nil,
-				StatusCode: 500,
-				Body: `{
-                    "acknowledged": false
-                }`,
+				{
+					Error:      nil,
+					StatusCode: 500,
+					Body: `{
+                        "acknowledged": false
+                    }`,
+				},
 			},
 		},
 	)

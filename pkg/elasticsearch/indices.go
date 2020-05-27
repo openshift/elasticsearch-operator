@@ -1,6 +1,7 @@
 package elasticsearch
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,6 +10,58 @@ import (
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 )
+
+func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
+	payload := &EsRequest{
+		Method: http.MethodGet,
+		URI:    name,
+	}
+	logger.DebugObject("GetIndex for %q", name)
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return nil, payload.Error
+	}
+	if payload.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if payload.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed getting index %s. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+
+	index := &estypes.Index{}
+	err := json.Unmarshal([]byte(payload.RawResponseBody), index)
+	if err != nil {
+		return nil, fmt.Errorf("failed decoding raw response body into `estypes.Index` for %s: %s", name, err)
+	}
+	index.Name = name
+	return index, nil
+}
+
+func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, error) {
+	payload := &EsRequest{
+		Method: http.MethodGet,
+		URI:    fmt.Sprintf("_cat/indices/%s?format=json", name),
+	}
+	logger.DebugObject("CatIndices for %q", name)
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
+	if payload.Error != nil {
+		return nil, payload.Error
+	}
+	if payload.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed getting index %s. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+
+	res := estypes.CatIndicesResponses{}
+	raw := payload.ResponseBody["results"].(string)
+	err := json.Unmarshal([]byte(raw), &res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse _cat/indices response body for index %q: %s", name, err)
+	}
+	return res, nil
+}
 
 func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
 	body, err := utils.ToJson(index)
@@ -27,6 +80,101 @@ func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
 	}
 	if payload.StatusCode != 200 && payload.StatusCode != 201 {
 		return fmt.Errorf("There was an error creating index %s. Error code: %v, %v", index.Name, payload.StatusCode != 200, payload.ResponseBody)
+	}
+	return nil
+}
+
+func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error) {
+	payload := &EsRequest{
+		Method: http.MethodGet,
+		URI:    fmt.Sprintf("%s/_settings", name),
+	}
+	logger.Debugf("GetIndexSettings for index: %s", name)
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return nil, payload.Error
+	}
+	if payload.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get index settings for %q. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+
+	settings := &estypes.IndexSettings{}
+	err := json.Unmarshal([]byte(payload.RawResponseBody), settings)
+	if err != nil {
+		return nil, fmt.Errorf("failed decoding raw response body into `estypes.IndexSettings` for %s: %s", name, err)
+	}
+	return settings, nil
+}
+
+func (ec *esClient) UpdateIndexSettings(name string, settings *estypes.IndexSettings) error {
+	body, err := utils.ToJson(settings)
+	if err != nil {
+		return err
+	}
+	payload := &EsRequest{
+		Method:      http.MethodPut,
+		URI:         fmt.Sprintf("%s/_settings", name),
+		RequestBody: body,
+	}
+	logger.DebugObject("UpdateIndexSettings with payload: %#v", settings)
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return payload.Error
+	}
+	if payload.StatusCode != http.StatusOK && payload.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to update index settings for %q. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+	return nil
+}
+
+func (ec *esClient) ReIndex(src, dst, script, lang string) error {
+	reIndex := estypes.ReIndex{
+		Source: estypes.IndexRef{Index: src},
+		Dest:   estypes.IndexRef{Index: dst},
+		Script: estypes.ReIndexScript{
+			Inline: script,
+			Lang:   lang,
+		},
+	}
+
+	body, err := utils.ToJson(reIndex)
+	if err != nil {
+		return err
+	}
+	payload := &EsRequest{
+		Method:      http.MethodPost,
+		URI:         "_reindex",
+		RequestBody: body,
+	}
+	logger.DebugObject("ReIndexing with payload: %#v", reIndex)
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return payload.Error
+	}
+	if payload.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to reindex from %q to %q. Error code: %v, %v", src, dst, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+
+	return nil
+}
+
+func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
+	body, err := utils.ToJson(actions)
+	if err != nil {
+		return err
+	}
+	payload := &EsRequest{
+		Method:      http.MethodPost,
+		URI:         "_aliases",
+		RequestBody: body,
+	}
+	logger.DebugObject("Updating aliases with payload: %#v", actions)
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return payload.Error
+	}
+	if payload.StatusCode != http.StatusOK && payload.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to update aliases. Error code: %v, %v", payload.StatusCode != http.StatusOK, payload.ResponseBody)
 	}
 	return nil
 }

@@ -10,6 +10,8 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/migrations"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
@@ -27,6 +29,8 @@ import (
 const (
 	kibanaServiceAccountName     = "kibana"
 	kibanaOAuthRedirectReference = "{\"kind\":\"OAuthRedirectReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"Route\",\"name\":\"kibana\"}}"
+	kibana5Index                 = ".kibana"
+	kibana6Index                 = ".kibana-6"
 )
 
 var (
@@ -35,11 +39,45 @@ var (
 	}
 )
 
-func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client, proxyConfig *configv1.Proxy) error {
-	clusterKibanaRequest := KibanaRequest{
-		client:  requestClient,
-		cluster: requestCluster,
+func Reconcile(request reconcile.Request, k8sClient client.Client, esClient elasticsearch.Client) error {
+	kibanaInstance := &kibana.Kibana{}
+	key := types.NamespacedName{
+		Name:      request.Name,
+		Namespace: request.Namespace,
 	}
+
+	err := k8sClient.Get(context.TODO(), key, kibanaInstance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if kibanaInstance.Spec.ManagementState == kibana.ManagementStateUnmanaged {
+		return nil
+	}
+
+	proxyCfg, err := getProxyConfig(k8sClient)
+	if err != nil {
+		return err
+	}
+
+	if err := reconcileKibana(kibanaInstance, k8sClient, esClient, proxyCfg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func reconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client, esClient elasticsearch.Client, proxyConfig *configv1.Proxy) error {
+	clusterKibanaRequest := KibanaRequest{
+		client:   requestClient,
+		cluster:  requestCluster,
+		esClient: esClient,
+	}
+
+	migrationRequest := migrations.NewMigrationRequest(requestClient, esClient)
 
 	if clusterKibanaRequest.cluster == nil {
 		return nil
@@ -67,6 +105,14 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 	}
 
 	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleLinks(); err != nil {
+		return err
+	}
+
+	if err := clusterKibanaRequest.deleteKibana5Deployment(); err != nil {
+		return err
+	}
+
+	if err := migrationRequest.RunKibanaMigrations(); err != nil {
 		return err
 	}
 
@@ -103,37 +149,6 @@ func ReconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 		return fmt.Errorf("Failed to update Kibana status for %q: %v", cluster.Name, retryErr)
 	}
 	logrus.Infof("Kibana status successfully updated")
-
-	return nil
-}
-
-func ReconcileKibanaInstance(request reconcile.Request, rClient client.Client) error {
-	kibanaInstance := &kibana.Kibana{}
-	key := types.NamespacedName{
-		Namespace: request.Namespace,
-		Name:      constants.KibanaInstanceName,
-	}
-
-	err := rClient.Get(context.TODO(), key, kibanaInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-
-	if kibanaInstance.Spec.ManagementState == kibana.ManagementStateUnmanaged {
-		return nil
-	}
-
-	proxyCfg, err := getProxyConfig(rClient)
-	if err != nil {
-		return err
-	}
-
-	if err := ReconcileKibana(kibanaInstance, rClient, proxyCfg); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -199,6 +214,32 @@ func compareKibanaStatus(lhs, rhs []kibana.KibanaStatus) bool {
 	}
 
 	return true
+}
+
+func (clusterRequest *KibanaRequest) deleteKibana5Deployment() error {
+	kibana5 := &apps.Deployment{}
+	if err := clusterRequest.Get(clusterRequest.cluster.Name, kibana5); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get kibana 5 deployment: %s", err)
+	}
+
+	containers := kibana5.Spec.Template.Spec.Containers
+	for _, c := range containers {
+		if c.Image == getImage() {
+			logrus.Infof("skipping deleting kibana 5 image because kibana 6 installed")
+			return nil
+		}
+	}
+
+	if err := clusterRequest.Delete(kibana5); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete kibana 5 deployment: %s", err)
+	}
+	return nil
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy) (err error) {

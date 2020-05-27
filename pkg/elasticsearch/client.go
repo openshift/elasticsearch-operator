@@ -35,6 +35,7 @@ const (
 
 type Client interface {
 	// Cluster Settings API
+	GetClusterNodeVersions() ([]string, error)
 	GetThresholdEnabled() (bool, error)
 	GetDiskWatermarks() (interface{}, interface{}, error)
 	GetMinMasterNodes() (int32, error)
@@ -47,9 +48,19 @@ type Client interface {
 	GetClusterNodeCount() (int32, error)
 
 	// Index API
+	GetIndex(name string) (*estypes.Index, error)
 	CreateIndex(name string, index *estypes.Index) error
+	ReIndex(src, dst, script, lang string) error
+	GetAllIndices(name string) (estypes.CatIndicesResponses, error)
+
+	// Index Alias API
 	ListIndicesForAlias(aliasPattern string) ([]string, error)
+	UpdateAlias(actions estypes.AliasActions) error
 	AddAliasForOldIndices() bool
+
+	// Index Settings API
+	GetIndexSettings(name string) (*estypes.IndexSettings, error)
+	UpdateIndexSettings(name string, settings *estypes.IndexSettings) error
 
 	// Nodes API
 	GetNodeDiskUsage(nodeName string) (string, float64, error)
@@ -81,12 +92,13 @@ type esClient struct {
 }
 
 type EsRequest struct {
-	Method       string // use net/http constants https://golang.org/pkg/net/http/#pkg-constants
-	URI          string
-	RequestBody  string
-	StatusCode   int
-	ResponseBody map[string]interface{}
-	Error        error
+	Method          string // use net/http constants https://golang.org/pkg/net/http/#pkg-constants
+	URI             string
+	RequestBody     string
+	StatusCode      int
+	RawResponseBody string
+	ResponseBody    map[string]interface{}
+	Error           error
 }
 
 func NewClient(cluster, namespace string, client k8sclient.Client) Client {
@@ -167,7 +179,10 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 		}
 
 		payload.StatusCode = resp.StatusCode
-		if payload.ResponseBody, err = getMapFromBody(resp.Body); err != nil {
+		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
+			logrus.Warnf("failed to get raw response body: %s", err)
+		}
+		if payload.ResponseBody, err = getMapFromBody(payload.RawResponseBody); err != nil {
 			logrus.Warnf("getMapFromBody failed. E: %s\r\n", err.Error())
 		}
 	}
@@ -225,7 +240,10 @@ func sendRequestWithOldClient(clusterName, namespace string, payload *EsRequest,
 
 	if resp != nil {
 		payload.StatusCode = resp.StatusCode
-		if payload.ResponseBody, err = getMapFromBody(resp.Body); err != nil {
+		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
+			logrus.Warnf("failed to get raw response body: %s", err)
+		}
+		if payload.ResponseBody, err = getMapFromBody(payload.RawResponseBody); err != nil {
 			logrus.Warnf("getMapFromBody failed. E: %s\r\n", err.Error())
 		}
 	}
@@ -347,17 +365,23 @@ func getClientCertificates(clusterName, namespace string) []tls.Certificate {
 	}
 }
 
-func getMapFromBody(body io.ReadCloser) (map[string]interface{}, error) {
+func getRawBody(body io.ReadCloser) (string, error) {
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(body); err != nil {
-		return make(map[string]interface{}), err
+		return "", err
 	}
+	return buf.String(), nil
+}
 
+func getMapFromBody(rawBody string) (map[string]interface{}, error) {
+	if rawBody == "" {
+		return make(map[string]interface{}), nil
+	}
 	var results map[string]interface{}
-	err := json.Unmarshal([]byte(buf.String()), &results)
+	err := json.Unmarshal([]byte(rawBody), &results)
 	if err != nil {
 		results = make(map[string]interface{})
-		results["results"] = buf.String()
+		results["results"] = rawBody
 	}
 
 	return results, nil
