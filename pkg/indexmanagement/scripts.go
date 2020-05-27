@@ -23,6 +23,8 @@ set -euox pipefail
 
 writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
   --cacert /etc/indexmanagement/keys/admin-ca \
+  --cert /etc/indexmanagement/keys/admin-cert \
+  --key /etc/indexmanagement/keys/admin-key \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
@@ -40,6 +42,8 @@ writeIndex=$(echo "${writeIndices}" | python -c "$CMD")
 
 indices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}/_settings/index.creation_date \
   --cacert /etc/indexmanagement/keys/admin-ca \
+  --cert /etc/indexmanagement/keys/admin-cert \
+  --key /etc/indexmanagement/keys/admin-key \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
@@ -67,6 +71,8 @@ fi
 code=$(curl -sv $ES_SERVICE/${indices}?pretty \
   -w "%{response_code}" \
   --cacert /etc/indexmanagement/keys/admin-ca \
+  --cert /etc/indexmanagement/keys/admin-cert \
+  --key /etc/indexmanagement/keys/admin-key \
   -HContent-Type:application/json \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
