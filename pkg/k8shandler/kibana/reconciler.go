@@ -226,6 +226,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 		"kibana",
 		kibanaPodSpec,
 	)
+
 	kibanaDeployment.Spec.Replicas = &clusterRequest.cluster.Spec.Replicas
 
 	// if we don't have the hash values we shouldn't start/create
@@ -360,6 +361,12 @@ func isDeploymentDifferent(current *apps.Deployment, desired *apps.Deployment) (
 
 	if utils.AreResourcesDifferent(current, desired) {
 		logrus.Debugf("Visualization resource(s) change found, updating %q", current.Name)
+		different = true
+	}
+
+	if *current.Spec.Replicas != *desired.Spec.Replicas {
+		logrus.Infof("Kibana replicas changed. Previous: %d, Current: %d", *current.Spec.Replicas, *desired.Spec.Replicas)
+		*current.Spec.Replicas = *desired.Spec.Replicas
 		different = true
 	}
 
