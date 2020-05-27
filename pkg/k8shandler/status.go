@@ -41,6 +41,8 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 	switch {
 	case allocation == "none":
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
+	case allocation == "primaries":
+		clusterStatus.ShardAllocationEnabled = api.ShardAllocationPrimaries
 	case err != nil:
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
 	default:

@@ -440,8 +440,8 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 			containsClusterCondition(api.UpdatingSettings, v1.ConditionTrue, clusterStatus) {
 
 			// disable shard allocation
-			if ok, err := SetShardAllocation(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, api.ShardAllocationNone, elasticsearchRequest.client); !ok {
-				logrus.Warnf("Unable to disable shard allocation: %v", err)
+			if ok, err := SetShardAllocation(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, api.ShardAllocationPrimaries, elasticsearchRequest.client); !ok {
+				logrus.Warnf("Unable to set shard allocation to primaries: %v", err)
 			}
 
 			// flush nodes
@@ -468,7 +468,7 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 
 			// check that all nodes have been restarted by seeing if they still have the need to cert restart
 			if len(getScheduledCertRedeployNodes(elasticsearchRequest.cluster)) > 0 {
-				return fmt.Errorf("Not all nodes were able to be restarted yet...")
+				return fmt.Errorf("Not all nodes were able to be restarted yet")
 			}
 
 			updateUpdatingSettingsCondition(clusterStatus, v1.ConditionTrue)
@@ -487,7 +487,7 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 			len(podStatus[api.ElasticsearchRoleMaster][api.PodStateTypeNotReady]) > 0 {
 
 			logrus.Warnf("Waiting for all cluster nodes to rejoin after full cluster restart...")
-			return fmt.Errorf("Waiting for all cluster nodes to rejoin after full cluster restart...")
+			return fmt.Errorf("Waiting for all cluster nodes to rejoin after full cluster restart")
 		}
 
 		// reenable shard allocation
