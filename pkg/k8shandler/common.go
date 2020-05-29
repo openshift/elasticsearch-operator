@@ -243,6 +243,8 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 			`--auth-backend-role=jaeger={"verb": "get", "resource": "/jaeger", "resourceAPIGroup": "elasticsearch.jaegertracing.io"}`,
 			`--auth-backend-role=elasticsearch-operator={"namespace": "*", "verb": "*", "resource": "*", "resourceAPIGroup": "logging.openshift.io"}`,
 			fmt.Sprintf("--auth-backend-role=index-management={\"namespace\":\"%s\", \"verb\": \"*\", \"resource\": \"indices\", \"resourceAPIGroup\": \"elasticsearch.openshift.io\"}", namespace),
+			"--auth-admin-role=admin_reader",
+			"--auth-default-role=project_user",
 		},
 		Resources: v1.ResourceRequirements{
 			Limits: v1.ResourceList{

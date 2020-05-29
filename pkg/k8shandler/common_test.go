@@ -431,7 +431,7 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 	}
 }
 
-func TestProxyContainerMetricsTLSDefined(t *testing.T) {
+func TestProxyContainerSpec(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
@@ -444,6 +444,8 @@ func TestProxyContainerMetricsTLSDefined(t *testing.T) {
 		"--metrics-listening-address=:60001",
 		"--metrics-tls-cert=/etc/proxy/secrets/tls.crt",
 		"--metrics-tls-key=/etc/proxy/secrets/tls.key",
+		"--auth-admin-role=admin_reader",
+		"--auth-default-role=project_user",
 	}
 
 	for _, arg := range wantArgs {
