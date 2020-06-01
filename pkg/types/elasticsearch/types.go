@@ -129,3 +129,29 @@ type CatIndicesResponse struct {
 	StoreSize        string `json:"store.size,omitempty"`
 	PrimaryStoreSize string `json:"pri.store.size,omitempty"`
 }
+
+type MasterNodeAndNodeStateResponse struct {
+	ClusterName string                       `json:"cluster_name,omitempty"`
+	MasterNode  string                       `json:"master_node,omitempty"`
+	Nodes       map[string]NodeStateResponse `json:"nodes,omitempty"`
+}
+
+type NodesStateResponse struct {
+	Nodes map[string]NodeStateResponse `json:"nodes,omitempty"`
+}
+
+type NodeStateResponse struct {
+	Name             string            `json:"name,omitempty"`
+	EphemeralID      string            `json:"ephemeral_id,omitempty"`
+	TransportAddress string            `json:"transport_address,omitempty"`
+	Attributes       map[string]string `json:"attributes,omitempty"`
+}
+
+type StatsNodesResponse struct {
+	Nodes StatsNode `json:"nodes,omitempty"`
+}
+
+type StatsNode struct {
+	Versions []string       `json:"versions,omitempty"`
+	Count    map[string]int `json:"count,omitempty"`
+}
