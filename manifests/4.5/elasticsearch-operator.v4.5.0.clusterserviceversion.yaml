@@ -86,8 +86,6 @@ spec:
     This operator only supports OKD Cluster Logging and Jaeger.  It is tightly coupled to each and is not currently capable of
     being used as a general purpose manager of Elasticsearch clusters running on OKD.
 
-    It is recommended this operator be deployed to the **openshift-operators** namespace to properly support the Cluster Logging and Jaeger use cases.
-
     Once installed, the operator provides the following features:
     * **Create/Destroy**: Deploy an Elasticsearch cluster to the same namespace in which the Elasticsearch custom resource is created.
 
