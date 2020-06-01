@@ -1,10 +1,14 @@
 package elasticsearch
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+
+	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 )
 
 func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
@@ -205,4 +209,74 @@ func (ec *esClient) DoSynchronizedFlush() (bool, error) {
 	}
 
 	return payload.StatusCode == 200, payload.Error
+}
+
+func (ec *esClient) GetLowestClusterVersion() (string, error) {
+	payload := &EsRequest{
+		Method: http.MethodGet,
+		URI:    "_cluster/stats/nodes/_all",
+	}
+
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return "", payload.Error
+	}
+	if payload.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get cluster state for %q. Error code: %v, %v", ec.cluster, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+
+	res := &estypes.StatsNodesResponse{}
+	err := json.Unmarshal([]byte(payload.RawResponseBody), res)
+	if err != nil {
+		return "", fmt.Errorf("failed decoding raw response body into `estypes.StatsNodesResponse` for %s: %s", ec.cluster, err)
+	}
+
+	if len(res.Nodes.Versions) == 0 {
+		return "", fmt.Errorf("Received no node versions from cluster %q", ec.cluster)
+	}
+
+	if len(res.Nodes.Versions) == 1 {
+		return res.Nodes.Versions[0], nil
+	}
+
+	lowestVersion := res.Nodes.Versions[0]
+	for _, version := range res.Nodes.Versions {
+		comparison := comparators.CompareVersions(lowestVersion, version)
+
+		if comparison < 0 {
+			lowestVersion = version
+		}
+	}
+
+	return lowestVersion, nil
+}
+
+func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {
+
+	payload := &EsRequest{
+		Method: http.MethodGet,
+		URI:    "_cluster/state/nodes",
+	}
+
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	if payload.Error != nil {
+		return false, payload.Error
+	}
+	if payload.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("failed to get cluster state for %q. Error code: %v, %v", ec.cluster, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	}
+
+	res := &estypes.NodesStateResponse{}
+	err := json.Unmarshal([]byte(payload.RawResponseBody), res)
+	if err != nil {
+		return false, fmt.Errorf("failed decoding raw response body into `estypes.NodesStateResponse` for %s: %s", ec.cluster, err)
+	}
+
+	for _, node := range res.Nodes {
+		if node.Name == nodeName {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
