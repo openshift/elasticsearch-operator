@@ -44,10 +44,10 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
 	case allocation == "primaries":
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationPrimaries
-	case err != nil:
-		clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
-	default:
+	case allocation == "all":
 		clusterStatus.ShardAllocationEnabled = api.ShardAllocationAll
+	default:
+		clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
 	}
 
 	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, elasticsearchRequest.client)
