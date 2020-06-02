@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,6 +76,10 @@ var (
 func (r *ReconcileKibanaSecret) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	es, err := k8shandler.GetElasticsearchCR(r.client, request.Namespace)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return reconcileResult, nil
+		}
+
 		return reconcileResult, fmt.Errorf("skipping kibana secret reconciliation in %q: %s", request.Namespace, err)
 	}
 
