@@ -42,6 +42,10 @@ type Client interface {
 	SetMinMasterNodes(numberMasters int32) (bool, error)
 	DoSynchronizedFlush() (bool, error)
 
+	// Cluster State API
+	GetLowestClusterVersion() (string, error)
+	IsNodeInCluster(nodeName string) (bool, error)
+
 	// Health API
 	GetClusterHealth() (api.ClusterHealth, error)
 	GetClusterHealthStatus() (string, error)

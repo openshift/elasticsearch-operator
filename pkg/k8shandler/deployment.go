@@ -286,13 +286,7 @@ func (node *deploymentNode) replicaCount() (error, int32) {
 
 func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := node.esClient.GetClusterNodeCount()
-		if err != nil {
-			logrus.Warnf("Unable to get cluster size waiting for %v to rejoin cluster", node.name())
-			return false, getErr
-		}
-
-		return (node.clusterSize <= clusterSize), nil
+		return node.esClient.IsNodeInCluster(node.name())
 	})
 
 	return err, (err == nil)
@@ -300,13 +294,9 @@ func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 
 func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
-		clusterSize, getErr := node.esClient.GetClusterNodeCount()
-		if err != nil {
-			logrus.Warnf("Unable to get cluster size waiting for %v to leave cluster", node.name())
-			return false, getErr
-		}
+		inCluster, checkErr := node.esClient.IsNodeInCluster(node.name())
 
-		return (node.clusterSize > clusterSize), nil
+		return !inCluster, checkErr
 	})
 
 	return err, (err == nil)
@@ -604,6 +594,33 @@ func (node *deploymentNode) executeUpdate() error {
 		}
 		return nil
 	})
+}
+
+func (node *deploymentNode) progressNodeChanges(upgradeStatus *api.ElasticsearchNodeStatus) error {
+	if node.isChanged() {
+		if err := node.executeUpdate(); err != nil {
+			return err
+		}
+
+		node.currentRevision = node.nodeRevision()
+
+		if err := node.unpause(); err != nil {
+			return fmt.Errorf("unable to unpause node %q: %v", node.name(), err)
+		}
+
+		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
+
+		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
+			return fmt.Errorf("Timed out waiting for node %v to rollout", node.name())
+		}
+
+		if err := node.pause(); err != nil {
+			return fmt.Errorf("unable to pause node %q: %v", node.name(), err)
+		}
+
+		node.refreshHashes()
+	}
+	return nil
 }
 
 func (node *deploymentNode) progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error {
