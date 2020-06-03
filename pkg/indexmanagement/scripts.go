@@ -7,6 +7,8 @@ code=$(curl "$ES_SERVICE/${POLICY_MAPPING}-write/_rollover?pretty" \
   -w "%{response_code}" \
   -sv \
   --cacert /etc/indexmanagement/keys/admin-ca \
+  --cert /etc/indexmanagement/keys/admin-cert \
+  --key /etc/indexmanagement/keys/admin-key \
   -HContent-Type:application/json \
   -XPOST \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
