@@ -1,7 +1,7 @@
 package indexmanagement
 
 const rolloverScript = `
-set -euox pipefail
+set -euo pipefail
 decoded=$(echo $PAYLOAD | base64 -d)
 code=$(curl "$ES_SERVICE/${POLICY_MAPPING}-write/_rollover?pretty" \
   -w "%{response_code}" \
@@ -19,7 +19,7 @@ cat /tmp/response.txt
 exit 1
 `
 const deleteScript = `
-set -euox pipefail
+set -euo pipefail
 
 writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
   --cacert /etc/indexmanagement/keys/admin-ca \
