@@ -237,6 +237,14 @@ spec:
           verbs:
           - create
           - delete
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - list
+          - get
+          - update
       deployments:
       - name: elasticsearch-operator
         spec:
@@ -270,6 +278,10 @@ spec:
                       valueFrom:
                         fieldRef:
                           fieldPath: metadata.name
+                    - name: POD_NAMESPACE
+                      valueFrom:
+                        fieldRef:
+                          fieldPath: metadata.namespace
                     - name: OPERATOR_NAME
                       value: "elasticsearch-operator"
                     - name: PROXY_IMAGE

@@ -24,6 +24,10 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		esClient: esClient,
 	}
 
+	if err := elasticsearchRequest.EnsureNamespaceLabel(); err != nil {
+		return fmt.Errorf("Failed to ensure labels for operator namespace: %v", err)
+	}
+
 	// Ensure existence of servicesaccount
 	if err := elasticsearchRequest.CreateOrUpdateServiceAccount(); err != nil {
 		return fmt.Errorf("Failed to reconcile ServiceAccount for Elasticsearch cluster: %v", err)

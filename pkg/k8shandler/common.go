@@ -681,7 +681,11 @@ func newNetworkPolicy(namespace string) networking.NetworkPolicy {
 							},
 							// This needs to be present but empty so it will select all namespaces
 							// since we do not have a label for our operator namespace
-							NamespaceSelector: &metav1.LabelSelector{},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									namespaceLabelKey: namespaceLabelValue,
+								},
+							},
 						},
 					},
 					Ports: []networking.NetworkPolicyPort{
