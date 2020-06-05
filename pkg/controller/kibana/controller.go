@@ -1,13 +1,14 @@
 package kibana
 
 import (
-	"fmt"
 	"time"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -57,21 +58,21 @@ type ReconcileKibana struct {
 }
 
 // Reconcile reads that state of the cluster for a Kibana object and makes changes based on the state read
-var (
-	reconcilePeriod = 30 * time.Second
-	reconcileResult = reconcile.Result{RequeueAfter: reconcilePeriod}
-)
-
 func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	es, err := k8shandler.GetElasticsearchCR(r.client, request.Namespace)
 	if err != nil {
-		return reconcileResult, fmt.Errorf("skipping kibana reconciliation in %q: %s", request.Namespace, err)
+		logrus.Infof("skipping kibana reconciliation in %q: %s", request.Namespace, err)
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	esClient := elasticsearch.NewClient(es.Name, es.Namespace, r.client)
 	if err := kibana.Reconcile(request, r.client, esClient); err != nil {
-		return reconcileResult, err
+		if errors.IsNotFound(err) {
+			return reconcile.Result{Requeue: true}, nil
+		}
+		logrus.Errorf("kibana reconcile err %v", err)
+		return reconcile.Result{}, err
 	}
 
-	return reconcileResult, nil
+	return reconcile.Result{}, nil
 }
