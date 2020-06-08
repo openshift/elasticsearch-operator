@@ -278,11 +278,6 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		if err := EnforceNetworkPolicy(node.self.Namespace, node.client, node.self.ObjectMeta.OwnerReferences); err != nil {
-			logrus.Warnf("Unable to create network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return
-		}
-
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
 	}
 
@@ -341,11 +336,6 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
-
-		if err := RelaxNetworkPolicy(node.self.Namespace, node.client); err != nil {
-			logrus.Warnf("Unable to delete network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return
-		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
@@ -494,11 +484,6 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		if err := EnforceNetworkPolicy(node.self.Namespace, node.client, node.self.ObjectMeta.OwnerReferences); err != nil {
-			logrus.Warnf("Unable to create network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return err
-		}
-
 		if err := node.executeUpdate(); err != nil {
 			return err
 		}
@@ -549,11 +534,6 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
-
-		if err := RelaxNetworkPolicy(node.self.Namespace, node.client); err != nil {
-			logrus.Warnf("Unable to delete network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return err
-		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
