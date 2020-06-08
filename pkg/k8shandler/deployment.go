@@ -716,6 +716,11 @@ func (node *deploymentNode) isChanged() bool {
 			logger.Debugf("Container Args are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
+		if !reflect.DeepEqual(desiredContainer.Ports, nodeContainer.Ports) {
+			nodeContainer.Ports = desiredContainer.Ports
+			logger.Debugf("Container Ports are different between current and desired for %s", nodeContainer.Name)
+			changed = true
+		}
 		var updatedContainer v1.Container
 		var resourceUpdated bool
 		if updatedContainer, resourceUpdated = updateResources(node, nodeContainer, desiredContainer); resourceUpdated {
