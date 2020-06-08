@@ -48,6 +48,10 @@ func Reconcile(request reconcile.Request, k8sClient client.Client, esClient elas
 
 	err := k8sClient.Get(context.TODO(), key, kibanaInstance)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
 		return err
 	}
 
