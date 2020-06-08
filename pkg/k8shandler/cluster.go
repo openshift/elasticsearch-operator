@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 
@@ -605,10 +604,6 @@ func (elasticsearchRequest *ElasticsearchRequest) fullClusterRestart(scheduledUp
 		if containsClusterCondition(api.Restarting, v1.ConditionFalse, clusterStatus) &&
 			containsClusterCondition(api.UpdatingSettings, v1.ConditionTrue, clusterStatus) {
 
-			if err := EnforceNetworkPolicy(elasticsearchRequest.cluster.Namespace, elasticsearchRequest.client, []metav1.OwnerReference{getOwnerRef(elasticsearchRequest.cluster)}); err != nil {
-				return fmt.Errorf("Unable to create network policy for cluster %s in namespace %s: %v", elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, err)
-			}
-
 			// disable shard allocation
 			if ok, err := esClient.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
 				return fmt.Errorf("Unable to set shard allocation to primaries: %v", err)
@@ -675,10 +670,6 @@ func (elasticsearchRequest *ElasticsearchRequest) fullClusterRestart(scheduledUp
 	// 5 -- recovery
 	// wait for cluster to go yellow/green again
 	if containsClusterCondition(api.Restarting, v1.ConditionTrue, clusterStatus) {
-
-		if err := RelaxNetworkPolicy(elasticsearchRequest.cluster.Namespace, elasticsearchRequest.client); err != nil {
-			return fmt.Errorf("Unable to delete network policy for cluster %s in namespace %s: %v", elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, err)
-		}
 
 		status, err := esClient.GetClusterHealthStatus()
 		if err != nil {

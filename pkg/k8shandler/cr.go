@@ -15,7 +15,11 @@ func GetElasticsearchCR(c client.Client, ns string) (*loggingv1.Elasticsearch, e
 	opts := &client.ListOptions{Namespace: ns}
 
 	if err := c.List(context.TODO(), opts, esl); err != nil {
-		return nil, fmt.Errorf("failed to find elasticsearch instance in %q: %w", ns, err)
+		if errors.IsNotFound(err) {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("unable to get elasticsearch instance in %q: %w", ns, err)
 	}
 
 	if len(esl.Items) == 0 {
