@@ -1,7 +1,6 @@
 package proxyconfig
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
@@ -9,6 +8,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -82,7 +82,11 @@ type ReconcileProxyConfig struct {
 func (r *ReconcileProxyConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	es, err := k8shandler.GetElasticsearchCR(r.client, request.Namespace)
 	if err != nil {
-		return reconcileResult, fmt.Errorf("skipping proxy config reconciliation in %q: %s", request.Namespace, err)
+		if errors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
+
+		return reconcileResult, err
 	}
 
 	esClient := elasticsearch.NewClient(es.Name, es.Namespace, r.client)

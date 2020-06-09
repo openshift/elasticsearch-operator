@@ -278,11 +278,6 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		if err := EnforceNetworkPolicy(node.self.Namespace, node.client, node.self.ObjectMeta.OwnerReferences); err != nil {
-			logrus.Warnf("Unable to create network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return
-		}
-
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.NodeRestarting
 	}
 
@@ -341,11 +336,6 @@ func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNode
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
-
-		if err := RelaxNetworkPolicy(node.self.Namespace, node.client); err != nil {
-			logrus.Warnf("Unable to delete network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return
-		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
@@ -494,11 +484,6 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == "" ||
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
-		if err := EnforceNetworkPolicy(node.self.Namespace, node.client, node.self.ObjectMeta.OwnerReferences); err != nil {
-			logrus.Warnf("Unable to create network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return err
-		}
-
 		if err := node.executeUpdate(); err != nil {
 			return err
 		}
@@ -549,11 +534,6 @@ func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) 
 	}
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
-
-		if err := RelaxNetworkPolicy(node.self.Namespace, node.client); err != nil {
-			logrus.Warnf("Unable to delete network policy for cluster %s in namespace %s: %v", node.clusterName, node.self.Namespace, err)
-			return err
-		}
 
 		upgradeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		upgradeStatus.UpgradeStatus.UnderUpgrade = ""
@@ -702,6 +682,62 @@ func (node *statefulSetNode) progressUnshedulableNode(upgradeStatus *api.Elastic
 			return err
 		}
 
+	}
+	return nil
+}
+
+func (node *statefulSetNode) progressNodeChanges(upgradeStatus *api.ElasticsearchNodeStatus) error {
+	if node.isChanged() {
+		replicas, err := node.replicaCount()
+		if err != nil {
+			logrus.Warnf("Unable to get number of replicas prior to restart for %v", node.name())
+			return fmt.Errorf("Unable to get number of replicas prior to restart for %v", node.name())
+		}
+
+		if err := node.setPartition(replicas); err != nil {
+			logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+		}
+
+		if err := node.executeUpdate(); err != nil {
+			return err
+		}
+
+		ordinal, err := node.partition()
+		if err != nil {
+			logrus.Infof("Unable to get node ordinal value: %v", err)
+			return err
+		}
+
+		// start partition at replicas and incrementally update it to 0
+		// making sure nodes rejoin between each one
+		for index := ordinal; index > 0; index-- {
+
+			// make sure we have all nodes in the cluster first -- always
+			if err, _ := node.waitForNodeRejoinCluster(); err != nil {
+				logrus.Infof("Timed out waiting for %v to rejoin cluster", node.name())
+				return fmt.Errorf("Timed out waiting for %v to rejoin cluster", node.name())
+			}
+
+			// update partition to cause next pod to be updated
+			if err := node.setPartition(index - 1); err != nil {
+				logrus.Warnf("unable to set partition. E: %s\r\n", err.Error())
+			}
+
+			// wait for the node to leave the cluster
+			if err, _ := node.waitForNodeLeaveCluster(); err != nil {
+				logrus.Infof("Timed out waiting for %v to leave the cluster", node.name())
+				return fmt.Errorf("Timed out waiting for %v to leave the cluster", node.name())
+			}
+		}
+
+		// this is here again because we need to make sure all nodes have rejoined
+		// before we move on and say we're done
+		if err, _ := node.waitForNodeRejoinCluster(); err != nil {
+			logrus.Infof("Timed out waiting for %v to rejoin cluster", node.name())
+			return fmt.Errorf("Timed out waiting for %v to rejoin cluster", node.name())
+		}
+
+		node.refreshHashes()
 	}
 	return nil
 }

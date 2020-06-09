@@ -653,6 +653,7 @@ func newNetworkPolicy(namespace string) networking.NetworkPolicy {
 
 	protocol := v1.ProtocolTCP
 	port := intstr.FromInt(9200)
+	internalPort := intstr.FromInt(9300)
 
 	return networking.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -678,12 +679,49 @@ func newNetworkPolicy(namespace string) networking.NetworkPolicy {
 									"name": "elasticsearch-operator",
 								},
 							},
+							// This needs to be present but empty so it will select all namespaces
+							// since we do not have a label for our operator namespace
+							NamespaceSelector: &metav1.LabelSelector{},
 						},
 					},
 					Ports: []networking.NetworkPolicyPort{
 						{
 							Protocol: &protocol,
 							Port:     &port,
+						},
+					},
+				},
+				{
+					From: []networking.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"component": "elasticsearch",
+								},
+							},
+						},
+					},
+					Ports: []networking.NetworkPolicyPort{
+						{
+							Protocol: &protocol,
+							Port:     &port,
+						},
+					},
+				},
+				{
+					From: []networking.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"component": "elasticsearch",
+								},
+							},
+						},
+					},
+					Ports: []networking.NetworkPolicyPort{
+						{
+							Protocol: &protocol,
+							Port:     &internalPort,
 						},
 					},
 				},

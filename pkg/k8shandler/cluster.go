@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
+	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,6 +14,8 @@ import (
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
+
+const expectedMinVersion = "6.0"
 
 var wrongConfig bool
 var nodes map[string][]NodeTypeInterface
@@ -47,7 +50,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 	elasticsearchRequest.getNodes()
 
 	progressUnshedulableNodes(elasticsearchRequest.cluster)
-	err = elasticsearchRequest.performFullClusterRestart()
+	err = elasticsearchRequest.performCertClusterRestart()
 	if err != nil {
 		return elasticsearchRequest.UpdateClusterStatus()
 	}
@@ -78,20 +81,39 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 	} else {
 
 		if len(scheduledUpgradeNodes) > 0 {
-			for _, node := range scheduledUpgradeNodes {
-				logrus.Debugf("Perform a update for %v", node.name())
-				clusterStatus := elasticsearchRequest.cluster.Status.DeepCopy()
-				_, nodeStatus := getNodeStatus(node.name(), clusterStatus)
 
-				err := node.update(nodeStatus)
+			// get the current ES version
+			version, err := esClient.GetLowestClusterVersion()
+			if err != nil {
+				// this can be because we couldn't get a valid response from ES
+				logrus.Warnf("when trying to get LowestClusterVersion: %v", err)
+			} else {
 
-				addNodeState(node, nodeStatus)
-				if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
-					logrus.Error(err)
-				}
+				logrus.Debugf("Found current cluster version to be %q", version)
+				comparison := comparators.CompareVersions(version, expectedMinVersion)
 
-				if err != nil {
-					logrus.Warnf("Error occurred while updating node %v: %v", node.name(), err)
+				// if it is < what we expect (6.0) then do full cluster restart:
+				if comparison > 0 {
+					// perform a full cluster restart
+					if err := elasticsearchRequest.fullClusterRestart(scheduledUpgradeNodes); err != nil {
+						logrus.Warnf("when trying to perform full cluster restart: %v", err)
+					}
+
+				} else {
+
+					for _, node := range scheduledUpgradeNodes {
+						logrus.Debugf("Perform a update for %v", node.name())
+						clusterStatus := elasticsearchRequest.cluster.Status.DeepCopy()
+						_, nodeStatus := getNodeStatus(node.name(), clusterStatus)
+						err := node.update(nodeStatus)
+						addNodeState(node, nodeStatus)
+						if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
+							logrus.Error(err)
+						}
+						if err != nil {
+							logrus.Warnf("Error occurred while updating node %v: %v", node.name(), err)
+						}
+					}
 				}
 			}
 
@@ -141,6 +163,11 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					}
 
 					elasticsearchRequest.updateMinMasters()
+				}
+
+				// ensure we always have shard allocation to All if we aren't doing an upgrade...
+				if ok, err := esClient.SetShardAllocation(api.ShardAllocationAll); !ok {
+					logrus.Warnf("Unable to enable shard allocation: %v", err)
 				}
 
 				// we only want to update our replicas if we aren't in the middle up an upgrade
@@ -440,10 +467,10 @@ func (elasticsearchRequest *ElasticsearchRequest) updateNodeStatus(status api.El
 	return nil
 }
 
-// Full cluster restart is required when certs need to be refreshed
+// performCertClusterRestart is required when certs need to be refreshed
 // this is a very high priority action since the cluster may be fractured/unusable
 // in the case where certs aren't all rolled out correctly or are expired
-func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() error {
+func (elasticsearchRequest *ElasticsearchRequest) performCertClusterRestart() error {
 	esClient := elasticsearchRequest.esClient
 
 	// make sure we have nodes that are scheduled for full cluster restart first
@@ -535,12 +562,125 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 	// 5 -- recovery
 	// wait for cluster to go green again
 	if containsClusterCondition(api.Restarting, v1.ConditionTrue, clusterStatus) {
-		if status, _ := esClient.GetClusterHealthStatus(); status != "green" {
-			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
-			return fmt.Errorf("Cluster has not completed recovery after restart: %v / green", status)
+		status, err := esClient.GetClusterHealthStatus()
+		if err != nil {
+			return fmt.Errorf("Receieved error while trying to get cluster health for %q: %v", elasticsearchRequest.cluster.Name, err)
+		}
+
+		if !utils.Contains(desiredClusterStates, status) {
+			return fmt.Errorf("Waiting for cluster to recover: %s / %v", status, desiredClusterStates)
 		}
 
 		logrus.Infof("Completed full cluster restart for cert redeploy on %v", elasticsearchRequest.cluster.Name)
+		updateRestartingCondition(clusterStatus, v1.ConditionFalse)
+	}
+
+	return nil
+}
+
+func (elasticsearchRequest *ElasticsearchRequest) fullClusterRestart(scheduledUpgradeNodes []NodeTypeInterface) error {
+	esClient := elasticsearchRequest.esClient
+	clusterStatus := &elasticsearchRequest.cluster.Status
+
+	// 1 -- precheck
+	// no restarting conditions set
+	if len(scheduledUpgradeNodes) > 0 {
+
+		if containsClusterCondition(api.Restarting, v1.ConditionFalse, clusterStatus) &&
+			containsClusterCondition(api.UpdatingSettings, v1.ConditionFalse, clusterStatus) {
+
+			if status, _ := esClient.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
+				return fmt.Errorf("Waiting for cluster %q to be recovered before restarting: %s / %v", elasticsearchRequest.cluster.Name, status, desiredClusterStates)
+			}
+
+			logrus.Infof("Beginning full cluster restart on %v", elasticsearchRequest.cluster.Name)
+
+			// set conditions here for next check
+			updateUpdatingSettingsCondition(clusterStatus, v1.ConditionTrue)
+		}
+
+		// 2 -- prep for restart
+		// condition updatingsettings true
+		if containsClusterCondition(api.Restarting, v1.ConditionFalse, clusterStatus) &&
+			containsClusterCondition(api.UpdatingSettings, v1.ConditionTrue, clusterStatus) {
+
+			// disable shard allocation
+			if ok, err := esClient.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
+				return fmt.Errorf("Unable to set shard allocation to primaries: %v", err)
+			}
+
+			// flush nodes
+			if ok, err := esClient.DoSynchronizedFlush(); !ok {
+				logrus.Warnf("Unable to perform synchronized flush: %v", err)
+			}
+
+			updateRestartingCondition(clusterStatus, v1.ConditionTrue)
+			updateUpdatingSettingsCondition(clusterStatus, v1.ConditionFalse)
+		}
+
+		// 3 -- restart
+		// condition restarting true
+		if containsClusterCondition(api.Restarting, v1.ConditionTrue, clusterStatus) &&
+			containsClusterCondition(api.UpdatingSettings, v1.ConditionFalse, clusterStatus) {
+
+			// call fullClusterRestart on each node that is scheduled for a full cluster restart
+			for _, node := range scheduledUpgradeNodes {
+				_, nodeStatus := getNodeStatus(node.name(), clusterStatus)
+
+				node.progressNodeChanges(nodeStatus)
+
+				addNodeState(node, nodeStatus)
+				if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
+					logrus.Warnf("unable to set node status. %s", err.Error())
+				}
+			}
+
+			// check that all nodes have been restarted by seeing if they still have the need to cert restart
+			if len(getScheduledUpgradeNodes(elasticsearchRequest.cluster)) > 0 {
+				return fmt.Errorf("Not all nodes were able to be restarted yet")
+			}
+
+			updateUpdatingSettingsCondition(clusterStatus, v1.ConditionTrue)
+		}
+	}
+
+	// 4 -- post restart
+	// condition restarting true and updatingsettings true
+	if containsClusterCondition(api.Restarting, v1.ConditionTrue, clusterStatus) &&
+		containsClusterCondition(api.UpdatingSettings, v1.ConditionTrue, clusterStatus) {
+
+		// verify all nodes rejoined
+		// check that we have no failed/notReady nodes
+		logrus.Infof("Waiting for all nodes to rejoin cluster %q in namespace %q", elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace)
+
+		for _, node := range scheduledUpgradeNodes {
+			if err, _ := node.waitForNodeRejoinCluster(); err != nil {
+				return fmt.Errorf("Timed out waiting for %v to rejoin cluster %v", node.name(), elasticsearchRequest.cluster.Name)
+			}
+		}
+
+		// reenable shard allocation
+		if ok, err := esClient.SetShardAllocation(api.ShardAllocationAll); !ok {
+			return fmt.Errorf("Unable to enable shard allocation: %v", err)
+		}
+
+		updateUpdatingSettingsCondition(clusterStatus, v1.ConditionFalse)
+	}
+
+	// 5 -- recovery
+	// wait for cluster to go yellow/green again
+	if containsClusterCondition(api.Restarting, v1.ConditionTrue, clusterStatus) {
+
+		status, err := esClient.GetClusterHealthStatus()
+		if err != nil {
+			return fmt.Errorf("Receieved error while trying to get cluster health for %q: %v", elasticsearchRequest.cluster.Name, err)
+		}
+
+		if !utils.Contains(desiredClusterStates, status) {
+			return fmt.Errorf("Waiting for cluster to recover: %s / %v", status, desiredClusterStates)
+		}
+
+		logrus.Infof("Completed full cluster restart on %v", elasticsearchRequest.cluster.Name)
 		updateRestartingCondition(clusterStatus, v1.ConditionFalse)
 	}
 

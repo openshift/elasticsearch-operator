@@ -22,6 +22,8 @@ type NodeTypeInterface interface {
 	updateReference(node NodeTypeInterface)
 	delete() error
 	isMissing() bool
+	progressNodeChanges(upgradeStatus *api.ElasticsearchNodeStatus) error // this function is used to tell the node to push out its changes
+	waitForNodeRejoinCluster() (error, bool)                              // this function is used to determine if a node has rejoined the cluster
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment
