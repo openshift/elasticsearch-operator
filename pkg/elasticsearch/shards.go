@@ -7,6 +7,23 @@ import (
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
+func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
+
+	payload := &EsRequest{
+		Method:      http.MethodPut,
+		URI:         "_cluster/settings",
+		RequestBody: fmt.Sprintf("{%q:{%q:null}}", "transient", "cluster.routing.allocation.enable"),
+	}
+
+	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+
+	acknowledged := false
+	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+		acknowledged = acknowledgedBool
+	}
+	return (payload.StatusCode == 200 && acknowledged), fmt.Errorf("Response: %s, Error: %v", payload.RawResponseBody, payload.Error)
+}
+
 func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, error) {
 
 	payload := &EsRequest{

@@ -49,6 +49,11 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 
 	elasticsearchRequest.getNodes()
 
+	//clearing transient setting because of a bug in earlier releases which
+	//may leave the shard allocation in an undesirable state
+	if success, err := esClient.ClearTransientShardAllocation(); !success {
+		logrus.Warnf("Unable to clear transient shard allocation for %q %q: %v", elasticsearchRequest.cluster.Namespace, elasticsearchRequest.cluster.Namespace, err)
+	}
 	progressUnshedulableNodes(elasticsearchRequest.cluster)
 	err = elasticsearchRequest.performCertClusterRestart()
 	if err != nil {
