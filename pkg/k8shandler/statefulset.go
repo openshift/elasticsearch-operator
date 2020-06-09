@@ -657,6 +657,11 @@ func (node *statefulSetNode) isChanged() bool {
 			logger.Debugf("Container EnvVars are different between current and desired for %s", nodeContainer.Name)
 			changed = true
 		}
+		if !reflect.DeepEqual(desiredContainer.Ports, nodeContainer.Ports) {
+			nodeContainer.Ports = desiredContainer.Ports
+			logger.Debugf("Container Ports are different between current and desired for %s", nodeContainer.Name)
+			changed = true
+		}
 
 		node.self.Spec.Template.Spec.Containers[index] = nodeContainer
 	}

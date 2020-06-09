@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func Testelasticsearch(t *testing.T) {
+func TestElasticsearchSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "elasticsearch Suite")
+	RunSpecs(t, "Elasticsearch Suite")
 }
