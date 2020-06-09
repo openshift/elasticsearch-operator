@@ -74,6 +74,7 @@ type Client interface {
 	GetIndexReplicaCounts() (map[string]interface{}, error)
 
 	// Shards API
+	ClearTransientShardAllocation() (bool, error)
 	GetShardAllocation() (string, error)
 	SetShardAllocation(state api.ShardAllocationState) (bool, error)
 
