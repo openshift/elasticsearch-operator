@@ -30,7 +30,7 @@ type migrationRequest struct {
 func (mr *migrationRequest) RunKibanaMigrations() error {
 	logrus.Debugf("running Kibana migrations")
 	if index, _ := mr.esClient.GetIndex(kibanaIndex); index == nil {
-		logrus.Infof("skipping kibana migrations: no index %q available", kibanaIndex)
+		logrus.Debugf("skipping kibana migrations: no index %q available", kibanaIndex)
 		return nil
 	}
 
