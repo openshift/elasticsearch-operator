@@ -208,6 +208,18 @@ var _ = Describe("deployment", func() {
 			Expect(desired.isChanged()).To(BeTrue())
 			Expect(desired.self.Spec.Template.Spec.Containers[0].Args).To(Equal(elasticsearch.Args))
 		})
+		It("should recognize container ports when they change", func() {
+			elasticsearch.Ports = []v1.ContainerPort{
+				{
+					Name:          "someotherport",
+					ContainerPort: 60000,
+					Protocol:      v1.ProtocolTCP,
+				},
+			}
+			desired = newDesired(elasticsearch)
+			Expect(desired.isChanged()).To(BeTrue())
+			Expect(desired.self.Spec.Template.Spec.Containers[0].Ports).To(Equal(elasticsearch.Ports))
+		})
 
 	})
 })

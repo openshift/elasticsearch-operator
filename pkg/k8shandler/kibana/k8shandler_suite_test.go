@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestK8sHandler(t *testing.T) {
+func TestKibanaSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "K8sHandler Suite")
+	RunSpecs(t, "Kibana Suite")
 }
