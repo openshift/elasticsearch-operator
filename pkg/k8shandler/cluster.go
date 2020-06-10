@@ -136,6 +136,11 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					elasticsearchRequest.updateMinMasters()
 				}
 
+				// reenable shard allocation
+				if ok, err := SetShardAllocation(cluster.Name, cluster.Namespace, api.ShardAllocationAll, elasticsearchRequest.client); !ok {
+					logrus.Warnf("Unable to enable shard allocation: %v", err)
+				}
+
 				// we only want to update our replicas if we aren't in the middle up an upgrade
 				UpdateReplicaCount(
 					elasticsearchRequest.cluster.Name,
