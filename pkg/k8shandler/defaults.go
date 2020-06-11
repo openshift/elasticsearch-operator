@@ -26,7 +26,11 @@ const (
 	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 	logAppenderAnnotation = "elasticsearch.openshift.io/develLogAppender"
+	yellowClusterState    = "yellow"
+	greenClusterState     = "green"
 )
+
+var desiredClusterStates = []string{yellowClusterState, greenClusterState}
 
 func kibanaIndexMode(mode string) (string, error) {
 	if mode == "" {

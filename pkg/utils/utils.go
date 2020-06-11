@@ -49,3 +49,12 @@ func RandStringBytes(length int) (string, error) {
 	}
 	return string(randString), nil
 }
+func Contains(list []string, s string) bool {
+	for _, item := range list {
+		if s == item {
+			return true
+		}
+	}
+
+	return false
+}

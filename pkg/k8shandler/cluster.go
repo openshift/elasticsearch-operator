@@ -43,6 +43,12 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 
 	elasticsearchRequest.getNodes()
 
+	//clearing transient setting because of a bug in earlier releases which
+	//may leave the shard allocation in an undesirable state
+	cluster := elasticsearchRequest.cluster
+	if success, err := ClearTransientShardAllocation(cluster.Name, cluster.Namespace, elasticsearchRequest.client); !success {
+		logrus.Warnf("Unable to clear transient shard allocation for %q %q: %v", elasticsearchRequest.cluster.Namespace, elasticsearchRequest.cluster.Namespace, err)
+	}
 	progressUnshedulableNodes(elasticsearchRequest.cluster)
 	err = elasticsearchRequest.performFullClusterRestart()
 	if err != nil {
@@ -128,6 +134,11 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 					elasticsearchRequest.setNodeStatus(node, nodeStatus, clusterStatus)
 
 					elasticsearchRequest.updateMinMasters()
+				}
+
+				// reenable shard allocation
+				if ok, err := SetShardAllocation(cluster.Name, cluster.Namespace, api.ShardAllocationAll, elasticsearchRequest.client); !ok {
+					logrus.Warnf("Unable to enable shard allocation: %v", err)
 				}
 
 				// we only want to update our replicas if we aren't in the middle up an upgrade
@@ -440,8 +451,8 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 			containsClusterCondition(api.UpdatingSettings, v1.ConditionTrue, clusterStatus) {
 
 			// disable shard allocation
-			if ok, err := SetShardAllocation(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, api.ShardAllocationNone, elasticsearchRequest.client); !ok {
-				logrus.Warnf("Unable to disable shard allocation: %v", err)
+			if ok, err := SetShardAllocation(elasticsearchRequest.cluster.Name, elasticsearchRequest.cluster.Namespace, api.ShardAllocationPrimaries, elasticsearchRequest.client); !ok {
+				logrus.Warnf("Unable to set shard allocation to primaries: %v", err)
 			}
 
 			// flush nodes
@@ -468,7 +479,7 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 
 			// check that all nodes have been restarted by seeing if they still have the need to cert restart
 			if len(getScheduledCertRedeployNodes(elasticsearchRequest.cluster)) > 0 {
-				return fmt.Errorf("Not all nodes were able to be restarted yet...")
+				return fmt.Errorf("Not all nodes were able to be restarted yet")
 			}
 
 			updateUpdatingSettingsCondition(clusterStatus, v1.ConditionTrue)
@@ -487,7 +498,7 @@ func (elasticsearchRequest *ElasticsearchRequest) performFullClusterRestart() er
 			len(podStatus[api.ElasticsearchRoleMaster][api.PodStateTypeNotReady]) > 0 {
 
 			logrus.Warnf("Waiting for all cluster nodes to rejoin after full cluster restart...")
-			return fmt.Errorf("Waiting for all cluster nodes to rejoin after full cluster restart...")
+			return fmt.Errorf("Waiting for all cluster nodes to rejoin after full cluster restart")
 		}
 
 		// reenable shard allocation

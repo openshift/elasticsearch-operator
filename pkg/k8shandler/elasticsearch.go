@@ -16,7 +16,7 @@ func SetShardAllocation(clusterName, namespace string, state api.ShardAllocation
 	payload := &esCurlStruct{
 		Method:      http.MethodPut,
 		URI:         "_cluster/settings",
-		RequestBody: fmt.Sprintf("{%q:{%q:%q}}", "transient", "cluster.routing.allocation.enable", state),
+		RequestBody: fmt.Sprintf("{%q:{%q:%q}}", "persistent", "cluster.routing.allocation.enable", state),
 	}
 
 	curlESService(clusterName, namespace, payload, client)
@@ -32,14 +32,57 @@ func GetShardAllocation(clusterName, namespace string, client client.Client) (st
 
 	payload := &esCurlStruct{
 		Method: http.MethodGet,
-		URI:    "_cluster/settings",
+		URI:    "_cluster/settings?include_defaults=true",
 	}
 
 	curlESService(clusterName, namespace, payload, client)
 
-	allocation := parseString("transient.cluster.routing.allocation.enable", payload.ResponseBody)
+	var allocation interface{}
 
-	return allocation, payload.Error
+	if value := walkInterfaceMap(
+		"defaults.cluster.routing.allocation.enable",
+		payload.ResponseBody); value != nil {
+
+		allocation = value
+	}
+
+	if value := walkInterfaceMap(
+		"persistent.cluster.routing.allocation.enable",
+		payload.ResponseBody); value != nil {
+
+		allocation = value
+	}
+
+	if value := walkInterfaceMap(
+		"transient.cluster.routing.allocation.enable",
+		payload.ResponseBody); value != nil {
+
+		allocation = value
+	}
+
+	allocationString, ok := allocation.(string)
+	if !ok {
+		allocationString = ""
+	}
+
+	return allocationString, payload.Error
+}
+
+func ClearTransientShardAllocation(clusterName, namespace string, client client.Client) (bool, error) {
+
+	payload := &esCurlStruct{
+		Method:      http.MethodPut,
+		URI:         "_cluster/settings",
+		RequestBody: fmt.Sprintf("{%q:{%q:null}}", "transient", "cluster.routing.allocation.enable"),
+	}
+
+	curlESService(clusterName, namespace, payload, client)
+
+	acknowledged := false
+	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+		acknowledged = acknowledgedBool
+	}
+	return (payload.StatusCode == 200 && acknowledged), payload.Error
 }
 
 func GetNodeDiskUsage(clusterName, namespace, nodeName string, client client.Client) (string, float64, error) {

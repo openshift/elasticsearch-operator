@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 
 	"github.com/sirupsen/logrus"
@@ -245,8 +246,8 @@ func (node *statefulSetNode) isMissing() bool {
 func (node *statefulSetNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
-			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
+		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); !utils.Contains(desiredClusterStates, status) {
+			logrus.Infof("Waiting for cluster to be recovered before restarting %s: %s / %v", node.name(), status, desiredClusterStates)
 			return
 		}
 
@@ -444,9 +445,9 @@ func (node *statefulSetNode) executeUpdate() error {
 
 func (node *statefulSetNode) update(upgradeStatus *api.ElasticsearchNodeStatus) error {
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
-			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
-			return fmt.Errorf("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
+		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); !utils.Contains(desiredClusterStates, status) {
+			logrus.Infof("Waiting for cluster to be recovered before restarting %s: %s / %v", node.name(), status, desiredClusterStates)
+			return fmt.Errorf("Waiting for cluster to be recovered before restarting %s: %s / %v", node.name(), status, desiredClusterStates)
 		}
 
 		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)

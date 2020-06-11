@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 
 	"github.com/sirupsen/logrus"
@@ -320,8 +321,8 @@ func (node *deploymentNode) isMissing() bool {
 func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus) {
 
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
-			logrus.Infof("Waiting for cluster to be fully recovered before restarting %v: %v / green", node.name(), status)
+		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); !utils.Contains(desiredClusterStates, status) {
+			logrus.Infof("Waiting for cluster to be recovered before restarting %s: %s / %v", node.name(), status, desiredClusterStates)
 			return
 		}
 
@@ -345,7 +346,7 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 		if replicas > 0 {
 
 			// disable shard allocation
-			if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
+			if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationPrimaries, node.client); !ok {
 				logrus.Warnf("Unable to disable shard allocation: %v", err)
 				return
 			}
@@ -401,8 +402,8 @@ func (node *deploymentNode) rollingRestart(upgradeStatus *api.ElasticsearchNodeS
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
-		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
-			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
+		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); !utils.Contains(desiredClusterStates, status) {
+			logrus.Infof("Waiting for cluster to recover: %s / %v", status, desiredClusterStates)
 			return
 		}
 
@@ -472,15 +473,9 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	// set our state to being under upgrade
 	if upgradeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue {
-		var status string
-		var err error
-
-		if status, err = GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); err != nil {
-			logrus.Warnf("GetClusterHealthStatus error: %s\n", err.Error())
-		}
-		if status != "green" {
-			logrus.Infof("Waiting for cluster to be fully recovered before upgrading %v: %v / green", node.name(), status)
-			return fmt.Errorf("Cluster not in green state before beginning upgrade: %v", status)
+		if status, _ := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); !utils.Contains(desiredClusterStates, status) {
+			logrus.Infof("Waiting for cluster to be recovered before upgrading %s: %s / %v", node.name(), status, desiredClusterStates)
+			return fmt.Errorf("Cluster not in at least %s state before beginning upgrade: %s", yellowClusterState, status)
 		}
 
 		size, err := GetClusterNodeCount(node.clusterName, node.self.Namespace, node.client)
@@ -496,7 +491,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		upgradeStatus.UpgradeStatus.UpgradePhase == api.ControllerUpdated {
 
 		// disable shard allocation
-		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationNone, node.client); !ok {
+		if ok, err := SetShardAllocation(node.clusterName, node.self.Namespace, api.ShardAllocationPrimaries, node.client); !ok {
 			logrus.Warnf("Unable to disable shard allocation: %v", err)
 			return err
 		}
@@ -547,8 +542,8 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 
 	if upgradeStatus.UpgradeStatus.UpgradePhase == api.RecoveringData {
 
-		if status, err := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); status != "green" {
-			logrus.Infof("Waiting for cluster to complete recovery: %v / green", status)
+		if status, err := GetClusterHealthStatus(node.clusterName, node.self.Namespace, node.client); !utils.Contains(desiredClusterStates, status) {
+			logrus.Infof("Waiting for cluster to recover: %s / %v", status, desiredClusterStates)
 			return err
 		}
 
