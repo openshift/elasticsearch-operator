@@ -84,27 +84,9 @@ var _ = Describe("Reconciling", func() {
 		var esClient elasticsearch.Client
 
 		var (
-			consoleAppLogsLink = &consolev1.ConsoleLink{
+			consoleLink = &consolev1.ConsoleLink{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: AppLogsConsoleLinkName,
-					OwnerReferences: []metav1.OwnerReference{
-						getOwnerRef(cluster),
-					},
-				},
-				Spec: consolev1.ConsoleLinkSpec{
-					Location: consolev1.ApplicationMenu,
-					Link: consolev1.Link{
-						Text: "Logging",
-						Href: "https://",
-					},
-					ApplicationMenu: &consolev1.ApplicationMenuSpec{
-						Section: "Monitoring",
-					},
-				},
-			}
-			consoleInfraLogsLink = &consolev1.ConsoleLink{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: InfraLogsConsoleLinkName,
+					Name: KibanaConsoleLinkName,
 					OwnerReferences: []metav1.OwnerReference{
 						getOwnerRef(cluster),
 					},
@@ -155,22 +137,15 @@ var _ = Describe("Reconciling", func() {
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
 
-			It("should create two new console links for the Kibana route", func() {
+			It("should create one new console link for the Kibana route", func() {
 				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
 
-				key := types.NamespacedName{Name: AppLogsConsoleLinkName}
+				key := types.NamespacedName{Name: KibanaConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
 
 				err := client.Get(context.TODO(), key, got)
 				Expect(err).To(BeNil())
-				Expect(got).To(Equal(consoleAppLogsLink))
-
-				key = types.NamespacedName{Name: InfraLogsConsoleLinkName}
-				got = &consolev1.ConsoleLink{}
-
-				err = client.Get(context.TODO(), key, got)
-				Expect(err).To(BeNil())
-				Expect(got).To(Equal(consoleInfraLogsLink))
+				Expect(got).To(Equal(consoleLink))
 			})
 		})
 
@@ -218,27 +193,20 @@ var _ = Describe("Reconciling", func() {
 					sharingConfigMap,
 					sharingConfigReader,
 					sharingConfigReaderBinding,
-					consoleAppLogsLink,
-					consoleInfraLogsLink,
+					consoleLink,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
 
-			It("should replace existing sharing confimap links with two console links", func() {
+			It("should replace existing sharing confimap links with one console link", func() {
 				Expect(reconcileKibana(cluster, client, esClient, nil)).Should(Succeed())
 
-				key := types.NamespacedName{Name: AppLogsConsoleLinkName}
+				key := types.NamespacedName{Name: KibanaConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
 
 				err := client.Get(context.TODO(), key, got)
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(got).To(Equal(consoleAppLogsLink))
-
-				key = types.NamespacedName{Name: InfraLogsConsoleLinkName}
-				got = &consolev1.ConsoleLink{}
-
-				Expect(client.Get(context.TODO(), key, got)).Should(Succeed())
-				Expect(got).To(Equal(consoleInfraLogsLink))
+				Expect(got).To(Equal(consoleLink))
 
 				// Check old shared config map is deleted
 				key = types.NamespacedName{Name: "sharing-config", Namespace: cluster.GetNamespace()}
