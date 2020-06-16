@@ -32,22 +32,31 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 
 	clusterStatus := cluster.Status.DeepCopy()
 
-	health, err := esClient.GetClusterHealth()
-	if err != nil {
-		health.Status = healthUnknown
+	health := api.ClusterHealth{
+		Status: healthUnknown,
 	}
-	clusterStatus.Cluster = health
 
-	allocation, err := esClient.GetShardAllocation()
-	switch {
-	case allocation == "none":
-		clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
-	case allocation == "primaries":
-		clusterStatus.ShardAllocationEnabled = api.ShardAllocationPrimaries
-	case allocation == "all":
-		clusterStatus.ShardAllocationEnabled = api.ShardAllocationAll
-	default:
-		clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
+	// if the cluster isn't ready don't both to try to curl it
+	if elasticsearchRequest.AnyNodeReady() {
+		health, _ = esClient.GetClusterHealth()
+	}
+
+	clusterStatus.Cluster = health
+	clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
+
+	// if the cluster isn't ready don't both to try to curl it
+	if elasticsearchRequest.AnyNodeReady() {
+		allocation, _ := esClient.GetShardAllocation()
+		switch {
+		case allocation == "none":
+			clusterStatus.ShardAllocationEnabled = api.ShardAllocationNone
+		case allocation == "primaries":
+			clusterStatus.ShardAllocationEnabled = api.ShardAllocationPrimaries
+		case allocation == "all":
+			clusterStatus.ShardAllocationEnabled = api.ShardAllocationAll
+		default:
+			clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
+		}
 	}
 
 	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, elasticsearchRequest.client)
@@ -517,7 +526,7 @@ func updatePodNodeStorageCondition(node *api.ElasticsearchNodeStatus, reason, me
 
 func updateStatusConditions(status *api.ElasticsearchStatus) {
 	if status.Conditions == nil {
-		status.Conditions = make([]api.ClusterCondition, 0, 4)
+		status.Conditions = make([]api.ClusterCondition, 0, 6)
 	}
 	if _, condition := getESNodeCondition(status.Conditions, api.UpdatingSettings); condition == nil {
 		updateUpdatingSettingsCondition(status, v1.ConditionFalse)
@@ -531,6 +540,12 @@ func updateStatusConditions(status *api.ElasticsearchStatus) {
 	if _, condition := getESNodeCondition(status.Conditions, api.Restarting); condition == nil {
 		updateRestartingCondition(status, v1.ConditionFalse)
 	}
+	if _, condition := getESNodeCondition(status.Conditions, api.Recovering); condition == nil {
+		updateRecoveringCondition(status, v1.ConditionFalse)
+	}
+	if _, condition := getESNodeCondition(status.Conditions, api.UpdatingESSettings); condition == nil {
+		updateUpdatingESSettingsCondition(status, v1.ConditionFalse)
+	}
 }
 
 func isPodUnschedulableConditionTrue(conditions []api.ClusterCondition) bool {
@@ -540,6 +555,11 @@ func isPodUnschedulableConditionTrue(conditions []api.ClusterCondition) bool {
 
 func isPodImagePullBackOff(conditions []api.ClusterCondition) bool {
 	condition := getESNodeConditionWithReason(conditions, api.ESContainerWaiting, "ImagePullBackOff")
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+
+func isPodCrashLoopBackOff(conditions []api.ClusterCondition) bool {
+	condition := getESNodeConditionWithReason(conditions, api.ESContainerWaiting, "CrashLoopBackOff")
 	return condition != nil && condition.Status == v1.ConditionTrue
 }
 
@@ -723,6 +743,20 @@ func updateScalingDownCondition(status *api.ElasticsearchStatus, value v1.Condit
 func updateRestartingCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	return updateESNodeCondition(status, &api.ClusterCondition{
 		Type:   api.Restarting,
+		Status: value,
+	})
+}
+
+func updateRecoveringCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:   api.Recovering,
+		Status: value,
+	})
+}
+
+func updateUpdatingESSettingsCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:   api.UpdatingESSettings,
 		Status: value,
 	})
 }

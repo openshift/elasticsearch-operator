@@ -27,20 +27,24 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateIndexManagement(
 	}
 	spec := indexmanagement.VerifyAndNormalize(cluster)
 	policies := spec.PolicyMap()
-	elasticsearchRequest.cullIndexManagement(spec.Mappings, policies)
-	for _, mapping := range spec.Mappings {
-		logger.Debugf("reconciling index management for mapping: %s", mapping.Name)
-		//create or update template
-		if err := elasticsearchRequest.createOrUpdateIndexTemplate(mapping); err != nil {
-			logger.Errorf("Error creating index template for mapping %s: %v", mapping.Name, err)
-			return err
-		}
-		//TODO: Can we have partial success?
-		if err := elasticsearchRequest.initializeIndexIfNeeded(mapping); err != nil {
-			logger.Errorf("Error initializing index for mapping %s: %v", mapping.Name, err)
-			return err
+	if elasticsearchRequest.AnyNodeReady() {
+		elasticsearchRequest.cullIndexManagement(spec.Mappings, policies)
+
+		for _, mapping := range spec.Mappings {
+			logger.Debugf("reconciling index management for mapping: %s", mapping.Name)
+			//create or update template
+			if err := elasticsearchRequest.createOrUpdateIndexTemplate(mapping); err != nil {
+				logger.Errorf("Error creating index template for mapping %s: %v", mapping.Name, err)
+				return err
+			}
+			//TODO: Can we have partial success?
+			if err := elasticsearchRequest.initializeIndexIfNeeded(mapping); err != nil {
+				logger.Errorf("Error intializing index for mapping %s: %v", mapping.Name, err)
+				return err
+			}
 		}
 	}
+
 	if err := indexmanagement.ReconcileCurationConfigmap(elasticsearchRequest.client, elasticsearchRequest.cluster); err != nil {
 		return err
 	}
@@ -72,6 +76,7 @@ func (elasticsearchRequest *ElasticsearchRequest) cullIndexManagement(mappings [
 	for _, mapping := range mappings {
 		mappingNames.Insert(formatTemplateName(mapping.Name))
 	}
+
 	existing, err := esClient.ListTemplates()
 	if err != nil {
 		logger.Warnf("Unable to list existing templates in order to reconcile stale ones: %v", err)

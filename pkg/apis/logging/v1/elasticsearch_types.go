@@ -198,9 +198,10 @@ const (
 type ElasticsearchUpgradePhase string
 
 const (
-	NodeRestarting    ElasticsearchUpgradePhase = "nodeRestarting"
-	RecoveringData    ElasticsearchUpgradePhase = "recoveringData"
-	ControllerUpdated ElasticsearchUpgradePhase = "controllerUpdated"
+	NodeRestarting      ElasticsearchUpgradePhase = "nodeRestarting"
+	RecoveringData      ElasticsearchUpgradePhase = "recoveringData"
+	ControllerUpdated   ElasticsearchUpgradePhase = "controllerUpdated"
+	PreparationComplete ElasticsearchUpgradePhase = "preparationComplete"
 )
 
 // Managed means that the operator is actively managing its resources and trying to keep the component active.
@@ -221,6 +222,8 @@ const (
 	ScalingUp                ClusterConditionType = "ScalingUp"
 	ScalingDown              ClusterConditionType = "ScalingDown"
 	Restarting               ClusterConditionType = "Restarting"
+	Recovering               ClusterConditionType = "Recovering"
+	UpdatingESSettings       ClusterConditionType = "UpdatingESSettings"
 	InvalidMasters           ClusterConditionType = "InvalidMasters"
 	InvalidData              ClusterConditionType = "InvalidData"
 	InvalidRedundancy        ClusterConditionType = "InvalidRedundancy"
@@ -232,13 +235,4 @@ const (
 	Unschedulable            ClusterConditionType = "Unschedulable"
 	NodeStorage              ClusterConditionType = "NodeStorage"
 	CustomImage              ClusterConditionType = "CustomImageIgnored"
-)
-
-type ClusterEvent string
-
-const (
-	ScaledDown            ClusterEvent = "ScaledDown"
-	ScaledUp              ClusterEvent = "ScaledUp"
-	UpdateClusterSettings ClusterEvent = "UpdateClusterSettings"
-	NoEvent               ClusterEvent = "NoEvent"
 )
