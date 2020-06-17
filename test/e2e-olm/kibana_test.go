@@ -77,18 +77,11 @@ func KibanaDeployment(t *testing.T) {
 		t.Errorf("timed out waiting for Deployment kibana: %v", err)
 	}
 
-	appLogsConsoleLink := &consolev1.ConsoleLink{}
-	key := types.NamespacedName{Name: kibana.AppLogsConsoleLinkName}
-	err = waitForObject(t, f.Client, key, appLogsConsoleLink, retryInterval, timeout)
+	consoleLink := &consolev1.ConsoleLink{}
+	key := types.NamespacedName{Name: kibana.KibanaConsoleLinkName}
+	err = waitForObject(t, f.Client, key, consoleLink, retryInterval, timeout)
 	if err != nil {
-		t.Errorf("Console app logs link missing: %v", err)
-	}
-
-	infraLogsConsoleLink := &consolev1.ConsoleLink{}
-	key = types.NamespacedName{Name: kibana.InfraLogsConsoleLinkName}
-	err = waitForObject(t, f.Client, key, infraLogsConsoleLink, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("Console infra logs link missing: %v", err)
+		t.Errorf("Kibana console link missing: %v", err)
 	}
 
 	ctx.Cleanup()

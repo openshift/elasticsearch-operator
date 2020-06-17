@@ -105,7 +105,7 @@ func reconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 		return err
 	}
 
-	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleLinks(); err != nil {
+	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleLink(); err != nil {
 		return err
 	}
 
