@@ -229,7 +229,7 @@ func (clusterRequest *KibanaRequest) deleteKibana5Deployment() error {
 	containers := kibana5.Spec.Template.Spec.Containers
 	for _, c := range containers {
 		if c.Image == getImage() {
-			logrus.Infof("skipping deleting kibana 5 image because kibana 6 installed")
+			logrus.Debugf("skipping deleting kibana 5 image because kibana 6 installed")
 			return nil
 		}
 	}
@@ -311,7 +311,11 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 			for _, secretName := range []string{"kibana", "kibana-proxy"} {
 				hashKey := fmt.Sprintf("%s%s", constants.SecretHashPrefix, secretName)
-				if current.Spec.Template.ObjectMeta.Annotations[hashKey] != kibanaDeployment.Spec.Template.ObjectMeta.Annotations[hashKey] {
+				currentHash := current.Spec.Template.ObjectMeta.Annotations[hashKey]
+				desiredHash := kibanaDeployment.Spec.Template.ObjectMeta.Annotations[hashKey]
+
+				if currentHash != desiredHash {
+					current.Spec.Template.ObjectMeta.Annotations[hashKey] = desiredHash
 					different = true
 				}
 			}
