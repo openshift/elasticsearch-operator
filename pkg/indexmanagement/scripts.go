@@ -3,9 +3,8 @@ package indexmanagement
 const rolloverScript = `
 set -euo pipefail
 decoded=$(echo $PAYLOAD | base64 -d)
-code=$(curl "$ES_SERVICE/${POLICY_MAPPING}-write/_rollover?pretty" \
+code=$(curl -s "$ES_SERVICE/${POLICY_MAPPING}-write/_rollover?pretty" \
   -w "%{response_code}" \
-  -sv \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -HContent-Type:application/json \
   -XPOST \
@@ -64,7 +63,7 @@ else
     echo deleting indices: "${indices}"
 fi
 
-code=$(curl -sv $ES_SERVICE/${indices}?pretty \
+code=$(curl -s $ES_SERVICE/${indices}?pretty \
   -w "%{response_code}" \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -HContent-Type:application/json \
