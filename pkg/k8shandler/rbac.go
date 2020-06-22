@@ -100,7 +100,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 
 	// Cluster role elasticsearch-proxy has to contain subjects for all ES instances
 	esList := &v1.ElasticsearchList{}
-	err := elasticsearchRequest.client.List(context.TODO(), &client.ListOptions{}, esList)
+	err := elasticsearchRequest.client.List(context.TODO(), esList)
 	if err != nil {
 		return err
 	}

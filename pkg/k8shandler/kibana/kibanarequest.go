@@ -6,7 +6,6 @@ import (
 	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,12 +68,15 @@ func (clusterRequest *KibanaRequest) GetClusterResource(objectName string, objec
 func (clusterRequest *KibanaRequest) List(selector map[string]string, object runtime.Object) error {
 	logrus.Debugf("Listing selector: %v, object: %v", selector, object)
 
-	labelSelector := labels.SelectorFromSet(selector)
+	listOpts := []client.ListOption{
+		client.InNamespace(clusterRequest.cluster.Namespace),
+		client.MatchingLabels(selector),
+	}
 
 	return clusterRequest.client.List(
 		context.TODO(),
-		&client.ListOptions{Namespace: clusterRequest.cluster.Namespace, LabelSelector: labelSelector},
 		object,
+		listOpts...,
 	)
 }
 

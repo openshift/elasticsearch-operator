@@ -14,7 +14,7 @@ func GetElasticsearchCR(c client.Client, ns string) (*loggingv1.Elasticsearch, e
 	esl := &loggingv1.ElasticsearchList{}
 	opts := &client.ListOptions{Namespace: ns}
 
-	if err := c.List(context.TODO(), opts, esl); err != nil {
+	if err := c.List(context.TODO(), esl, opts); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
 		}

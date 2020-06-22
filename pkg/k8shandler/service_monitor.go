@@ -67,7 +67,7 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 func serviceMonitor(serviceMonitorName string, namespace string, labels map[string]string) *monitoringv1.ServiceMonitor {
 	return &monitoringv1.ServiceMonitor{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       monitoringv1.DefaultCrdKinds.ServiceMonitor.Kind,
+			Kind:       monitoringv1.ServiceMonitorsKind,
 			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{

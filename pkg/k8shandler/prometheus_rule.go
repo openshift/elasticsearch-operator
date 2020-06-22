@@ -65,7 +65,7 @@ func buildPrometheusRule(ruleName string, namespace string, labels map[string]st
 func prometheusRule(ruleName, namespace string, labels map[string]string) *monitoringv1.PrometheusRule {
 	return &monitoringv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       monitoringv1.DefaultCrdKinds.PrometheusRule.Kind,
+			Kind:       monitoringv1.PrometheusRuleKind,
 			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
 

@@ -34,7 +34,7 @@ gosec: gobindir
 	curl -sSfL  ${GOSEC_URL} | tar -z -C ./bin -x $@
 	@chmod +x $(GOBIN)/$@
 
-OPERATOR_SDK_VERSION?=v0.16.0
+OPERATOR_SDK_VERSION?=v0.18.1
 OPERATOR_SDK_URL=https://github.com/operator-framework/operator-sdk/releases/download/${OPERATOR_SDK_VERSION}/operator-sdk-${OPERATOR_SDK_VERSION}-$(shell uname -i)-${OS_NAME}-gnu
 operator-sdk: gobindir
 	@type -p operator_sdk > /dev/null && \

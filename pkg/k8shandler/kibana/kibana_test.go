@@ -85,8 +85,13 @@ var _ = Describe("Reconciling", func() {
 
 		var (
 			consoleLink = &consolev1.ConsoleLink{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConsoleLink",
+					APIVersion: "console.openshift.io/v1",
+				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: KibanaConsoleLinkName,
+					Name:            KibanaConsoleLinkName,
+					ResourceVersion: "1",
 					OwnerReferences: []metav1.OwnerReference{
 						getOwnerRef(cluster),
 					},

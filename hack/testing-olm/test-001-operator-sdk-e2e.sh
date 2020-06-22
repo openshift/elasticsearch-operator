@@ -49,11 +49,12 @@ fi
 export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
 deploy_elasticsearch_operator
 
-TEST_NAMESPACE=${TEST_NAMESPACE} go test ./test/e2e-olm/... \
-  -root=$(pwd) \
-  -kubeconfig=${KUBECONFIG} \
-  -globalMan test/files/dummycrd.yaml \
-  -v \
-  -parallel=1 \
-  -singleNamespace \
-  -timeout 1200s
+TEST_OPERATOR_NAMESPACE=${TEST_NAMESPACE} \
+TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} \
+  go test ./test/e2e-olm/... \
+    -root=$(pwd) \
+    -kubeconfig=${KUBECONFIG} \
+    -globalMan test/files/dummycrd.yaml \
+    -v \
+    -parallel=1 \
+   -timeout 1200s
