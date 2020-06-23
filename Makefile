@@ -175,6 +175,17 @@ elasticsearch-catalog-build:
 elasticsearch-catalog-deploy:
 	olm_deploy/scripts/catalog-deploy.sh
 
+elasticsearch-catalog-build-local:
+	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry make elasticsearch-catalog-build
+
+# deploys the operator registry image with images from quay.io and creates a catalogsource referencing it
+elasticsearch-catalog-deploy-quay:
+	IMAGE_ELASTICSEARCH_OPERATOR=quay.io/openshift/origin-elasticsearch-operator:latest \
+    IMAGE_ELASTICSEARCH6=quay.io/openshift/origin-logging-elasticsearch6:latest \
+    IMAGE_ELASTICSEARCH_PROXY=quay.io/openshift/origin-elasticsearch-proxy:latest \
+    IMAGE_LOGGING_KIBANA6=quay.io/openshift/origin-logging-kibana6:latest \
+    IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=image-registry.openshift-image-registry.svc:5000/openshift/elasticsearch-operator-registry:latest make elasticsearch-catalog-deploy
+
 # deletes the catalogsource and catalog namespace
 elasticsearch-catalog-uninstall:
 	olm_deploy/scripts/catalog-uninstall.sh
