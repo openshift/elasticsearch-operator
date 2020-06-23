@@ -7,7 +7,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
@@ -350,12 +349,15 @@ func DeletePod(podName, namespace string, client client.Client) error {
 func GetPodList(namespace string, selector map[string]string, sdkClient client.Client) (*v1.PodList, error) {
 	list := &v1.PodList{}
 
-	labelSelector := labels.SelectorFromSet(selector)
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(selector),
+	}
 
 	err := sdkClient.List(
 		context.TODO(),
-		&client.ListOptions{Namespace: namespace, LabelSelector: labelSelector},
 		list,
+		listOpts...,
 	)
 
 	return list, err
