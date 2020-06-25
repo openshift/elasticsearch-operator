@@ -1,5 +1,5 @@
 updates:
-  - file: "{MAJOR}.{MINOR}/elasticsearch-operator.v{MAJOR}.{MINOR}.0.clusterserviceversion.yaml" # relative to this file
+  - file: "bundle/elasticsearch-operator.clusterserviceversion.yaml" # relative to this file
     update_list:
     # replace metadata.name value
     - search: "elasticsearch-operator.v{MAJOR}.{MINOR}.0"
