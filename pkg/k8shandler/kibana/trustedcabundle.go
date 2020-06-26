@@ -53,11 +53,7 @@ func hasTrustedCABundle(configMap *corev1.ConfigMap) bool {
 		return false
 	}
 	caBundle, ok := configMap.Data[constants.TrustedCABundleKey]
-	if ok && caBundle != "" {
-		return true
-	} else {
-		return false
-	}
+	return ok && caBundle != ""
 }
 
 func calcTrustedCAHashValue(configMap *corev1.ConfigMap) (string, error) {
