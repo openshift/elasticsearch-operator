@@ -41,13 +41,18 @@ func KibanaDeployment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = createElasticsearchSecret(t, f, ctx); err != nil {
+	esUUID := utils.GenerateUUID()
+	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
+
+	dataUUID := utils.GenerateUUID()
+	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
+
+	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
-	uuid := utils.GenerateUUID()
-	esDeploymentName := fmt.Sprintf("elasticsearch-cdm-%v-1", uuid)
-	_, err = createElasticsearchCR(t, f, ctx, uuid)
+	esDeploymentName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
+	_, err = createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,11 +62,11 @@ func KibanaDeployment(t *testing.T) {
 		t.Errorf("timed out waiting for Deployment %q: %v", esDeploymentName, err)
 	}
 
-	if err = createKibanaSecret(f, ctx); err != nil {
+	if err = createKibanaSecret(f, ctx, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = createKibanaProxySecret(f, ctx); err != nil {
+	if err = createKibanaProxySecret(f, ctx, esUUID); err != nil {
 		t.Fatal(err)
 	}
 

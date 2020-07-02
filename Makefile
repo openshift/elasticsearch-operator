@@ -160,7 +160,7 @@ uninstall:
 RANDOM_SUFFIX:=$(shell echo $$RANDOM)
 TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
 test-e2e-olm: DEPLOYMENT_NAMESPACE="${TEST_NAMESPACE}"
-test-e2e-olm: gen-example-certs 
+test-e2e-olm:
 	TEST_NAMESPACE=${TEST_NAMESPACE} hack/test-e2e-olm.sh
 
 elasticsearch-catalog: elasticsearch-catalog-build elasticsearch-catalog-deploy

@@ -1,108 +1,132 @@
 package e2e
 
 import (
-	goctx "context"
+	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
 	consolev1 "github.com/openshift/api/console/v1"
-	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
-	framework "github.com/operator-framework/operator-sdk/pkg/test"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/operator-framework/operator-sdk/pkg/test"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	retryInterval        = time.Second * 1
+	retryInterval        = time.Second * 3
 	timeout              = time.Second * 300
-	cleanupRetryInterval = time.Second * 1
+	cleanupRetryInterval = time.Second * 3
 	cleanupTimeout       = time.Second * 30
 	elasticsearchCRName  = "elasticsearch"
 	kibanaCRName         = "kibana"
+	exampleSecretsPath   = "/tmp/example-secrets"
 )
 
 func registerSchemes(t *testing.T) {
-	elasticsearchList := &elasticsearch.ElasticsearchList{}
-	err := framework.AddToFrameworkScheme(elasticsearch.SchemeBuilder.AddToScheme, elasticsearchList)
+	elasticsearchList := &loggingv1.ElasticsearchList{}
+	err := test.AddToFrameworkScheme(loggingv1.SchemeBuilder.AddToScheme, elasticsearchList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
-	kibanaList := &elasticsearch.KibanaList{}
-	err = framework.AddToFrameworkScheme(elasticsearch.SchemeBuilder.AddToScheme, kibanaList)
+	kibanaList := &loggingv1.KibanaList{}
+	err = test.AddToFrameworkScheme(loggingv1.SchemeBuilder.AddToScheme, kibanaList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
 	consoleLinkList := &consolev1.ConsoleLinkList{}
-	err = framework.AddToFrameworkScheme(consolev1.Install, consoleLinkList)
+	err = test.AddToFrameworkScheme(consolev1.Install, consoleLinkList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 }
 
-func createElasticsearchCR(t *testing.T, f *framework.Framework, ctx *framework.TestCtx, uuid string) (*elasticsearch.Elasticsearch, error) {
-	namespace, err := ctx.GetNamespace()
+func elasticsearchNameFor(uuid string) string {
+	return fmt.Sprintf("%s-%s", elasticsearchCRName, uuid)
+}
+
+func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, esUUID, dataUUID string, replicas int) (*loggingv1.Elasticsearch, error) {
+	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return nil, fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	cpuValue := resource.MustParse("100m")
+	cpuValue := resource.MustParse("256m")
 	memValue := resource.MustParse("2Gi")
 
-	esDataNode := elasticsearch.ElasticsearchNode{
-		Roles: []elasticsearch.ElasticsearchNodeRole{
-			elasticsearch.ElasticsearchRoleClient,
-			elasticsearch.ElasticsearchRoleData,
-			elasticsearch.ElasticsearchRoleMaster,
+	storageClassName := "gp2"
+	storageClassSize := resource.MustParse("2Gi")
+
+	esDataNode := loggingv1.ElasticsearchNode{
+		Roles: []loggingv1.ElasticsearchNodeRole{
+			loggingv1.ElasticsearchRoleClient,
+			loggingv1.ElasticsearchRoleData,
+			loggingv1.ElasticsearchRoleMaster,
 		},
-		NodeCount: int32(1),
-		Storage:   elasticsearch.ElasticsearchStorageSpec{},
-		GenUUID:   &uuid,
+		NodeCount: int32(replicas),
+		Storage: loggingv1.ElasticsearchStorageSpec{
+			StorageClassName: &storageClassName,
+			Size:             &storageClassSize,
+		},
+		GenUUID: &dataUUID,
 	}
 
 	// create elasticsearch custom resource
-	cr := &elasticsearch.Elasticsearch{
+	cr := &loggingv1.Elasticsearch{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Elasticsearch",
-			APIVersion: elasticsearch.SchemeGroupVersion.String(),
+			APIVersion: loggingv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      elasticsearchCRName,
+			Name:      elasticsearchNameFor(esUUID),
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"elasticsearch.openshift.io/develLogAppender": "console",
-				"elasticsearch.openshift.io/loglevel":         "trace",
+				"loggingv1.openshift.io/develLogAppender": "console",
+				"loggingv1.openshift.io/loglevel":         "trace",
 			},
 		},
-		Spec: elasticsearch.ElasticsearchSpec{
-			Spec: elasticsearch.ElasticsearchNodeSpec{
+		Spec: loggingv1.ElasticsearchSpec{
+			Spec: loggingv1.ElasticsearchNodeSpec{
 				Image: "",
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceMemory: memValue,
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: memValue,
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    cpuValue,
-						v1.ResourceMemory: memValue,
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    cpuValue,
+						corev1.ResourceMemory: memValue,
 					},
 				},
 			},
-			Nodes: []elasticsearch.ElasticsearchNode{
+			Nodes: []loggingv1.ElasticsearchNode{
 				esDataNode,
 			},
-			ManagementState:  elasticsearch.ManagementStateManaged,
-			RedundancyPolicy: elasticsearch.ZeroRedundancy,
+			ManagementState:  loggingv1.ManagementStateManaged,
+			RedundancyPolicy: loggingv1.ZeroRedundancy,
 		},
 	}
 
 	t.Logf("Creating Elasticsearch CR: %v", cr)
-	err = f.Client.Create(goctx.TODO(), cr, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+
+	cleanupOpts := &test.CleanupOptions{
+		TestContext:   ctx,
+		Timeout:       cleanupTimeout,
+		RetryInterval: cleanupRetryInterval,
+	}
+
+	err = f.Client.Create(context.TODO(), cr, cleanupOpts)
 	if err != nil {
 		return nil, fmt.Errorf("could not create exampleElasticsearch: %v", err)
 	}
@@ -110,31 +134,75 @@ func createElasticsearchCR(t *testing.T, f *framework.Framework, ctx *framework.
 	return cr, nil
 }
 
+func updateElasticsearchSpec(t *testing.T, f *test.Framework, desired *loggingv1.Elasticsearch) error {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
+		current := &loggingv1.Elasticsearch{}
+		key := client.ObjectKey{Name: desired.GetName(), Namespace: desired.GetNamespace()}
+
+		if err := f.Client.Get(context.TODO(), key, current); err != nil {
+			if errors.IsNotFound(err) {
+				// Stop retry because CR not found
+				return false, err
+			}
+
+			// Transient error retry
+			return false, nil
+		}
+
+		current.Spec = desired.Spec
+
+		t.Logf("Update Spec: %#v", current.Spec)
+
+		if err := f.Client.Update(context.TODO(), current); err != nil {
+			if errors.IsConflict(err) {
+				// Retry update because resource needs to get updated
+				return false, nil
+			}
+
+			// Stop retry not recoverable error
+			return false, err
+		}
+
+		return true, nil
+	})
+}
+
 // Create the secret that would be generated by CLO normally
-func createElasticsearchSecret(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
+func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Context, uuid string) error {
 	t.Log("Creating required secret")
-	namespace, err := ctx.GetNamespace()
+	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return fmt.Errorf("Could not get namespace: %v", err)
 
 	}
 
+	if err := generateCertificates(t, namespace, uuid); err != nil {
+		return err
+	}
+
 	elasticsearchSecret := utils.Secret(
-		elasticsearchCRName,
+		elasticsearchNameFor(uuid),
 		namespace,
 		map[string][]byte{
-			"elasticsearch.key": utils.GetFileContents("/tmp/example-secrets/elasticsearch.key"),
-			"elasticsearch.crt": utils.GetFileContents("/tmp/example-secrets/elasticsearch.crt"),
-			"logging-es.key":    utils.GetFileContents("/tmp/example-secrets/logging-es.key"),
-			"logging-es.crt":    utils.GetFileContents("/tmp/example-secrets/logging-es.crt"),
-			"admin-key":         utils.GetFileContents("/tmp/example-secrets/system.admin.key"),
-			"admin-cert":        utils.GetFileContents("/tmp/example-secrets/system.admin.crt"),
-			"admin-ca":          utils.GetFileContents("/tmp/example-secrets/ca.crt"),
+			"elasticsearch.key": getCertificateContents("elasticsearch.key", uuid),
+			"elasticsearch.crt": getCertificateContents("elasticsearch.crt", uuid),
+			"logging-es.key":    getCertificateContents("logging-es.key", uuid),
+			"logging-es.crt":    getCertificateContents("logging-es.crt", uuid),
+			"admin-key":         getCertificateContents("system.admin.key", uuid),
+			"admin-cert":        getCertificateContents("system.admin.crt", uuid),
+			"admin-ca":          getCertificateContents("ca.crt", uuid),
 		},
 	)
 
 	t.Logf("Creating secret %s/%s", elasticsearchSecret.Namespace, elasticsearchSecret.Name)
-	err = f.Client.Create(goctx.TODO(), elasticsearchSecret, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+
+	cleanupOpts := &test.CleanupOptions{
+		TestContext:   ctx,
+		Timeout:       cleanupTimeout,
+		RetryInterval: cleanupRetryInterval,
+	}
+
+	err = f.Client.Create(context.TODO(), elasticsearchSecret, cleanupOpts)
 	if err != nil {
 		return err
 	}
@@ -142,32 +210,34 @@ func createElasticsearchSecret(t *testing.T, f *framework.Framework, ctx *framew
 	return nil
 }
 
-func updateElasticsearchSecret(t *testing.T, f *framework.Framework, ctx *framework.TestCtx) error {
-	namespace, err := ctx.GetNamespace()
+func updateElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Context, uuid string) error {
+	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return fmt.Errorf("Could not get namespace: %v", err)
 	}
 
-	elasticsearchSecret := &v1.Secret{}
+	elasticsearchSecret := &corev1.Secret{}
 
-	secretName := types.NamespacedName{Name: elasticsearchCRName, Namespace: namespace}
-	if err = f.Client.Get(goctx.TODO(), secretName, elasticsearchSecret); err != nil {
+	name := elasticsearchNameFor(uuid)
+	secretName := types.NamespacedName{Name: name, Namespace: namespace}
+
+	if err = f.Client.Get(context.TODO(), secretName, elasticsearchSecret); err != nil {
 		return fmt.Errorf("Could not get secret %s: %v", elasticsearchCRName, err)
 	}
 
 	elasticsearchSecret.Data = map[string][]byte{
-		"elasticsearch.key": utils.GetFileContents("/tmp/example-secrets/elasticsearch.key"),
-		"elasticsearch.crt": utils.GetFileContents("/tmp/example-secrets/elasticsearch.crt"),
-		"logging-es.key":    utils.GetFileContents("/tmp/example-secrets/logging-es.key"),
-		"logging-es.crt":    utils.GetFileContents("/tmp/example-secrets/logging-es.crt"),
-		"admin-key":         utils.GetFileContents("/tmp/example-secrets/system.admin.key"),
-		"admin-cert":        utils.GetFileContents("/tmp/example-secrets/system.admin.crt"),
-		"admin-ca":          utils.GetFileContents("/tmp/example-secrets/ca.crt"),
+		"elasticsearch.key": getCertificateContents("elasticsearch.key", uuid),
+		"elasticsearch.crt": getCertificateContents("elasticsearch.crt", uuid),
+		"logging-es.key":    getCertificateContents("logging-es.key", uuid),
+		"logging-es.crt":    getCertificateContents("logging-es.crt", uuid),
+		"admin-key":         getCertificateContents("system.admin.key", uuid),
+		"admin-cert":        getCertificateContents("system.admin.crt", uuid),
+		"admin-ca":          getCertificateContents("ca.crt", uuid),
 		"dummy":             []byte("blah"),
 	}
 
 	t.Log("Updating required secret...")
-	err = f.Client.Update(goctx.TODO(), elasticsearchSecret)
+	err = f.Client.Update(context.TODO(), elasticsearchSecret)
 	if err != nil {
 		return err
 	}
@@ -175,49 +245,54 @@ func updateElasticsearchSecret(t *testing.T, f *framework.Framework, ctx *framew
 	return nil
 }
 
-func createKibanaCR(namespace string) *elasticsearch.Kibana {
+func createKibanaCR(namespace string) *loggingv1.Kibana {
 	cpuValue, _ := resource.ParseQuantity("100m")
 	memValue, _ := resource.ParseQuantity("256Mi")
 
-	return &elasticsearch.Kibana{
+	return &loggingv1.Kibana{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kibana",
 			Namespace: namespace,
 		},
-		Spec: elasticsearch.KibanaSpec{
-			ManagementState: elasticsearch.ManagementStateManaged,
+		Spec: loggingv1.KibanaSpec{
+			ManagementState: loggingv1.ManagementStateManaged,
 			Replicas:        1,
-			Resources: &v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: memValue,
+			Resources: &corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: memValue,
 				},
-				Requests: v1.ResourceList{
-					v1.ResourceCPU:    cpuValue,
-					v1.ResourceMemory: memValue,
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    cpuValue,
+					corev1.ResourceMemory: memValue,
 				},
 			},
 		},
 	}
 }
 
-func createKibanaSecret(f *framework.Framework, ctx *framework.TestCtx) error {
-	namespace, err := ctx.GetNamespace()
+func createKibanaSecret(f *test.Framework, ctx *test.Context, esUUID string) error {
+	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return fmt.Errorf("Could not get namespace: %v", err)
-
 	}
 
 	kibanaSecret := utils.Secret(
 		kibanaCRName,
 		namespace,
 		map[string][]byte{
-			"key":  utils.GetFileContents("/tmp/example-secrets/system.logging.kibana.key"),
-			"cert": utils.GetFileContents("/tmp/example-secrets/system.logging.kibana.crt"),
-			"ca":   utils.GetFileContents("/tmp/example-secrets/ca.crt"),
+			"key":  getCertificateContents("system.logging.kibana.key", esUUID),
+			"cert": getCertificateContents("system.logging.kibana.crt", esUUID),
+			"ca":   getCertificateContents("ca.crt", esUUID),
 		},
 	)
 
-	err = f.Client.Create(goctx.TODO(), kibanaSecret, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	cleanupOpts := &test.CleanupOptions{
+		TestContext:   ctx,
+		Timeout:       cleanupTimeout,
+		RetryInterval: cleanupRetryInterval,
+	}
+
+	err = f.Client.Create(context.TODO(), kibanaSecret, cleanupOpts)
 	if err != nil {
 		return err
 	}
@@ -225,8 +300,8 @@ func createKibanaSecret(f *framework.Framework, ctx *framework.TestCtx) error {
 	return nil
 }
 
-func createKibanaProxySecret(f *framework.Framework, ctx *framework.TestCtx) error {
-	namespace, err := ctx.GetNamespace()
+func createKibanaProxySecret(f *test.Framework, ctx *test.Context, esUUID string) error {
+	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return fmt.Errorf("Could not get namespace: %v", err)
 
@@ -236,16 +311,45 @@ func createKibanaProxySecret(f *framework.Framework, ctx *framework.TestCtx) err
 		fmt.Sprintf("%s-proxy", kibanaCRName),
 		namespace,
 		map[string][]byte{
-			"server-key":     utils.GetFileContents("/tmp/example-secrets/kibana-internal.key"),
-			"server-cert":    utils.GetFileContents("/tmp/example-secrets/kibana-internal.crt"),
+			"server-key":     getCertificateContents("kibana-internal.key", esUUID),
+			"server-cert":    getCertificateContents("kibana-internal.crt", esUUID),
 			"session-secret": []byte("TG85VUMyUHBqbWJ1eXo1R1FBOGZtYTNLTmZFWDBmbkY="),
 		},
 	)
 
-	err = f.Client.Create(goctx.TODO(), kibanaProxySecret, &framework.CleanupOptions{TestContext: ctx, Timeout: cleanupTimeout, RetryInterval: cleanupRetryInterval})
+	cleanupOpts := &test.CleanupOptions{
+		TestContext:   ctx,
+		Timeout:       cleanupTimeout,
+		RetryInterval: cleanupRetryInterval,
+	}
+
+	err = f.Client.Create(context.TODO(), kibanaProxySecret, cleanupOpts)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func generateCertificates(t *testing.T, namespace, uuid string) error {
+	workDir := fmt.Sprintf("%s/%s", exampleSecretsPath, uuid)
+	storeName := elasticsearchNameFor(uuid)
+
+	err := os.MkdirAll(workDir, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to create certificate tmp dir: %s", err)
+	}
+
+	cmd := exec.Command("./hack/cert_generation.sh", workDir, namespace, storeName)
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to generate certificate for %q: %v\n:%s", storeName, err, string(out))
+	}
+
+	return nil
+}
+
+func getCertificateContents(name, uuid string) []byte {
+	filename := fmt.Sprintf("%s/%s/%s", exampleSecretsPath, uuid, name)
+	return utils.GetFileContents(filename)
 }
