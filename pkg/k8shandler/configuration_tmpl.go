@@ -4,6 +4,9 @@ const esYmlTmpl = `
 cluster:
   name: ${CLUSTER_NAME}
 
+bootstrap:
+  system_call_filter: {{.SystemCallFilter}}
+
 script:
   inline: true
   stored: true
