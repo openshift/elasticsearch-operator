@@ -52,6 +52,7 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
   export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
   deploy_elasticsearch_operator
 
+  expect_success "${repo_dir}/hack/cert_generation.sh /tmp/example-secrets ${TEST_NAMESPACE} elasticsearch"
   expect_success "${repo_dir}/hack/deploy-example-secrets.sh  ${TEST_NAMESPACE}"
   expect_success "oc -n ${TEST_NAMESPACE} create -f ${repo_dir}/hack/cr.yaml"
 

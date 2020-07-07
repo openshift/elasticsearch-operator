@@ -117,7 +117,8 @@ func reconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 		return err
 	}
 
-	if err := clusterKibanaRequest.createOrUpdateKibanaDeployment(proxyConfig); err != nil {
+	clusterName := esClient.ClusterName()
+	if err := clusterKibanaRequest.createOrUpdateKibanaDeployment(proxyConfig, clusterName); err != nil {
 		return err
 	}
 
@@ -243,7 +244,7 @@ func (clusterRequest *KibanaRequest) deleteKibana5Deployment() error {
 	return nil
 }
 
-func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy) (err error) {
+func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy, clusterName string) (err error) {
 	kibanaTrustBundle := &v1.ConfigMap{}
 
 	// Create cluster proxy trusted CA bundle.
@@ -256,7 +257,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	kibanaPodSpec := newKibanaPodSpec(
 		clusterRequest,
-		fmt.Sprintf("elasticsearch.%s.svc.cluster.local", clusterRequest.cluster.Namespace),
+		fmt.Sprintf("%s.%s.svc.cluster.local", clusterName, clusterRequest.cluster.Namespace),
 		proxyConfig,
 		kibanaTrustBundle,
 	)

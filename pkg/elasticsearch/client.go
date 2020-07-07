@@ -34,6 +34,8 @@ const (
 )
 
 type Client interface {
+	ClusterName() string
+
 	// Cluster Settings API
 	GetClusterNodeVersions() ([]string, error)
 	GetThresholdEnabled() (bool, error)
@@ -117,6 +119,10 @@ func NewClient(cluster, namespace string, client k8sclient.Client) Client {
 
 func (ec *esClient) SetSendRequestFn(fn FnEsSendRequest) {
 	ec.fnSendEsRequest = fn
+}
+
+func (ec *esClient) ClusterName() string {
+	return ec.cluster
 }
 
 func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
