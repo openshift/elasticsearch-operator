@@ -96,9 +96,18 @@ func mergeSelectors(nodeSelectors, commonSelectors map[string]string) map[string
 }
 
 func areTolerationsSame(lhs, rhs []v1.Toleration) bool {
+
+	// if we are checking this as a part of pod spec comparison during a rollout we can't check this
+	// if we are comparing the deployment specs we can...
 	if len(lhs) != len(rhs) {
 		return false
 	}
+
+	return containsSameTolerations(lhs, rhs)
+}
+
+// containsSameTolerations checks that the tolerations in lhs are all contained within rhs
+func containsSameTolerations(lhs, rhs []v1.Toleration) bool {
 
 	for _, lhsToleration := range lhs {
 		if !containsToleration(lhsToleration, rhs) {

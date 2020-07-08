@@ -11,19 +11,21 @@ import (
 
 // NodeTypeInterface interace represents individual Elasticsearch node
 type NodeTypeInterface interface {
-	populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client)
-	state() api.ElasticsearchNodeStatus                      // this will get the current -- used for status
-	create() error                                           // this will create the node in the case where it is new
-	update(upgradeStatus *api.ElasticsearchNodeStatus) error // this will handle updates
-	rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus)
-	fullClusterRestart(upgradeStatus *api.ElasticsearchNodeStatus)
-	progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error
-	name() string
+	state() api.ElasticsearchNodeStatus // this will get the current -- used for status
 	updateReference(node NodeTypeInterface)
-	delete() error
+	populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client)
+
+	create() error // this will create the node in the case where it is new
 	isMissing() bool
-	progressNodeChanges(upgradeStatus *api.ElasticsearchNodeStatus) error // this function is used to tell the node to push out its changes
-	waitForNodeRejoinCluster() (error, bool)                              // this function is used to determine if a node has rejoined the cluster
+	name() string
+	delete() error
+
+	refreshHashes()
+	scaleDown() error
+	scaleUp() error
+	progressNodeChanges() error              // this function is used to tell the node to push out its changes
+	waitForNodeRejoinCluster() (error, bool) // this function is used to determine if a node has rejoined the cluster
+	waitForNodeLeaveCluster() (error, bool)  // this function is used to determine if a node has left the cluster
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment
@@ -108,4 +110,16 @@ func containsNodeTypeInterface(node NodeTypeInterface, list []NodeTypeInterface)
 	}
 
 	return -1, false
+}
+
+func (elasticsearchRequest *ElasticsearchRequest) getNodeState(node NodeTypeInterface) *api.ElasticsearchNodeStatus {
+
+	index, status := getNodeStatus(node.name(), &elasticsearchRequest.cluster.Status)
+
+	if index == NOT_FOUND_INDEX {
+		state := node.state()
+		status = &state
+	}
+
+	return status
 }
