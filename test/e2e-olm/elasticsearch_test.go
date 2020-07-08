@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 
@@ -278,6 +279,22 @@ func fullClusterRedeployTest(t *testing.T) {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
 
+	matchingLabels := map[string]string{
+		"cluster-name": cr.GetName(),
+		"component":    "elasticsearch",
+	}
+
+	initialPods, err := utils.WaitForPods(t, f, namespace, matchingLabels, retryInterval, timeout)
+	if err != nil {
+		t.Fatalf("failed to wait for pods: %v", err)
+	}
+
+	var initPodNames []string
+	for _, pod := range initialPods.Items {
+		initPodNames = append(initPodNames, pod.GetName())
+	}
+	t.Logf("Cluster pods before full cluster redeploy: %v", initPodNames)
+
 	// Scale up to SingleRedundancy
 	cr.Spec.RedundancyPolicy = loggingv1.SingleRedundancy
 
@@ -292,48 +309,37 @@ func fullClusterRedeployTest(t *testing.T) {
 		t.Fatalf("Unable to update secret")
 	}
 
-	//FIXME: Update the WaitForCondition methods
-
-	// wait for pods to have "redeploy for certs" condition as true?
-	//desiredCondition := loggingv1.ElasticsearchNodeUpgradeStatus{
-	//	ScheduledForCertRedeploy: corev1.ConditionTrue,
-	//}
-	//
-	//err = utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*300)
-	//if err != nil {
-	//	d, _ := yaml.Marshal(desiredCondition)
-	//	t.Log("Desired condition", string(d))
-	//	return fmt.Errorf("Timed out waiting for full cluster restart to begin")
-	//}
-	//
-	//// then wait for conditions to be gone
-	//desiredClusterCondition := loggingv1.ClusterCondition{
-	//	Type:   loggingv1.Restarting,
-	//	Status: corev1.ConditionFalse,
-	//}
-	//
-	//err = utils.WaitForClusterStatusCondition(t, f, namespace, elasticsearchCRName, desiredClusterCondition, retryInterval, time.Second*300)
-	//if err != nil {
-	//	d, _ := yaml.Marshal(desiredClusterCondition)
-	//	t.Log("Desired condition", string(d))
-	//	return fmt.Errorf("Timed out waiting for full cluster restart to complete")
-	//}
-
 	t.Log("Waiting for redeployment after secret update")
+	time.Sleep(time.Second * 10) // Let the operator do his thing
 
 	// Increase redeploy timeout on full cluster redeploy until min masters available
 	redeployTimeout := time.Second * 600
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, redeployTimeout)
+	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, redeployTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, redeployTimeout)
+	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, redeployTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
+	}
+
+	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, retryInterval, redeployTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var podNames []string
+	for _, pod := range pods.Items {
+		podNames = append(podNames, pod.GetName())
+	}
+	t.Logf("Cluster pods after full cluster redeploy: %v", podNames)
+
+	if len(pods.Items) != 2 {
+		t.Fatalf("No matching pods found for labels: %#v", matchingLabels)
 	}
 
 	ctx.Cleanup()
@@ -379,6 +385,22 @@ func rollingRestartTest(t *testing.T) {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
 
+	matchingLabels := map[string]string{
+		"cluster-name": cr.GetName(),
+		"component":    "elasticsearch",
+	}
+
+	initialPods, err := utils.WaitForPods(t, f, namespace, matchingLabels, retryInterval, timeout)
+	if err != nil {
+		t.Fatalf("failed to wait for pods: %v", err)
+	}
+
+	var initPodNames []string
+	for _, pod := range initialPods.Items {
+		initPodNames = append(initPodNames, pod.GetName())
+	}
+	t.Logf("Cluster pods before rolling restart: %v", initPodNames)
+
 	// Update the resource spec for the cluster
 	oldMemValue := cr.Spec.Spec.Resources.Limits.Memory()
 
@@ -402,35 +424,42 @@ func rollingRestartTest(t *testing.T) {
 		t.Fatalf("could not update elasticsearch CR to be SingleRedundancy: %v", err)
 	}
 
-	// wait for node to not be ready (restart is happening)
-	/*desiredCondition := loggingv1.ElasticsearchNodeUpgradeStatus{
-		UnderUpgrade: corev1.ConditionTrue,
-	}*/
-
-	// This doesn't work correctly because we don't update the cluster status until we've failed out
-	// of our upgrade loop...
-	/*err = utils.WaitForNodeStatusCondition(t, f, namespace, elasticsearchCRName, desiredCondition, retryInterval, time.Second*300)
-	if err != nil {
-		d, _ := yaml.Marshal(desiredCondition)
-		t.Log("Desired condition", string(d))
-		return fmt.Errorf("Timed out waiting for full cluster restart to begin")
-	}*/
-
 	t.Log("Waiting for restart after resource requests/limits update")
 
 	// Increase restart timeout on full cluster redeploy until min masters available
 	restartTimeout := time.Second * 600
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, restartTimeout)
+	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, restartTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first ready node deployment  %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, restartTimeout)
+	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, restartTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second ready node deployment %v: %v", dplName, err)
+	}
+
+	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, retryInterval, restartTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var podNames []string
+	for _, pod := range pods.Items {
+		podNames = append(podNames, pod.GetName())
+	}
+	t.Logf("Cluster pods after rolling restart: %v", podNames)
+
+	if len(pods.Items) != 2 {
+		t.Fatalf("No matching pods found for labels: %#v", matchingLabels)
+	}
+
+	for _, pod := range pods.Items {
+		if diff := cmp.Diff(pod.Spec.Containers[0].Resources, desiredResources); diff != "" {
+			t.Errorf("failed to match pods with resources:\n%s", diff)
+		}
 	}
 
 	ctx.Cleanup()
