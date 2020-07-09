@@ -5,6 +5,10 @@ kind: ClusterServiceVersion
 metadata:
   name: elasticsearch-operator.v4.3.0
   namespace: placeholder
+  labels:
+    "operatorframework.io/arch.amd64": supported
+    "operatorframework.io/arch.ppc64le": supported
+    "operatorframework.io/arch.s390x": supported
   annotations:
     categories: "OpenShift Optional, Logging & Tracing"
     capabilities: "Seamless Upgrades"
