@@ -11,7 +11,7 @@ else
 fi
 
 set +e
-oc annotate ns/${ELASTICSEARCH_OPERATOR_NAMESPACE} openshift.io/cluster-monitoring=true
+oc label ns/${ELASTICSEARCH_OPERATOR_NAMESPACE} openshift.io/cluster-monitoring=true --overwrite
 set -e
 
 
