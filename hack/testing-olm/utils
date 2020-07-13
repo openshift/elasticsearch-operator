@@ -97,6 +97,61 @@ try_until_text() {
   return 1
 }
 
+try_func_until_text() {
+  local func=$1
+  local expected=$2
+  local timeout=$3
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+	if [[ $($func) == "${expected}" ]] ; then
+      		echo "Passed"
+      		return 0
+    	fi
+    	now=$(date +%s%3N)
+  done
+  echo "Fail"
+  return 1
+}
+
+try_func_until_text_alt() {
+  local func=$1
+  local expected=$2
+  local alt_expected=$3
+  local timeout=$4
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    f_result=$($func)
+	  if [[ "${f_result}" == "${expected}" ]] ; then
+      		echo "Passed"
+      		return 0
+    elif [[ "${f_result}" == "${alt_expected}" ]]; then
+          echo "Passed"
+          return 0
+    fi
+    now=$(date +%s%3N)
+  done
+  echo "Fail"
+  return 1
+}
+
+try_func_until_result_is_not_empty() {
+  local func=$1
+  local timeout=$2
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+	if [[ $($func) != "" ]] ; then
+      		echo "Passed"
+      		return 0
+    	fi
+    	now=$(date +%s%3N)
+  done
+  echo "Fail"
+  return 1
+}
+
 gather_logging_resources() {
   set +e
   local LOGGING_NS=$1
@@ -165,4 +220,80 @@ function deploy_elasticsearch_operator() {
   ${repo_dir}/olm_deploy/scripts/catalog-deploy.sh
   # install the elasticsearch operator from that catalog
   ${repo_dir}/olm_deploy/scripts/operator-install.sh
+}
+
+deploy_marketplace_operator(){
+  local ns=$1
+  local name=$2
+  local channel=$3
+  local package=${4:-$name}
+  local global=${5:-false}
+  if [ "${global}" = "false" ] ; then
+    cat <<EOL | oc create -f -
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: "$ns"
+- apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: "$ns"
+    namespace: "$ns"
+  spec:
+    targetNamespaces:
+    - "$ns"
+    packages: "$name"
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    channel: "$channel"
+    installPlanApproval: Automatic
+    name: "$package"
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+EOL
+  else
+    cat <<EOL | oc create -f -
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: "$ns"
+- apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    packages: "$name"
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    channel: "$channel"
+    installPlanApproval: Automatic
+    name: "$package"
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+EOL
+
+fi
+  wait_for_deployment_to_be_ready "$ns" "$name" $((2 * "$minute"))
+}
+
+wait_for_deployment_to_be_ready(){
+  local namespace=$1
+  local name=$2
+  local timeout=$3
+  try_until_text "oc -n $namespace get deployment $name -o jsonpath={.status.availableReplicas} --ignore-not-found" "1" $timeout
 }

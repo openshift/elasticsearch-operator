@@ -15,22 +15,24 @@ spec:
         cpu: 100m
         memory: 1Gi
   nodes:
-  - nodeCount: 1
+  - nodeCount: 3
     roles:
     - client
     - data
     - master
-    storage: {}
-  redundancyPolicy: ZeroRedundancy
+    storage:
+      storageClassName: gp2
+      size: 10G
+  redundancyPolicy: SingleRedundancy
   indexManagement:
     policies:
     - name: infra-policy
-      pollInterval: 1m
+      pollInterval: 30m
       phases:
         hot:
           actions:
             rollover:
-              maxAge:   2m
+              maxAge: 2m
         delete:
           minAge: 5m
     mappings:
