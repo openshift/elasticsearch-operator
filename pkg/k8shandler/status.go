@@ -98,6 +98,53 @@ func (elasticsearchRequest *ElasticsearchRequest) GetCurrentPodStateMap() map[ap
 	return rolePodStateMap(elasticsearchRequest.cluster.Namespace, elasticsearchRequest.cluster.Name, elasticsearchRequest.client)
 }
 
+func (elasticsearchRequest *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) error {
+
+	index, _ := getNodeStatus(node.name(), clusterStatus)
+
+	if index == NOT_FOUND_INDEX {
+		clusterStatus.Nodes = append(clusterStatus.Nodes, *nodeStatus)
+	} else {
+		clusterStatus.Nodes[index] = *nodeStatus
+	}
+
+	return elasticsearchRequest.updateNodeStatus(*clusterStatus)
+}
+
+func (elasticsearchRequest *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus) error {
+
+	cluster := elasticsearchRequest.cluster
+	// if there is nothing to update, don't
+	if reflect.DeepEqual(cluster.Status, status) {
+		return nil
+	}
+
+	nretries := -1
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		nretries++
+		if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
+			logrus.Debugf("Could not get Elasticsearch %v: %v", cluster.Name, getErr)
+			return getErr
+		}
+
+		cluster.Status = status
+
+		if updateErr := elasticsearchRequest.client.Update(context.TODO(), cluster); updateErr != nil {
+			logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", cluster.Name, updateErr)
+			return updateErr
+		}
+
+		logrus.Debugf("Updated Elasticsearch %v after %v retries", cluster.Name, nretries)
+		return nil
+	})
+
+	if retryErr != nil {
+		return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cluster.Name, nretries, retryErr)
+	}
+
+	return nil
+}
+
 func containsClusterCondition(condition api.ClusterConditionType, status v1.ConditionStatus, elasticsearchStatus *api.ElasticsearchStatus) bool {
 	// if we're looking for a status of v1.ConditionTrue then we want to see if the
 	// condition is present and the status is the same

@@ -109,12 +109,6 @@ func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 		rolloutForUpdate = v1.ConditionTrue
 	}
 
-	// check if the configmapHash changed
-	/*newConfigmapHash := getConfigmapDataHash(node.clusterName, node.self.Namespace)
-	if newConfigmapHash != node.configmapHash {
-		rolloutForReload = v1.ConditionTrue
-	}*/
-
 	// check for a case where our hash is missing -- operator restarted?
 	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
 	if node.secretHash == "" {

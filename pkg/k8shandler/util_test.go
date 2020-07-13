@@ -134,52 +134,6 @@ func TestSelectorsCommonOverwritten(t *testing.T) {
 	}
 }
 
-func TestNoRedundancyPolicySpecified(t *testing.T) {
-
-	esCR := &api.Elasticsearch{
-		Spec: api.ElasticsearchSpec{},
-	}
-
-	isValid := isValidRedundancyPolicy(esCR)
-
-	if !isValid {
-		t.Errorf("Expected default policy of SingleRedundancy to be used, incorrectly flagged as invalid")
-	}
-
-}
-
-func TestValidRedundancyPolicySpecified(t *testing.T) {
-
-	esCR := &api.Elasticsearch{
-		Spec: api.ElasticsearchSpec{
-			RedundancyPolicy: api.FullRedundancy,
-		},
-	}
-
-	isValid := isValidRedundancyPolicy(esCR)
-
-	if !isValid {
-		t.Error("Expected FullRedundancy to be valid, flagged as invalid")
-	}
-
-}
-
-func TestInvalidRedundancyPolicySpecified(t *testing.T) {
-
-	esCR := &api.Elasticsearch{
-		Spec: api.ElasticsearchSpec{
-			RedundancyPolicy: "NoRedundancy",
-		},
-	}
-
-	isValid := isValidRedundancyPolicy(esCR)
-
-	if isValid {
-		t.Error("Expected NoRedundancy to be flagged as invalid, was found to be valid")
-	}
-
-}
-
 func TestValidNoNodesSpecified(t *testing.T) {
 
 	esCR := &api.Elasticsearch{
@@ -198,12 +152,6 @@ func TestValidNoNodesSpecified(t *testing.T) {
 
 	if !isValid {
 		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid data count")
-	}
-
-	isValid = isValidRedundancyPolicy(esCR)
-
-	if !isValid {
-		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid redundancy policy")
 	}
 
 	if ok, msg := hasValidUUIDs(esCR); !ok {

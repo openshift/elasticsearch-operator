@@ -1,7 +1,7 @@
 set -euo pipefail
 
 if [ -n "${DEBUG:-}" ]; then
-    set -x
+  set -x
 fi
 
 KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}

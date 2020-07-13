@@ -57,4 +57,4 @@ TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} \
     -globalMan test/files/dummycrd.yaml \
     -v \
     -parallel=1 \
-   -timeout 1200s
+   -timeout 1500s

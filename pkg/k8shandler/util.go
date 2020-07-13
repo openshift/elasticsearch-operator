@@ -197,22 +197,6 @@ func isValidDataCount(dpl *api.Elasticsearch) bool {
 	return dataCount > 0
 }
 
-func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
-	dataCount := int(getDataCount(dpl))
-
-	switch dpl.Spec.RedundancyPolicy {
-	case "":
-	case api.ZeroRedundancy:
-	case api.SingleRedundancy:
-	case api.MultipleRedundancy:
-	case api.FullRedundancy:
-	default:
-		return false
-	}
-
-	return !(dataCount == 1 && dpl.Spec.RedundancyPolicy == api.SingleRedundancy)
-}
-
 func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
 
 	dpl := elasticsearchRequest.cluster
@@ -240,17 +224,7 @@ func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
 		}
 	}
 
-	if !isValidRedundancyPolicy(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition, client); err != nil {
-			return err
-		}
-		return fmt.Errorf("Wrong RedundancyPolicy selected '%s'. Choose different RedundancyPolicy or add more nodes with data roles", dpl.Spec.RedundancyPolicy)
-	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition, client); err != nil {
-			return err
-		}
-	}
-
+	// TODO: replace this with a validating web hook to ensure field is immutable
 	if ok, msg := hasValidUUIDs(dpl); !ok {
 		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionTrue, msg, client); err != nil {
 			return err

@@ -327,7 +327,7 @@ func fullClusterRedeployTest(t *testing.T) {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
 
-	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, retryInterval, redeployTimeout)
+	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, 2, retryInterval, redeployTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func rollingRestartTest(t *testing.T) {
 		t.Fatalf("timed out waiting for second ready node deployment %v: %v", dplName, err)
 	}
 
-	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, retryInterval, restartTimeout)
+	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, 2, retryInterval, restartTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}

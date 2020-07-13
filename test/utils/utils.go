@@ -88,7 +88,7 @@ func WaitForPods(t *testing.T, f *test.Framework, namespace string, labels map[s
 	return pods, nil
 }
 
-func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, labels map[string]string, excludePods []string, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
+func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, labels map[string]string, excludePods []string, expectedPodCount int, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
@@ -121,7 +121,7 @@ func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, l
 			}
 		}
 
-		if len(pods.Items) == readyPods {
+		if readyPods == expectedPodCount && len(pods.Items) == readyPods {
 			return true, nil
 		}
 
