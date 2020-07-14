@@ -88,6 +88,56 @@ func WaitForPods(t *testing.T, f *test.Framework, namespace string, labels map[s
 	return pods, nil
 }
 
+func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, labels map[string]string, excludePods []string, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
+	pods := &corev1.PodList{}
+	opts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(labels),
+	}
+
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		err = f.Client.Client.List(context.TODO(), pods, opts...)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				t.Logf("Waiting for availability of pods with labels: %v in Namespace: %s \n", labels, namespace)
+				return false, nil
+			}
+			return false, err
+		}
+
+		readyPods := 0
+		for _, pod := range pods.Items {
+			for _, excluded := range excludePods {
+				if pod.GetName() == excluded {
+					// Retry we matched at least one excluded pod
+					return false, nil
+				}
+			}
+
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == corev1.PodReady {
+					readyPods = readyPods + 1
+				}
+			}
+		}
+
+		if len(pods.Items) == readyPods {
+			return true, nil
+		}
+
+		t.Logf("Waiting for availability of pods with labels: %v in Namespace: %s (%d/%d)\n",
+			labels, namespace, readyPods, len(pods.Items),
+		)
+
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	t.Logf("Pods ready")
+	return pods, nil
+}
+
 func WaitForNodeStatusCondition(t *testing.T, f *test.Framework, namespace, name string, condition loggingv1.ElasticsearchNodeUpgradeStatus, retryInterval, timeout time.Duration) error {
 	elasticsearchCR := &loggingv1.Elasticsearch{}
 	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}

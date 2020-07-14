@@ -6,6 +6,7 @@ go 1.13
 require (
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/go-openapi/spec v0.19.4
+	github.com/google/go-cmp v0.4.0
 	github.com/inhies/go-bytesize v0.0.0-20151001220322-5990f52c6ad6
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
