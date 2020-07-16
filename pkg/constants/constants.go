@@ -13,6 +13,7 @@ const (
 	SecretHashPrefix           = "logging.openshift.io/"
 	ElasticsearchDefaultImage  = "quay.io/openshift/origin-logging-elasticsearch6"
 	ProxyDefaultImage          = "quay.io/openshift/origin-elasticsearch-proxy:latest"
+	TheoreticalShardMaxSizeInMB = 40960
 )
 
 var (
