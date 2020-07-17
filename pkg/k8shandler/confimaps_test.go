@@ -15,10 +15,13 @@ var _ = Describe("configmaps", func() {
 	Describe("#renderEsYml", func() {
 		It("should produce an elasticsearch.yml for our managed elasticsearch instance", func() {
 			result := &bytes.Buffer{}
-			Expect(renderEsYml(result, "", "my.unicast.host", "7", "4")).To(BeNil(), "Exp. no errors when rendering the configuration")
+			Expect(renderEsYml(result, "", "my.unicast.host", "7", "4", "false")).To(BeNil(), "Exp. no errors when rendering the configuration")
 			helpers.ExpectYaml(result.String()).ToEqual(`
 cluster:
   name: ${CLUSTER_NAME}
+
+bootstrap:
+  system_call_filter: false
 
 node:
   name: ${DC_NAME}
