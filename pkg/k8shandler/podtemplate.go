@@ -57,7 +57,7 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 		found := false
 
 		for _, rContainer := range rhs.Containers {
-			// Only compare the images of containers with the same name
+			// Only compare containers with the same name
 			if lContainer.Name != rContainer.Name {
 				continue
 			}

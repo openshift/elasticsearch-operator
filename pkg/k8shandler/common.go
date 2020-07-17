@@ -22,8 +22,43 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func getImage() string {
+var (
+	defaultResources = map[string]v1.ResourceRequirements{
+		"proxy": {
+			Limits: v1.ResourceList{
+				v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryLimit),
+			},
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse(defaultESProxyCpuRequest),
+				v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryRequest),
+			},
+		},
+		"elasticsearch": {
+			Limits: v1.ResourceList{
+				v1.ResourceMemory: resource.MustParse(defaultESMemoryLimit),
+			},
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse(defaultESCpuRequest),
+				v1.ResourceMemory: resource.MustParse(defaultESMemoryRequest),
+			},
+		},
+	}
+)
+
+// addOwnerRefToObject appends the desired OwnerReference to the object
+// deprecated in favor of Elasticsearch#AddOwnerRefTo
+func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
+	if (metav1.OwnerReference{}) != r {
+		o.SetOwnerReferences(append(o.GetOwnerReferences(), r))
+	}
+}
+
+func getESImage() string {
 	return utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
+}
+
+func getESProxyImage() string {
+	return utils.LookupEnvWithDefault("ELASTICSEARCH_PROXY", constants.ProxyDefaultImage)
 }
 
 func getNodeRoleMap(node api.ElasticsearchNode) map[api.ElasticsearchNodeRole]bool {
@@ -173,16 +208,7 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 	}
 }
 
-func newProxyContainer(imageName, clusterName, namespace string, logConfig LogConfig) (v1.Container, error) {
-	cpuLimit, err := resource.ParseQuantity("100m")
-	if err != nil {
-		return v1.Container{}, err
-	}
-
-	memoryLimit, err := resource.ParseQuantity("64Mi")
-	if err != nil {
-		return v1.Container{}, err
-	}
+func newProxyContainer(imageName, clusterName, namespace string, logConfig LogConfig, resourceRequirements v1.ResourceRequirements) v1.Container {
 
 	container := v1.Container{
 		Name:            "proxy",
@@ -238,17 +264,9 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 			"--auth-admin-role=admin_reader",
 			"--auth-default-role=project_user",
 		},
-		Resources: v1.ResourceRequirements{
-			Limits: v1.ResourceList{
-				"memory": memoryLimit,
-			},
-			Requests: v1.ResourceList{
-				"cpu":    cpuLimit,
-				"memory": memoryLimit,
-			},
-		},
+		Resources: resourceRequirements,
 	}
-	return container, nil
+	return container
 }
 
 func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.ElasticsearchNodeRole]bool) []v1.EnvVar {
@@ -348,9 +366,8 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 
 func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
 
-	resourceRequirements := newResourceRequirements(node.Resources, commonSpec.Resources)
-	proxyImage := utils.LookupEnvWithDefault("ELASTICSEARCH_PROXY", "quay.io/openshift/origin-elasticsearch-proxy:latest")
-	proxyContainer, _ := newProxyContainer(proxyImage, clusterName, namespace, logConfig)
+	resourceRequirements := newESResourceRequirements(node.Resources, commonSpec.Resources)
+	proxyResourceRequirements := newESProxyResourceRequirements(node.ProxyResources, commonSpec.ProxyResources)
 
 	selectors := mergeSelectors(node.NodeSelector, commonSpec.NodeSelector)
 	// We want to make sure the pod ends up allocated on linux node. Thus we make sure the
@@ -374,11 +391,16 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 			Affinity: newAffinity(roleMap),
 			Containers: []v1.Container{
 				newElasticsearchContainer(
-					getImage(),
+					getESImage(),
 					newEnvVars(nodeName, clusterName, resourceRequirements.Limits.Memory().String(), roleMap),
 					resourceRequirements,
 				),
-				proxyContainer,
+				newProxyContainer(
+					getESProxyImage(),
+					clusterName,
+					namespace,
+					logConfig,
+					proxyResourceRequirements),
 			},
 			NodeSelector:       selectors,
 			ServiceAccountName: clusterName,
@@ -388,7 +410,15 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 	}
 }
 
-func newResourceRequirements(nodeResRequirements, commonResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
+func newESResourceRequirements(nodeResRequirements, commonResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
+	return newResourceRequirements(nodeResRequirements, commonResRequirements, defaultResources["elasticsearch"])
+}
+
+func newESProxyResourceRequirements(nodeResRequirements, commonResRequirements v1.ResourceRequirements) v1.ResourceRequirements {
+	return newResourceRequirements(nodeResRequirements, commonResRequirements, defaultResources["proxy"])
+}
+
+func newResourceRequirements(nodeResRequirements, commonResRequirements, defaultRequirements v1.ResourceRequirements) v1.ResourceRequirements {
 	// if only one resource (cpu or memory) is specified as a limit/request use it for the other value as well instead of
 	//  using the defaults.
 
@@ -408,10 +438,10 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 		// no common memory settings
 		if nodeRequestMem.IsZero() && nodeLimitMem.IsZero() {
 			// no node settings, use defaults
-			lMem, _ := resource.ParseQuantity(defaultMemoryLimit)
+			lMem := defaultRequirements.Limits[v1.ResourceMemory]
 			limitMem = &lMem
 
-			rMem, _ := resource.ParseQuantity(defaultMemoryRequest)
+			rMem, _ := defaultRequirements.Requests[v1.ResourceMemory]
 			requestMem = &rMem
 		} else {
 			// either one is not zero or both aren't zero but common is empty
@@ -468,7 +498,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements v1.Resou
 		// no common memory settings
 		if nodeRequestCPU.IsZero() && nodeLimitCPU.IsZero() {
 			// no node settings, use defaults
-			rCPU, _ := resource.ParseQuantity(defaultCPURequest)
+			rCPU, _ := defaultRequirements.Requests[v1.ResourceCPU]
 			requestCPU = &rCPU
 		} else {
 			// either one is not zero or both aren't zero but common is empty
