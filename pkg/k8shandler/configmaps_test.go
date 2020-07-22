@@ -146,6 +146,9 @@ path:
   data: /elasticsearch/persistent/${CLUSTER_NAME}/data
   logs: /elasticsearch/persistent/${CLUSTER_NAME}/logs
 
+prometheus:
+  indices: false
+
 opendistro_security:
   authcz.admin_dn:
   - CN=system.admin,OU=OpenShift,O=Logging
