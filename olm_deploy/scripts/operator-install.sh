@@ -14,6 +14,10 @@ set +e
 oc label ns/${ELASTICSEARCH_OPERATOR_NAMESPACE} openshift.io/cluster-monitoring=true --overwrite
 set -e
 
+echo "##################"
+echo "oc version"
+oc version
+echo "##################"
 
 # create the operatorgroup
 oc create -n ${ELASTICSEARCH_OPERATOR_NAMESPACE} -f olm_deploy/subscription/operator-group.yaml
