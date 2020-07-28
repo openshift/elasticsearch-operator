@@ -188,18 +188,44 @@ func (node *deploymentNode) nodeRevision() string {
 	return ""
 }
 
-func (node *deploymentNode) waitForNodeRollout(currentRevision string) error {
+func (node *deploymentNode) waitForNodeRollout() error {
+
+	podLabels := map[string]string{
+		"node-name": node.name(),
+	}
+
 	err := wait.Poll(time.Second*1, time.Second*30, func() (done bool, err error) {
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
-			return false, getErr
-		}
-
-		revision := node.nodeRevision()
-
-		return (revision != currentRevision), nil
+		return node.checkPodSpecMatches(podLabels), nil
 	})
 	return err
+}
+
+func (node *deploymentNode) podSpecMatches() bool {
+	podLabels := map[string]string{
+		"node-name": node.name(),
+	}
+
+	return node.checkPodSpecMatches(podLabels)
+}
+
+func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
+
+	podList, err := GetPodList(node.self.Namespace, labels, node.client)
+
+	if err != nil {
+		logrus.Warnf("Could not get node %q pods: %v", node.name(), err)
+		return false
+	}
+
+	matches := false
+
+	for _, pod := range podList.Items {
+		if !ArePodSpecDifferent(node.self.Spec.Template.Spec, pod.Spec, false) {
+			matches = true
+		}
+	}
+
+	return matches
 }
 
 func (node *deploymentNode) pause() error {
@@ -513,7 +539,7 @@ func (node *deploymentNode) update(upgradeStatus *api.ElasticsearchNodeStatus) e
 		}
 
 		// wait for rollout
-		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
+		if err := node.waitForNodeRollout(); err != nil {
 			logrus.Infof("Timed out waiting for node %v to rollout", node.name())
 			return err
 		}
@@ -590,7 +616,7 @@ func (node *deploymentNode) progressNodeChanges(upgradeStatus *api.Elasticsearch
 
 		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
 
-		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
+		if err := node.waitForNodeRollout(); err != nil {
 			return fmt.Errorf("Timed out waiting for node %v to rollout", node.name())
 		}
 
@@ -623,7 +649,7 @@ func (node *deploymentNode) progressUnshedulableNode(upgradeStatus *api.Elastics
 
 		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
 
-		if err := node.waitForNodeRollout(node.currentRevision); err != nil {
+		if err := node.waitForNodeRollout(); err != nil {
 			logrus.Infof("Timed out waiting for node %v to rollout", node.name())
 			return err
 		}
