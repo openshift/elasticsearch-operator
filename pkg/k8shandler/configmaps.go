@@ -46,6 +46,51 @@ type indexSettingsStruct struct {
 	ReplicaShards string
 }
 
+// CreateOrUpdateConfigMap reconciles a configmap
+func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error {
+	err := elasticsearchRequest.client.Create(context.TODO(), cm)
+	if err == nil {
+		return nil
+	}
+	if !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failure constructing ConfigMap: %w", err)
+	}
+
+	// Get existing configMap to check if it is same as what we want
+	current := cm.DeepCopy()
+	err = elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
+	if err != nil {
+		return fmt.Errorf("unable to get configMap: %w", err)
+	}
+
+	if configMapContentChanged(current, cm) {
+		// Cluster settings has changed, make sure it doesnt go unnoticed
+		if err := updateConditionWithRetry(elasticsearchRequest.cluster, v1.ConditionTrue, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+			return err
+		}
+
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); getErr != nil {
+				logrus.Debugf("Could not get configmap %q: %v", cm.Name, getErr)
+				return getErr
+			}
+
+			current.Data = cm.Data
+			if updateErr := elasticsearchRequest.client.Update(context.TODO(), current); updateErr != nil {
+				logrus.Debugf("Failed to update configmap %q: %v", cm.Name, updateErr)
+				return updateErr
+			}
+			return nil
+		})
+	} else {
+		if err := updateConditionWithRetry(elasticsearchRequest.cluster, v1.ConditionFalse, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // CreateOrUpdateConfigMaps ensures the existence of ConfigMaps with Elasticsearch configuration
 func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 
@@ -55,8 +100,8 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 	if err != nil {
 		return err
 	}
-	dataNodeCount := int((getDataCount(dpl)))
-	masterNodeCount := int((getMasterCount(dpl)))
+	dataNodeCount := int(getDataCount(dpl))
+	masterNodeCount := int(getMasterCount(dpl))
 
 	logConfig := getLogConfig(dpl.GetAnnotations())
 

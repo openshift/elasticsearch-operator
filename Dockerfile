@@ -7,6 +7,7 @@ FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
 
 ENV ALERTS_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_alerts.yml"
 ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_rules.yml"
+ENV ES_DASHBOARD_FILE="/etc/elasticsearch-operator/files/dashboards/logging-dashboard-elasticsearch.json"
 
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/bin/elasticsearch-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/files/ /etc/elasticsearch-operator/files/
