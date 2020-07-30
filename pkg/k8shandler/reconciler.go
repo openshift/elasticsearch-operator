@@ -43,6 +43,10 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		return fmt.Errorf("Failed to reconcile Services for Elasticsearch cluster: %v", err)
 	}
 
+	if err := elasticsearchRequest.CreateOrUpdateDashboards(); err != nil {
+		return fmt.Errorf("Failed to reconcile Dashboards for Elasticsearch cluster: %v", err)
+	}
+
 	// Ensure Elasticsearch cluster itself is up to spec
 	//if err = elasticsearch.CreateOrUpdateElasticsearchCluster(cluster, "elasticsearch", "elasticsearch"); err != nil {
 	if err := elasticsearchRequest.CreateOrUpdateElasticsearchCluster(); err != nil {

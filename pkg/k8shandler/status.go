@@ -199,9 +199,9 @@ func isPodReady(pod v1.Pod) bool {
 	return true
 }
 
-func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchStatus) {
-	esClient := er.esClient
-	cluster := er.cluster
+func (elasticsearchRequest *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchStatus) {
+	esClient := elasticsearchRequest.esClient
+	cluster := elasticsearchRequest.cluster
 	// Get all pods based on status.Nodes[] and check their conditions
 	// get pod with label 'node-name=node.getName()'
 	thresholdEnabled, err := esClient.GetThresholdEnabled()
@@ -211,7 +211,7 @@ func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchSt
 
 	if thresholdEnabled {
 		// refresh value of thresholds in case they changed...
-		er.refreshDiskWatermarkThresholds()
+		elasticsearchRequest.refreshDiskWatermarkThresholds()
 	}
 
 	for nodeIndex := range status.Nodes {
@@ -233,7 +233,7 @@ func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchSt
 				"cluster-name": cluster.Name,
 				"node-name":    nodeName,
 			},
-			er.client,
+			elasticsearchRequest.client,
 		)
 		for _, nodePod := range nodePodList.Items {
 
@@ -358,9 +358,9 @@ func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchSt
 	}
 }
 
-func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
+func (elasticsearchRequest *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	//quantity, err := resource.ParseQuantity(string)
-	low, high, err := er.esClient.GetDiskWatermarks()
+	low, high, err := elasticsearchRequest.esClient.GetDiskWatermarks()
 	if err != nil {
 		logrus.Debugf("Unable to refresh disk watermarks from cluster, using defaults")
 	}
