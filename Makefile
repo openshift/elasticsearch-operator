@@ -1,10 +1,13 @@
 CURPATH=$(PWD)
 
+export GOBIN=$(CURDIR)/bin
+export PATH:=$(GOBIN):$(PATH)
+
+include .bingo/Variables.mk
+
 export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
-export GOBIN=$(CURDIR)/bin
-export PATH:=$(CURDIR)/bin:$(PATH)
 
 export APP_NAME=elasticsearch-operator
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
@@ -19,47 +22,22 @@ DEPLOYMENT_NAMESPACE=openshift-logging
 REPLICAS?=0
 OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY: all build clean fmt generate gobindir gosec imagebuilder operator-sdk run sec test-e2e test-unit
+.PHONY: all build clean fmt generate gobindir run test-e2e test-unit
 
 all: build
 
 gobindir:
 	@mkdir -p $(GOBIN)
 
-GOSEC_VERSION?=2.2.0
-GOSEC_URL=https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_${OS_NAME}_amd64.tar.gz
-gosec: gobindir
-	@type -p gosec > /dev/null && \
-	gosec version | grep -q $(GOSEC_VERSION) || \
-	curl -sSfL  ${GOSEC_URL} | tar -z -C ./bin -x $@
-	@chmod +x $(GOBIN)/$@
-
-OPERATOR_SDK_VERSION?=v0.18.1
-OPERATOR_SDK_URL=https://github.com/operator-framework/operator-sdk/releases/download/${OPERATOR_SDK_VERSION}/operator-sdk-${OPERATOR_SDK_VERSION}-$(shell uname -i)-${OS_NAME}-gnu
-operator-sdk: gobindir
-	@type -p operator_sdk > /dev/null && \
-	operator-sdk version | grep -q $(OPERATOR_SDK_VERSION) || \
-	curl -sSfL -o $(GOBIN)/$@ ${OPERATOR_SDK_URL}
-	@chmod +x $(GOBIN)/$@
-
-GOLANGCI_LINT_VERSION?=1.24.0
-GOLANGCI_LINT_URL=https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-${OS_NAME}-amd64.tar.gz
-golangci-lint: gobindir
-	@type -p golangci-lint > /dev/null && \
-	golangci-lint version | grep -q $(GOLANGCI_LINT_VERSION) || \
-	curl -sSfL ${GOLANGCI_LINT_URL} | tar -z --strip-components=1 -C ./bin -x golangci-lint-${GOLANGCI_LINT_VERSION}-${OS_NAME}-amd64/$@
-	@chmod +x $(GOBIN)/$@\
-
 GEN_TIMESTAMP=.zz_generate_timestamp
-generate: $(GEN_TIMESTAMP)
+generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK)
 $(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
-	@$(MAKE) operator-sdk
-	operator-sdk generate k8s
-	operator-sdk generate crds
+	$(OPERATOR_SDK) generate k8s
+	$(OPERATOR_SDK) generate crds
 	@$(MAKE) fmt
 	@touch $@
 
-regenerate:
+regenerate: $(OPERATOR_SDK)
 	@rm -f $(GEN_TIMESTAMP)
 	@$(MAKE) generate
 
@@ -67,14 +45,14 @@ build: fmt
 	@go build -o $(GOBIN)/elasticsearch-operator $(MAIN_PKG)
 
 clean:
-	@rm bin/*
+	@rm -rf bin tmp _output
 	go clean -cache -testcache ./...
 
 fmt:
 	@gofmt -s -l -w $(shell find pkg cmd test -name '*.go')
 
-lint: golangci-lint fmt
-	@golangci-lint run -c golangci.yaml
+lint: $(GOLANGCI_LINT) fmt
+	@$(GOLANGCI_LINT) run -c golangci.yaml
 
 image:
 	@if [ $${SKIP_BUILD:-false} = false ] ; then \
@@ -83,9 +61,6 @@ image:
 
 test-unit:
 	@go test -v ./pkg/... ./cmd/...
-
-test-sec: gosec
-	@gosec -severity medium -confidence medium -exclude G304 -quiet ./...
 
 deploy: deploy-image
 	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \
