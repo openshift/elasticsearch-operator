@@ -143,7 +143,7 @@ var _ = Describe("Reconciling", func() {
 			})
 
 			It("should create one new console link for the Kibana route", func() {
-				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
+				Expect(Reconcile(cluster, client, esClient, proxy)).Should(Succeed())
 
 				key := types.NamespacedName{Name: KibanaConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
@@ -204,7 +204,7 @@ var _ = Describe("Reconciling", func() {
 			})
 
 			It("should replace existing sharing confimap links with one console link", func() {
-				Expect(reconcileKibana(cluster, client, esClient, nil)).Should(Succeed())
+				Expect(Reconcile(cluster, client, esClient, nil)).Should(Succeed())
 
 				key := types.NamespacedName{Name: KibanaConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
@@ -275,7 +275,7 @@ var _ = Describe("Reconciling", func() {
 
 			It("should use the default CA bundle in kibana proxy", func() {
 				// Reconcile w/o custom CA bundle
-				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
+				Expect(Reconcile(cluster, client, esClient, proxy)).Should(Succeed())
 
 				key := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: cluster.GetNamespace()}
 				kibanaCaBundle := &corev1.ConfigMap{}
@@ -296,7 +296,7 @@ var _ = Describe("Reconciling", func() {
 
 			It("should use the injected custom CA bundle in kibana proxy", func() {
 				// Reconcile w/o custom CA bundle
-				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
+				Expect(Reconcile(cluster, client, esClient, proxy)).Should(Succeed())
 
 				// Inject custom CA bundle into kibana config map
 				injectedCABundle := kibanaCABundle.DeepCopy()
@@ -305,7 +305,7 @@ var _ = Describe("Reconciling", func() {
 
 				// Reconcile with injected custom CA bundle
 				esClient = newFakeEsClient(client, fakeResponses)
-				Expect(reconcileKibana(cluster, client, esClient, proxy)).Should(Succeed())
+				Expect(Reconcile(cluster, client, esClient, proxy)).Should(Succeed())
 
 				key := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
 				dpl := &appsv1.Deployment{}

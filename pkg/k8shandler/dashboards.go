@@ -21,7 +21,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateDashboards() err
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "grafana-dashboard-elasticsearch",
 			Namespace: "openshift-config-managed",
-			Labels:    map[string]string{
+			Labels: map[string]string{
 				"console.openshift.io/dashboard": "true",
 			},
 		},
@@ -31,4 +31,3 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateDashboards() err
 	}
 	return elasticsearchRequest.CreateOrUpdateConfigMap(cm)
 }
-
