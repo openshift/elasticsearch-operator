@@ -168,7 +168,7 @@ func (elasticsearchRequest *ElasticsearchRequest) PerformNodeRestart(node NodeTy
 		clusterNamespace: elasticsearchRequest.cluster.Namespace,
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.optionalSetPrimariesShardsAndFlush,
-		main:             elasticsearchRequest.scaleDownThenUpFunc(r),
+		main:             r.scaleDownThenUpNodes,
 		post:             r.waitAllNodesRejoinAndSetAllShards,
 		recovery:         r.ensureClusterHealthValid,
 	}
@@ -337,6 +337,29 @@ func (clusterRestart ClusterRestart) setAllShards() error {
 	return nil
 }
 
+func (clusterRestart ClusterRestart) scaleDownThenUpNodes() error {
+
+	if err := clusterRestart.scaleDownNodes(); err != nil {
+		return err
+	}
+
+	for _, node := range clusterRestart.scheduledNodes {
+		if err, _ := node.waitForNodeLeaveCluster(); err != nil {
+			return err
+		}
+	}
+
+	if err := clusterRestart.scaleUpNodes(); err != nil {
+		return err
+	}
+
+	if err := clusterRestart.waitAllNodesRejoin(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (clusterRestart ClusterRestart) scaleDownNodes() error {
 
 	// scale down all nodes
@@ -464,7 +487,6 @@ func (r *Restarter) setNodeConditions(updateStatus func()) {
 	// node signalers
 	r.precheckSignaler = func() {
 		r.nodeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
-		r.nodeStatus.UpgradeStatus.ScheduledForUpgrade = ""
 
 		// for node restarts there should be only a single node
 		logrus.Infof("Beginning restart of node %q in cluster %q in namespace %q", r.scheduledNodes[0].name(), r.clusterName, r.clusterNamespace)
@@ -495,6 +517,8 @@ func (r *Restarter) setNodeConditions(updateStatus func()) {
 
 		r.nodeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		r.nodeStatus.UpgradeStatus.UnderUpgrade = ""
+
+		r.nodeStatus.UpgradeStatus.ScheduledForUpgrade = ""
 
 		updateStatus()
 	}
