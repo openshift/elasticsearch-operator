@@ -106,7 +106,7 @@ END
 )
 writeIndex=$(echo "${writeIndices}" | python -c "$CMD")
 
-nodeResources=$(curl -s $ES_SERVICE/_nodes/stats/os
+nodeResources=$(curl -s $ES_SERVICE/_nodes/stats/os \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
@@ -131,7 +131,7 @@ END
 )
 bytesToDelete=$(echo "${nodeResources}" | python -c "$CMD")
 
-storeSizes=$(curl -s $ES_SERVICE/_stats/store
+storeSizes=$(curl -s $ES_SERVICE/_stats/store \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
