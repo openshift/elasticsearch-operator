@@ -9,6 +9,8 @@ export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
 
+export OCP_VERSION=4.6
+
 export APP_NAME=elasticsearch-operator
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
@@ -32,8 +34,7 @@ gobindir:
 GEN_TIMESTAMP=.zz_generate_timestamp
 generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK)
 $(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
-	$(OPERATOR_SDK) generate k8s
-	$(OPERATOR_SDK) generate crds
+	@./hack/generate-crd.sh
 	@$(MAKE) fmt
 	@touch $@
 

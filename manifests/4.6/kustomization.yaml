@@ -1,0 +1,16 @@
+resources:
+- logging.openshift.io_elasticsearches_crd.yaml
+- logging.openshift.io_kibanas_crd.yaml
+patchesJson6902:
+- path: crd-drop-status-validation-patch.yaml
+  target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: elasticsearches.logging.openshift.io
+- path: crd-drop-status-validation-patch.yaml
+  target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: kibanas.logging.openshift.io
