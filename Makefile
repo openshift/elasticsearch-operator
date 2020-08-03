@@ -119,19 +119,11 @@ uninstall:
 	$(MAKE) elasticsearch-catalog-uninstall
 .PHONY: uninstall
 
-opm:
-	@if [ ! -f "${GOPATH}/src/github.com/operator-framework/operator-registry/opm" ] ; then \
-		mkdir -p ${GOPATH}/src/github.com/operator-framework ||: ; \
-		pushd ${GOPATH}/src/github.com/operator-framework ; \
-		[ ! -d ./operator-registry ] && git clone https://github.com/operator-framework/operator-registry ; \
-		cd operator-registry ; \
-		go build ./cmd/opm/ ; \
-		popd ; \
-	fi
-.PHONY: opm
-
-generate-bundle: opm
-	mkdir -p bundle; pushd bundle; ${GOPATH}/src/github.com/operator-framework/operator-registry/opm alpha bundle generate --directory ../manifests/4.6/ --package elasticsearch-operator --channels 4.6 --output-dir .; popd
+generate-bundle: $(OPM)
+	mkdir -p bundle; \
+	pushd bundle; \
+	$(OPM) alpha bundle generate --directory ../manifests/$(OCP_VERSION)/ --package elasticsearch-operator --channels $(OCP_VERSION) --output-dir .; \
+	popd
 .PHONY: generate-bundle
 
 # to use these targets, ensure the following env vars are set:
