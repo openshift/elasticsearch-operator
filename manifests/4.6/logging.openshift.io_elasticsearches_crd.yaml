@@ -3,8 +3,30 @@ kind: CustomResourceDefinition
 metadata:
   name: elasticsearches.logging.openshift.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.managementState
+    name: Management State
+    type: string
+  - JSONPath: .status.cluster.status
+    name: Health
+    type: string
+  - JSONPath: .status.cluster.numNodes
+    name: Nodes
+    type: integer
+  - JSONPath: .status.cluster.numDataNodes
+    name: Data Nodes
+    type: integer
+  - JSONPath: .status.shardAllocationEnabled
+    name: Shard Allocation
+    type: string
+  - JSONPath: .status.indexManagement.State
+    name: Index Management
+    type: string
   group: logging.openshift.io
   names:
+    categories:
+    - logging
+    - tracing
     kind: Elasticsearch
     listKind: ElasticsearchList
     plural: elasticsearches
@@ -12,6 +34,7 @@ spec:
     - es
     singular: elasticsearch
   scope: Namespaced
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Elasticsearch is the Schema for the elasticsearches API

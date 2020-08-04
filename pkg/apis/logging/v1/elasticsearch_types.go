@@ -14,7 +14,13 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
-// +kubebuilder:resource:shortName=es
+// +kubebuilder:resource:categories=logging;tracing,shortName=es
+// +kubebuilder:printcolumn:name="Management State",JSONPath=".spec.managementState",type=string
+// +kubebuilder:printcolumn:name="Health",JSONPath=".status.cluster.status",type=string
+// +kubebuilder:printcolumn:name="Nodes",JSONPath=".status.cluster.numNodes",type=integer
+// +kubebuilder:printcolumn:name="Data Nodes",JSONPath=".status.cluster.numDataNodes",type=integer
+// +kubebuilder:printcolumn:name="Shard Allocation",JSONPath=".status.shardAllocationEnabled",type=string
+// +kubebuilder:printcolumn:name="Index Management",JSONPath=".status.indexManagement.State",type=string
 //
 // Elasticsearch is the Schema for the elasticsearches API
 type Elasticsearch struct {

@@ -3,15 +3,23 @@ kind: CustomResourceDefinition
 metadata:
   name: kibanas.logging.openshift.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.managementState
+    name: Management State
+    type: string
+  - JSONPath: .spec.replicas
+    name: Replicas
+    type: integer
   group: logging.openshift.io
   names:
+    categories:
+    - logging
     kind: Kibana
     listKind: KibanaList
     plural: kibanas
     singular: kibana
   scope: Namespaced
-  subresources:
-    status: {}
+  subresources: {}
   validation:
     openAPIV3Schema:
       description: Kibana is the Schema for the kibanas API
