@@ -1,6 +1,6 @@
 module github.com/openshift/elasticsearch-operator
 
-go 1.13
+go 1.14
 
 // Pinned to kubernetes-1.18.3 and openshift release-4.6
 require (
