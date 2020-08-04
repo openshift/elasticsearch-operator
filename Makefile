@@ -119,11 +119,11 @@ uninstall:
 	$(MAKE) elasticsearch-catalog-uninstall
 .PHONY: uninstall
 
-generate-bundle: $(OPM)
+MANIFEST_VERSION?="4.6"
+generate-bundle: regenerate $(OPM)
 	mkdir -p bundle; \
-	pushd bundle; \
-	$(OPM) alpha bundle generate --directory ../manifests/$(OCP_VERSION)/ --package elasticsearch-operator --channels $(OCP_VERSION) --output-dir .; \
-	popd
+	$(OPM) alpha bundle generate --directory manifests/${MANIFEST_VERSION} --package elasticsearch-operator --channels ${MANIFEST_VERSION} --default ${MANIFEST_VERSION} --output-dir bundle/; \
+	find bundle/manifests/ -type f ! \( -name "*kibana*" -o -name "*elasticsearch*" \) -delete
 .PHONY: generate-bundle
 
 # to use these targets, ensure the following env vars are set:
