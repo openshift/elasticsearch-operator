@@ -85,13 +85,14 @@ exit 1
 // to Run this you should do th following:
 // TODO(rogreen) So far I was able to run the following without full success:
 // 1. copy the script to the elasticsearch master node
-// 2. try to run in with `ES_SERVICE=https://localhost:9200 POLICY_MAPPING=<INDEX_NAME> bash -x test.sh`
+// 2. try to run in with `CACERT=/etc/elasticsearch/secret/admin-ca OTHER_CERTS='--cert /etc/elasticsearch/secret/admin-cert --key /etc/elasticsearch/secret/admin-key' ES_SERVICE=https://localhost:9200 POLICY_MAPPING=app MAX_PERCENT=90 bash -x dest_script.sh`
 // 3. see it fails
 const percentScript = `
 set -euo pipefail
 
+CACERT="${CACERT:-/etc/indexmanagement/keys/admin-ca}"
 writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
-  --cacert /etc/indexmanagement/keys/admin-ca \
+   --cacert "${CACERT}" ${OTHER_CERTS} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
@@ -107,45 +108,56 @@ END
 writeIndex=$(echo "${writeIndices}" | python -c "$CMD")
 
 nodeResources=$(curl -s $ES_SERVICE/_nodes/stats/os \
-  --cacert /etc/indexmanagement/keys/admin-ca \
+   --cacert "${CACERT}" ${OTHER_CERTS} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
 CMD=$(cat <<END
 import json,sys
 r=json.load(sys.stdin)
-node_sizes = [(node['name'], node['os']['mem']['free_percent'], node['os']['mem']['free_in_bytes']) for node in r['nodes']]
+node_sizes = [(node['name'], node['os']['mem']['free_percent'], node['os']['mem']['free_in_bytes']) for node in r['nodes'].values()]
 highest_percent=0
 highest_bytes=0
+max_percent=float("${MAX_PERCENT}")
+found = False
 for node_size in node_sizes:
   node_name, node_percent, node_bytes = node_size
-  if node_percent > "${MAX_PERCENT}" and node_percent > highest_percent:
+  node_percent = float(node_percent)
+  if node_percent > max_percent and node_percent > highest_percent:
+    found = True
     highest_percent = node_percent
     highest_bytes = node_bytes
 
-max_bytes = (highest_bytes / ( highest_percent / 100 ) ) * ("${MAX_PERCENT}" / 100)
+if not found:
+  sys.exit(0)
+max_bytes = (highest_bytes / ( highest_percent / 100.0 ) ) * (max_percent / 100.0)
 bytes_to_delete = highest_bytes - max_bytes
 print(bytes_to_delete)
 
 END
 )
+
 bytesToDelete=$(echo "${nodeResources}" | python -c "$CMD")
+if [[ -z "${bytesToDelete}" ]]; then
+  echo "There are no nodes with usage higher than the threashold of '${MAX_PERCENT}', no action required"
+  exit 0
+fi
 
 storeSizes=$(curl -s $ES_SERVICE/_stats/store \
-  --cacert /etc/indexmanagement/keys/admin-ca \
+   --cacert "${CACERT}" ${OTHER_CERTS} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
 CMD=$(cat <<END
 import json,sys
 r=json.load(sys.stdin)
-print(json.dumps(r.indices))
+print(json.dumps(r['indices']))
 END
 )
 sizeOfIndices=$(echo "${storeSizes}" | python -c "$CMD")
 
 indices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}/_settings/index.creation_date \
-  --cacert /etc/indexmanagement/keys/admin-ca \
+  --cacert "${CACERT}" ${OTHER_CERTS} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
@@ -154,10 +166,22 @@ import json,sys
 r = json.load(sys.stdin)
 
 # Join sizeOfIndices and indices dictionaries based on index name
-r.update(json.loads("${sizeOfIndices}"))
+sizesDict=json.loads("${sizeOfIndices}")
+
+# joinDicts takes two dictionaries and merges the keys (backwards compatible with python2)
+joinDicts = lambda dict1,dict2: return {k: v for d in (dict1, dict2) for k, v in d.items()}
+
+rb={}
+for i, j in joinDicts(r,sizesDict).items():
+    # if the key exists in both dicts
+    if i in r and i in sizesDict:
+        # make a merged dict with both keys
+        rb[i]= joinDicts(r[i], sizesDict[i])
+    else:
+        rb[i] = j
 
 # Convert to list to allow maintaining sort order
-rl = [ i for i in r ]
+rl = [ {i:j} for i, j in rb.items() ]
 
 # getCreationDate takes an index and extracts the creation date
 getCreationDate = lambda x: return int(x['settings']['index']['creation_date'])
@@ -196,7 +220,7 @@ indices=$(echo "${indices}"  | python -c "$CMD")
 
 code=$(curl -s $ES_SERVICE/${indices}?pretty \
   -w "%{response_code}" \
-  --cacert /etc/indexmanagement/keys/admin-ca \
+  --cacert "${CACERT}" ${OTHER_CERTS} \
   -HContent-Type:application/json \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
