@@ -21,7 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,39 +38,7 @@ var (
 	}
 )
 
-func Reconcile(request reconcile.Request, k8sClient client.Client, esClient elasticsearch.Client) error {
-	kibanaInstance := &kibana.Kibana{}
-	key := types.NamespacedName{
-		Name:      request.Name,
-		Namespace: request.Namespace,
-	}
-
-	err := k8sClient.Get(context.TODO(), key, kibanaInstance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
-
-	if kibanaInstance.Spec.ManagementState == kibana.ManagementStateUnmanaged {
-		return nil
-	}
-
-	proxyCfg, err := getProxyConfig(k8sClient)
-	if err != nil {
-		return err
-	}
-
-	if err := reconcileKibana(kibanaInstance, k8sClient, esClient, proxyCfg); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func reconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client, esClient elasticsearch.Client, proxyConfig *configv1.Proxy) error {
+func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esClient elasticsearch.Client, proxyConfig *configv1.Proxy) error {
 	clusterKibanaRequest := KibanaRequest{
 		client:   requestClient,
 		cluster:  requestCluster,
@@ -130,7 +97,7 @@ func reconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 	cluster := clusterKibanaRequest.cluster
 
 	if err != nil {
-		return fmt.Errorf("Failed to get Kibana status for %q: %v", cluster.Name, err)
+		return fmt.Errorf("Failed to get Kibana status for %q: %w", cluster.Name, err)
 	}
 
 	printUpdateMessage := true
@@ -148,20 +115,19 @@ func reconcileKibana(requestCluster *kibana.Kibana, requestClient client.Client,
 			return nil
 		})
 	if retryErr != nil {
-		return fmt.Errorf("Failed to update Kibana status for %q: %v", cluster.Name, retryErr)
+		return fmt.Errorf("Failed to update Kibana status for %q: %w", cluster.Name, retryErr)
 	}
 	logrus.Infof("Kibana status successfully updated")
 
 	return nil
 }
 
-func getProxyConfig(r client.Client) (*configv1.Proxy, error) {
+func GetProxyConfig(r client.Client) (*configv1.Proxy, error) {
 	proxyNamespacedName := types.NamespacedName{Name: constants.ProxyName}
 	proxyConfig := &configv1.Proxy{}
 	if err := r.Get(context.TODO(), proxyNamespacedName, proxyConfig); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("Encountered unexpected error getting %v. Error: %s\r\n", proxyNamespacedName,
-				err.Error())
+			return nil, fmt.Errorf("Encountered unexpected error getting %v. Error: %w", proxyNamespacedName, err)
 		}
 	}
 	return proxyConfig, nil
