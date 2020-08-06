@@ -158,24 +158,30 @@ func (node *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
 }
 
 func (node *statefulSetNode) setPartition(partitions int32) error {
+
+	nodeCopy := node.self.DeepCopy()
+
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
 			return getErr
 		}
 
-		if *node.self.Spec.UpdateStrategy.RollingUpdate.Partition == partitions {
+		if *nodeCopy.Spec.UpdateStrategy.RollingUpdate.Partition == partitions {
 			return nil
 		}
 
-		node.self.Spec.UpdateStrategy.RollingUpdate.Partition = &partitions
+		nodeCopy.Spec.UpdateStrategy.RollingUpdate.Partition = &partitions
 
 		if updateErr := node.client.Update(context.TODO(), &node.self); updateErr != nil {
 			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
 			return updateErr
 		}
+
+		node.self.Spec.UpdateStrategy.RollingUpdate.Partition = &partitions
+
 		return nil
 	})
 	if retryErr != nil {
@@ -198,24 +204,30 @@ func (node *statefulSetNode) partition() (int32, error) {
 }
 
 func (node *statefulSetNode) setReplicaCount(replicas int32) error {
+
+	nodeCopy := node.self.DeepCopy()
+
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
 			return getErr
 		}
 
-		if *node.self.Spec.Replicas == replicas {
+		if *nodeCopy.Spec.Replicas == replicas {
 			return nil
 		}
 
-		node.self.Spec.Replicas = &replicas
+		nodeCopy.Spec.Replicas = &replicas
 
 		if updateErr := node.client.Update(context.TODO(), &node.self); updateErr != nil {
 			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
 			return updateErr
 		}
+
+		node.self.Spec.Replicas = &replicas
+
 		return nil
 	})
 	if retryErr != nil {
