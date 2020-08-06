@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 // This will idempotently update the index templates and update indices' replica count
@@ -35,15 +35,18 @@ func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
 
 				if int32(currentReplicas) != replicaCount {
 					// best effort initially?
-					logrus.Debugf("Updating %v from %d replicas to %d", index, currentReplicas, replicaCount)
 					if ack, err := ec.updateIndexReplicas(index, replicaCount); err != nil {
 						return ack, err
 					}
 				}
 			}
 		} else {
-			logrus.Warnf("Unable to evaluate the number of replicas for index %q: %v. cluster: %s, namespace: %s ", index, health, ec.cluster, ec.namespace)
-			return false, fmt.Errorf("Unable to evaluate number of replicas for index")
+			log.Error(nil, "unable to evaluate the number of replicas for index",
+				"index", index,
+				"health", health,
+				"cluster", ec.cluster,
+				"namespace", ec.namespace)
+			return false, fmt.Errorf("unable to evaluate number of replicas for index")
 		}
 	}
 
@@ -78,8 +81,6 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 
 						templateJson, _ := json.Marshal(template)
 
-						logrus.Debugf("Updating template %v from %v replicas to %d", templateName, currentReplicas, replicaCount)
-
 						payload := &EsRequest{
 							Method:      http.MethodPut,
 							URI:         fmt.Sprintf("_template/%s", templateName),
@@ -94,7 +95,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 						}
 
 						if !(payload.StatusCode == 200 && acknowledged) {
-							logrus.Warnf("Unable to update template %q: %v", templateName, payload.Error)
+							log.Error(payload.Error, "unable to update tmeplate", "template", templateName)
 						}
 					}
 				}

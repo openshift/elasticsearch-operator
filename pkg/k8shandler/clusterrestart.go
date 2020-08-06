@@ -5,8 +5,8 @@ import (
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -43,19 +43,19 @@ type Restarter struct {
 	recoverySignaler func()
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformFullClusterUpdate(nodes []NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformFullClusterUpdate(nodes []NodeTypeInterface) error {
 
 	r := ClusterRestart{
-		client:           elasticsearchRequest.esClient,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		client:           er.esClient,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		scheduledNodes:   nodes,
 	}
 
 	restarter := Restarter{
 		scheduledNodes:   nodes,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.requiredSetPrimariesShardsAndFlush,
 		main:             r.pushNodeUpdates,
@@ -65,107 +65,107 @@ func (elasticsearchRequest *ElasticsearchRequest) PerformFullClusterUpdate(nodes
 
 	updateStatus := func() {
 		for _, node := range r.scheduledNodes {
-			nodeStatus := elasticsearchRequest.getNodeState(node)
+			nodeStatus := er.getNodeState(node)
 			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = v1.ConditionFalse
 
-			if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, &elasticsearchRequest.cluster.Status); err != nil {
-				logrus.Errorf("unable to update node status: E: %s", err)
+			if err := er.setNodeStatus(node, nodeStatus, &er.cluster.Status); err != nil {
+				log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 			}
 		}
 	}
 
 	restarter.setClusterConditions(updateStatus)
-	restarter.clusterStatus = &elasticsearchRequest.cluster.Status
+	restarter.clusterStatus = &er.cluster.Status
 	return restarter.restartCluster()
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformFullClusterCertRestart(nodes []NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformFullClusterCertRestart(nodes []NodeTypeInterface) error {
 
 	r := ClusterRestart{
-		client:           elasticsearchRequest.esClient,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		client:           er.esClient,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		scheduledNodes:   nodes,
 	}
 
 	restarter := Restarter{
 		scheduledNodes:   nodes,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		precheck:         r.restartNoop,
 		prep:             r.restartNoop,
-		main:             elasticsearchRequest.scaleDownThenUpFunc(r),
+		main:             er.scaleDownThenUpFunc(r),
 		post:             r.waitAllNodesRejoinAndSetAllShards,
 		recovery:         r.ensureClusterHealthValid,
 	}
 
 	updateStatus := func() {
 		for _, node := range r.scheduledNodes {
-			nodeStatus := elasticsearchRequest.getNodeState(node)
+			nodeStatus := er.getNodeState(node)
 			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = v1.ConditionFalse
 
-			if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, &elasticsearchRequest.cluster.Status); err != nil {
-				logrus.Errorf("unable to update node status: E: %s", err)
+			if err := er.setNodeStatus(node, nodeStatus, &er.cluster.Status); err != nil {
+				log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 			}
 		}
 	}
 
 	restarter.setClusterConditions(updateStatus)
-	restarter.clusterStatus = &elasticsearchRequest.cluster.Status
+	restarter.clusterStatus = &er.cluster.Status
 	return restarter.restartCluster()
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformFullClusterRestart(nodes []NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformFullClusterRestart(nodes []NodeTypeInterface) error {
 
 	r := ClusterRestart{
-		client:           elasticsearchRequest.esClient,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		client:           er.esClient,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		scheduledNodes:   nodes,
 	}
 
 	restarter := Restarter{
 		scheduledNodes:   nodes,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.optionalSetPrimariesShardsAndFlush,
-		main:             elasticsearchRequest.scaleDownThenUpFunc(r),
+		main:             er.scaleDownThenUpFunc(r),
 		post:             r.waitAllNodesRejoinAndSetAllShards,
 		recovery:         r.ensureClusterHealthValid,
 	}
 
 	updateStatus := func() {
 		for _, node := range r.scheduledNodes {
-			nodeStatus := elasticsearchRequest.getNodeState(node)
+			nodeStatus := er.getNodeState(node)
 			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = v1.ConditionFalse
 
-			if err := elasticsearchRequest.setNodeStatus(node, nodeStatus, &elasticsearchRequest.cluster.Status); err != nil {
-				logrus.Errorf("unable to update node status: E: %s", err)
+			if err := er.setNodeStatus(node, nodeStatus, &er.cluster.Status); err != nil {
+				log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 			}
 		}
 	}
 
 	restarter.setClusterConditions(updateStatus)
-	restarter.clusterStatus = &elasticsearchRequest.cluster.Status
+	restarter.clusterStatus = &er.cluster.Status
 	return restarter.restartCluster()
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformNodeRestart(node NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformNodeRestart(node NodeTypeInterface) error {
 
 	scheduledNode := []NodeTypeInterface{node}
 
 	r := ClusterRestart{
-		client:           elasticsearchRequest.esClient,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		client:           er.esClient,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		scheduledNodes:   scheduledNode,
 	}
 
 	restarter := Restarter{
 		scheduledNodes:   scheduledNode,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.optionalSetPrimariesShardsAndFlush,
 		main:             r.scaleDownThenUpNodes,
@@ -174,32 +174,32 @@ func (elasticsearchRequest *ElasticsearchRequest) PerformNodeRestart(node NodeTy
 	}
 
 	updateStatus := func() {
-		if err := elasticsearchRequest.setNodeStatus(node, restarter.nodeStatus, &elasticsearchRequest.cluster.Status); err != nil {
-			logrus.Errorf("unable to update node status: E: %s", err)
+		if err := er.setNodeStatus(node, restarter.nodeStatus, &er.cluster.Status); err != nil {
+			log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 		}
 	}
 
 	restarter.setNodeConditions(updateStatus)
 
-	restarter.nodeStatus = elasticsearchRequest.getNodeState(node)
+	restarter.nodeStatus = er.getNodeState(node)
 	return restarter.restartCluster()
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformNodeUpdate(node NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformNodeUpdate(node NodeTypeInterface) error {
 
 	scheduledNode := []NodeTypeInterface{node}
 
 	r := ClusterRestart{
-		client:           elasticsearchRequest.esClient,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		client:           er.esClient,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		scheduledNodes:   scheduledNode,
 	}
 
 	restarter := Restarter{
 		scheduledNodes:   scheduledNode,
-		clusterName:      elasticsearchRequest.cluster.Name,
-		clusterNamespace: elasticsearchRequest.cluster.Namespace,
+		clusterName:      er.cluster.Name,
+		clusterNamespace: er.cluster.Namespace,
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.requiredSetPrimariesShardsAndFlush,
 		main:             r.pushNodeUpdates,
@@ -208,21 +208,21 @@ func (elasticsearchRequest *ElasticsearchRequest) PerformNodeUpdate(node NodeTyp
 	}
 
 	updateStatus := func() {
-		if err := elasticsearchRequest.setNodeStatus(node, restarter.nodeStatus, &elasticsearchRequest.cluster.Status); err != nil {
-			logrus.Errorf("unable to update node status: E: %s", err)
+		if err := er.setNodeStatus(node, restarter.nodeStatus, &er.cluster.Status); err != nil {
+			log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 		}
 	}
 
 	restarter.setNodeConditions(updateStatus)
 
-	restarter.nodeStatus = elasticsearchRequest.getNodeState(node)
+	restarter.nodeStatus = er.getNodeState(node)
 	return restarter.restartCluster()
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformRollingUpdate(nodes []NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformRollingUpdate(nodes []NodeTypeInterface) error {
 
 	for _, node := range nodes {
-		if err := elasticsearchRequest.PerformNodeUpdate(node); err != nil {
+		if err := er.PerformNodeUpdate(node); err != nil {
 			return err
 		}
 	}
@@ -230,10 +230,10 @@ func (elasticsearchRequest *ElasticsearchRequest) PerformRollingUpdate(nodes []N
 	return nil
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) PerformRollingRestart(nodes []NodeTypeInterface) error {
+func (er *ElasticsearchRequest) PerformRollingRestart(nodes []NodeTypeInterface) error {
 
 	for _, node := range nodes {
-		if err := elasticsearchRequest.PerformNodeRestart(node); err != nil {
+		if err := er.PerformNodeRestart(node); err != nil {
 			return err
 		}
 	}
@@ -244,7 +244,7 @@ func (elasticsearchRequest *ElasticsearchRequest) PerformRollingRestart(nodes []
 // scaleDownThenUpFunc returns a func() error that uses the ElasticsearchRequest function AnyNodeReady
 // to determine if the cluster has any nodes running. If we use the NodeInterface function waitForNodeLeaveCluster
 // we may get stuck because we have no cluster nodes to query from.
-func (elasticsearchRequest *ElasticsearchRequest) scaleDownThenUpFunc(clusterRestart ClusterRestart) func() error {
+func (er *ElasticsearchRequest) scaleDownThenUpFunc(clusterRestart ClusterRestart) func() error {
 
 	return func() error {
 
@@ -252,7 +252,7 @@ func (elasticsearchRequest *ElasticsearchRequest) scaleDownThenUpFunc(clusterRes
 			return err
 		}
 
-		if elasticsearchRequest.AnyNodeReady() {
+		if er.AnyNodeReady() {
 			return fmt.Errorf("Waiting for all nodes to leave the cluster")
 		}
 
@@ -285,7 +285,7 @@ func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error 
 
 	// flush nodes
 	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
-		logrus.Warnf("Unable to perform synchronized flush: %v", err)
+		log.Error(err, "Unable to perform synchronized flush", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
 	}
 
 	return nil
@@ -294,12 +294,12 @@ func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error 
 func (clusterRestart ClusterRestart) optionalSetPrimariesShardsAndFlush() error {
 	// set shard allocation as primaries
 	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
-		logrus.Warnf("Unable to set shard allocation to primaries: %v", err)
+		log.Error(err, "Unable to set shard allocation to primaries", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
 	}
 
 	// flush nodes
 	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
-		logrus.Warnf("Unable to perform synchronized flush: %v", err)
+		log.Error(err, "Unable to perform synchronized flush", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
 	}
 
 	return nil
@@ -431,7 +431,7 @@ func (r *Restarter) setClusterConditions(updateStatus func()) {
 
 	// cluster signalers
 	r.precheckSignaler = func() {
-		logrus.Infof("Beginning restart of cluster %q in namespace %q", r.clusterName, r.clusterNamespace)
+		log.Info("Beginning restart cluster", "cluster", r.clusterName, "namespace", r.clusterNamespace)
 		updateUpdatingESSettingsCondition(r.clusterStatus, v1.ConditionTrue)
 	}
 
@@ -454,7 +454,7 @@ func (r *Restarter) setClusterConditions(updateStatus func()) {
 	}
 
 	r.recoverySignaler = func() {
-		logrus.Infof("Completed restart of cluster %q in namespace %q", r.clusterName, r.clusterNamespace)
+		log.Info("Completed restart of cluster", "cluster", r.clusterName, "namespace", r.clusterNamespace)
 		updateRestartingCondition(r.clusterStatus, v1.ConditionFalse)
 		updateRecoveringCondition(r.clusterStatus, v1.ConditionFalse)
 	}
@@ -489,7 +489,10 @@ func (r *Restarter) setNodeConditions(updateStatus func()) {
 		r.nodeStatus.UpgradeStatus.UnderUpgrade = v1.ConditionTrue
 
 		// for node restarts there should be only a single node
-		logrus.Infof("Beginning restart of node %q in cluster %q in namespace %q", r.scheduledNodes[0].name(), r.clusterName, r.clusterNamespace)
+		log.Info("Beginning restart of node",
+			"node", r.scheduledNodes[0].name(),
+			"cluster", r.clusterName,
+			"namespace", r.clusterNamespace)
 		updateStatus()
 	}
 
@@ -513,7 +516,10 @@ func (r *Restarter) setNodeConditions(updateStatus func()) {
 
 	r.recoverySignaler = func() {
 		// for node restarts there should be only a single node
-		logrus.Infof("Completed restart of node %q in cluster %q in namespace %q", r.scheduledNodes[0].name(), r.clusterName, r.clusterNamespace)
+		log.Info("Completed restart of node",
+			"node", r.scheduledNodes[0].name(),
+			"cluster", r.clusterName,
+			"namespace", r.clusterNamespace)
 
 		r.nodeStatus.UpgradeStatus.UpgradePhase = api.ControllerUpdated
 		r.nodeStatus.UpgradeStatus.UnderUpgrade = ""

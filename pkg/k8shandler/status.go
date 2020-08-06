@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,10 +25,10 @@ var DISK_WATERMARK_HIGH_PCT *float64
 var DISK_WATERMARK_LOW_ABS *resource.Quantity
 var DISK_WATERMARK_HIGH_ABS *resource.Quantity
 
-func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
+func (er *ElasticsearchRequest) UpdateClusterStatus() error {
 
-	cluster := elasticsearchRequest.cluster
-	esClient := elasticsearchRequest.esClient
+	cluster := er.cluster
+	esClient := er.esClient
 
 	clusterStatus := cluster.Status.DeepCopy()
 
@@ -37,7 +37,7 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 	}
 
 	// if the cluster isn't ready don't both to try to curl it
-	if elasticsearchRequest.AnyNodeReady() {
+	if er.AnyNodeReady() {
 		health, _ = esClient.GetClusterHealth()
 	}
 
@@ -45,7 +45,7 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 	clusterStatus.ShardAllocationEnabled = api.ShardAllocationUnknown
 
 	// if the cluster isn't ready don't both to try to curl it
-	if elasticsearchRequest.AnyNodeReady() {
+	if er.AnyNodeReady() {
 		allocation, _ := esClient.GetShardAllocation()
 		switch {
 		case allocation == "none":
@@ -59,17 +59,16 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 		}
 	}
 
-	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, elasticsearchRequest.client)
+	clusterStatus.Pods = rolePodStateMap(cluster.Namespace, cluster.Name, er.client)
 	updateStatusConditions(clusterStatus)
-	elasticsearchRequest.updateNodeConditions(clusterStatus)
+	er.updateNodeConditions(clusterStatus)
 
 	if !reflect.DeepEqual(clusterStatus, cluster.Status) {
 		nretries := -1
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			nretries++
-			if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
-				logrus.Debugf("Could not get Elasticsearch %v: %v", cluster.Name, getErr)
-				return getErr
+			if err := er.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); err != nil {
+				return err
 			}
 
 			cluster.Status.Cluster = clusterStatus.Cluster
@@ -78,9 +77,8 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 			cluster.Status.ShardAllocationEnabled = clusterStatus.ShardAllocationEnabled
 			cluster.Status.Nodes = clusterStatus.Nodes
 
-			if updateErr := elasticsearchRequest.client.Update(context.TODO(), cluster); updateErr != nil {
-				logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", cluster.Name, updateErr)
-				return updateErr
+			if err := er.client.Update(context.TODO(), cluster); err != nil {
+				return err
 			}
 			return nil
 		})
@@ -88,17 +86,16 @@ func (elasticsearchRequest *ElasticsearchRequest) UpdateClusterStatus() error {
 		if retryErr != nil {
 			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cluster.Name, nretries, retryErr)
 		}
-		logrus.Debugf("Updated Elasticsearch %v after %v retries", cluster.Name, nretries)
 	}
 
 	return nil
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) GetCurrentPodStateMap() map[api.ElasticsearchNodeRole]api.PodStateMap {
-	return rolePodStateMap(elasticsearchRequest.cluster.Namespace, elasticsearchRequest.cluster.Name, elasticsearchRequest.client)
+func (er *ElasticsearchRequest) GetCurrentPodStateMap() map[api.ElasticsearchNodeRole]api.PodStateMap {
+	return rolePodStateMap(er.cluster.Namespace, er.cluster.Name, er.client)
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) error {
+func (er *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) error {
 
 	index, _ := getNodeStatus(node.name(), clusterStatus)
 
@@ -108,12 +105,12 @@ func (elasticsearchRequest *ElasticsearchRequest) setNodeStatus(node NodeTypeInt
 		clusterStatus.Nodes[index] = *nodeStatus
 	}
 
-	return elasticsearchRequest.updateNodeStatus(*clusterStatus)
+	return er.updateNodeStatus(*clusterStatus)
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus) error {
+func (er *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus) error {
 
-	cluster := elasticsearchRequest.cluster
+	cluster := er.cluster
 	// if there is nothing to update, don't
 	if reflect.DeepEqual(cluster.Status, status) {
 		return nil
@@ -122,19 +119,16 @@ func (elasticsearchRequest *ElasticsearchRequest) updateNodeStatus(status api.El
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch %v: %v", cluster.Name, getErr)
-			return getErr
+		if err := er.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); err != nil {
+			return err
 		}
 
 		cluster.Status = status
 
-		if updateErr := elasticsearchRequest.client.Update(context.TODO(), cluster); updateErr != nil {
-			logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", cluster.Name, updateErr)
-			return updateErr
+		if err := er.client.Update(context.TODO(), cluster); err != nil {
+			return err
 		}
 
-		logrus.Debugf("Updated Elasticsearch %v after %v retries", cluster.Name, nretries)
 		return nil
 	})
 
@@ -246,23 +240,25 @@ func isPodReady(pod v1.Pod) bool {
 	return true
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchStatus) {
-	esClient := elasticsearchRequest.esClient
-	cluster := elasticsearchRequest.cluster
+func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchStatus) {
+	esClient := er.esClient
+	cluster := er.cluster
 	// Get all pods based on status.Nodes[] and check their conditions
 	// get pod with label 'node-name=node.getName()'
 	thresholdEnabled, err := esClient.GetThresholdEnabled()
 	if err != nil {
-		logrus.Debugf("Unable to check if threshold is enabled for %v", cluster.Name)
+		er.L().Info("Unable to check if threshold is enabled", "error", err)
 	}
 
 	if thresholdEnabled {
 		// refresh value of thresholds in case they changed...
-		elasticsearchRequest.refreshDiskWatermarkThresholds()
+		er.refreshDiskWatermarkThresholds()
 	}
 
+	ll := er.L()
 	for nodeIndex := range status.Nodes {
 		node := &status.Nodes[nodeIndex]
+		ll = ll.WithValues("node", node)
 
 		nodeName := "unknown name"
 		if node.DeploymentName != "" {
@@ -280,7 +276,7 @@ func (elasticsearchRequest *ElasticsearchRequest) updateNodeConditions(status *a
 				"cluster-name": cluster.Name,
 				"node-name":    nodeName,
 			},
-			elasticsearchRequest.client,
+			er.client,
 		)
 		for _, nodePod := range nodePodList.Items {
 
@@ -376,7 +372,7 @@ func (elasticsearchRequest *ElasticsearchRequest) updateNodeConditions(status *a
 
 			usage, percent, err := esClient.GetNodeDiskUsage(nodeName)
 			if err != nil {
-				logrus.Debugf("Unable to get disk usage for %v", nodeName)
+				ll.Info("Unable to get disk usage", "error", err)
 				continue
 			}
 
@@ -405,11 +401,11 @@ func (elasticsearchRequest *ElasticsearchRequest) updateNodeConditions(status *a
 	}
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
+func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	//quantity, err := resource.ParseQuantity(string)
-	low, high, err := elasticsearchRequest.esClient.GetDiskWatermarks()
+	low, high, err := er.esClient.GetDiskWatermarks()
 	if err != nil {
-		logrus.Debugf("Unable to refresh disk watermarks from cluster, using defaults")
+		er.L().Info("Unable to refresh disk watermarks from cluster, using defaults", "error", err)
 	}
 
 	switch low.(type) {
@@ -420,13 +416,12 @@ func (elasticsearchRequest *ElasticsearchRequest) refreshDiskWatermarkThresholds
 	case string:
 		value, err := resource.ParseQuantity(strings.ToUpper(low.(string)))
 		if err != nil {
-			logrus.Warnf("Unable to parse %v: %v", low.(string), err)
+			er.L().Info("Unable to parse quantity", "value", low.(string), "error", err)
 		}
 		DISK_WATERMARK_LOW_ABS = &value
 		DISK_WATERMARK_LOW_PCT = nil
 	default:
-		// error
-		logrus.Warnf("Unknown type for low: %T", low)
+		er.L().Error(err, "Unknown type for low", "type", fmt.Sprintf("%T", low))
 	}
 
 	switch high.(type) {
@@ -437,13 +432,13 @@ func (elasticsearchRequest *ElasticsearchRequest) refreshDiskWatermarkThresholds
 	case string:
 		value, err := resource.ParseQuantity(strings.ToUpper(high.(string)))
 		if err != nil {
-			logrus.Warnf("Unable to parse %v: %v", high.(string), err)
+			er.L().Info("Unable to parse quantity", "value", high.(string), "error", err)
 		}
 		DISK_WATERMARK_HIGH_ABS = &value
 		DISK_WATERMARK_HIGH_PCT = nil
 	default:
 		// error
-		logrus.Warnf("Unknown type for high: %T", high)
+		er.L().Error(err, "Unknown type for high", "type", fmt.Sprintf("%T", high))
 	}
 
 }
@@ -466,7 +461,7 @@ func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Q
 
 	quantity, err := resource.ParseQuantity(usage)
 	if err != nil {
-		logrus.Warnf("Unable to parse usage quantity %v: %v", usage, err)
+		log.Error(err, "Unable to parse quantity", "value", usage)
 		return false
 	}
 
@@ -673,16 +668,16 @@ func updateESNodeCondition(status *api.ElasticsearchStatus, condition *api.Clust
 func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 	executeUpdateCondition func(*api.ElasticsearchStatus, v1.ConditionStatus) bool, client client.Client) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if getErr := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch %v: %v", dpl.Name, getErr)
-			return getErr
+		if err := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); err != nil {
+			log.Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
+			return err
 		}
 
 		executeUpdateCondition(&dpl.Status, value)
 
-		if updateErr := client.Update(context.TODO(), dpl); updateErr != nil {
-			logrus.Debugf("Failed to update Elasticsearch %v status: %v", dpl.Name, updateErr)
-			return updateErr
+		if err := client.Update(context.TODO(), dpl); err != nil {
+			log.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
+			return err
 		}
 		return nil
 	})

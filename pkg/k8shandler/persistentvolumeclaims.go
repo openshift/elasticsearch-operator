@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,22 +20,21 @@ func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newNa
 	// so check to see if it already exists
 	claim := &v1.PersistentVolumeClaim{}
 
-	if getErr := client.Get(context.TODO(), types.NamespacedName{Name: newName, Namespace: namespace}, claim); getErr != nil {
-		if errors.IsNotFound(getErr) {
-			claim = createPersistentVolumeClaim(newName, namespace, pvc)
-			err := client.Create(context.TODO(), claim)
-			if err != nil {
-				if !errors.IsAlreadyExists(err) {
-					return fmt.Errorf("Unable to create PVC: %v", err)
-				}
-			}
-		} else {
-			logrus.Debugf("Could not get PVC %v: %v", newName, getErr)
-			return getErr
-		}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: newName, Namespace: namespace}, claim)
+	if err == nil {
+		return nil
 	}
-
-	return nil
+	if errors.IsNotFound(err) {
+		claim = createPersistentVolumeClaim(newName, namespace, pvc)
+		err := client.Create(context.TODO(), claim)
+		if err == nil || errors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("unable to create PVC: %w", err)
+	} else {
+		log.Error(err, "Could not get PVC", "pvc", newName)
+		return err
+	}
 }
 
 func createPersistentVolumeClaim(pvcName, namespace string, volSpec v1.PersistentVolumeClaimSpec) *v1.PersistentVolumeClaim {

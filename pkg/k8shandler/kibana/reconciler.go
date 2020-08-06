@@ -12,8 +12,8 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/migrations"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -106,7 +106,7 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 			if !compareKibanaStatus(kibanaStatus,
 				cluster.Status) {
 				if printUpdateMessage {
-					logrus.Infof("Updating status of Kibana")
+					log.Info("Updating status of Kibana")
 					printUpdateMessage = false
 				}
 				cluster.Status = kibanaStatus
@@ -117,7 +117,7 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 	if retryErr != nil {
 		return fmt.Errorf("Failed to update Kibana status for %q: %w", cluster.Name, retryErr)
 	}
-	logrus.Infof("Kibana status successfully updated")
+	log.Info("Kibana status successfully updated")
 
 	return nil
 }
@@ -196,7 +196,6 @@ func (clusterRequest *KibanaRequest) deleteKibana5Deployment() error {
 	containers := kibana5.Spec.Template.Spec.Containers
 	for _, c := range containers {
 		if c.Image == getImage() {
-			logrus.Debugf("skipping deleting kibana 5 image because kibana 6 installed")
 			return nil
 		}
 	}
@@ -261,7 +260,6 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 				if errors.IsNotFound(err) {
 					// the object doesn't exist -- it was likely culled
 					// recreate it on the next time through if necessary
-					logrus.Debugf("Returning nil. The deployment %q was not found even though create previously failed.  Was it culled?", kibanaDeployment.Name)
 					return nil
 				}
 				return fmt.Errorf("failed to get Kibana deployment: %v", err)
@@ -354,31 +352,27 @@ func isDeploymentDifferent(current *apps.Deployment, desired *apps.Deployment) (
 
 	// is this needed?
 	if !utils.AreMapsSame(current.Spec.Template.Spec.NodeSelector, desired.Spec.Template.Spec.NodeSelector) {
-		logrus.Debugf("Visualization nodeSelector change found, updating '%s'", current.Name)
 		current.Spec.Template.Spec.NodeSelector = desired.Spec.Template.Spec.NodeSelector
 		different = true
 	}
 
 	// is this needed?
 	if !utils.AreTolerationsSame(current.Spec.Template.Spec.Tolerations, desired.Spec.Template.Spec.Tolerations) {
-		logrus.Debugf("Visualization tolerations change found, updating '%s'", current.Name)
 		current.Spec.Template.Spec.Tolerations = desired.Spec.Template.Spec.Tolerations
 		different = true
 	}
 
 	if isDeploymentImageDifference(current, desired) {
-		logrus.Debugf("Visualization image change found, updating %q", current.Name)
 		current = updateCurrentDeploymentImages(current, desired)
 		different = true
 	}
 
 	if utils.AreResourcesDifferent(current, desired) {
-		logrus.Debugf("Visualization resource(s) change found, updating %q", current.Name)
 		different = true
 	}
 
 	if *current.Spec.Replicas != *desired.Spec.Replicas {
-		logrus.Infof("Kibana replicas changed. Previous: %d, Current: %d", *current.Spec.Replicas, *desired.Spec.Replicas)
+		log.Info("Kibana replicas changed", "previous", *current.Spec.Replicas, "current", *desired.Spec.Replicas, "deployment", current.Name)
 		*current.Spec.Replicas = *desired.Spec.Replicas
 		different = true
 	}

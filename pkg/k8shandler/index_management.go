@@ -8,7 +8,7 @@ import (
 
 	logging "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/indexmanagement"
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	esapi "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 )
 
@@ -17,46 +17,46 @@ const (
 	ocpTemplatePrefix = "ocp-gen"
 )
 
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
+func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
 
-	logger.Debug("Reconciling IndexManagement")
-	cluster := elasticsearchRequest.cluster
+	cluster := er.cluster
 	if cluster.Spec.IndexManagement == nil {
-		logger.Debug("IndexManagement not specified - noop")
 		return nil
 	}
 	spec := indexmanagement.VerifyAndNormalize(cluster)
 	policies := spec.PolicyMap()
-	if elasticsearchRequest.AnyNodeReady() {
-		elasticsearchRequest.cullIndexManagement(spec.Mappings, policies)
+	if er.AnyNodeReady() {
+		er.cullIndexManagement(spec.Mappings, policies)
 
 		for _, mapping := range spec.Mappings {
-			logger.Debugf("reconciling index management for mapping: %s", mapping.Name)
-			//create or update template
-			if err := elasticsearchRequest.createOrUpdateIndexTemplate(mapping); err != nil {
-				logger.Errorf("Error creating index template for mapping %s: %v", mapping.Name, err)
+			ll := log.WithValues("mapping", mapping.Name)
+			ll.Info("reconciling index management")
+			// create or update template
+			if err := er.createOrUpdateIndexTemplate(mapping); err != nil {
+				ll.Error(err, "failed to create index template")
 				return err
 			}
-			//TODO: Can we have partial success?
-			if err := elasticsearchRequest.initializeIndexIfNeeded(mapping); err != nil {
-				logger.Errorf("Error intializing index for mapping %s: %v", mapping.Name, err)
+			// TODO: Can we have partial success?
+			if err := er.initializeIndexIfNeeded(mapping); err != nil {
+				ll.Error(err, "Failed to initialize index")
 				return err
 			}
 		}
 	}
 
-	if err := indexmanagement.ReconcileCurationConfigmap(elasticsearchRequest.client, elasticsearchRequest.cluster); err != nil {
+	if err := indexmanagement.ReconcileCurationConfigmap(er.client, er.cluster); err != nil {
 		return err
 	}
-	primaryShards := getDataCount(elasticsearchRequest.cluster)
+	primaryShards := getDataCount(er.cluster)
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
-		if err := indexmanagement.ReconcileRolloverCronjob(elasticsearchRequest.client, elasticsearchRequest.cluster, policy, mapping, primaryShards); err != nil {
-			logger.Errorf("There was an error reconciling the rollover cronjob for policy %q: %v", policy.Name, err)
+		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
+		if err := indexmanagement.ReconcileRolloverCronjob(er.client, er.cluster, policy, mapping, primaryShards); err != nil {
+			ll.Error(err, "could not reconcile rollover cronjob")
 			return err
 		}
-		if err := indexmanagement.ReconcileCurationCronjob(elasticsearchRequest.client, elasticsearchRequest.cluster, policy, mapping, primaryShards); err != nil {
-			logger.Errorf("There was an error reconciling the curation cronjob for policy %q: %v", policy.Name, err)
+		if err := indexmanagement.ReconcileCurationCronjob(er.client, er.cluster, policy, mapping, primaryShards); err != nil {
+			ll.Error(err, "could not reconcile curation cronjob")
 			return err
 		}
 	}
@@ -64,13 +64,13 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateIndexManagement(
 	return nil
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) cullIndexManagement(mappings []logging.IndexManagementPolicyMappingSpec, policies logging.PolicyMap) {
-	cluster := elasticsearchRequest.cluster
-	client := elasticsearchRequest.client
-	esClient := elasticsearchRequest.esClient
+func (er *ElasticsearchRequest) cullIndexManagement(mappings []logging.IndexManagementPolicyMappingSpec, policies logging.PolicyMap) {
+	cluster := er.cluster
+	client := er.client
+	esClient := er.esClient
 
 	if err := indexmanagement.RemoveCronJobsForMappings(client, cluster, mappings, policies); err != nil {
-		logger.Errorf("Unable to cull cronjobs: %v", err)
+		log.Error(err, "Unable to cull cronjobs")
 	}
 	mappingNames := sets.NewString()
 	for _, mapping := range mappings {
@@ -79,7 +79,7 @@ func (elasticsearchRequest *ElasticsearchRequest) cullIndexManagement(mappings [
 
 	existing, err := esClient.ListTemplates()
 	if err != nil {
-		logger.Warnf("Unable to list existing templates in order to reconcile stale ones: %v", err)
+		log.Error(err, "Unable to list existing templates in order to reconcile stale ones")
 		return
 	}
 	difference := existing.Difference(mappingNames)
@@ -87,14 +87,14 @@ func (elasticsearchRequest *ElasticsearchRequest) cullIndexManagement(mappings [
 	for _, template := range difference.List() {
 		if strings.HasPrefix(template, ocpTemplatePrefix) {
 			if err := esClient.DeleteIndexTemplate(template); err != nil {
-				logger.Warnf("Unable to delete stale template %q in order to reconcile: %v", template, err)
+				log.Error(err, "Unable to delete stale template in order to reconcile", "template", template)
 			}
 		}
 	}
 }
-func (elasticsearchRequest *ElasticsearchRequest) initializeIndexIfNeeded(mapping logging.IndexManagementPolicyMappingSpec) error {
-	cluster := elasticsearchRequest.cluster
-	esClient := elasticsearchRequest.esClient
+func (er *ElasticsearchRequest) initializeIndexIfNeeded(mapping logging.IndexManagementPolicyMappingSpec) error {
+	cluster := er.cluster
+	esClient := er.esClient
 
 	pattern := formatWriteAlias(mapping)
 	indices, err := esClient.ListIndicesForAlias(pattern)
@@ -124,9 +124,9 @@ func formatWriteAlias(mapping logging.IndexManagementPolicyMappingSpec) string {
 	return fmt.Sprintf("%s-write", mapping.Name)
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) createOrUpdateIndexTemplate(mapping logging.IndexManagementPolicyMappingSpec) error {
-	cluster := elasticsearchRequest.cluster
-	esClient := elasticsearchRequest.esClient
+func (er *ElasticsearchRequest) createOrUpdateIndexTemplate(mapping logging.IndexManagementPolicyMappingSpec) error {
+	cluster := er.cluster
+	esClient := er.esClient
 
 	name := formatTemplateName(mapping.Name)
 	pattern := fmt.Sprintf("%s*", mapping.Name)

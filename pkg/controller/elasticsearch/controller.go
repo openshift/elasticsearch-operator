@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler"
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 // Add creates a new Elasticsearch Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -75,7 +75,7 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logrus.Infof("Flushing nodes for %v", request.NamespacedName)
+			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
 			k8shandler.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
 			return reconcile.Result{}, nil
 		}

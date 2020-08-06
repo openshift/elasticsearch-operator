@@ -2,13 +2,11 @@ package k8shandler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -16,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +38,7 @@ type deploymentNode struct {
 	esClient elasticsearch.Client
 }
 
-func (deploymentNode *deploymentNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client) {
+func (node *deploymentNode) populateReference(nodeName string, n api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client) {
 
 	labels := newLabels(cluster.Name, nodeName, roleMap)
 
@@ -56,7 +54,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 		},
 	}
 
-	deploymentNode.replicas = replicas
+	node.replicas = replicas
 
 	progressDeadlineSeconds := int32(1800)
 	logConfig := getLogConfig(cluster.GetAnnotations())
@@ -70,20 +68,20 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 		},
 		ProgressDeadlineSeconds: &progressDeadlineSeconds,
 		Paused:                  false,
-		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client, logConfig),
+		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, n, cluster.Spec.Spec, labels, roleMap, client, logConfig),
 	}
 
 	addOwnerRefToObject(&deployment, getOwnerRef(cluster))
 
-	deploymentNode.self = deployment
-	deploymentNode.clusterName = cluster.Name
+	node.self = deployment
+	node.clusterName = cluster.Name
 
-	deploymentNode.client = client
-	deploymentNode.esClient = esClient
+	node.client = client
+	node.esClient = esClient
 }
 
-func (current *deploymentNode) updateReference(node NodeTypeInterface) {
-	current.self = node.(*deploymentNode).self
+func (node *deploymentNode) updateReference(n NodeTypeInterface) {
+	node.self = n.(*deploymentNode).self
 }
 
 func (node *deploymentNode) scaleDown() error {
@@ -164,9 +162,8 @@ func (node *deploymentNode) create() error {
 
 func (node *deploymentNode) waitForInitialRollout() error {
 	err := wait.Poll(time.Second*1, time.Second*30, func() (done bool, err error) {
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
-			return false, getErr
+		if err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); err != nil {
+			return false, err
 		}
 
 		_, ok := node.self.ObjectMeta.Annotations["deployment.kubernetes.io/revision"]
@@ -214,20 +211,17 @@ func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 	podList, err := GetPodList(node.self.Namespace, labels, node.client)
 
 	if err != nil {
-		logrus.Warnf("Could not get node %q pods: %v", node.name(), err)
+		log.Error(err, "Could not get node pods", "node", node.name())
 		return false
 	}
 
-	matches := false
-
 	for _, pod := range podList.Items {
-		// follow pattern used in other places of "current, desired"
 		if !ArePodSpecDifferent(pod.Spec, node.self.Spec.Template.Spec, false) {
-			matches = true
+			return true
 		}
 	}
 
-	return matches
+	return false
 }
 
 func (node *deploymentNode) pause() error {
@@ -243,13 +237,15 @@ func (node *deploymentNode) setPaused(paused bool) error {
 	// we use pauseNode so that we don't revert any new changes that should be made and
 	// noticed in state()
 	pauseNode := node.self.DeepCopy()
+	ll := log.WithValues("node", pauseNode.Name)
 
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: pauseNode.Name, Namespace: pauseNode.Namespace}, pauseNode); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", pauseNode.Name, getErr)
-			return getErr
+		if err := node.client.Get(context.TODO(), types.NamespacedName{Name: pauseNode.Name, Namespace: pauseNode.Namespace}, pauseNode); err != nil {
+			ll.Info("Could not get Elasticsearch node resource",
+				"error", err)
+			return err
 		}
 
 		if pauseNode.Spec.Paused == paused {
@@ -258,9 +254,10 @@ func (node *deploymentNode) setPaused(paused bool) error {
 
 		pauseNode.Spec.Paused = paused
 
-		if updateErr := node.client.Update(context.TODO(), pauseNode); updateErr != nil {
-			logrus.Debugf("Failed to update node resource %v: %v", pauseNode.Name, updateErr)
-			return updateErr
+		if err := node.client.Update(context.TODO(), pauseNode); err != nil {
+			ll.Info("failed to update node resource",
+				"error", err)
+			return err
 		}
 		return nil
 	})
@@ -274,15 +271,13 @@ func (node *deploymentNode) setPaused(paused bool) error {
 }
 
 func (node *deploymentNode) setReplicaCount(replicas int32) error {
-
 	nodeCopy := &apps.Deployment{}
-
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); getErr != nil {
-			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
-			return getErr
+		if err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); err != nil {
+			log.Info("Could not get Elasticsearch node resource, Retrying...", "error", err)
+			return err
 		}
 
 		if *nodeCopy.Spec.Replicas == replicas {
@@ -291,9 +286,9 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 
 		nodeCopy.Spec.Replicas = &replicas
 
-		if updateErr := node.client.Update(context.TODO(), nodeCopy); updateErr != nil {
-			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
-			return updateErr
+		if err := node.client.Update(context.TODO(), nodeCopy); err != nil {
+			log.Info("failed to update node resource", "node", node.self.Name, "error", err)
+			return err
 		}
 
 		node.self.Spec.Replicas = &replicas
@@ -311,7 +306,7 @@ func (node *deploymentNode) replicaCount() (error, int32) {
 	nodeCopy := &apps.Deployment{}
 
 	if err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); err != nil {
-		logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, err)
+		log.Error(err, "Could not get Elasticsearch node resource")
 		return err, -1
 	}
 
@@ -360,16 +355,9 @@ func (node *deploymentNode) executeUpdate() error {
 
 		if ArePodTemplateSpecDifferent(currentDeployment.Spec.Template, node.self.Spec.Template) {
 			currentDeployment.Spec.Template = node.self.Spec.Template
-			if logger.IsDebugEnabled() {
-				pretty, err := json.MarshalIndent(node.self, "", "  ")
-				if err != nil {
-					logger.Debugf("Error marshaling node for debug log: %v", err)
-				}
-				logger.Debugf("Attempting to update node deployment: %+v", string(pretty))
-			}
-			if updateErr := node.client.Update(context.TODO(), &currentDeployment); updateErr != nil {
-				logger.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
-				return updateErr
+			if err := node.client.Update(context.TODO(), &currentDeployment); err != nil {
+				log.Info("Failed to update node resource", "error", err)
+				return err
 			}
 		}
 		return nil
@@ -385,8 +373,6 @@ func (node *deploymentNode) progressNodeChanges() error {
 		if err := node.unpause(); err != nil {
 			return fmt.Errorf("unable to unpause node %q: %v", node.name(), err)
 		}
-
-		logrus.Debugf("Waiting for node '%s' to rollout...", node.name())
 
 		if err := node.waitForNodeRollout(); err != nil {
 			return fmt.Errorf("Timed out waiting for node %v to rollout", node.name())

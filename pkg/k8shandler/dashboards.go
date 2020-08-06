@@ -11,7 +11,7 @@ const (
 )
 
 // CreateOrUpdateDashboards creates/updates the cluster logging dashboard ConfigMap
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateDashboards() error {
+func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 	fp := utils.LookupEnvWithDefault("ES_DASHBOARD_FILE", defaultElasticDashboardFile)
 	cm := &v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -29,5 +29,5 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateDashboards() err
 			"openshift-elasticsearch.json": string(utils.GetFileContents(fp)),
 		},
 	}
-	return elasticsearchRequest.CreateOrUpdateConfigMap(cm)
+	return er.CreateOrUpdateConfigMap(cm)
 }

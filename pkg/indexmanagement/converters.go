@@ -6,7 +6,7 @@ import (
 
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 func calculateConditions(policy apis.IndexManagementPolicySpec, primaryShards int32) rolloverConditions {
@@ -26,12 +26,13 @@ func calculateConditions(policy apis.IndexManagementPolicySpec, primaryShards in
 
 func calculateMillisForTimeUnit(timeunit apis.TimeUnit) (uint64, error) {
 	match := reTimeUnit.FindStringSubmatch(string(timeunit))
-	if match == nil {
+	if match == nil || len(match) < 2 {
 		return 0, fmt.Errorf("Unable to convert timeunit to millis for invalid timeunit %q", timeunit)
 	}
-	number, err := strconv.ParseUint(match[1], 10, 0)
+	n := match[1]
+	number, err := strconv.ParseUint(n, 10, 0)
 	if err != nil {
-		logger.Infof("unable to parse %v", err)
+		log.Error(err, "unable to parse uint", "raw", n)
 		return 0, err
 	}
 	switch match[2] {

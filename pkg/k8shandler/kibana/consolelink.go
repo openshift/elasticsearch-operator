@@ -2,7 +2,6 @@ package kibana
 
 import (
 	consolev1 "github.com/openshift/api/console/v1"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,22 +25,18 @@ func NewConsoleLink(name, href string) *consolev1.ConsoleLink {
 
 func consoleLinksEqual(current, desired *consolev1.ConsoleLink) bool {
 	if current.Spec.Location != desired.Spec.Location {
-		logrus.Debugf("Location change detected for ConsoleLink CR %q", current.Name)
 		return false
 	}
 
 	if current.Spec.Link.Text != desired.Spec.Link.Text {
-		logrus.Debugf("Link text change detected for ConsoleLink CR %q", current.Name)
 		return false
 	}
 
 	if current.Spec.Link.Href != desired.Spec.Link.Href {
-		logrus.Debugf("Link href change detected for ConsoleLink CR %q", current.Name)
 		return false
 	}
 
 	if current.Spec.ApplicationMenu.Section != desired.Spec.ApplicationMenu.Section {
-		logrus.Debugf("ApplicationMenu section change detected for ConsoleLink CR %q", current.Name)
 		return false
 	}
 

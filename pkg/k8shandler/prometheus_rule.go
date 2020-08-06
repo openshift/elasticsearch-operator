@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -23,9 +22,9 @@ const (
 	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_rules.yml"
 )
 
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
+func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
 	ctx := context.TODO()
-	dpl := elasticsearchRequest.cluster
+	dpl := er.cluster
 
 	name := fmt.Sprintf("%s-%s", dpl.Name, "prometheus-rules")
 	owner := getOwnerRef(dpl)
@@ -37,7 +36,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdatePrometheusRules(
 
 	addOwnerRefToObject(rule, owner)
 
-	err = elasticsearchRequest.client.Create(ctx, rule)
+	err = er.client.Create(ctx, rule)
 	if err == nil {
 		return nil
 	}
@@ -47,17 +46,15 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdatePrometheusRules(
 
 	current := &monitoringv1.PrometheusRule{}
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		err = elasticsearchRequest.client.Get(ctx, types.NamespacedName{Name: rule.Name, Namespace: rule.Namespace}, current)
+		err = er.client.Get(ctx, types.NamespacedName{Name: rule.Name, Namespace: rule.Namespace}, current)
 		if err != nil {
-			logrus.Debugf("could not get prometheus rule %q: %v", rule.Name, err)
 			return err
 		}
 
 		current.Spec = rule.Spec
-		if err = elasticsearchRequest.client.Update(ctx, current); err != nil {
+		if err = er.client.Update(ctx, current); err != nil {
 			return err
 		}
-		logrus.Debug("updated prometheus rules")
 		return nil
 	})
 }

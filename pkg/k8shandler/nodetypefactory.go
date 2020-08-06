@@ -32,18 +32,14 @@ type NodeTypeInterface interface {
 type NodeTypeFactory func(name, namespace string) NodeTypeInterface
 
 // this can potentially return a list if we have replicas > 1 for a data node
-func (elasticsearchRequest *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.ElasticsearchNode) []NodeTypeInterface {
+func (er *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.ElasticsearchNode) []NodeTypeInterface {
 
 	nodes := []NodeTypeInterface{}
 
 	roleMap := getNodeRoleMap(node)
 
-	cluster := elasticsearchRequest.cluster
-	client := elasticsearchRequest.client
-	esClient := elasticsearchRequest.esClient
-
 	// common spec => cluster.Spec.Spec
-	nodeName := fmt.Sprintf("%s-%s", cluster.Name, getNodeSuffix(uuid, roleMap))
+	nodeName := fmt.Sprintf("%s-%s", er.cluster.Name, getNodeSuffix(uuid, roleMap))
 
 	// if we have a data node then we need to create one deployment per replica
 	if isDataNode(node) {
@@ -51,11 +47,11 @@ func (elasticsearchRequest *ElasticsearchRequest) GetNodeTypeInterface(uuid stri
 		//   it is 1 instead of 0 because of legacy code
 		for replicaIndex := int32(1); replicaIndex <= node.NodeCount; replicaIndex++ {
 			dataNodeName := addDataNodeSuffix(nodeName, replicaIndex)
-			node := newDeploymentNode(dataNodeName, node, cluster, roleMap, client, esClient)
+			node := newDeploymentNode(dataNodeName, node, er.cluster, roleMap, er.client, er.esClient)
 			nodes = append(nodes, node)
 		}
 	} else {
-		node := newStatefulSetNode(nodeName, node, cluster, roleMap, client, esClient)
+		node := newStatefulSetNode(nodeName, node, er.cluster, roleMap, er.client, er.esClient)
 		nodes = append(nodes, node)
 	}
 
@@ -112,9 +108,9 @@ func containsNodeTypeInterface(node NodeTypeInterface, list []NodeTypeInterface)
 	return -1, false
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) getNodeState(node NodeTypeInterface) *api.ElasticsearchNodeStatus {
+func (er *ElasticsearchRequest) getNodeState(node NodeTypeInterface) *api.ElasticsearchNodeStatus {
 
-	index, status := getNodeStatus(node.name(), &elasticsearchRequest.cluster.Status)
+	index, status := getNodeStatus(node.name(), &er.cluster.Status)
 
 	if index == NOT_FOUND_INDEX {
 		state := node.state()

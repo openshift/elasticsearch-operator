@@ -15,9 +15,9 @@ const (
 )
 
 // CreateOrUpdateServiceMonitors ensures the existence of ServiceMonitors for Elasticsearch cluster
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
+func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
 
-	dpl := elasticsearchRequest.cluster
+	dpl := er.cluster
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
 	owner := getOwnerRef(dpl)
 
@@ -26,7 +26,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServiceMonitors(
 
 	elasticsearchScMonitor := createServiceMonitor(serviceMonitorName, dpl.Name, dpl.Namespace, labelsWithDefault)
 	addOwnerRefToObject(elasticsearchScMonitor, owner)
-	err := elasticsearchRequest.client.Create(context.TODO(), elasticsearchScMonitor)
+	err := er.client.Create(context.TODO(), elasticsearchScMonitor)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("Failure constructing Elasticsearch ServiceMonitor: %v", err)
 	}

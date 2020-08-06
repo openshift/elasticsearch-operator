@@ -5,7 +5,6 @@ import (
 
 	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,51 +22,31 @@ func (clusterRequest *KibanaRequest) isManaged() bool {
 }
 
 func (clusterRequest *KibanaRequest) Create(object runtime.Object) error {
-	logrus.Tracef("Creating: %v", object)
-	err := clusterRequest.client.Create(context.TODO(), object)
-	logrus.Tracef("Response: %v", err)
-	return err
+	return clusterRequest.client.Create(context.TODO(), object)
 }
 
 //Update the runtime Object or return error
 func (clusterRequest *KibanaRequest) Update(object runtime.Object) (err error) {
-	logrus.Tracef("Updating: %v", object)
-	if err = clusterRequest.client.Update(context.TODO(), object); err != nil {
-		logrus.Errorf("Error updating %v: %v", object.GetObjectKind(), err)
-	}
-	return err
+	return clusterRequest.client.Update(context.TODO(), object)
 }
 
 //Update the runtime Object status or return error
 func (clusterRequest *KibanaRequest) UpdateStatus(object runtime.Object) (err error) {
-	logrus.Tracef("Updating Status: %v", object)
-	if err = clusterRequest.client.Status().Update(context.TODO(), object); err != nil {
-		// making this debug because we should be throwing the returned error if we are never
-		// able to update the status
-		logrus.Debugf("Error updating status: %v", err)
-	}
-	return err
+	return clusterRequest.client.Status().Update(context.TODO(), object)
 }
 
 func (clusterRequest *KibanaRequest) Get(objectName string, object runtime.Object) error {
 	namespacedName := types.NamespacedName{Name: objectName, Namespace: clusterRequest.cluster.Namespace}
-
-	logrus.Debugf("Getting namespacedName: %v, object: %v", namespacedName, object)
-
 	return clusterRequest.client.Get(context.TODO(), namespacedName, object)
 }
 
 func (clusterRequest *KibanaRequest) GetClusterResource(objectName string, object runtime.Object) error {
 	namespacedName := types.NamespacedName{Name: objectName}
-	logrus.Debugf("Getting ClusterResource namespacedName: %v, object: %v", namespacedName, object)
 	err := clusterRequest.client.Get(context.TODO(), namespacedName, object)
-	logrus.Debugf("Response: %v", err)
 	return err
 }
 
 func (clusterRequest *KibanaRequest) List(selector map[string]string, object runtime.Object) error {
-	logrus.Debugf("Listing selector: %v, object: %v", selector, object)
-
 	listOpts := []client.ListOption{
 		client.InNamespace(clusterRequest.cluster.Namespace),
 		client.MatchingLabels(selector),
@@ -81,6 +60,5 @@ func (clusterRequest *KibanaRequest) List(selector map[string]string, object run
 }
 
 func (clusterRequest *KibanaRequest) Delete(object runtime.Object) error {
-	logrus.Debugf("Deleting: %v", object)
 	return clusterRequest.client.Delete(context.TODO(), object)
 }

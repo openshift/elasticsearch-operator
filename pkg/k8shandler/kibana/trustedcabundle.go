@@ -5,7 +5,6 @@ import (
 
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 )
@@ -16,7 +15,6 @@ import (
  * Thus, we need the get the contents once again.
  */
 func (clusterRequest *KibanaRequest) createOrGetTrustedCABundleConfigMap(name string) (*corev1.ConfigMap, error) {
-	logrus.Debug("createOrGetTrustedCABundleConfigMap...")
 	configMap := NewConfigMap(
 		name,
 		clusterRequest.cluster.Namespace,

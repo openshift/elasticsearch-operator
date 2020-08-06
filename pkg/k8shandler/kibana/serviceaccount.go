@@ -3,7 +3,6 @@ package kibana
 import (
 	"fmt"
 
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -41,7 +40,6 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 
 	utils.AddOwnerRefToObject(serviceAccount, getOwnerRef(clusterRequest.cluster))
 
-	logger.DebugObject("Attempting to create serviceacccount %v", serviceAccount)
 	if err := clusterRequest.Create(serviceAccount); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure creating %v serviceaccount: %v", serviceAccount.Name, err)
@@ -65,7 +63,6 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 					current.GetObjectMeta().GetAnnotations()[key] = value
 				}
 			}
-			logger.DebugObject("Attempting to update serviceacccount %v", current)
 			if err = clusterRequest.Update(current); err != nil {
 				return err
 			}
