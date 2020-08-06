@@ -12,11 +12,11 @@ import (
 )
 
 // CreateOrUpdateServiceAccount ensures the existence of the serviceaccount for Elasticsearch cluster
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServiceAccount() (err error) {
+func (er *ElasticsearchRequest) CreateOrUpdateServiceAccount() (err error) {
 
-	dpl := elasticsearchRequest.cluster
+	dpl := er.cluster
 
-	err = createOrUpdateServiceAccount(dpl.Name, dpl.Namespace, getOwnerRef(dpl), elasticsearchRequest.client)
+	err = createOrUpdateServiceAccount(dpl.Name, dpl.Namespace, getOwnerRef(dpl), er.client)
 	if err != nil {
 		return fmt.Errorf("Failure creating ServiceAccount %v", err)
 	}

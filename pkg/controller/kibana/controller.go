@@ -16,8 +16,8 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -151,12 +151,11 @@ func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result
 
 	es, err := k8shandler.GetElasticsearchCR(r.client, request.Namespace)
 	if err != nil {
-		logrus.Infof("skipping kibana reconciliation in %q: %s", request.Namespace, err)
+		log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
 	esClient := elasticsearch.NewClient(es.Name, es.Namespace, r.client)
-
 	proxyCfg, err := kibana.GetProxyConfig(r.client)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -225,7 +224,7 @@ func registerKibanaNamespacedName(request reconcile.Request) {
 
 	// if not, add it to registeredKibanas
 	if !found {
-		logrus.Infof("Registering %v for future events", request.NamespacedName)
+		log.Info("Registering future events", "name", request.NamespacedName)
 		registeredKibanas.registered = append(registeredKibanas.registered, request.NamespacedName)
 	}
 }
@@ -247,7 +246,7 @@ func unregisterKibanaNamespacedName(request reconcile.Request) {
 
 	// if we find it, remove it from registeredKibanas
 	if found {
-		logrus.Infof("Unregistering %v for future events", request.NamespacedName)
+		log.Info("Unregistering future events", "name", request.NamespacedName)
 		registeredKibanas.registered = append(registeredKibanas.registered[:index], registeredKibanas.registered[index+1:]...)
 	}
 }
@@ -264,8 +263,6 @@ func getKibanaEvents(a handler.MapObject) []reconcile.Request {
 	for _, kibana := range registeredKibanas.registered {
 		requests = append(requests, reconcile.Request{NamespacedName: kibana})
 	}
-
-	logrus.Debugf("Sending KibanaEvents: %v", requests)
 
 	return requests
 }
@@ -285,8 +282,6 @@ func getNamespacedKibanaEvent(a handler.MapObject) []reconcile.Request {
 			requests = append(requests, reconcile.Request{NamespacedName: kibana})
 		}
 	}
-
-	logrus.Debugf("Sending namespaced KibanaEvents: %v", requests)
 
 	return requests
 }

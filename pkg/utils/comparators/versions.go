@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 // CompareVersions will return one of:
@@ -44,11 +44,11 @@ func CompareVersions(lhs, rhs string) int {
 
 func buildVersionArray(version string) []int {
 
-	versions := []int{}
+	var versions []int
 	for _, v := range strings.Split(version, ".") {
 		i, err := strconv.Atoi(v)
 		if err != nil {
-			logrus.Warnf("unable to build version array: %v", err)
+			log.Error(err, "unable to build version array")
 			break
 		}
 

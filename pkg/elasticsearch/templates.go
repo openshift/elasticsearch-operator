@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -21,7 +20,6 @@ func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemp
 		RequestBody: body,
 	}
 
-	logger.DebugObject("CreateIndexTemplate with payload: %s", template)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error

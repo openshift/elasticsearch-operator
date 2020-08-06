@@ -3,8 +3,10 @@ package k8shandler
 import (
 	"fmt"
 
+	"github.com/go-logr/logr"
 	elasticsearchv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -12,6 +14,16 @@ type ElasticsearchRequest struct {
 	client   client.Client
 	cluster  *elasticsearchv1.Elasticsearch
 	esClient elasticsearch.Client
+	ll       logr.Logger
+}
+
+// L is the logger used for this request.
+// TODO This needs to be removed in favor of using context.Context() with values.
+func (er *ElasticsearchRequest) L() logr.Logger {
+	if er.ll == nil {
+		er.ll = log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+	}
+	return er.ll
 }
 
 func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
@@ -22,6 +34,7 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		client:   requestClient,
 		cluster:  requestCluster,
 		esClient: esClient,
+		ll:       log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// Ensure existence of servicesaccount
