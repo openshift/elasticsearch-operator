@@ -9,6 +9,8 @@ export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
 
+export OCP_VERSION=4.6
+
 export APP_NAME=elasticsearch-operator
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
@@ -32,8 +34,7 @@ gobindir:
 GEN_TIMESTAMP=.zz_generate_timestamp
 generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK)
 $(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
-	$(OPERATOR_SDK) generate k8s
-	$(OPERATOR_SDK) generate crds
+	@./hack/generate-crd.sh
 	@$(MAKE) fmt
 	@touch $@
 
@@ -118,19 +119,11 @@ uninstall:
 	$(MAKE) elasticsearch-catalog-uninstall
 .PHONY: uninstall
 
-opm:
-	@if [ ! -f "${GOPATH}/src/github.com/operator-framework/operator-registry/opm" ] ; then \
-		mkdir -p ${GOPATH}/src/github.com/operator-framework ||: ; \
-		pushd ${GOPATH}/src/github.com/operator-framework ; \
-		[ ! -d ./operator-registry ] && git clone https://github.com/operator-framework/operator-registry ; \
-		cd operator-registry ; \
-		go build ./cmd/opm/ ; \
-		popd ; \
-	fi
-.PHONY: opm
-
-generate-bundle: opm
-	mkdir -p bundle; pushd bundle; ${GOPATH}/src/github.com/operator-framework/operator-registry/opm alpha bundle generate --directory ../manifests/4.6/ --package elasticsearch-operator --channels 4.6 --output-dir .; popd
+generate-bundle: $(OPM)
+	mkdir -p bundle; \
+	pushd bundle; \
+	$(OPM) alpha bundle generate --directory ../manifests/$(OCP_VERSION)/ --package elasticsearch-operator --channels $(OCP_VERSION) --output-dir .; \
+	popd
 .PHONY: generate-bundle
 
 # to use these targets, ensure the following env vars are set:

@@ -1,7 +1,7 @@
 package v1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -13,18 +13,26 @@ const (
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// Elasticsearch is the Schema for the elasticsearches API
 // +k8s:openapi-gen=true
+// +kubebuilder:resource:categories=logging;tracing,shortName=es
+// +kubebuilder:printcolumn:name="Management State",JSONPath=".spec.managementState",type=string
+// +kubebuilder:printcolumn:name="Health",JSONPath=".status.cluster.status",type=string
+// +kubebuilder:printcolumn:name="Nodes",JSONPath=".status.cluster.numNodes",type=integer
+// +kubebuilder:printcolumn:name="Data Nodes",JSONPath=".status.cluster.numDataNodes",type=integer
+// +kubebuilder:printcolumn:name="Shard Allocation",JSONPath=".status.shardAllocationEnabled",type=string
+// +kubebuilder:printcolumn:name="Index Management",JSONPath=".status.indexManagement.State",type=string
+//
+// Elasticsearch is the Schema for the elasticsearches API
 type Elasticsearch struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// Specification of the desired behavior of the Elasticsearch cluster
 	Spec   ElasticsearchSpec   `json:"spec,omitempty"`
 	Status ElasticsearchStatus `json:"status,omitempty"`
 }
 
-//AddOwnerRefTo appends the Elasticsearch object as an OwnerReference to the passed object
+// AddOwnerRefTo appends the Elasticsearch object as an OwnerReference to the passed object
 func (es *Elasticsearch) AddOwnerRefTo(o metav1.Object) {
 	trueVar := true
 	ref := metav1.OwnerReference{
@@ -40,7 +48,7 @@ func (es *Elasticsearch) AddOwnerRefTo(o metav1.Object) {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+//
 // ElasticsearchList contains a list of Elasticsearch
 type ElasticsearchList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -53,26 +61,35 @@ func init() {
 }
 
 // ElasticsearchSpec defines the desired state of Elasticsearch
-// +k8s:openapi-gen=true
-// ManagementState indicates whether and how the operator should manage the component
 type ElasticsearchSpec struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	ManagementState  ManagementState       `json:"managementState"`
-	RedundancyPolicy RedundancyPolicyType  `json:"redundancyPolicy"`
-	Nodes            []ElasticsearchNode   `json:"nodes"`
-	Spec             ElasticsearchNodeSpec `json:"nodeSpec"`
-	IndexManagement  *IndexManagementSpec  `json:"indexManagement"`
+	// ManagementState indicates whether and how the operator should manage the component.
+	// Indicator if the resource is 'Managed' or 'Unmanaged' by the operator.
+	ManagementState ManagementState `json:"managementState"`
+
+	// The policy towards data redundancy to specify the number of redundant primary shards
+	RedundancyPolicy RedundancyPolicyType `json:"redundancyPolicy"`
+
+	// Specification of the different Elasticsearch nodes
+	//
+	// +optional
+	Nodes []ElasticsearchNode `json:"nodes"`
+
+	// Default specification applied to all Elasticsearch nodes
+	//
+	// +optional
+	Spec ElasticsearchNodeSpec `json:"nodeSpec"`
+
+	// Management spec for indicies
+	//
+	// +nullable
+	// +optional
+	IndexManagement *IndexManagementSpec `json:"indexManagement"`
 }
 
 // ElasticsearchStatus defines the observed state of Elasticsearch
 // +k8s:openapi-gen=true
 type ElasticsearchStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-
 	Nodes                  []ElasticsearchNodeStatus             `json:"nodes"`
 	ClusterHealth          string                                `json:"clusterHealth"`
 	Cluster                ClusterHealth                         `json:"cluster"`
@@ -95,31 +112,74 @@ type ClusterHealth struct {
 }
 
 // ElasticsearchNode struct represents individual node in Elasticsearch cluster
-// GenUUID will be populated by the operator if not provided
 type ElasticsearchNode struct {
-	Roles          []ElasticsearchNodeRole  `json:"roles"`
-	NodeCount      int32                    `json:"nodeCount"`
-	Resources      v1.ResourceRequirements  `json:"resources"`
-	NodeSelector   map[string]string        `json:"nodeSelector,omitempty"`
-	Tolerations    []v1.Toleration          `json:"tolerations,omitempty"`
-	Storage        ElasticsearchStorageSpec `json:"storage"`
-	GenUUID        *string                  `json:"genUUID,omitempty"`
-	ProxyResources v1.ResourceRequirements  `json:"proxyResources,omitempty"`
+	// The specific Elasticsearch cluster roles the node should perform
+	//
+	// +optional
+	Roles []ElasticsearchNodeRole `json:"roles"`
+
+	// Number of nodes to deploy
+	//
+	// +optional
+	NodeCount int32 `json:"nodeCount"`
+
+	// The resource requirements for the Elasticsearch node
+	//
+	// +nullable
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources"`
+
+	// Define which Nodes the Pods are scheduled on.
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// The type of backing storage that should be used for the node
+	//
+	// +optional
+	Storage ElasticsearchStorageSpec `json:"storage"`
+
+	// GenUUID will be populated by the operator if not provided
+	//
+	// +nullable
+	GenUUID *string `json:"genUUID,omitempty"`
+
+	// The resource requirements for the Elasticsearch proxy
+	ProxyResources corev1.ResourceRequirements `json:"proxyResources,omitempty"`
 }
 
 // ElasticsearchNodeSpec represents configuration of an individual Elasticsearch node
 type ElasticsearchNodeSpec struct {
-	Image          string                  `json:"image,omitempty"`
-	Resources      v1.ResourceRequirements `json:"resources"`
-	NodeSelector   map[string]string       `json:"nodeSelector,omitempty"`
-	Tolerations    []v1.Toleration         `json:"tolerations,omitempty"`
-	ProxyResources v1.ResourceRequirements `json:"proxyResources,omitempty"`
+	// The image to use for the Elasticsearch nodes
+	//
+	// +nullable
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// The resource requirements for the Elasticsearch nodes
+	//
+	// +nullable
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources"`
+
+	// Define which Nodes the Pods are scheduled on.
+	//
+	// +nullable
+	NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// The resource requirements for the Elasticsearch proxy
+	//
+	// +nullable
+	// +optional
+	ProxyResources corev1.ResourceRequirements `json:"proxyResources,omitempty"`
 }
 
 type ElasticsearchStorageSpec struct {
-	// The class of storage to provision. More info: https://kubernetes.io/docs/concepts/storage/storage-classes/
+	// The name of the storage class to use with creating the node's PVC.
+	// More info: https://kubernetes.io/docs/concepts/storage/storage-classes/
 	StorageClassName *string `json:"storageClassName,omitempty"`
-	// The capacity of storage to provision.
+
+	// The max storage capacity for the node to provision.
 	Size *resource.Quantity `json:"size,omitempty"`
 }
 
@@ -134,16 +194,16 @@ type ElasticsearchNodeStatus struct {
 }
 
 type ElasticsearchNodeUpgradeStatus struct {
-	ScheduledForUpgrade      v1.ConditionStatus        `json:"scheduledUpgrade,omitempty"`
-	ScheduledForRedeploy     v1.ConditionStatus        `json:"scheduledRedeploy,omitempty"`
-	ScheduledForCertRedeploy v1.ConditionStatus        `json:"scheduledCertRedeploy,omitempty"`
-	UnderUpgrade             v1.ConditionStatus        `json:"underUpgrade,omitempty"`
+	ScheduledForUpgrade      corev1.ConditionStatus    `json:"scheduledUpgrade,omitempty"`
+	ScheduledForRedeploy     corev1.ConditionStatus    `json:"scheduledRedeploy,omitempty"`
+	ScheduledForCertRedeploy corev1.ConditionStatus    `json:"scheduledCertRedeploy,omitempty"`
+	UnderUpgrade             corev1.ConditionStatus    `json:"underUpgrade,omitempty"`
 	UpgradePhase             ElasticsearchUpgradePhase `json:"upgradePhase,omitempty"`
 }
 
 type ClusterCondition struct {
-	Type   ClusterConditionType `json:"type"`
-	Status v1.ConditionStatus   `json:"status"`
+	Type   ClusterConditionType   `json:"type"`
+	Status corev1.ConditionStatus `json:"status"`
 	// Last time the condition transitioned from one status to another.
 	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 	// Unique, one-word, CamelCase reason for the condition's last transition.
@@ -154,9 +214,9 @@ type ClusterCondition struct {
 
 type ClusterConditions []ClusterCondition
 
-// +kubebuilder:validation:Enum=FullRedundancy;MultipleRedundancy;SingleRedundancy;ZeroRedundancy
-
 // The policy towards data redundancy to specify the number of redundant primary shards
+//
+// +kubebuilder:validation:Enum=FullRedundancy;MultipleRedundancy;SingleRedundancy;ZeroRedundancy
 type RedundancyPolicyType string
 
 const (
@@ -170,6 +230,7 @@ const (
 	ZeroRedundancy RedundancyPolicyType = "ZeroRedundancy"
 )
 
+// +kubebuilder:validation:Enum:=master;client;data
 type ElasticsearchNodeRole string
 
 const (
@@ -209,6 +270,8 @@ const (
 // Managed means that the operator is actively managing its resources and trying to keep the component active.
 // It will only upgrade the component if it is safe to do so
 // Unmanaged means that the operator will not take any action related to the component
+//
+// +kubebuilder:validation:Enum:=Managed;Unmanaged
 type ManagementState string
 
 const (

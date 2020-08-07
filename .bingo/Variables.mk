@@ -1,4 +1,4 @@
-# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.2.2. DO NOT EDIT.
+# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.2.3. DO NOT EDIT.
 # All tools are designed to be build inside $GOBIN.
 GOPATH ?= $(shell go env GOPATH)
 GOBIN  ?= $(firstword $(subst :, ,${GOPATH}))/bin
@@ -38,5 +38,11 @@ OPERATOR_SDK := $(GOBIN)/operator-sdk-v0.18.2
 $(OPERATOR_SDK): .bingo/operator-sdk.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/operator-sdk-v0.18.2"
-	@cd .bingo && $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v0.18.2 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
+	@cd .bingo && $(GO) build -mod=mod  -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v0.18.2 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
+
+OPM := $(GOBIN)/opm-v1.13.6
+$(OPM): .bingo/opm.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/opm-v1.13.6"
+	@cd .bingo && $(GO) build -mod=mod  -modfile=opm.mod -o=$(GOBIN)/opm-v1.13.6 "github.com/operator-framework/operator-registry/cmd/opm"
 
