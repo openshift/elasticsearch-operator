@@ -44,6 +44,9 @@ openshift.searchguard:
 
 openshift.kibana.index.mode: {{.KibanaIndexMode}}
 
+prometheus:
+  indices: false
+
 path:
   data: /elasticsearch/persistent/${CLUSTER_NAME}/data
   logs: /elasticsearch/persistent/${CLUSTER_NAME}/logs
