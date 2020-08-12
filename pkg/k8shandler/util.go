@@ -198,6 +198,23 @@ func isValidDataCount(dpl *api.Elasticsearch) bool {
 	return dataCount > 0
 }
 
+func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
+	dataCount := int(getDataCount(dpl))
+
+	switch dpl.Spec.RedundancyPolicy {
+	case api.ZeroRedundancy:
+		return true
+	case api.SingleRedundancy:
+		fallthrough
+	case api.MultipleRedundancy:
+		fallthrough
+	case api.FullRedundancy:
+		return dataCount > 1
+	default:
+		return false
+	}
+}
+
 func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
 
 	dpl := elasticsearchRequest.cluster
@@ -221,6 +238,17 @@ func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
 		return fmt.Errorf("No data nodes requested. Please ensure there is at least 1 node with data roles")
 	} else {
 		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidDataCountCondition, client); err != nil {
+			return err
+		}
+	}
+
+	if !isValidRedundancyPolicy(dpl) {
+		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition, client); err != nil {
+			return err
+		}
+		return fmt.Errorf("Wrong RedundancyPolicy selected '%s'. Choose different RedundancyPolicy or add more nodes with data roles", dpl.Spec.RedundancyPolicy)
+	} else {
+		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition, client); err != nil {
 			return err
 		}
 	}
