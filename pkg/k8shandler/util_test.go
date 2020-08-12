@@ -134,11 +134,125 @@ func TestSelectorsCommonOverwritten(t *testing.T) {
 	}
 }
 
+func TestInvalidRedundancyPolicySpecified(t *testing.T) {
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(1),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.SingleRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	//replicaCount := calculateReplicaCount(esCR)
+	isValid := isValidRedundancyPolicy(esCR)
+
+	if isValid {
+		t.Error("Expected SingleRedundancy with one data node to be invalid, flagged as valid")
+	}
+
+	esCR = &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.MultipleRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if isValid {
+		t.Error("Expected MultipleRedundancy with two data nodes to be invalid, flagged as valid")
+	}
+
+	esCR = &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.FullRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if isValid {
+		t.Error("Expected FullRedundancy with two data nodes to be invalid, flagged as valid")
+	}
+}
+
+func TestValidRedundancyPolicySpecified(t *testing.T) {
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(1),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.ZeroRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	isValid := isValidRedundancyPolicy(esCR)
+
+	if !isValid {
+		t.Error("Expected ZeroRedundancy with one data node to be valid, flagged as invalid")
+	}
+
+	esNode = api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(2),
+	}
+
+	esCR = &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.SingleRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if !isValid {
+		t.Error("Expected SingleRedundancy with two data nodes to be valid, flagged as invalid")
+	}
+
+	esCR = &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.MultipleRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if !isValid {
+		t.Error("Expected MultipleRedundancy with two data nodes to be valid, flagged as invalid")
+	}
+
+	esCR = &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			RedundancyPolicy: api.FullRedundancy,
+			Nodes:            []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if !isValid {
+		t.Error("Expected FullRedundancy with two data nodes to be valid, flagged as invalid")
+	}
+}
+
 func TestValidNoNodesSpecified(t *testing.T) {
 
 	esCR := &api.Elasticsearch{
 		Spec: api.ElasticsearchSpec{
-			Nodes: []api.ElasticsearchNode{},
+			Nodes:            []api.ElasticsearchNode{},
+			RedundancyPolicy: api.ZeroRedundancy,
 		},
 	}
 
@@ -152,6 +266,12 @@ func TestValidNoNodesSpecified(t *testing.T) {
 
 	if !isValid {
 		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid data count")
+	}
+
+	isValid = isValidRedundancyPolicy(esCR)
+
+	if !isValid {
+		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid redundancy policy")
 	}
 
 	if ok, msg := hasValidUUIDs(esCR); !ok {
