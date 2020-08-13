@@ -25,6 +25,11 @@ writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
+if echo "$writeIndices" | grep "\"error\"" ; then
+  echo "Error while attemping to determine the active write alias: $writeIndices"
+  exit 1
+fi
+
 CMD=$(cat <<END
 import json,sys
 r=json.load(sys.stdin)
@@ -42,6 +47,7 @@ indices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}/_settings/index.creation_date \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
+# Delete in batches of 25 for cases where there are a large number of indices to remove
 nowInMillis=$(date +%s%3N)
 minAgeFromEpoc=$(($nowInMillis - $MIN_AGE))
 CMD=$(cat <<END
@@ -50,8 +56,8 @@ r=json.load(sys.stdin)
 indices = [index for index in r if int(r[index]['settings']['index']['creation_date']) < $minAgeFromEpoc ]
 if "$writeIndex" in indices:
   indices.remove("$writeIndex")
-indices.sort()
-print ','.join(indices)
+for i in range(0, len(indices), 25):
+  print ', '.join(indices[i:i+25])
 END
 )
 indices=$(echo "${indices}"  | python -c "$CMD")
@@ -63,7 +69,8 @@ else
     echo deleting indices: "${indices}"
 fi
 
-code=$(curl -s $ES_SERVICE/${indices}?pretty \
+for sets in ${indices}; do
+code=$(curl -s $ES_SERVICE/${sets}?pretty \
   -w "%{response_code}" \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -HContent-Type:application/json \
@@ -71,11 +78,11 @@ code=$(curl -s $ES_SERVICE/${indices}?pretty \
   -o /tmp/response.txt \
   -XDELETE )
 
-if [ "$code" == "200" ] ; then
-  exit 0
+if [ $code -ne 200 ] ; then
+  cat /tmp/response.txt
+  exit 1
 fi
-cat /tmp/response.txt
-exit 1
+done
 `
 
 var scriptMap = map[string]string{
