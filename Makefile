@@ -64,6 +64,9 @@ test-unit:
 	@go test -v ./pkg/... ./cmd/...
 
 deploy: deploy-image
+	$(MAKE) olm_deploy/bundles/catalog-build.sh
+
+deploy-old: deploy-image
 	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \
 	$(MAKE) elasticsearch-catalog-build && \
 	IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=image-registry.openshift-image-registry.svc:5000/openshift/elasticsearch-operator-registry \
@@ -72,7 +75,7 @@ deploy: deploy-image
 	IMAGE_ELASTICSEARCH_OPERATOR=image-registry.openshift-image-registry.svc:5000/openshift/origin-elasticsearch-operator:latest \
 	$(MAKE) elasticsearch-operator-install
 
-.PHONY: deploy
+.PHONY: deploy-old
 
 deploy-image: image
 	IMAGE_TAG=$(IMAGE_TAG) hack/deploy-image.sh

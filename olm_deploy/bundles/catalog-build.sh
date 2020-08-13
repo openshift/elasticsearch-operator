@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eou pipefail
 
-#source variables.env
-OPM="${GOPATH}/src/github.com/operator-framework/operator-registry/bin/opm"
+source .bingo/variables.env
+#OPM="${GOPATH}/src/github.com/operator-framework/operator-registry/bin/opm"
 
 # this works if we use a public quay.io repo -- login to one here
 podman login -u="ewolinet+write_bot" -p="0G159L19EN62UKOZHN6Q3NLR3LWIO09BCV5SIKO4EOS8SKHA43687LZYJEGDB6C2" quay.io
@@ -62,3 +62,6 @@ fi
 envsubst < olm_deploy/bundles/catalog-source.yaml | oc create -n ${ELASTICSEARCH_OPERATOR_NAMESPACE} -f -
 oc create -f olm_deploy/bundles/operator-group.yaml -n ${ELASTICSEARCH_OPERATOR_NAMESPACE}
 oc create -f olm_deploy/bundles/subscription.yaml -n ${ELASTICSEARCH_OPERATOR_NAMESPACE}
+
+olm_deploy/scripts/wait_for_deployment.sh ${ELASTICSEARCH_OPERATOR_NAMESPACE} elasticsearch-operator
+oc wait -n ${ELASTICSEARCH_OPERATOR_NAMESPACE} --timeout=180s --for=condition=available deployment/elasticsearch-operator
