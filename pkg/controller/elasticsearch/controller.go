@@ -75,7 +75,7 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Flushing nodes", "name", request.NamespacedName)
+			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
 			k8shandler.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
 			return reconcile.Result{}, nil
 		}

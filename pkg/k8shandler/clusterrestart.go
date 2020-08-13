@@ -69,7 +69,7 @@ func (er *ElasticsearchRequest) PerformFullClusterUpdate(nodes []NodeTypeInterfa
 			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = v1.ConditionFalse
 
 			if err := er.setNodeStatus(node, nodeStatus, &er.cluster.Status); err != nil {
-				log.Error(err, "unable to update node status")
+				log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 			}
 		}
 	}
@@ -105,7 +105,7 @@ func (er *ElasticsearchRequest) PerformFullClusterCertRestart(nodes []NodeTypeIn
 			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = v1.ConditionFalse
 
 			if err := er.setNodeStatus(node, nodeStatus, &er.cluster.Status); err != nil {
-				log.Error(err, "unable to update node status")
+				log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 			}
 		}
 	}
@@ -141,7 +141,7 @@ func (er *ElasticsearchRequest) PerformFullClusterRestart(nodes []NodeTypeInterf
 			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = v1.ConditionFalse
 
 			if err := er.setNodeStatus(node, nodeStatus, &er.cluster.Status); err != nil {
-				log.Error(err, "unable to update node status")
+				log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 			}
 		}
 	}
@@ -175,7 +175,7 @@ func (er *ElasticsearchRequest) PerformNodeRestart(node NodeTypeInterface) error
 
 	updateStatus := func() {
 		if err := er.setNodeStatus(node, restarter.nodeStatus, &er.cluster.Status); err != nil {
-			log.Error(err, "unable to update node status")
+			log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 		}
 	}
 
@@ -209,7 +209,7 @@ func (er *ElasticsearchRequest) PerformNodeUpdate(node NodeTypeInterface) error 
 
 	updateStatus := func() {
 		if err := er.setNodeStatus(node, restarter.nodeStatus, &er.cluster.Status); err != nil {
-			log.Error(err, "unable to update node status")
+			log.Error(err, "unable to update node status", "namespace", er.cluster.Namespace, "name", er.cluster.Name)
 		}
 	}
 
@@ -285,7 +285,7 @@ func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error 
 
 	// flush nodes
 	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
-		log.Error(err, "Unable to perform synchronized flush")
+		log.Error(err, "Unable to perform synchronized flush", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
 	}
 
 	return nil
@@ -294,12 +294,12 @@ func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error 
 func (clusterRestart ClusterRestart) optionalSetPrimariesShardsAndFlush() error {
 	// set shard allocation as primaries
 	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
-		log.Error(err, "Unable to set shard allocation to primaries")
+		log.Error(err, "Unable to set shard allocation to primaries", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
 	}
 
 	// flush nodes
 	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
-		log.Error(err, "Unable to perform synchronized flush")
+		log.Error(err, "Unable to perform synchronized flush", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
 	}
 
 	return nil

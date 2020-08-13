@@ -86,7 +86,7 @@ func main() {
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "apis")
+		log.Error(err, "failed to add resources to scheme", "resource", "loggingv1")
 		os.Exit(1)
 	}
 
