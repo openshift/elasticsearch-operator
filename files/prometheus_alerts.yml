@@ -44,10 +44,10 @@
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > 85
+      ) > es_cluster_routing_allocation_disk_watermark_low_pct
     "for": "5m"
     "labels":
-      "severity": "alert"
+      "severity": info
 
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
@@ -61,10 +61,27 @@
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > 90
+      ) > es_cluster_routing_allocation_disk_watermark_high_pct
     "for": "5m"
     "labels":
-      "severity": "high"
+      "severity": warning
+
+      - "alert": "ElasticsearchNodeDiskWatermarkReached"
+      "annotations":
+        "message": "Disk Flood Stage Watermark Reached at {{ $labels.node }} node in {{ $labels.cluster }} cluster. Every index having a shard allocated on this node is enforced a read-only block. The index block is automatically released when the disk utilization falls below the high watermark."
+        "summary": "Disk Flood Stage Watermark Reached - disk saturation is {{ $value }}%"
+      "expr": |
+        sum by (cluster, instance, node) (
+          round(
+            (1 - (
+              es_fs_path_available_bytes /
+              es_fs_path_total_bytes
+            )
+          ) * 100, 0.001)
+        ) > es_cluster_routing_allocation_disk_watermark_flood_stage_pct
+      "for": "5m"
+      "labels":
+        "severity": critical
 
   - "alert": "ElasticsearchJVMHeapUseHigh"
     "annotations":
