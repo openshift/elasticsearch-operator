@@ -118,7 +118,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		} else {
 
 			if err := er.PerformRollingUpdate(scheduledNodes); err != nil {
-				log.Error(err, "failed to perform rolling update: %s", err.Error())
+				log.Error(err, "failed to perform rolling update")
 				return er.UpdateClusterStatus()
 			}
 		}

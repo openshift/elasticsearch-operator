@@ -30,7 +30,7 @@ var (
 
 	// options
 	// disableStacktrace disables all stacktraces by setting the allowed level to 100, which is a number higher than the highest level of logging
-	disableStacktrace = zap.AddStacktrace(zap.NewAtomicLevelAt(zapcore.Level(100)))
+	disableStacktrace = zap.AddStacktrace(zap.NewAtomicLevelAt(zapcore.DPanicLevel))
 )
 
 // Init initializes the logger. This is required to use logging correctly

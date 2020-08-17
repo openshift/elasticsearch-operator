@@ -56,10 +56,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	ll := log.WithValues("namespace", namespace)
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "failed to get config")
+		ll.Error(err, "failed to get config")
 		os.Exit(1)
 	}
 
@@ -68,7 +70,7 @@ func main() {
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "elasticsearch-operator-lock")
 	if err != nil {
-		log.Error(err, "failed to become leader")
+		ll.Error(err, "failed to become leader")
 		os.Exit(1)
 	}
 
@@ -78,57 +80,57 @@ func main() {
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {
-		log.Error(err, "failed to create a new manager")
+		ll.Error(err, "failed to create a new manager")
 		os.Exit(1)
 	}
 
-	log.Info("Registering Components.")
+	ll.Info("Registering Components.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "loggingv1")
+		ll.Error(err, "failed to add resources to scheme", "resource", "loggingv1")
 		os.Exit(1)
 	}
 
 	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "routev1")
+		ll.Error(err, "failed to add resources to scheme", "resource", "routev1")
 		os.Exit(1)
 	}
 
 	if err := consolev1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "consolev1")
+		ll.Error(err, "failed to add resources to scheme", "resource", "consolev1")
 		os.Exit(1)
 	}
 
 	if err := oauth.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "oauth")
+		ll.Error(err, "failed to add resources to scheme", "resource", "oauth")
 		os.Exit(1)
 	}
 
 	if err := monitoringv1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "monitoringv1")
+		ll.Error(err, "failed to add resources to scheme", "resource", "monitoringv1")
 		os.Exit(1)
 	}
 
 	if err := configv1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "failed to add resources to scheme", "resource", "configv1")
+		ll.Error(err, "failed to add resources to scheme", "resource", "configv1")
 		os.Exit(1)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "failed to add controller to manager")
+		ll.Error(err, "failed to add controller to manager")
 		os.Exit(1)
 	}
 
 	// Add the Metrics Service
 	addMetrics(ctx, cfg)
 
-	log.Info("This operator no longer honors the image specified by the custom resources so that it is able to properly coordinate the configuration with the image.")
-	log.Info("Starting the Cmd.")
+	ll.Info("This operator no longer honors the image specified by the custom resources so that it is able to properly coordinate the configuration with the image.")
+	ll.Info("Starting the Cmd.")
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+		ll.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
 }
@@ -146,7 +148,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	}
 
 	if err := serveCRMetrics(cfg, operatorNs); err != nil {
-		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
+		log.Info("Could not generate and serve custom resource metrics", "error", err)
 	}
 
 	// Add to the below struct any other metrics ports you want to expose.
@@ -158,7 +160,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	// Create Service object to expose the metrics port(s).
 	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
 	if err != nil {
-		log.Info("Could not create metrics Service", "error", err.Error())
+		log.Info("Could not create metrics Service", "error", err)
 	}
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
@@ -168,11 +170,11 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	// The ServiceMonitor is created in the same namespace where the operator is deployed
 	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
 	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
+		log.Info("Could not create ServiceMonitor object", "error", err)
 		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
 		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
 		if err == metrics.ErrServiceMonitorNotPresent {
-			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
+			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err)
 		}
 	}
 }
