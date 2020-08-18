@@ -64,7 +64,7 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 	}
 
 	cpuValue := resource.MustParse("256m")
-	memValue := resource.MustParse("2Gi")
+	memValue := resource.MustParse("1Gi")
 
 	storageClassName := "gp2"
 	storageClassSize := resource.MustParse("2Gi")
@@ -102,7 +102,7 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 				Image: "",
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceMemory: memValue,
+						corev1.ResourceMemory: resource.MustParse("5Gi"),
 					},
 					Requests: corev1.ResourceList{
 						corev1.ResourceCPU:    cpuValue,
