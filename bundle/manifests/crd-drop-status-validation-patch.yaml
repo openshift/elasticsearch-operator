@@ -1,4 +1,0 @@
-- op: replace
-  path: /spec/validation/openAPIV3Schema/properties/status
-  value:
-    type: object

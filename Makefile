@@ -123,7 +123,8 @@ MANIFEST_VERSION?="4.6"
 generate-bundle: regenerate $(OPM)
 	mkdir -p bundle; \
 	$(OPM) alpha bundle generate --directory manifests/${MANIFEST_VERSION} --package elasticsearch-operator --channels ${MANIFEST_VERSION} --default ${MANIFEST_VERSION} --output-dir bundle/; \
-	find bundle/manifests/ -type f ! \( -name "*kibana*" -o -name "*elasticsearch*" \) -delete
+	find bundle/manifests/ -type f ! \( -name "elasticsearch-operator*.yaml" -o -name "*crd.yaml" \) -delete && \
+	$(OPERATOR_SDK) bundle validate --verbose bundle
 .PHONY: generate-bundle
 
 # to use these targets, ensure the following env vars are set:
