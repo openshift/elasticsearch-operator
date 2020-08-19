@@ -404,12 +404,13 @@ func rollingRestartTest(t *testing.T) {
 	// Update the resource spec for the cluster
 	oldMemValue := cr.Spec.Spec.Resources.Limits.Memory()
 
-	memValue := resource.MustParse("1536Mi")
-	cpuValue := resource.MustParse("200m")
+	memValue := cr.Spec.Spec.Resources.Requests.Memory().DeepCopy()
+	memValue.Add(resource.MustParse("1Mi"))
+	cpuValue := cr.Spec.Spec.Resources.Requests.Cpu().DeepCopy()
+	cpuValue.Add(resource.MustParse("1m"))
+
 	desiredResources := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: memValue,
-		},
+		Limits: cr.Spec.Spec.Resources.Limits,
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    cpuValue,
 			corev1.ResourceMemory: memValue,
