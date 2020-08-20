@@ -107,19 +107,23 @@ func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, l
 
 		readyPods := 0
 		for _, pod := range pods.Items {
-			for _, excluded := range excludePods {
-				if pod.GetName() == excluded {
-					// Retry we matched at least one excluded pod
-					return false, nil
-				}
+			t.Logf("Ready pods at start of loop: %v", readyPods)
+			t.Logf("Checking if %s is in %v", pod.GetName(), excludePods)
+			if utils.ContainsString(excludePods, pod.Name) {
+				continue
 			}
+
+			t.Logf("Checking if %s is ready...", pod.GetName())
 
 			for _, cond := range pod.Status.Conditions {
 				if cond.Type == corev1.PodReady {
 					readyPods = readyPods + 1
 				}
 			}
+			t.Logf("Ready pods at end of loop: %v", readyPods)
 		}
+
+		t.Logf("Number of ready pods / expected pods: %v / %v", readyPods, expectedPodCount)
 
 		if readyPods == expectedPodCount && len(pods.Items) == readyPods {
 			return true, nil

@@ -50,30 +50,32 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 
 		for _, rContainer := range rhs.Containers {
 			// Only compare the images of containers with the same name
-			if lContainer.Name == rContainer.Name {
-				found = true
+			if lContainer.Name != rContainer.Name {
+				continue
+			}
 
-				if lContainer.Image != rContainer.Image {
-					changed = true
-				}
+			found = true
 
-				if !comparators.EnvValueEqual(lContainer.Env, rContainer.Env) {
-					changed = true
-				}
+			if lContainer.Image != rContainer.Image {
+				changed = true
+			}
 
-				if !reflect.DeepEqual(lContainer.Args, rContainer.Args) {
-					//logger.Debugf("Container Args are different between current and desired for %s", nodeContainer.Name)
-					changed = true
-				}
+			if !comparators.EnvValueEqual(lContainer.Env, rContainer.Env) {
+				changed = true
+			}
 
-				if !reflect.DeepEqual(lContainer.Ports, rContainer.Ports) {
-					//logger.Debugf("Container Ports are different between current and desired for %s", nodeContainer.Name)
-					changed = true
-				}
+			if !reflect.DeepEqual(lContainer.Args, rContainer.Args) {
+				//logger.Debugf("Container Args are different between current and desired for %s", nodeContainer.Name)
+				changed = true
+			}
 
-				if different, _ := utils.CompareResources(lContainer.Resources, rContainer.Resources); different {
-					changed = true
-				}
+			if !reflect.DeepEqual(lContainer.Ports, rContainer.Ports) {
+				//logger.Debugf("Container Ports are different between current and desired for %s", nodeContainer.Name)
+				changed = true
+			}
+
+			if different, _ := utils.CompareResources(lContainer.Resources, rContainer.Resources); different {
+				changed = true
 			}
 		}
 

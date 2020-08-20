@@ -216,7 +216,8 @@ func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 	}
 
 	for _, pod := range podList.Items {
-		if !ArePodSpecDifferent(node.self.Spec.Template.Spec, pod.Spec, false) {
+		// follow pattern used in other places of "current, desired"
+		if !ArePodSpecDifferent(pod.Spec, node.self.Spec.Template.Spec, false) {
 			return true
 		}
 	}

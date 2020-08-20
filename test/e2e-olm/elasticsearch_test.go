@@ -442,7 +442,13 @@ func rollingRestartTest(t *testing.T) {
 		t.Fatalf("timed out waiting for second ready node deployment %v: %v", dplName, err)
 	}
 
+	// tests are failing here --
+	// it can't be the function because its also used for fullcluster restart...
 	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, 2, retryInterval, restartTimeout)
+
+	t.Logf("pods returned while waiting for rollout: %v", pods)
+	t.Logf("received error while waiting for rollout: %v", err)
+
 	if err != nil {
 		t.Fatal(err)
 	}
