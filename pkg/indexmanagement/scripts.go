@@ -31,12 +31,13 @@ if echo "$writeIndices" | grep "\"error\"" ; then
 fi
 
 CMD=$(cat <<END
+from __future__ import print_function
 import json,sys
 r=json.load(sys.stdin)
 alias="${POLICY_MAPPING}-write"
 indices = [index for index in r if r[index]['aliases'][alias]['is_write_index']]
 if len(indices) > 0:
-  print indices[0] 
+  print(indices[0])
 END
 )
 writeIndex=$(echo "${writeIndices}" | python -c "$CMD")
@@ -51,13 +52,14 @@ indices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}/_settings/index.creation_date \
 nowInMillis=$(date +%s%3N)
 minAgeFromEpoc=$(($nowInMillis - $MIN_AGE))
 CMD=$(cat <<END
+from __future__ import print_function
 import json,sys
 r=json.load(sys.stdin)
 indices = [index for index in r if int(r[index]['settings']['index']['creation_date']) < $minAgeFromEpoc ]
 if "$writeIndex" in indices:
   indices.remove("$writeIndex")
 for i in range(0, len(indices), 25):
-  print ', '.join(indices[i:i+25])
+  print(', '.join(indices[i:i+25]))
 END
 )
 indices=$(echo "${indices}"  | python -c "$CMD")
