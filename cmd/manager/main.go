@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"runtime"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/openshift/elasticsearch-operator/pkg/apis"
 	"github.com/openshift/elasticsearch-operator/pkg/controller"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/version"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -26,12 +26,9 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
@@ -42,37 +39,16 @@ var (
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 )
-var log = logf.Log.WithName("cmd")
-
-func printVersion() {
-	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
-}
 
 func main() {
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	pflag.Parse()
-
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	//
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
-	logf.SetLogger(zap.Logger())
-
-	printVersion()
+	log.Init("elasticsearch-operator")
+	log.Info("starting up...",
+		"operator_version", version.Version,
+		"go_version", runtime.Version(),
+		"go_os", runtime.GOOS,
+		"go_arch", runtime.GOARCH,
+		"operator-sdk_version", sdkVersion.Version,
+	)
 
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
@@ -80,10 +56,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	ll := log.WithValues("namespace", namespace)
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to get config")
 		os.Exit(1)
 	}
 
@@ -92,7 +70,7 @@ func main() {
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "elasticsearch-operator-lock")
 	if err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to become leader")
 		os.Exit(1)
 	}
 
@@ -102,57 +80,57 @@ func main() {
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to create a new manager")
 		os.Exit(1)
 	}
 
-	log.Info("Registering Components.")
+	ll.Info("Registering Components.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add resources to scheme", "resource", "loggingv1")
 		os.Exit(1)
 	}
 
 	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add resources to scheme", "resource", "routev1")
 		os.Exit(1)
 	}
 
 	if err := consolev1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add resources to scheme", "resource", "consolev1")
 		os.Exit(1)
 	}
 
 	if err := oauth.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add resources to scheme", "resource", "oauth")
 		os.Exit(1)
 	}
 
 	if err := monitoringv1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add resources to scheme", "resource", "monitoringv1")
 		os.Exit(1)
 	}
 
 	if err := configv1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add resources to scheme", "resource", "configv1")
 		os.Exit(1)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "")
+		ll.Error(err, "failed to add controller to manager")
 		os.Exit(1)
 	}
 
 	// Add the Metrics Service
 	addMetrics(ctx, cfg)
 
-	log.Info("This operator no longer honors the image specified by the custom resources so that it is able to properly coordinate the configuration with the image.")
-	log.Info("Starting the Cmd.")
+	ll.Info("This operator no longer honors the image specified by the custom resources so that it is able to properly coordinate the configuration with the image.")
+	ll.Info("Starting the Cmd.")
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
-		log.Error(err, "Manager exited non-zero")
+		ll.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
 }
@@ -170,7 +148,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	}
 
 	if err := serveCRMetrics(cfg, operatorNs); err != nil {
-		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
+		log.Info("Could not generate and serve custom resource metrics", "error", err)
 	}
 
 	// Add to the below struct any other metrics ports you want to expose.
@@ -182,7 +160,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	// Create Service object to expose the metrics port(s).
 	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
 	if err != nil {
-		log.Info("Could not create metrics Service", "error", err.Error())
+		log.Info("Could not create metrics Service", "error", err)
 	}
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
@@ -192,11 +170,11 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 	// The ServiceMonitor is created in the same namespace where the operator is deployed
 	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
 	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
+		log.Info("Could not create ServiceMonitor object", "error", err)
 		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
 		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
 		if err == metrics.ErrServiceMonitorNotPresent {
-			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
+			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err)
 		}
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,8 +47,8 @@ type indexSettingsStruct struct {
 }
 
 // CreateOrUpdateConfigMap reconciles a configmap
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error {
-	err := elasticsearchRequest.client.Create(context.TODO(), cm)
+func (er *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error {
+	err := er.client.Create(context.TODO(), cm)
 	if err == nil {
 		return nil
 	}
@@ -58,32 +58,33 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1
 
 	// Get existing configMap to check if it is same as what we want
 	current := cm.DeepCopy()
-	err = elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
+	err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
 	if err != nil {
 		return fmt.Errorf("unable to get configMap: %w", err)
 	}
 
 	if configMapContentChanged(current, cm) {
 		// Cluster settings has changed, make sure it doesnt go unnoticed
-		if err := updateConditionWithRetry(elasticsearchRequest.cluster, v1.ConditionTrue, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+		if err := updateConditionWithRetry(er.cluster, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
 			return err
 		}
 
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); getErr != nil {
-				logrus.Debugf("Could not get configmap %q: %v", cm.Name, getErr)
-				return getErr
+			if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
+				log.Info("Could not get configmap, retrying...", "configmap", cm.Name, "error", err)
+				// FIXME: return structured error and update RetryOnConflict to use errors.Is
+				return err
 			}
 
 			current.Data = cm.Data
-			if updateErr := elasticsearchRequest.client.Update(context.TODO(), current); updateErr != nil {
-				logrus.Debugf("Failed to update configmap %q: %v", cm.Name, updateErr)
-				return updateErr
+			if err := er.client.Update(context.TODO(), current); err != nil {
+				log.Error(err, "Failed to update configmap, retrying...", "configmap", cm.Name)
+				return err
 			}
 			return nil
 		})
 	} else {
-		if err := updateConditionWithRetry(elasticsearchRequest.cluster, v1.ConditionFalse, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+		if err := updateConditionWithRetry(er.cluster, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
 			return err
 		}
 	}
@@ -92,9 +93,9 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1
 }
 
 // CreateOrUpdateConfigMaps ensures the existence of ConfigMaps with Elasticsearch configuration
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
+func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 
-	dpl := elasticsearchRequest.cluster
+	dpl := er.cluster
 
 	kibanaIndexMode, err := kibanaIndexMode("")
 	if err != nil {
@@ -121,7 +122,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 
 	addOwnerRefToObject(configmap, getOwnerRef(dpl))
 
-	err = elasticsearchRequest.client.Create(context.TODO(), configmap)
+	err = er.client.Create(context.TODO(), configmap)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
@@ -130,32 +131,32 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 		if errors.IsAlreadyExists(err) {
 			// Get existing configMap to check if it is same as what we want
 			current := configmap.DeepCopy()
-			err = elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
+			err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
 			if err != nil {
 				return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
 			}
 
 			if configMapContentChanged(current, configmap) {
 				// Cluster settings has changed, make sure it doesnt go unnoticed
-				if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+				if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
 					return err
 				}
 
 				return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); getErr != nil {
-						logrus.Debugf("Could not get Elasticsearch configmap %v: %v", configmap.Name, getErr)
-						return getErr
+					if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
+						log.Error(err, "Could not get Elasticsearch configmap", configmap.Name)
+						return err
 					}
 
 					current.Data = configmap.Data
-					if updateErr := elasticsearchRequest.client.Update(context.TODO(), current); updateErr != nil {
-						logrus.Debugf("Failed to update Elasticsearch configmap %v: %v", configmap.Name, updateErr)
-						return updateErr
+					if err := er.client.Update(context.TODO(), current); err != nil {
+						log.Error(err, "Failed to update Elasticsearch configmap", configmap.Name)
+						return err
 					}
 					return nil
 				})
 			} else {
-				if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+				if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
 					return err
 				}
 			}

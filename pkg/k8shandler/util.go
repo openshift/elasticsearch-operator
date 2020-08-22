@@ -215,10 +215,9 @@ func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 	}
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
-
-	dpl := elasticsearchRequest.cluster
-	client := elasticsearchRequest.client
+func (er *ElasticsearchRequest) isValidConf() error {
+	dpl := er.cluster
+	client := er.client
 
 	if !isValidMasterCount(dpl) {
 		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, client); err != nil {

@@ -6,13 +6,13 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -627,7 +627,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 
 		err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, namespace, client)
 		if err != nil {
-			logrus.Errorf("Unable to create PersistentVolumeClaim: %v", err)
+			log.Error(err, "Unable to create PersistentVolumeClaim")
 		}
 
 	case specVol.Size != nil:

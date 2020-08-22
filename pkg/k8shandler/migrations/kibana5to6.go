@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -25,7 +25,7 @@ func (mr *migrationRequest) reIndexKibana5to6() error {
 	}
 
 	if mr.migrationCompleted() {
-		logrus.Infof("migration completed: re-indexing %q to %q", kibanaIndex, kibana6Index)
+		log.Info("migration completed: re-indexing", "from", kibanaIndex, "to", kibana6Index)
 		return nil
 	}
 
@@ -51,7 +51,7 @@ func (mr *migrationRequest) reIndexKibana5to6() error {
 func (mr *migrationRequest) migrationCompleted() bool {
 	indices, err := mr.esClient.ListIndicesForAlias(kibanaIndex)
 	if err != nil {
-		logrus.Errorf("failed to list indices for alias %q: %s", kibanaIndex, err)
+		log.Error(err, "failed to list indices for alias", "alias", kibanaIndex)
 		return false
 	}
 
@@ -67,7 +67,7 @@ func (mr *migrationRequest) setKibanaIndexReadOnly() error {
 	if curSett != nil {
 		if curSett.Index != nil {
 			if curSett.Index.Blocks.Write {
-				logrus.Infof("skipping setting index %q to read-only because already completed", kibanaIndex)
+				log.Info("skipping setting index to read-only because already completed", "index", kibanaIndex)
 				return nil
 			}
 		}
@@ -95,7 +95,7 @@ func (mr *migrationRequest) createNewKibana6Index() error {
 
 	if curIndex != nil {
 		if curIndex.Name == kibana6Index {
-			logrus.Infof("skipping creating index %q anew because already existing", kibana6Index)
+			log.Info("skipping creating index anew because already existing", "index", kibana6Index)
 			return nil
 		}
 	}
@@ -145,7 +145,7 @@ func (mr *migrationRequest) reIndexIntoKibana6() error {
 	}
 
 	if index.DocsCount != "0" {
-		logrus.Infof("skipping re-indexing %q to %q because already completed", kibanaIndex, kibana6Index)
+		log.Info("skipping re-indexing because already completed", "from", kibanaIndex, "to", kibana6Index)
 		return nil
 	}
 
@@ -158,7 +158,7 @@ func (mr *migrationRequest) reIndexIntoKibana6() error {
 
 func (mr *migrationRequest) aliasKibana() error {
 	if mr.migrationCompleted() {
-		logrus.Infof("skipping aliasing %q to %q because alias existing", kibanaIndex, kibana6Index)
+		log.Info("skipping aliasing index because alias existing", "alias", kibanaIndex, "index", kibana6Index)
 		return nil
 	}
 

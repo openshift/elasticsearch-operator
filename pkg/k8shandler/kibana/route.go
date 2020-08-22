@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
@@ -55,7 +55,7 @@ func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, erro
 
 	if err := clusterRequest.Get(routeName, foundRoute); err != nil {
 		if !errors.IsNotFound(err) {
-			logrus.Errorf("Failed to check for kibana object: %v", err)
+			log.Error(err, "Failed to check for kibana object")
 		}
 		return "", err
 	}
@@ -159,7 +159,6 @@ func (clusterRequest *KibanaRequest) createOrUpdateConsoleLink(desired *consolev
 		current := &consolev1.ConsoleLink{}
 		if err := clusterRequest.Get(linkName, current); err != nil {
 			if errors.IsNotFound(err) {
-				logrus.Debugf("The console link %q was not found even though create previously succeeded.  Was it culled?", linkName)
 				return nil
 			}
 			return fmt.Errorf("Failed to get Kibana console link: %v", err)

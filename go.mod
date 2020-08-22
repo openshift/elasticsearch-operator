@@ -5,6 +5,8 @@ go 1.14
 // Pinned to kubernetes-1.18.3 and openshift release-4.6
 require (
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
+	github.com/go-logr/logr v0.1.0
+	github.com/go-logr/zapr v0.1.1
 	github.com/go-openapi/spec v0.19.4
 	github.com/google/go-cmp v0.4.0
 	github.com/inhies/go-bytesize v0.0.0-20151001220322-5990f52c6ad6
@@ -13,8 +15,9 @@ require (
 	github.com/openshift/api v0.0.0-20200602204738-768b7001fe69
 	github.com/operator-framework/operator-sdk v0.18.1
 	github.com/sergi/go-diff v1.1.0 // indirect
-	github.com/sirupsen/logrus v1.6.0
+	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5
+	go.uber.org/zap v1.14.1
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.3

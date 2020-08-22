@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -31,6 +31,7 @@ func nodeMapKey(clusterName, namespace string) string {
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
+	ll := log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 	esClient := er.esClient
 
 	// Verify that we didn't scale up too many masters
@@ -53,7 +54,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 	er.tryEnsureNoTransitiveShardAllocations()
 
 	if err := er.progressUnschedulableNodes(); err != nil {
-		logrus.Warnf("unable to progress unschedulable nodes for %v in namespace %v", er.cluster.Name, er.cluster.Namespace)
+		ll.Error(err, "unable to progress unschedulable nodes")
 		return er.UpdateClusterStatus()
 	}
 
@@ -61,7 +62,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 	stillRecovering := containsClusterCondition(api.Recovering, v1.ConditionTrue, &er.cluster.Status)
 	if len(certRestartNodes) > 0 || stillRecovering {
 		if err := er.PerformFullClusterCertRestart(certRestartNodes); err != nil {
-			logrus.Warnf("unable to complete full cluster restart for %v in namespace %v", er.cluster.Name, er.cluster.Namespace)
+			ll.Error(err, "unable to complete full cluster restart")
 			return er.UpdateClusterStatus()
 		}
 
@@ -76,18 +77,16 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 	if inProgressNode != nil {
 		// Check to see if the inProgressNode was being updated or restarted
 		if _, ok := containsNodeTypeInterface(inProgressNode, scheduledNodes); ok {
-			logrus.Debugf("Continuing update for %v", inProgressNode.name())
 			if err := er.PerformNodeUpdate(inProgressNode); err != nil {
-				logrus.Warnf("unable to update node. E: %s", err.Error())
+				ll.Error(err, "unable to update node")
 				return er.UpdateClusterStatus()
 			}
 
 			// update scheduled nodes since we were able to complete upgrade for inProgressNode
 			scheduledNodes = er.getScheduledUpgradeNodes()
 		} else {
-			logrus.Debugf("Continuing restart for %v", inProgressNode.name())
 			if err := er.PerformNodeRestart(inProgressNode); err != nil {
-				logrus.Warnf("unable to restart node %q: %s", inProgressNode.name(), err.Error())
+				ll.Error(err, "unable to restart node", "node", inProgressNode.name())
 				return er.UpdateClusterStatus()
 			}
 		}
@@ -102,25 +101,24 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		version, err := esClient.GetLowestClusterVersion()
 		if err != nil {
 			// this can be because we couldn't get a valid response from ES
-			logrus.Warnf("when trying to get LowestClusterVersion: %s", err.Error())
+			ll.Error(err, "failed to get LowestClusterVersion")
 			return er.UpdateClusterStatus()
 		}
 
-		logrus.Debugf("Found current cluster version to be %q", version)
 		comparison := comparators.CompareVersions(version, expectedMinVersion)
 
 		// if it is < what we expect (6.0) then do full cluster update:
 		if comparison > 0 {
 			// perform a full cluster update
 			if err := er.PerformFullClusterUpdate(scheduledNodes); err != nil {
-				logrus.Warnf("when trying to perform full cluster update: %s", err.Error())
+				log.Error(err, "failed to perform full cluster update")
 				return er.UpdateClusterStatus()
 			}
 
 		} else {
 
 			if err := er.PerformRollingUpdate(scheduledNodes); err != nil {
-				logrus.Warnf("when trying to perform rolling update: %s", err.Error())
+				log.Error(err, "failed to perform rolling update")
 				return er.UpdateClusterStatus()
 			}
 		}
@@ -141,7 +139,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 
 			addNodeState(node, nodeStatus)
 			if err := er.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
-				logrus.Warnf("unable to set status for node %q: %s", node.name(), err.Error())
+				log.Error(err, "unable to set status for node", "node", node.name())
 			}
 		}
 
@@ -202,10 +200,8 @@ func (er *ElasticsearchRequest) progressUnschedulableNodes() error {
 				if node.DeploymentName == nodeTypeInterface.name() ||
 					node.StatefulSetName == nodeTypeInterface.name() {
 
-					logrus.Debugf("Node %s is unschedulable, trying to recover...", nodeTypeInterface.name())
-
 					if err := nodeTypeInterface.progressNodeChanges(); err != nil {
-						logrus.Warnf("Failed to progress update of unschedulable node '%s': %v", nodeTypeInterface.name(), err)
+						log.Error(err, "Failed to progress update of unschedulable node", "node", nodeTypeInterface.name())
 						return err
 					}
 				}
@@ -230,11 +226,12 @@ func (er *ElasticsearchRequest) setUUIDs() {
 			cluster.Spec.Nodes[index].GenUUID = &uuid
 
 			nretries := -1
-			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				nretries++
-				if getErr := er.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
-					logrus.Debugf("Could not get Elasticsearch %v: %v", cluster.Name, getErr)
-					return getErr
+				if err := er.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); err != nil {
+					// FIXME: return structured error
+					log.Info("Could not get Elasticsearch cluster", "cluster", cluster.Name, "error", err)
+					return err
 				}
 
 				if cluster.Spec.Nodes[index].GenUUID != nil {
@@ -244,16 +241,18 @@ func (er *ElasticsearchRequest) setUUIDs() {
 				cluster.Spec.Nodes[index].GenUUID = &uuid
 
 				if updateErr := er.client.Update(context.TODO(), cluster); updateErr != nil {
-					logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", cluster.Name, updateErr)
+					// FIXME: return structured error
+					log.Info("Failed to update Elasticsearch status. Trying again...", "cluster", cluster.Name, "error", updateErr)
 					return updateErr
 				}
 				return nil
 			})
 
-			if retryErr != nil {
-				logrus.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cluster.Name, nretries, retryErr)
+			if err != nil {
+				log.Error(err, "could not update status for Elasticsearch", "cluster", cluster.Name, "retries", nretries)
+			} else {
+				log.Info("Updated Elasticsearch", "cluster", cluster.Name, "retries", nretries)
 			}
-			logrus.Debugf("Updated Elasticsearch %v after %v retries", cluster.Name, nretries)
 		}
 	}
 }
@@ -296,7 +295,7 @@ func (er *ElasticsearchRequest) populateNodes() {
 				}
 			}
 			if err := node.delete(); err != nil {
-				logrus.Warnf("unable to delete node. E: %s\r\n", err.Error())
+				log.Error(err, "unable to delete node")
 			}
 
 			// remove from status.Nodes

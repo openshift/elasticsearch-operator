@@ -17,10 +17,9 @@ import (
 	"time"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -125,12 +124,13 @@ func (ec *esClient) ClusterName() string {
 	return ec.cluster
 }
 
+// FIXME: this needs to return an error instead of swallowing
 func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
-	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", cluster, namespace, payload.URI)
-	urlURL, err := url.Parse(urlString)
+	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", cluster, namespace, payload.URI)
+	urlURL, err := url.Parse(u)
 
 	if err != nil {
-		logrus.Warnf("Unable to parse URL %v: %v", urlString, err)
+		log.Error(err, "failed to parse URL", "url", u)
 		return
 	}
 
@@ -192,10 +192,10 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 
 		payload.StatusCode = resp.StatusCode
 		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
-			logrus.Warnf("failed to get raw response body: %s", err)
+			log.Error(err, "failed to get raw response body")
 		}
 		if payload.ResponseBody, err = getMapFromBody(payload.RawResponseBody); err != nil {
-			logrus.Warnf("getMapFromBody failed. E: %s\r\n", err.Error())
+			log.Error(err, "getMapFromBody failed")
 		}
 	}
 
@@ -204,11 +204,11 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 
 func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest, client client.Client) {
 
-	urlString := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
-	urlURL, err := url.Parse(urlString)
+	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
+	urlURL, err := url.Parse(u)
 
 	if err != nil {
-		logrus.Warnf("Unable to parse URL %v: %v", urlString, err)
+		log.Error(err, "unable to parse URL", "url", u)
 		return
 	}
 
@@ -253,10 +253,10 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 	if resp != nil {
 		payload.StatusCode = resp.StatusCode
 		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
-			logrus.Warnf("failed to get raw response body: %s", err)
+			log.Error(err, "failed to get raw response body")
 		}
 		if payload.ResponseBody, err = getMapFromBody(payload.RawResponseBody); err != nil {
-			logrus.Warnf("getMapFromBody failed. E: %s\r\n", err.Error())
+			log.Error(err, "getMapFrombody failed")
 		}
 	}
 
@@ -282,12 +282,12 @@ func readSAToken(tokenFile string) (string, bool) {
 	token, err := ioutil.ReadFile(tokenFile)
 
 	if err != nil {
-		logrus.Errorf("Unable to read auth token from file [%s]: %v", tokenFile, err)
+		log.Error(err, "Unable to read auth token from file", "file", tokenFile)
 		return "", false
 	}
 
 	if len(token) == 0 {
-		logrus.Errorf("Unable to read auth token from file [%s]: empty token", tokenFile)
+		log.Error(nil, "Unable to read auth token from file", "file", tokenFile)
 		return "", false
 	}
 
@@ -354,9 +354,10 @@ func getRootCA(clusterName, namespace string) *x509.CertPool {
 	certPool := x509.NewCertPool()
 
 	// load cert into []byte
-	caPem, err := ioutil.ReadFile(path.Join(certLocalPath, clusterName, "admin-ca"))
+	f := path.Join(certLocalPath, clusterName, "admin-ca")
+	caPem, err := ioutil.ReadFile(f)
 	if err != nil {
-		logrus.Errorf("Unable to read file to get contents: %v", err)
+		log.Error(err, "Unable to read file to get contents", "file", f)
 		return nil
 	}
 
@@ -413,20 +414,14 @@ func extractSecret(secretName, namespace string, client client.Client) {
 		},
 	}
 	if err := client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret); err != nil {
-		if errors.IsNotFound(err) {
-			//return err
-			logrus.Errorf("Unable to find secret %v: %v", secretName, err)
-		}
-
-		logrus.Errorf("Error reading secret %v: %v", secretName, err)
-		//return fmt.Errorf("Unable to extract secret to file: %v", secretName, err)
+		log.Error(err, "Error reading secret", "secret", secretName)
 	}
 
 	// make sure that the dir === secretName exists
-	if _, err := os.Stat(path.Join(certLocalPath, secretName)); os.IsNotExist(err) {
-		err = os.MkdirAll(path.Join(certLocalPath, secretName), 0755)
-		if err != nil {
-			logrus.Errorf("Error creating dir %v: %v", path.Join(certLocalPath, secretName), err)
+	secretDir := path.Join(certLocalPath, secretName)
+	if _, err := os.Stat(secretDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(secretDir, 0755); err != nil {
+			log.Error(err, "Error creating dir", "dir", secretDir)
 		}
 	}
 
@@ -436,13 +431,12 @@ func extractSecret(secretName, namespace string, client client.Client) {
 
 		// check to see if the map value exists
 		if !ok {
-			logrus.Errorf("Error secret key %v not found", key)
-			//return fmt.Errorf("No secret data \"%s\" found", key)
+			log.Error(nil, "secret key not found", "key", key)
 		}
 
-		if err := ioutil.WriteFile(path.Join(certLocalPath, secretName, key), value, 0644); err != nil {
-			//return fmt.Errorf("Unable to write to working dir: %v", err)
-			logrus.Errorf("Error writing %v to %v: %v", value, path.Join(certLocalPath, secretName, key), err)
+		secretFile := path.Join(certLocalPath, secretName, key)
+		if err := ioutil.WriteFile(secretFile, value, 0644); err != nil {
+			log.Error(err, "failed to write value to file", "value", value, "file", secretFile)
 		}
 	}
 }

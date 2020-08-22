@@ -6,7 +6,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,9 +27,7 @@ type migrationRequest struct {
 }
 
 func (mr *migrationRequest) RunKibanaMigrations() error {
-	logrus.Debugf("running Kibana migrations")
 	if index, _ := mr.esClient.GetIndex(kibanaIndex); index == nil {
-		logrus.Debugf("skipping kibana migrations: no index %q available", kibanaIndex)
 		return nil
 	}
 
@@ -48,7 +45,6 @@ func (mr *migrationRequest) RunKibanaMigrations() error {
 		return fmt.Errorf("waiting for `.kibana` index recovery before running migrations: %s / (green,yellow)", health)
 	}
 
-	logrus.Debugf("attempting re-indexing `.kibana` into `.kibana-6`")
 	if err := mr.reIndexKibana5to6(); err != nil {
 		return fmt.Errorf("failed re-indexing `.kibana` into `.kibana-6`: %s", err)
 	}
@@ -56,7 +52,6 @@ func (mr *migrationRequest) RunKibanaMigrations() error {
 }
 
 func (mr *migrationRequest) RunElasticsearchMigrations() error {
-	logrus.Debugf("running elasticsearch migrations")
 	return nil
 }
 
@@ -74,7 +69,7 @@ func (mr *migrationRequest) matchRequiredMajorVersion(version string) (bool, err
 		return false, nil
 	}
 
-	return (utils.GetMajorVersion(versions[0]) == version), nil
+	return utils.GetMajorVersion(versions[0]) == version, nil
 }
 
 func getIndexHealth(indices estypes.CatIndicesResponses, name string) (string, error) {

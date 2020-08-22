@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 )
@@ -17,7 +16,6 @@ func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
 		Method: http.MethodGet,
 		URI:    name,
 	}
-	logger.DebugObject("GetIndex for %q", name)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return nil, payload.Error
@@ -43,7 +41,6 @@ func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, err
 		Method: http.MethodGet,
 		URI:    fmt.Sprintf("_cat/indices/%s?format=json", name),
 	}
-	logger.DebugObject("CatIndices for %q", name)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.StatusCode == http.StatusNotFound {
 		return nil, nil
@@ -74,7 +71,6 @@ func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
 		URI:         name,
 		RequestBody: body,
 	}
-	logger.DebugObject("CreateIndex with payload: %s", index)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
@@ -90,7 +86,6 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error
 		Method: http.MethodGet,
 		URI:    fmt.Sprintf("%s/_settings", name),
 	}
-	logger.Debugf("GetIndexSettings for index: %s", name)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return nil, payload.Error
@@ -117,7 +112,6 @@ func (ec *esClient) UpdateIndexSettings(name string, settings *estypes.IndexSett
 		URI:         fmt.Sprintf("%s/_settings", name),
 		RequestBody: body,
 	}
-	logger.DebugObject("UpdateIndexSettings with payload: %#v", settings)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
@@ -147,7 +141,6 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 		URI:         "_reindex",
 		RequestBody: body,
 	}
-	logger.DebugObject("ReIndexing with payload: %#v", reIndex)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
@@ -169,7 +162,7 @@ func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
 		URI:         "_aliases",
 		RequestBody: body,
 	}
-	logger.DebugObject("Updating aliases with payload: %#v", actions)
+	log.Info("Updating aliases", "payload", actions)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
@@ -246,19 +239,21 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 		if payload.ResponseBody[index] != nil {
 			indexBody, ok := payload.ResponseBody[index].(map[string]interface{})
 			if !ok {
-				logger.Warnf("unable to unmarshal index '%s' response body for cluster '%s'. Type: %s",
-					index,
-					ec.cluster,
-					reflect.TypeOf(payload.ResponseBody[index]).String())
+				log.Error(nil, "unable to unmarshal index",
+					"index", index,
+					"cluster", ec.cluster,
+					"type", fmt.Sprintf("%T", payload.ResponseBody[index]),
+				)
 				continue
 			}
 			if indexBody["aliases"] != nil {
 				aliasBody, ok := indexBody["aliases"].(map[string]interface{})
 				if !ok {
-					logger.Warnf("unable to unmarshal alias index '%s' body for cluster '%s'. Type: %s",
-						index,
-						ec.cluster,
-						reflect.TypeOf(indexBody["aliases"]).String())
+					log.Error(nil, "unable to unmarshal alias index",
+						"index", index,
+						"cluster", ec.cluster,
+						"type", fmt.Sprintf("%T", indexBody["aliases"]),
+					)
 					continue
 				}
 
