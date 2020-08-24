@@ -55,6 +55,5 @@ TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} \
     -root=$(pwd) \
     -kubeconfig=${KUBECONFIG} \
     -globalMan test/files/dummycrd.yaml \
-    -v \
     -parallel=1 \
    -timeout 1500s
