@@ -61,7 +61,7 @@ image:
 	fi
 
 test-unit:
-	@go test -v ./pkg/... ./cmd/...
+	@go test ./pkg/... ./cmd/...
 
 deploy: deploy-image
 	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \
