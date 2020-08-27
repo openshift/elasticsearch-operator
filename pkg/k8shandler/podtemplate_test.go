@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	lhs, rhs v1.PodTemplateSpec
+	lhs, rhs                                              v1.PodTemplateSpec
+	emptyVolume, configmapVolume, secretVolume, pvcVolume v1.Volume
 )
 
 const (
@@ -34,6 +35,38 @@ var _ = Describe("podtemplate", func() {
 				},
 			},
 			Image: expectedImageName,
+		}
+
+		emptyVolume = v1.Volume{
+			Name: "emptyVolume",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		}
+
+		configmapVolume = v1.Volume{
+			Name: "configmapVolume",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{},
+			},
+		}
+
+		secretVolume = v1.Volume{
+			Name: "secretVolume",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "secret",
+				},
+			},
+		}
+
+		pvcVolume = v1.Volume{
+			Name: "pvcVolume",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "pvc",
+				},
+			},
 		}
 
 		lhs = v1.PodTemplateSpec{
@@ -94,6 +127,228 @@ var _ = Describe("podtemplate", func() {
 		})
 
 		It("should recognize a nodeSelector change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different emptyDir volumes declared", func() {
+		JustBeforeEach(func() {
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						emptyVolume,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different emptyDir volumes sizes declared", func() {
+		JustBeforeEach(func() {
+
+			lhs.Spec.Volumes = []v1.Volume{
+				emptyVolume,
+			}
+
+			size := resource.MustParse("10G")
+			emptyVolume2 := emptyVolume.DeepCopy()
+
+			emptyVolume2.EmptyDir.SizeLimit = &size
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						*emptyVolume2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different emptyDir volumes sizes", func() {
+		JustBeforeEach(func() {
+
+			size := resource.MustParse("10G")
+			emptyVolume.EmptyDir.SizeLimit = &size
+
+			lhs.Spec.Volumes = []v1.Volume{
+				emptyVolume,
+			}
+
+			size2 := resource.MustParse("20G")
+			emptyVolume2 := emptyVolume.DeepCopy()
+			emptyVolume2.EmptyDir.SizeLimit = &size2
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						*emptyVolume2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different configmap volumes declared", func() {
+		JustBeforeEach(func() {
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						configmapVolume,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different configmap volumes names", func() {
+		JustBeforeEach(func() {
+
+			configmapVolume.ConfigMap.Name = "configmap"
+			lhs.Spec.Volumes = []v1.Volume{
+				configmapVolume,
+			}
+
+			configmapVolume2 := configmapVolume.DeepCopy()
+			configmapVolume2.ConfigMap.Name = "configmap2"
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						*configmapVolume2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different secret volumes declared", func() {
+		JustBeforeEach(func() {
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						secretVolume,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different secret volumes names", func() {
+		JustBeforeEach(func() {
+
+			lhs.Spec.Volumes = []v1.Volume{
+				secretVolume,
+			}
+
+			secretVolume2 := secretVolume.DeepCopy()
+			secretVolume2.Secret.SecretName = "secret2"
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						*secretVolume2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different pvc volumes declared", func() {
+		JustBeforeEach(func() {
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						pvcVolume,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different pvc volumes names", func() {
+		JustBeforeEach(func() {
+
+			lhs.Spec.Volumes = []v1.Volume{
+				pvcVolume,
+			}
+
+			pvcVolume2 := pvcVolume.DeepCopy()
+			pvcVolume2.PersistentVolumeClaim.ClaimName = "pvc2"
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+					Volumes: []v1.Volume{
+						*pvcVolume2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a volume change", func() {
 			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
 		})
 	})
@@ -183,6 +438,30 @@ var _ = Describe("podtemplate", func() {
 		})
 
 		It("should recognize an args change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("different volumemounts", func() {
+		JustBeforeEach(func() {
+			nodeContainer.VolumeMounts = []v1.VolumeMount{
+				{
+					Name:      "testMount",
+					ReadOnly:  true,
+					MountPath: "/dev/random",
+				},
+			}
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+					},
+				},
+			}
+		})
+
+		It("should recognize an volumemounts change", func() {
 			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
 		})
 	})

@@ -47,7 +47,10 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 	}
 	wrongConfig = false
 
-	elasticsearchRequest.getNodes()
+	// Populate nodes from the custom resources spec.nodes
+	if err := elasticsearchRequest.populateNodes(); err != nil {
+		return err
+	}
 
 	//clearing transient setting because of a bug in earlier releases which
 	//may leave the shard allocation in an undesirable state
@@ -270,41 +273,48 @@ func (elasticsearchRequest *ElasticsearchRequest) setUUIDs() {
 				continue
 			}
 
-			// update the node to set uuid
-			cluster.Spec.Nodes[index].GenUUID = &uuid
-
-			nretries := -1
-			retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				nretries++
-				if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); getErr != nil {
-					logrus.Debugf("Could not get Elasticsearch %v: %v", cluster.Name, getErr)
-					return getErr
-				}
-
-				if cluster.Spec.Nodes[index].GenUUID != nil {
-					return nil
-				}
-
-				cluster.Spec.Nodes[index].GenUUID = &uuid
-
-				if updateErr := elasticsearchRequest.client.Update(context.TODO(), cluster); updateErr != nil {
-					logrus.Debugf("Failed to update Elasticsearch %s status. Reason: %v. Trying again...", cluster.Name, updateErr)
-					return updateErr
-				}
-				return nil
-			})
-
-			if retryErr != nil {
-				logrus.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cluster.Name, nretries, retryErr)
-			}
-			logrus.Debugf("Updated Elasticsearch %v after %v retries", cluster.Name, nretries)
+			elasticsearchRequest.setUUID(index, uuid)
 		}
+	}
+}
+
+func (er *ElasticsearchRequest) setUUID(index int, uuid string) {
+
+	nretries := -1
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		nretries++
+		if err := er.client.Get(context.TODO(), types.NamespacedName{Name: er.cluster.Name, Namespace: er.cluster.Namespace}, er.cluster); err != nil {
+			// FIXME: return structured error
+			logrus.Infof("Could not get Elasticsearch cluster %q in namespace %q: %v", er.cluster.Name, er.cluster.Namespace, err)
+			return err
+		}
+
+		if er.cluster.Spec.Nodes[index].GenUUID != nil {
+			return nil
+		}
+
+		er.cluster.Spec.Nodes[index].GenUUID = &uuid
+
+		if updateErr := er.client.Update(context.TODO(), er.cluster); updateErr != nil {
+			// FIXME: return structured error
+			logrus.Infof("Failed to update Elasticsearch cluster %q in namespace %q status, trying again.\nError: %v", er.cluster.Name, er.cluster.Namespace, updateErr)
+			return updateErr
+		}
+		return nil
+	})
+
+	if err != nil {
+		logrus.Errorf("Could not update CR for Elasticsearch cluster %q in namespace %q after %v retries: %v", er.cluster.Name, er.cluster.Namespace, nretries, err)
+	} else {
+		logrus.Infof("Updated Elasticsearch cluster %q in namespace %q after %v retries", er.cluster.Name, er.cluster.Namespace, nretries)
 	}
 
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) getNodes() {
-
+func (elasticsearchRequest *ElasticsearchRequest) populateNodes() error {
+	if err := elasticsearchRequest.recoverOrphanedCluster(); err != nil {
+		return err
+	}
 	elasticsearchRequest.setUUIDs()
 
 	if nodes == nil {
@@ -353,6 +363,8 @@ func (elasticsearchRequest *ElasticsearchRequest) getNodes() {
 	}
 
 	nodes[nodeMapKey(cluster.Name, cluster.Namespace)] = currentNodes
+
+	return nil
 }
 
 func getScheduledUpgradeNodes(cluster *api.Elasticsearch) []NodeTypeInterface {

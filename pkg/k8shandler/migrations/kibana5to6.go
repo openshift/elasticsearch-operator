@@ -25,7 +25,6 @@ func (mr *migrationRequest) reIndexKibana5to6() error {
 	}
 
 	if mr.migrationCompleted() {
-		logrus.Infof("migration completed: re-indexing %q to %q", kibanaIndex, kibana6Index)
 		return nil
 	}
 
