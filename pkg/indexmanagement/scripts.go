@@ -57,7 +57,7 @@ indices = [index for index in r if int(r[index]['settings']['index']['creation_d
 if "$writeIndex" in indices:
   indices.remove("$writeIndex")
 for i in range(0, len(indices), 25):
-  print ', '.join(indices[i:i+25])
+  print ','.join(indices[i:i+25])
 END
 )
 indices=$(echo "${indices}"  | python -c "$CMD")
