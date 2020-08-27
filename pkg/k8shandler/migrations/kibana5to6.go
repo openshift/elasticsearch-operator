@@ -25,7 +25,6 @@ func (mr *migrationRequest) reIndexKibana5to6() error {
 	}
 
 	if mr.migrationCompleted() {
-		log.Info("migration completed: re-indexing", "from", kibanaIndex, "to", kibana6Index)
 		return nil
 	}
 

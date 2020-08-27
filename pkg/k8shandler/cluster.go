@@ -48,7 +48,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 	wrongConfig = false
 
 	// Populate nodes from the custom resources spec.nodes
-	er.populateNodes()
+	if err := er.populateNodes(); err != nil {
+		return err
+	}
 
 	//clearing transient setting because of a bug in earlier releases which
 	//may leave the shard allocation in an undesirable state
@@ -229,42 +231,49 @@ func (er *ElasticsearchRequest) setUUIDs() {
 				continue
 			}
 
-			// update the node to set uuid
-			cluster.Spec.Nodes[index].GenUUID = &uuid
-
-			nretries := -1
-			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				nretries++
-				if err := er.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, cluster); err != nil {
-					// FIXME: return structured error
-					log.Info("Could not get Elasticsearch cluster", "cluster", cluster.Name, "error", err)
-					return err
-				}
-
-				if cluster.Spec.Nodes[index].GenUUID != nil {
-					return nil
-				}
-
-				cluster.Spec.Nodes[index].GenUUID = &uuid
-
-				if updateErr := er.client.Update(context.TODO(), cluster); updateErr != nil {
-					// FIXME: return structured error
-					log.Info("Failed to update Elasticsearch status. Trying again...", "cluster", cluster.Name, "error", updateErr)
-					return updateErr
-				}
-				return nil
-			})
-
-			if err != nil {
-				log.Error(err, "could not update status for Elasticsearch", "cluster", cluster.Name, "retries", nretries)
-			} else {
-				log.Info("Updated Elasticsearch", "cluster", cluster.Name, "retries", nretries)
-			}
+			er.setUUID(index, uuid)
 		}
 	}
 }
 
-func (er *ElasticsearchRequest) populateNodes() {
+func (er *ElasticsearchRequest) setUUID(index int, uuid string) {
+
+	ll := log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+
+	nretries := -1
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		nretries++
+		if err := er.client.Get(context.TODO(), types.NamespacedName{Name: er.cluster.Name, Namespace: er.cluster.Namespace}, er.cluster); err != nil {
+			// FIXME: return structured error
+			ll.Info("Could not get Elasticsearch cluster", "error", err)
+			return err
+		}
+
+		if er.cluster.Spec.Nodes[index].GenUUID != nil {
+			return nil
+		}
+
+		er.cluster.Spec.Nodes[index].GenUUID = &uuid
+
+		if updateErr := er.client.Update(context.TODO(), er.cluster); updateErr != nil {
+			// FIXME: return structured error
+			ll.Info("Failed to update Elasticsearch status. Trying again...", "error", updateErr)
+			return updateErr
+		}
+		return nil
+	})
+
+	if err != nil {
+		ll.Error(err, "Could not update CR for Elasticsearch", "retries", nretries)
+	} else {
+		ll.Info("Updated Elasticsearch", "retries", nretries)
+	}
+}
+
+func (er *ElasticsearchRequest) populateNodes() error {
+	if err := er.recoverOrphanedCluster(); err != nil {
+		return err
+	}
 	er.setUUIDs()
 
 	if nodes == nil {
@@ -313,6 +322,8 @@ func (er *ElasticsearchRequest) populateNodes() {
 	}
 
 	nodes[nodeMapKey(cluster.Name, cluster.Namespace)] = currentNodes
+
+	return nil
 }
 
 func (er *ElasticsearchRequest) getScheduledUpgradeNodes() []NodeTypeInterface {

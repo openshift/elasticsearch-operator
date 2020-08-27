@@ -624,7 +624,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 			StorageClassName: specVol.StorageClassName,
 		}
 
-		err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, namespace, client)
+		err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, namespace, clusterName, client)
 		if err != nil {
 			log.Error(err, "Unable to create PersistentVolumeClaim")
 		}

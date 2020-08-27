@@ -245,9 +245,14 @@ func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchSt
 	cluster := er.cluster
 	// Get all pods based on status.Nodes[] and check their conditions
 	// get pod with label 'node-name=node.getName()'
-	thresholdEnabled, err := esClient.GetThresholdEnabled()
-	if err != nil {
-		er.L().Info("Unable to check if threshold is enabled", "error", err)
+	thresholdEnabled := false
+	if er.AnyNodeReady() {
+		var err error
+
+		thresholdEnabled, err = esClient.GetThresholdEnabled()
+		if err != nil {
+			er.L().Info("Unable to check if threshold is enabled", "error", err)
+		}
 	}
 
 	if thresholdEnabled {

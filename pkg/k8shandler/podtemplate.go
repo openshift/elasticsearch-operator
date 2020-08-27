@@ -29,6 +29,11 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 		changed = true
 	}
 
+	// check if volumes are the same
+	if !containsSameVolumes(lhs.Volumes, rhs.Volumes) {
+		changed = true
+	}
+
 	// strictTolerations are for when we compare from the deployments or statefulsets
 	// if we are seeing if rolled out pods contain changes we don't want strictTolerations
 	//   since k8s may add additional tolerations to pods
@@ -56,6 +61,12 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 
 			found = true
 
+			// can't use reflect.DeepEqual here, due to k8s adding token mounts
+			// check that rContainer is all found within lContainer and that they match by name
+			if !containsSameVolumeMounts(lContainer.VolumeMounts, rContainer.VolumeMounts) {
+				changed = true
+			}
+
 			if lContainer.Image != rContainer.Image {
 				changed = true
 			}
@@ -82,4 +93,116 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 		}
 	}
 	return changed
+}
+
+// check that all of rhs (desired) are contained within lhs (current)
+func containsSameVolumeMounts(lhs, rhs []v1.VolumeMount) bool {
+
+	for _, rVolumeMount := range rhs {
+		found := false
+
+		for _, lVolumeMount := range lhs {
+			if lVolumeMount.Name == rVolumeMount.Name {
+				found = true
+
+				if !reflect.DeepEqual(lVolumeMount, rVolumeMount) {
+					return false
+				}
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// if we use reflect.DeepEqual we will keep recognizing a difference due to defaultModes
+// we want to check that rhs is contained within lhs
+func containsSameVolumes(lhs, rhs []v1.Volume) bool {
+
+	for _, rVolume := range rhs {
+		found := false
+
+		for _, lVolume := range lhs {
+			if lVolume.Name == rVolume.Name {
+
+				found = true
+
+				if lVolume.ConfigMap != nil || rVolume.ConfigMap != nil {
+					if rVolume.ConfigMap == nil {
+						return false
+					}
+
+					if lVolume.ConfigMap == nil {
+						return false
+					}
+
+					if lVolume.ConfigMap.Name != rVolume.ConfigMap.Name {
+						return false
+					}
+				}
+
+				if lVolume.Secret != nil || rVolume.Secret != nil {
+					if rVolume.Secret == nil {
+						return false
+					}
+
+					if lVolume.Secret == nil {
+						return false
+					}
+
+					if lVolume.Secret.SecretName != rVolume.Secret.SecretName {
+						return false
+					}
+				}
+
+				if lVolume.PersistentVolumeClaim != nil || rVolume.PersistentVolumeClaim != nil {
+					if rVolume.PersistentVolumeClaim == nil {
+						return false
+					}
+
+					if lVolume.PersistentVolumeClaim == nil {
+						return false
+					}
+
+					if lVolume.PersistentVolumeClaim.ClaimName != rVolume.PersistentVolumeClaim.ClaimName {
+						return false
+					}
+				}
+
+				if lVolume.EmptyDir != nil || rVolume.EmptyDir != nil {
+					if rVolume.EmptyDir == nil {
+						return false
+					}
+
+					if lVolume.EmptyDir == nil {
+						return false
+					}
+
+					if lVolume.EmptyDir.SizeLimit != nil || rVolume.EmptyDir.SizeLimit != nil {
+						if rVolume.EmptyDir.SizeLimit == nil {
+							return false
+						}
+
+						if lVolume.EmptyDir.SizeLimit == nil {
+							return false
+						}
+
+						if *lVolume.EmptyDir.SizeLimit != *rVolume.EmptyDir.SizeLimit {
+							return false
+						}
+					}
+				}
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }
