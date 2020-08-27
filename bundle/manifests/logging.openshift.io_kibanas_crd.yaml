@@ -156,7 +156,55 @@ spec:
           - managementState
           type: object
         status:
-          type: object
+          items:
+            description: KibanaStatus defines the observed state of Kibana
+            properties:
+              clusterCondition:
+                additionalProperties:
+                  items:
+                    properties:
+                      lastTransitionTime:
+                        description: Last time the condition transitioned from one
+                          status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human-readable message indicating details about
+                          last transition.
+                        type: string
+                      reason:
+                        description: Unique, one-word, CamelCase reason for the condition's
+                          last transition.
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        description: ClusterConditionType is a valid value for ClusterCondition.Type
+                        type: string
+                    required:
+                    - lastTransitionTime
+                    - status
+                    - type
+                    type: object
+                  type: array
+                type: object
+              deployment:
+                type: string
+              pods:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                type: object
+              replicaSets:
+                items:
+                  type: string
+                type: array
+              replicas:
+                format: int32
+                type: integer
+            type: object
+          type: array
       type: object
   version: v1
   versions:

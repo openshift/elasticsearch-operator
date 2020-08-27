@@ -96,7 +96,7 @@ func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, l
 	}
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = f.Client.Client.List(context.TODO(), pods, opts...)
+		err = f.Client.List(context.TODO(), pods, opts...)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for availability of pods with labels: %v in Namespace: %s \n", labels, namespace)

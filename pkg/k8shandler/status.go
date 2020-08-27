@@ -77,7 +77,7 @@ func (er *ElasticsearchRequest) UpdateClusterStatus() error {
 			cluster.Status.ShardAllocationEnabled = clusterStatus.ShardAllocationEnabled
 			cluster.Status.Nodes = clusterStatus.Nodes
 
-			if err := er.client.Update(context.TODO(), cluster); err != nil {
+			if err := er.client.Status().Update(context.TODO(), cluster); err != nil {
 				return err
 			}
 			return nil
@@ -125,7 +125,7 @@ func (er *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus)
 
 		cluster.Status = status
 
-		if err := er.client.Update(context.TODO(), cluster); err != nil {
+		if err := er.client.Status().Update(context.TODO(), cluster); err != nil {
 			return err
 		}
 
@@ -673,9 +673,11 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 			return err
 		}
 
-		executeUpdateCondition(&dpl.Status, value)
+		if changed := executeUpdateCondition(&dpl.Status, value); !changed {
+			return nil
+		}
 
-		if err := client.Update(context.TODO(), dpl); err != nil {
+		if err := client.Status().Update(context.TODO(), dpl); err != nil {
 			log.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
 			return err
 		}

@@ -34,7 +34,8 @@ spec:
     - es
     singular: elasticsearch
   scope: Namespaced
-  subresources: {}
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: Elasticsearch is the Schema for the elasticsearches API
@@ -401,6 +402,233 @@ spec:
           - redundancyPolicy
           type: object
         status:
+          description: ElasticsearchStatus defines the observed state of Elasticsearch
+          properties:
+            cluster:
+              properties:
+                activePrimaryShards:
+                  format: int32
+                  type: integer
+                activeShards:
+                  format: int32
+                  type: integer
+                initializingShards:
+                  format: int32
+                  type: integer
+                numDataNodes:
+                  format: int32
+                  type: integer
+                numNodes:
+                  format: int32
+                  type: integer
+                pendingTasks:
+                  format: int32
+                  type: integer
+                relocatingShards:
+                  format: int32
+                  type: integer
+                status:
+                  type: string
+                unassignedShards:
+                  format: int32
+                  type: integer
+              required:
+              - activePrimaryShards
+              - activeShards
+              - initializingShards
+              - numDataNodes
+              - numNodes
+              - pendingTasks
+              - relocatingShards
+              - status
+              - unassignedShards
+              type: object
+            clusterHealth:
+              type: string
+            conditions:
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: Last time the condition transitioned from one status
+                      to another.
+                    format: date-time
+                    type: string
+                  message:
+                    description: Human-readable message indicating details about last
+                      transition.
+                    type: string
+                  reason:
+                    description: Unique, one-word, CamelCase reason for the condition's
+                      last transition.
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    description: ClusterConditionType is a valid value for ClusterCondition.Type
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
+            indexManagement:
+              properties:
+                lastUpdated:
+                  format: date-time
+                  type: string
+                mappings:
+                  items:
+                    properties:
+                      conditions:
+                        description: Reasons for the state of the corresponding mapping
+                          for this status
+                        items:
+                          properties:
+                            message:
+                              type: string
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        type: array
+                      lastUpdated:
+                        description: LastUpdated represents the last time that the
+                          status was updated.
+                        format: date-time
+                        type: string
+                      message:
+                        type: string
+                      name:
+                        description: Name of the corresponding mapping for this status
+                        type: string
+                      reason:
+                        type: string
+                      state:
+                        description: State of the corresponding mapping for this status
+                        type: string
+                    type: object
+                  type: array
+                message:
+                  type: string
+                policies:
+                  items:
+                    properties:
+                      conditions:
+                        description: Reasons for the state of the corresponding policy
+                          for this status
+                        items:
+                          properties:
+                            message:
+                              type: string
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        type: array
+                      lastUpdated:
+                        description: LastUpdated represents the last time that the
+                          status was updated.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Message about the corresponding policy
+                        type: string
+                      name:
+                        description: Name of the corresponding policy for this status
+                        type: string
+                      reason:
+                        description: Reasons for the state of the corresponding policy
+                          for this status
+                        type: string
+                      state:
+                        description: State of the corresponding policy for this status
+                        type: string
+                    type: object
+                  type: array
+                reason:
+                  type: string
+                state:
+                  description: IndexManagementState of IndexManagment
+                  type: string
+              type: object
+            nodes:
+              items:
+                description: ElasticsearchNodeStatus represents the status of individual
+                  Elasticsearch node
+                properties:
+                  conditions:
+                    items:
+                      properties:
+                        lastTransitionTime:
+                          description: Last time the condition transitioned from one
+                            status to another.
+                          format: date-time
+                          type: string
+                        message:
+                          description: Human-readable message indicating details about
+                            last transition.
+                          type: string
+                        reason:
+                          description: Unique, one-word, CamelCase reason for the
+                            condition's last transition.
+                          type: string
+                        status:
+                          type: string
+                        type:
+                          description: ClusterConditionType is a valid value for ClusterCondition.Type
+                          type: string
+                      required:
+                      - lastTransitionTime
+                      - status
+                      - type
+                      type: object
+                    type: array
+                  deploymentName:
+                    type: string
+                  roles:
+                    items:
+                      enum:
+                      - master
+                      - client
+                      - data
+                      type: string
+                    type: array
+                  statefulSetName:
+                    type: string
+                  status:
+                    type: string
+                  upgradeStatus:
+                    properties:
+                      scheduledCertRedeploy:
+                        type: string
+                      scheduledRedeploy:
+                        type: string
+                      scheduledUpgrade:
+                        type: string
+                      underUpgrade:
+                        type: string
+                      upgradePhase:
+                        type: string
+                    type: object
+                type: object
+              type: array
+            pods:
+              additionalProperties:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                type: object
+              type: object
+            shardAllocationEnabled:
+              type: string
           type: object
       type: object
   version: v1
