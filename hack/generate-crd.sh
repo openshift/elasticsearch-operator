@@ -12,9 +12,9 @@ echo "--------------------------------------------------------------"
 $OPERATOR_SDK generate k8s
 
 echo "--------------------------------------------------------------"
-echo "Generate CRDs for apiVersion v1beta1"
+echo "Generate CRDs for apiVersion v1"
 echo "--------------------------------------------------------------"
-$OPERATOR_SDK generate crds --crd-version v1beta1
+$OPERATOR_SDK generate crds --crd-version v1
 mv deploy/crds/*.yaml "${MANIFESTS_DIR}"
 
 echo "---------------------------------------------------------------"
