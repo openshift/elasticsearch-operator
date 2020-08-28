@@ -34,51 +34,51 @@
 
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
-      "message": "Disk Low Watermark Reached at {{ $labels.node }} node in {{ $labels.cluster }} cluster. Shards can not be allocated to this node anymore. You should consider adding more disk to the node."
+      "message": "Disk Low Watermark Reached at {{ $labels.pod }} pod. Shards can not be allocated to this node anymore. You should consider adding more disk to the node."
       "summary": "Disk Low Watermark Reached - disk saturation is {{ $value }}%"
     "expr": |
-      sum by (cluster, instance, node) (
+      sum by (instance, pod) (
         round(
           (1 - (
             es_fs_path_available_bytes /
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > es_cluster_routing_allocation_disk_watermark_low_pct
+      ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_low_pct
     "for": "5m"
     "labels":
       "severity": info
 
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
-      "message": "Disk High Watermark Reached at {{ $labels.node }} node in {{ $labels.cluster }} cluster. Some shards will be re-allocated to different nodes if possible. Make sure more disk space is added to the node or drop old indices allocated to this node."
+      "message": "Disk High Watermark Reached at {{ $labels.pod }} pod. Some shards will be re-allocated to different nodes if possible. Make sure more disk space is added to the node or drop old indices allocated to this node."
       "summary": "Disk High Watermark Reached - disk saturation is {{ $value }}%"
     "expr": |
-      sum by (cluster, instance, node) (
+      sum by (instance, pod) (
         round(
           (1 - (
             es_fs_path_available_bytes /
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > es_cluster_routing_allocation_disk_watermark_high_pct
+      ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_high_pct
     "for": "5m"
     "labels":
       "severity": warning
 
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
-      "message": "Disk Flood Stage Watermark Reached at {{ $labels.node }} node in {{ $labels.cluster }} cluster. Every index having a shard allocated on this node is enforced a read-only block. The index block is automatically released when the disk utilization falls below the high watermark."
+      "message": "Disk Flood Stage Watermark Reached at {{ $labels.pod }}. Every index having a shard allocated on this node is enforced a read-only block. The index block is automatically released when the disk utilization falls below the high watermark."
       "summary": "Disk Flood Stage Watermark Reached - disk saturation is {{ $value }}%"
     "expr": |
-      sum by (cluster, instance, node) (
+      sum by (instance, pod) (
         round(
           (1 - (
             es_fs_path_available_bytes /
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > es_cluster_routing_allocation_disk_watermark_flood_stage_pct
+      ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_flood_stage_pct
     "for": "5m"
     "labels":
       "severity": critical
