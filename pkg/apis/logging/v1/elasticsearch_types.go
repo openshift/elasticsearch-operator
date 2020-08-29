@@ -15,6 +15,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:categories=logging;tracing,shortName=es
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Management State",JSONPath=".spec.managementState",type=string
 // +kubebuilder:printcolumn:name="Health",JSONPath=".status.cluster.status",type=string
 // +kubebuilder:printcolumn:name="Nodes",JSONPath=".status.cluster.numNodes",type=integer
@@ -90,13 +91,20 @@ type ElasticsearchSpec struct {
 // ElasticsearchStatus defines the observed state of Elasticsearch
 // +k8s:openapi-gen=true
 type ElasticsearchStatus struct {
-	Nodes                  []ElasticsearchNodeStatus             `json:"nodes"`
-	ClusterHealth          string                                `json:"clusterHealth"`
-	Cluster                ClusterHealth                         `json:"cluster"`
-	ShardAllocationEnabled ShardAllocationState                  `json:"shardAllocationEnabled"`
-	Pods                   map[ElasticsearchNodeRole]PodStateMap `json:"pods"`
-	Conditions             ClusterConditions                     `json:"conditions"`
-	IndexManagementStatus  *IndexManagementStatus                `json:"indexManagement,omitempty"`
+	// +optional
+	Nodes []ElasticsearchNodeStatus `json:"nodes,omitempty"`
+	// +optional
+	ClusterHealth string `json:"clusterHealth,omitempty"`
+	// +optional
+	Cluster ClusterHealth `json:"cluster,omitempty"`
+	// +optional
+	ShardAllocationEnabled ShardAllocationState `json:"shardAllocationEnabled,omitempty"`
+	// +optional
+	Pods map[ElasticsearchNodeRole]PodStateMap `json:"pods,omitempty"`
+	// +optional
+	Conditions ClusterConditions `json:"conditions,omitempty"`
+	// +optional
+	IndexManagementStatus *IndexManagementStatus `json:"indexManagement,omitempty"`
 }
 
 type ClusterHealth struct {
@@ -185,12 +193,18 @@ type ElasticsearchStorageSpec struct {
 
 // ElasticsearchNodeStatus represents the status of individual Elasticsearch node
 type ElasticsearchNodeStatus struct {
-	DeploymentName  string                         `json:"deploymentName,omitempty"`
-	StatefulSetName string                         `json:"statefulSetName,omitempty"`
-	Status          string                         `json:"status,omitempty"`
-	UpgradeStatus   ElasticsearchNodeUpgradeStatus `json:"upgradeStatus,omitempty"`
-	Roles           []ElasticsearchNodeRole        `json:"roles,omitempty"`
-	Conditions      ClusterConditions              `json:"conditions,omitempty"`
+	// +optional
+	DeploymentName string `json:"deploymentName,omitempty"`
+	// +optional
+	StatefulSetName string `json:"statefulSetName,omitempty"`
+	// +optional
+	Status string `json:"status,omitempty"`
+	// +optional
+	UpgradeStatus ElasticsearchNodeUpgradeStatus `json:"upgradeStatus,omitempty"`
+	// +optional
+	Roles []ElasticsearchNodeRole `json:"roles,omitempty"`
+	// +optional
+	Conditions ClusterConditions `json:"conditions,omitempty"`
 }
 
 type ElasticsearchNodeUpgradeStatus struct {

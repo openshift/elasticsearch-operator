@@ -70,8 +70,7 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 	// Fetch the Elasticsearch instance
 	cluster := &loggingv1.Elasticsearch{}
 
-	err := r.client.Get(context.TODO(),
-		request.NamespacedName, cluster)
+	err := r.client.Get(context.TODO(), request.NamespacedName, cluster)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
