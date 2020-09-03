@@ -17,7 +17,7 @@ func NewConsoleLink(name, href string) *consolev1.ConsoleLink {
 				Href: href,
 			},
 			ApplicationMenu: &consolev1.ApplicationMenuSpec{
-				Section: "Monitoring",
+				Section: "Observability",
 			},
 		},
 	}
