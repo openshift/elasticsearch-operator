@@ -98,7 +98,7 @@ var _ = Describe("Reconciling", func() {
 						Href: "https://",
 					},
 					ApplicationMenu: &consolev1.ApplicationMenuSpec{
-						Section: "Monitoring",
+						Section: "Observability",
 					},
 				},
 			}
