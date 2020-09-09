@@ -3,6 +3,7 @@ package kibana
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -97,6 +98,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 	if err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &namespacedMapHandler, trustedBundlePred); err != nil {
+		return err
+	}
+
+	podPred := predicate.Funcs{
+		UpdateFunc:  func(e event.UpdateEvent) bool { return handlePod(e.MetaNew) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+	if err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &namespacedMapHandler, podPred); err != nil {
 		return err
 	}
 
@@ -203,6 +214,24 @@ func handleConfigMap(meta metav1.Object) bool {
 	for _, kibana := range registeredKibanas.registered {
 		if kibana.Namespace == namespace {
 			return utils.ContainsString(constants.ReconcileForGlobalProxyList, meta.GetName())
+		}
+	}
+
+	return false
+}
+
+// handlePod returns true if metaname contains a registered kibana name as substring
+func handlePod(meta metav1.Object) bool {
+
+	// iterate over registeredKibanas that match the namespace
+	namespace := meta.GetNamespace()
+
+	registeredKibanas.mux.Lock()
+	defer registeredKibanas.mux.Unlock()
+
+	for _, kibana := range registeredKibanas.registered {
+		if kibana.Namespace == namespace {
+			return strings.Contains(meta.GetName(), kibana.Name)
 		}
 	}
 
