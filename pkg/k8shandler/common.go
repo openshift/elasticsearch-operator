@@ -343,13 +343,12 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 func newLabels(clusterName, nodeName string, roleMap map[api.ElasticsearchNodeRole]bool) map[string]string {
 
 	return map[string]string{
-		"es-node-client":                   strconv.FormatBool(roleMap[api.ElasticsearchRoleClient]),
-		"es-node-data":                     strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
-		"es-node-master":                   strconv.FormatBool(roleMap[api.ElasticsearchRoleMaster]),
-		"cluster-name":                     clusterName,
-		"component":                        "elasticsearch",
-		"tuned.openshift.io/elasticsearch": "true",
-		"node-name":                        nodeName,
+		"es-node-client": strconv.FormatBool(roleMap[api.ElasticsearchRoleClient]),
+		"es-node-data":   strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
+		"es-node-master": strconv.FormatBool(roleMap[api.ElasticsearchRoleMaster]),
+		"cluster-name":   clusterName,
+		"component":      "elasticsearch",
+		"node-name":      nodeName,
 	}
 }
 
