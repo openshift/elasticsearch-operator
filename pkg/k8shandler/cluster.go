@@ -47,12 +47,19 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 	}
 	wrongConfig = false
 
+	// Populate nodes from the custom resources spec.nodes
 	er.populateNodes()
 
 	//clearing transient setting because of a bug in earlier releases which
 	//may leave the shard allocation in an undesirable state
 	er.tryEnsureNoTransitiveShardAllocations()
 
+	// Update the cluster status immediately to refresh status.nodes
+	// before progressing with any unschedulable nodes.
+	// Ensures that deleted nodes
+	if err := er.UpdateClusterStatus(); err != nil {
+		return err
+	}
 	if err := er.progressUnschedulableNodes(); err != nil {
 		ll.Error(err, "unable to progress unschedulable nodes")
 		return er.UpdateClusterStatus()
