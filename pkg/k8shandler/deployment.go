@@ -291,6 +291,15 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 			return err
 		}
 
+		if err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); err != nil {
+			log.Info("Could not get Elasticsearch node resource, Retrying...", "error", err)
+			return err
+		}
+
+		if *nodeCopy.Spec.Replicas != replicas {
+			return fmt.Errorf("replica count did not stick")
+		}
+
 		node.self.Spec.Replicas = &replicas
 
 		return nil
