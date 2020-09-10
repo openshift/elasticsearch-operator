@@ -59,7 +59,7 @@ func (er *ElasticsearchRequest) PerformFullClusterUpdate(nodes []NodeTypeInterfa
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.requiredSetPrimariesShardsAndFlush,
 		main:             r.pushNodeUpdates,
-		post:             r.waitAllNodesRejoinAndSetAllShards,
+		post:             er.waitAllNodesRejoinAndSetAllShards(r),
 		recovery:         r.ensureClusterHealthValid,
 	}
 
@@ -95,7 +95,7 @@ func (er *ElasticsearchRequest) PerformFullClusterCertRestart(nodes []NodeTypeIn
 		precheck:         r.restartNoop,
 		prep:             r.restartNoop,
 		main:             er.scaleDownThenUpFunc(r),
-		post:             r.waitAllNodesRejoinAndSetAllShards,
+		post:             er.waitAllNodesRejoinAndSetAllShards(r),
 		recovery:         r.ensureClusterHealthValid,
 	}
 
@@ -131,7 +131,7 @@ func (er *ElasticsearchRequest) PerformFullClusterRestart(nodes []NodeTypeInterf
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.optionalSetPrimariesShardsAndFlush,
 		main:             er.scaleDownThenUpFunc(r),
-		post:             r.waitAllNodesRejoinAndSetAllShards,
+		post:             er.waitAllNodesRejoinAndSetAllShards(r),
 		recovery:         r.ensureClusterHealthValid,
 	}
 
@@ -169,7 +169,7 @@ func (er *ElasticsearchRequest) PerformNodeRestart(node NodeTypeInterface) error
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.optionalSetPrimariesShardsAndFlush,
 		main:             r.scaleDownThenUpNodes,
-		post:             r.waitAllNodesRejoinAndSetAllShards,
+		post:             er.waitAllNodesRejoinAndSetAllShards(r),
 		recovery:         r.ensureClusterHealthValid,
 	}
 
@@ -203,7 +203,7 @@ func (er *ElasticsearchRequest) PerformNodeUpdate(node NodeTypeInterface) error 
 		precheck:         r.ensureClusterHealthValid,
 		prep:             r.requiredSetPrimariesShardsAndFlush,
 		main:             r.pushNodeUpdates,
-		post:             r.waitAllNodesRejoinAndSetAllShards,
+		post:             er.waitAllNodesRejoinAndSetAllShards(r),
 		recovery:         r.ensureClusterHealthValid,
 	}
 
@@ -305,17 +305,24 @@ func (clusterRestart ClusterRestart) optionalSetPrimariesShardsAndFlush() error 
 	return nil
 }
 
-func (clusterRestart ClusterRestart) waitAllNodesRejoinAndSetAllShards() error {
-	// reenable shard allocation
-	if err := clusterRestart.waitAllNodesRejoin(); err != nil {
-		return err
-	}
+func (er *ElasticsearchRequest) waitAllNodesRejoinAndSetAllShards(clusterRestart ClusterRestart) func() error {
 
-	if err := clusterRestart.setAllShards(); err != nil {
-		return err
-	}
+	return func() error {
+		if !er.AnyNodeReady() {
+			return fmt.Errorf("Waiting for any node to be available in the cluster")
+		}
 
-	return nil
+		if err := clusterRestart.waitAllNodesRejoin(); err != nil {
+			return err
+		}
+
+		// reenable shard allocation
+		if err := clusterRestart.setAllShards(); err != nil {
+			return err
+		}
+
+		return nil
+	}
 }
 
 func (clusterRestart ClusterRestart) waitAllNodesRejoin() error {
