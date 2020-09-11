@@ -18,8 +18,8 @@ require (
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	go.uber.org/zap v1.14.1
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.18.3
-	k8s.io/apimachinery v0.18.3
+	k8s.io/api v0.18.8
+	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.6.0
@@ -27,5 +27,5 @@ require (
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
-	k8s.io/client-go => k8s.io/client-go v0.18.2 // Required by prometheus-operator
+	k8s.io/client-go => k8s.io/client-go v0.18.8 // Required by prometheus-operator
 )
