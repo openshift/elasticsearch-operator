@@ -7,6 +7,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -26,13 +27,24 @@ func (clusterRequest *KibanaRequest) Create(object runtime.Object) error {
 }
 
 //Update the runtime Object or return error
-func (clusterRequest *KibanaRequest) Update(object runtime.Object) (err error) {
+func (clusterRequest *KibanaRequest) Update(object runtime.Object) error {
 	return clusterRequest.client.Update(context.TODO(), object)
 }
 
-//Update the runtime Object status or return error
-func (clusterRequest *KibanaRequest) UpdateStatus(object runtime.Object) (err error) {
-	return clusterRequest.client.Status().Update(context.TODO(), object)
+func (clusterRequest *KibanaRequest) UpdateStatus() error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		kibanaStatus, err := clusterRequest.getKibanaStatus()
+		if err != nil {
+			return err
+		}
+
+		if !compareKibanaStatus(kibanaStatus, clusterRequest.cluster.Status) {
+			clusterRequest.cluster.Status = kibanaStatus
+			return clusterRequest.client.Status().Update(context.TODO(), clusterRequest.cluster)
+		}
+
+		return nil
+	})
 }
 
 func (clusterRequest *KibanaRequest) Get(objectName string, object runtime.Object) error {

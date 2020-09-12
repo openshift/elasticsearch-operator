@@ -93,33 +93,7 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 		return err
 	}
 
-	kibanaStatus, err := clusterKibanaRequest.getKibanaStatus()
-	cluster := clusterKibanaRequest.cluster
-
-	if err != nil {
-		return fmt.Errorf("Failed to get Kibana status for %q: %w", cluster.Name, err)
-	}
-
-	printUpdateMessage := true
-	retryErr := retry.RetryOnConflict(retry.DefaultRetry,
-		func() error {
-			if !compareKibanaStatus(kibanaStatus,
-				cluster.Status) {
-				if printUpdateMessage {
-					log.Info("Updating status of Kibana")
-					printUpdateMessage = false
-				}
-				cluster.Status = kibanaStatus
-				return clusterKibanaRequest.UpdateStatus(cluster)
-			}
-			return nil
-		})
-	if retryErr != nil {
-		return fmt.Errorf("Failed to update Kibana status for %q: %w", cluster.Name, retryErr)
-	}
-	log.Info("Kibana status successfully updated")
-
-	return nil
+	return clusterKibanaRequest.UpdateStatus()
 }
 
 func GetProxyConfig(r client.Client) (*configv1.Proxy, error) {

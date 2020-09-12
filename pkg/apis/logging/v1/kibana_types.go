@@ -62,6 +62,7 @@ type KibanaStatus struct {
 // Kibana is the Schema for the kibanas API
 // +k8s:openapi-gen=true
 // +kubebuilder:resource:path=kibanas,categories=logging,scope=Namespaced
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Management State",JSONPath=".spec.managementState",type=string
 // +kubebuilder:printcolumn:name="Replicas",JSONPath=".spec.replicas",type=integer
 type Kibana struct {
