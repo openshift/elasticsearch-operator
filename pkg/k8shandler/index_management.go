@@ -30,7 +30,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
 
 		for _, mapping := range spec.Mappings {
 			ll := log.WithValues("mapping", mapping.Name)
-			ll.Info("reconciling index management")
 			// create or update template
 			if err := er.createOrUpdateIndexTemplate(mapping); err != nil {
 				ll.Error(err, "failed to create index template")
