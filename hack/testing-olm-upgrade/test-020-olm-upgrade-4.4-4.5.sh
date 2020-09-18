@@ -66,6 +66,13 @@ get_es_indices() {
     | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices
 }
 
+get_es_indices_names() {
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices \
+    | awk '{print $3}'
+}
+
 read_es_indices() {
 	local -n map=$1
 	while IFS= read -r line; do
@@ -141,8 +148,7 @@ try_func_until_text_alt get_es_cluster_status "\"green\"" "\"yellow\"" ${ES_POD_
 # read OLD 4.4 indices into and map them by their names
 log::info "Reading old ES indices"
 try_func_until_result_is_not_empty get_es_indices ${ES_POD_TIMEOUT}
-declare -A old_indices
-read_es_indices old_indices
+old_indices=$(get_es_indices_names)
 
 #### INSTALLING 4.5
 log::info "Deploying the ES operator from the catalog..."
@@ -187,8 +193,12 @@ try_func_until_text_alt get_es_cluster_status "\"green\"" "\"yellow\"" ${ES_POD_
 
 # read new 4.5 indices and map them by their names
 log::info "Reading new ES indices"
-try_func_until_result_is_not_empty get_es_indices ${ES_POD_TIMEOUT}
-declare -A new_indices
-read_es_indices new_indices
+try_func_until_result_is_not_empty get_es_indices_names ${ES_POD_TIMEOUT}
+new_indices=$(get_es_indices_names)
 
-compare_indices_names old_indices new_indices
+if [ "$old_indices" != "$new_indices" ]; then
+  log:info "Test failed"
+  exit 1
+fi
+
+log:info "Test passed"
