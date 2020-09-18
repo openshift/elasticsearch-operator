@@ -593,6 +593,8 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		fmt.Sprintf("-client-id=system:serviceaccount:%s:kibana", cluster.cluster.Namespace),
 		"-client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token",
 		"-cookie-secret-file=/secret/session-secret",
+		"-cookie-expire=24h",
+		"-skip-provider-button",
 		"-upstream=http://localhost:5601",
 		"-scope=user:info user:check-access user:list-projects",
 		"--tls-cert=/secret/server-cert",
