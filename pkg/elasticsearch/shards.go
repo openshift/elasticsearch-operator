@@ -21,7 +21,8 @@ func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
 	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
 		acknowledged = acknowledgedBool
 	}
-	return (payload.StatusCode == 200 && acknowledged), fmt.Errorf("Response: %s, Error: %v", payload.RawResponseBody, payload.Error)
+	return payload.StatusCode == 200 && acknowledged, ec.errorCtx().Wrap(payload.Error, "failed to clear shard allocation",
+		"response", payload.RawResponseBody)
 }
 
 func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, error) {
@@ -38,7 +39,7 @@ func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, er
 	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
 		acknowledged = acknowledgedBool
 	}
-	return (payload.StatusCode == 200 && acknowledged), payload.Error
+	return payload.StatusCode == 200 && acknowledged, ec.errorCtx().Wrap(payload.Error, "failed to set shard allocation")
 }
 
 func (ec *esClient) GetShardAllocation() (string, error) {

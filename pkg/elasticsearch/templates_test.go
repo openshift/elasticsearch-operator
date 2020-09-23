@@ -1,10 +1,10 @@
 package elasticsearch_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/ViaQ/logerr/kverrors"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	testhelpers "github.com/openshift/elasticsearch-operator/test/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -22,7 +22,7 @@ func TestCreateIndexTemplateWhenError(t *testing.T) {
 		map[string]testhelpers.FakeElasticsearchResponses{
 			"_template/foo": {
 				{
-					Error:      fmt.Errorf("test error %s", t.Name()),
+					Error:      kverrors.New("test error", "test_name", t.Name()),
 					StatusCode: http.StatusInternalServerError,
 					Body:       "{}",
 				},

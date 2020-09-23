@@ -3,15 +3,17 @@ package indexmanagement
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 
+	"github.com/ViaQ/logerr/kverrors"
 	batchv1 "k8s.io/api/batch/v1"
 	batch "k8s.io/api/batch/v1beta1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -20,9 +22,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/ViaQ/logerr/log"
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 	k8s "github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
@@ -79,7 +81,10 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 		client.MatchingLabels(imLabels),
 	}
 	if err := apiclient.List(context.TODO(), cronList, listOpts...); err != nil {
-		return err
+		return kverrors.Wrap(err, "failed to list cron jobs",
+			"namespace", cluster.Namespace,
+			"labels", imLabels,
+		)
 	}
 	existing := sets.NewString()
 	for _, cron := range cronList.Items {
@@ -98,8 +103,8 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 			},
 		}
 		err := apiclient.Delete(context.TODO(), cronjob)
-		if err != nil && !errors.IsNotFound(err) {
-			log.Error(err, "Failed removing cronjob", "namespace", cluster.Namespace, "name", name)
+		if err != nil && !apierrors.IsNotFound(err) {
+			log.Error(err, "failed to remove cronjob", "namespace", cluster.Namespace, "name", name)
 		}
 	}
 	return nil
@@ -110,25 +115,31 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 	desired := k8s.NewConfigMap(indexManagementConfigmap, cluster.Namespace, imLabels, data)
 	cluster.AddOwnerRefTo(desired)
 
+	errCtx := kverrors.NewContext("configmap", desired.Name,
+		"cluster", cluster.Name,
+		"namespace", cluster.Namespace,
+	)
+
 	err := apiclient.Create(context.TODO(), desired)
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Error creating configmap for cluster %s: %v", cluster.Name, err)
-		}
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			current := &v1.ConfigMap{}
-			retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
-			if retryError != nil {
-				return fmt.Errorf("Unable to get configmap %s/%s during reconciliation: %v", desired.Namespace, desired.Name, retryError)
-			}
-			if !reflect.DeepEqual(desired.Data, current.Data) {
-				current.Data = desired.Data
-				return apiclient.Update(context.TODO(), current)
-			}
-			return nil
-		})
+	if err == nil {
+		return nil
 	}
-	return err
+	if !apierrors.IsAlreadyExists(err) {
+		return errCtx.Wrap(err, "failed to create cluster configmap")
+	}
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &v1.ConfigMap{}
+		retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
+		if retryError != nil {
+			return retryError
+		}
+		if !reflect.DeepEqual(desired.Data, current.Data) {
+			current.Data = desired.Data
+			return apiclient.Update(context.TODO(), current)
+		}
+		return nil
+	})
+	return errCtx.Wrap(err, "failed to update configmap")
 }
 
 func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
@@ -138,16 +149,16 @@ func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsear
 	}
 	schedule, err := crontabScheduleFor(policy.PollInterval)
 	if err != nil {
-		return err
+		return kverrors.Wrap(err, "failed to reconcile rollover cronjob", "policymapping", mapping.Name)
 	}
 	conditions := calculateConditions(policy, primaryShards)
 	name := fmt.Sprintf("%s-rollover-%s", cluster.Name, mapping.Name)
-	payload, err := utils.ToJson(map[string]rolloverConditions{"conditions": conditions})
+	payload, err := json.Marshal(map[string]rolloverConditions{"conditions": conditions})
 	if err != nil {
-		return fmt.Errorf("There was an error serializing the rollover conditions to JSON: %v", err)
+		return kverrors.Wrap(err, "failed to serialize the rollover conditions to JSON")
 	}
 	envvars := []core.EnvVar{
-		{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString([]byte(payload))},
+		{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString(payload)},
 		{Name: "POLICY_MAPPING", Value: mapping.Name},
 	}
 	fnContainerHandler := func(container *core.Container) {
@@ -196,24 +207,29 @@ func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsear
 
 func reconcileCronJob(apiclient client.Client, cluster *apis.Elasticsearch, desired *batch.CronJob, fnAreCronJobsSame func(lhs, rhs *batch.CronJob) bool) error {
 	err := apiclient.Create(context.TODO(), desired)
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Error creating cronjob for cluster %s: %v", cluster.Name, err)
-		}
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			current := &batch.CronJob{}
-			retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
-			if retryError != nil {
-				return fmt.Errorf("Unable to get cronjob %s/%s during reconciliation: %v", desired.Namespace, desired.Name, retryError)
-			}
-			if !fnAreCronJobsSame(current, desired) {
-				current.Spec = desired.Spec
-				return apiclient.Update(context.TODO(), current)
-			}
-			return nil
-		})
+	if err == nil {
+		return nil
 	}
-	return err
+	if !apierrors.IsAlreadyExists(err) {
+		return kverrors.Wrap(err, "failed to create cronjob for cluster",
+			"namespace", cluster.Namespace,
+			"cluster", cluster.Name)
+	}
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &batch.CronJob{}
+		retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
+		if retryError != nil {
+			return retryError
+		}
+		if !fnAreCronJobsSame(current, desired) {
+			current.Spec = desired.Spec
+			return apiclient.Update(context.TODO(), current)
+		}
+		return nil
+	})
+	return kverrors.Wrap(err, "failed to update cronjob for cluster",
+		"namespace", desired.Namespace,
+		"cluster", desired.Name)
 }
 
 func areCronJobsSame(lhs, rhs *batch.CronJob) bool {

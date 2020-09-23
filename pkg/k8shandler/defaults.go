@@ -3,6 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
+	"github.com/ViaQ/logerr/kverrors"
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
@@ -27,8 +28,6 @@ const (
 	elasticsearchConfigPath = "/usr/share/java/elasticsearch/config"
 	heapDumpLocation        = "/elasticsearch/persistent/heapdump.hprof"
 
-	k8sTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-
 	yellowClusterState = "yellow"
 	greenClusterState  = "green"
 )
@@ -42,7 +41,8 @@ func kibanaIndexMode(mode string) (string, error) {
 	if mode == modeUnique || mode == modeSharedOps {
 		return mode, nil
 	}
-	return "", fmt.Errorf("invalid kibana index mode provided [%s]", mode)
+	return "", kverrors.New("invalid kibana index mode provided",
+		"mode", mode)
 }
 
 func esUnicastHost(clusterName, namespace string) string {

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

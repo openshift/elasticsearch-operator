@@ -2,8 +2,8 @@ package helpers
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -112,7 +112,9 @@ func NewFakeSendRequestFn(chatter *FakeElasticsearchChatter) elasticsearch.FnEsS
 			payload.RawResponseBody = val.Body
 			payload.ResponseBody = val.BodyAsResponseBody()
 		} else {
-			payload.Error = fmt.Errorf("No fake response found for uri %q: %v", payload.URI, payload)
+			payload.Error = kverrors.New("No fake response found for uri",
+				"uri", payload.URI,
+				"payload", payload)
 		}
 	}
 }

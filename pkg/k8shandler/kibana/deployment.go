@@ -1,17 +1,16 @@
 package kibana
 
 import (
-	"fmt"
-
+	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//NewDeployment stubs an instance of a Deployment
+// NewDeployment stubs an instance of a Deployment
 func NewDeployment(deploymentName string, namespace string, loggingComponent string, component string, podSpec core.PodSpec) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -49,13 +48,12 @@ func NewDeployment(deploymentName string, namespace string, loggingComponent str
 			},
 			Strategy: apps.DeploymentStrategy{
 				Type: apps.RollingUpdateDeploymentStrategyType,
-				//RollingUpdate: {}
 			},
 		},
 	}
 }
 
-//GetDeploymentList returns a list for a give namespace and selector
+// GetDeploymentList returns a list for a give namespace and selector
 func (clusterRequest *KibanaRequest) GetDeploymentList(selector map[string]string) (*apps.DeploymentList, error) {
 	list := &apps.DeploymentList{
 		TypeMeta: metav1.TypeMeta{
@@ -72,7 +70,7 @@ func (clusterRequest *KibanaRequest) GetDeploymentList(selector map[string]strin
 	return list, err
 }
 
-//RemoveDeployment of given name and namespace
+// RemoveDeployment of given name and namespace
 func (clusterRequest *KibanaRequest) RemoveDeployment(deploymentName string) error {
 
 	deployment := NewDeployment(
@@ -84,8 +82,9 @@ func (clusterRequest *KibanaRequest) RemoveDeployment(deploymentName string) err
 	)
 
 	err := clusterRequest.Delete(deployment)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %v deployment %v", deploymentName, err)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return kverrors.Wrap(err, "failure deleting deployment",
+			"deployment", deploymentName)
 	}
 
 	return nil

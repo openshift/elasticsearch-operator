@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ViaQ/logerr/kverrors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
@@ -20,11 +20,11 @@ const (
 )
 
 type LogConfig struct {
-	//LogLevel of the proxy and server security
+	// LogLevel of the proxy and server security
 	LogLevel string
-	//ServerLogLevel of the remainder of Elasticsearch
+	// ServerLoglevel of the remainder of Elasticsearch
 	ServerLoglevel string
-	//ServerAppender where to log messages
+	// ServerAppender where to log messages
 	ServerAppender string
 }
 
@@ -137,7 +137,7 @@ func isTolerationSame(lhs, rhs v1.Toleration) bool {
 	if (lhs.TolerationSeconds == nil) == (rhs.TolerationSeconds == nil) {
 		if lhs.TolerationSeconds != nil {
 			// only compare values (attempt to dereference) if pointers aren't nil
-			tolerationSecondsBool = (*lhs.TolerationSeconds == *rhs.TolerationSeconds)
+			tolerationSecondsBool = *lhs.TolerationSeconds == *rhs.TolerationSeconds
 		} else {
 			tolerationSecondsBool = true
 		}
@@ -186,7 +186,7 @@ func isValidMasterCount(dpl *api.Elasticsearch) bool {
 	}
 
 	masterCount := int(getMasterCount(dpl))
-	return (masterCount <= maxMasterCount && masterCount > 0)
+	return masterCount <= maxMasterCount && masterCount > 0
 }
 
 func isValidDataCount(dpl *api.Elasticsearch) bool {
@@ -205,11 +205,7 @@ func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 	switch dpl.Spec.RedundancyPolicy {
 	case api.ZeroRedundancy:
 		return true
-	case api.SingleRedundancy:
-		fallthrough
-	case api.MultipleRedundancy:
-		fallthrough
-	case api.FullRedundancy:
+	case api.SingleRedundancy, api.MultipleRedundancy, api.FullRedundancy:
 		return dataCount > 1
 	default:
 		return false
@@ -218,57 +214,58 @@ func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 
 func (er *ElasticsearchRequest) isValidConf() error {
 	dpl := er.cluster
-	client := er.client
 
 	if !isValidMasterCount(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, client); err != nil {
+		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, er.client); err != nil {
 			return err
 		}
-		return fmt.Errorf("Invalid master nodes count. Please ensure there are no more than %v total nodes with master roles", maxMasterCount)
+		return kverrors.New("invalid master nodes count. Please ensure the total nodes with master roles is less than the maximum",
+			"maximum", maxMasterCount)
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidMasterCountCondition, client); err != nil {
-			return err
+		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidMasterCountCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set master count status")
 		}
 	}
 
 	if !isValidDataCount(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidDataCountCondition, client); err != nil {
-			return err
+		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidDataCountCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set data count status")
 		}
-		return fmt.Errorf("No data nodes requested. Please ensure there is at least 1 node with data roles")
+		return kverrors.New("no data nodes requested. Please ensure there is at least 1 node with data roles")
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidDataCountCondition, client); err != nil {
-			return err
+		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidDataCountCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set data count status")
 		}
 	}
 
 	if !isValidRedundancyPolicy(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition, client); err != nil {
-			return err
+		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set replication status")
 		}
-		return fmt.Errorf("Wrong RedundancyPolicy selected '%s'. Choose different RedundancyPolicy or add more nodes with data roles", dpl.Spec.RedundancyPolicy)
+		return kverrors.New("wrong RedundancyPolicy selected. Choose different RedundancyPolicy or add more nodes with data roles",
+			"policy", dpl.Spec.RedundancyPolicy)
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition, client); err != nil {
-			return err
+		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set replication status")
 		}
 	}
 
 	// TODO: replace this with a validating web hook to ensure field is immutable
-	if ok, msg := hasValidUUIDs(dpl); !ok {
-		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionTrue, msg, client); err != nil {
-			return err
+	if err := validateUUIDs(dpl); err != nil {
+		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionTrue, err.Error(), er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set UUID change status")
 		}
-		return fmt.Errorf("Unsupported change to UUIDs made: %v", msg)
+		return kverrors.Wrap(err, "unsupported change to UUIDs made")
 	} else {
-		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionFalse, "", client); err != nil {
-			return err
+		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionFalse, "", er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set UUID change status")
 		}
 	}
 
 	return nil
 }
 
-func hasValidUUIDs(dpl *api.Elasticsearch) (bool, string) {
+func validateUUIDs(dpl *api.Elasticsearch) error {
 
 	// TODO:
 	// check that someone didn't update a uuid
@@ -296,7 +293,8 @@ func hasValidUUIDs(dpl *api.Elasticsearch) (bool, string) {
 		parts := strings.Split(strings.TrimPrefix(nodeName, prefix), "-")
 
 		if len(parts) < 2 {
-			return false, fmt.Sprintf("Invalid name found for %q", nodeName)
+			return kverrors.New("invalid name found for node",
+				"node", nodeName)
 		}
 
 		uuid := parts[1]
@@ -309,11 +307,12 @@ func hasValidUUIDs(dpl *api.Elasticsearch) (bool, string) {
 	// make sure all known UUIDs are found amongst spec.nodes[*].genuuid
 	for _, uuid := range knownUUIDs {
 		if !isUUIDFound(uuid, dpl.Spec.Nodes) {
-			return false, fmt.Sprintf("Previously used GenUUID %q is no longer found in Spec.Nodes", uuid)
+			return kverrors.New("previously used GenUUID is no longer found in Spec.Nodes",
+				"uuid", uuid)
 		}
 	}
 
-	return true, ""
+	return nil
 }
 
 func isUUIDFound(uuid string, nodes []api.ElasticsearchNode) bool {
@@ -339,23 +338,6 @@ func sliceContainsString(slice []string, value string) bool {
 	}
 
 	return false
-}
-
-func DeletePod(podName, namespace string, client client.Client) error {
-	pod := &v1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: v1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: namespace,
-		},
-	}
-
-	err := client.Delete(context.TODO(), pod)
-
-	return err
 }
 
 func GetPodList(namespace string, selector map[string]string, sdkClient client.Client) (*v1.PodList, error) {

@@ -2,12 +2,14 @@ package kibana
 
 import (
 	"fmt"
+	"io/ioutil"
 	"reflect"
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -17,8 +19,15 @@ import (
 
 const KibanaConsoleLinkName = "kibana-public-url"
 
-//NewRoute stubs an instance of a Route
-func NewRoute(routeName, namespace, serviceName, cafilePath string) *route.Route {
+func NewRouteWithCert(routeName, namespace, serviceName string, caCert []byte) *route.Route {
+	r := NewRoute(routeName, namespace, serviceName)
+	r.Spec.TLS.CACertificate = string(caCert)
+	r.Spec.TLS.DestinationCACertificate = string(caCert)
+	return r
+}
+
+// NewRoute stubs an instance of a Route
+func NewRoute(routeName, namespace, serviceName string) *route.Route {
 	return &route.Route{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Route",
@@ -41,8 +50,6 @@ func NewRoute(routeName, namespace, serviceName, cafilePath string) *route.Route
 			TLS: &route.TLSConfig{
 				Termination:                   route.TLSTerminationReencrypt,
 				InsecureEdgeTerminationPolicy: route.InsecureEdgeTerminationPolicyRedirect,
-				CACertificate:                 string(utils.GetFileContents(cafilePath)),
-				DestinationCACertificate:      string(utils.GetFileContents(cafilePath)),
 			},
 		},
 	}
@@ -54,7 +61,7 @@ func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, erro
 	foundRoute := &route.Route{}
 
 	if err := clusterRequest.Get(routeName, foundRoute); err != nil {
-		if !errors.IsNotFound(err) {
+		if !apierrors.IsNotFound(kverrors.Root(err)) {
 			log.Error(err, "Failed to check for kibana object")
 		}
 		return "", err
@@ -70,12 +77,12 @@ func (clusterRequest *KibanaRequest) RemoveRoute(routeName string) error {
 		routeName,
 		clusterRequest.cluster.Namespace,
 		routeName,
-		"",
 	)
 
 	err := clusterRequest.Delete(route)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %v route %v", routeName, err)
+	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failure deleting route",
+			"route", routeName)
 	}
 
 	return nil
@@ -84,47 +91,64 @@ func (clusterRequest *KibanaRequest) RemoveRoute(routeName string) error {
 func (clusterRequest *KibanaRequest) CreateOrUpdateRoute(newRoute *route.Route) error {
 
 	err := clusterRequest.Create(newRoute)
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failure creating route for %q: %v", clusterRequest.cluster.Name, err)
-		}
-
-		// else -- try to update it if its a valid change (e.g. spec.tls)
-		current := &route.Route{}
-
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := clusterRequest.Get(newRoute.Name, current); err != nil {
-				return fmt.Errorf("Failed to get route: %v", err)
-			}
-
-			if !reflect.DeepEqual(current.Spec.TLS, newRoute.Spec.TLS) {
-				current.Spec.TLS = newRoute.Spec.TLS
-				return clusterRequest.Update(current)
-			}
-
-			return nil
-		})
+	if err == nil {
+		return nil
 	}
 
+	errCtx := kverrors.NewContext(
+		"cluster", clusterRequest.cluster.Name,
+		"route", newRoute.Name,
+	)
+
+	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return errCtx.Wrap(err, "failure creating route for cluster")
+	}
+
+	// else -- try to update it if its a valid change (e.g. spec.tls)
+	current := &route.Route{}
+
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := clusterRequest.Get(newRoute.Name, current); err != nil {
+			return errCtx.Wrap(err, "failed to get route")
+		}
+
+		if !reflect.DeepEqual(current.Spec.TLS, newRoute.Spec.TLS) {
+			current.Spec.TLS = newRoute.Spec.TLS
+			return clusterRequest.Update(current)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errCtx.Wrap(err, "failed to update route")
+	}
 	return nil
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 	cluster := clusterRequest.cluster
 
-	kibanaRoute := NewRoute(
+	var rt *route.Route
+	fp := utils.GetWorkingDirFilePath("ca.crt")
+	caCert, err := ioutil.ReadFile(fp)
+	if err != nil {
+		log.Info("could not read CA certificate for kibana route",
+			"filePath", fp,
+			"cause", err)
+	}
+	rt = NewRouteWithCert(
 		"kibana",
 		cluster.Namespace,
 		"kibana",
-		utils.GetWorkingDirFilePath("ca.crt"),
+		caCert,
 	)
 
-	utils.AddOwnerRefToObject(kibanaRoute, getOwnerRef(cluster))
+	utils.AddOwnerRefToObject(rt, getOwnerRef(cluster))
 
-	if err := clusterRequest.CreateOrUpdateRoute(kibanaRoute); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failure creating Kibana route for %q: %v", cluster.Name, err)
-		}
+	err = clusterRequest.CreateOrUpdateRoute(rt)
+	if err != nil && !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to update Kibana route for cluster",
+			"cluster", cluster.Name)
 	}
 
 	return nil
@@ -135,14 +159,15 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
-		return err
+		return kverrors.Wrap(err, "failed to get route URL for kibana")
 	}
 
 	cl := NewConsoleLink(KibanaConsoleLinkName, kibanaURL)
 	utils.AddOwnerRefToObject(cl, getOwnerRef(cluster))
 
 	if err := clusterRequest.createOrUpdateConsoleLink(cl); err != nil {
-		return fmt.Errorf("Failure creating or updating kibana console link CR for %q: %v", cluster.Name, err)
+		return kverrors.Wrap(err, "failed to create or update kibana console link CR for cluster",
+			"cluster", cluster.Name)
 	}
 
 	return nil
@@ -150,18 +175,21 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 
 func (clusterRequest *KibanaRequest) createOrUpdateConsoleLink(desired *consolev1.ConsoleLink) error {
 	linkName := desired.GetName()
+	errCtx := kverrors.NewContext("cluster", clusterRequest.cluster.GetName(),
+		"link_name", linkName)
+
 	err := clusterRequest.Create(desired)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana link for %q: %v", clusterRequest.cluster.GetName(), err)
+	if err != nil && !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return errCtx.Wrap(err, "failed to create Kibana link for cluster")
 	}
 
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current := &consolev1.ConsoleLink{}
 		if err := clusterRequest.Get(linkName, current); err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(kverrors.Root(err)) {
 				return nil
 			}
-			return fmt.Errorf("Failed to get Kibana console link: %v", err)
+			return kverrors.Wrap(err, "failed to get Kibana console link", errCtx...)
 		}
 
 		ok := consoleLinksEqual(current, desired)
@@ -172,15 +200,24 @@ func (clusterRequest *KibanaRequest) createOrUpdateConsoleLink(desired *consolev
 
 		return nil
 	})
+
+	if err != nil {
+		return kverrors.Wrap(err, "failed to update console link", errCtx...)
+	}
+	return nil
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink() (err error) {
 	cluster := clusterRequest.cluster
 
+	errCtx := kverrors.NewContext("cluster", clusterRequest.cluster.Name,
+		"namespace", clusterRequest.cluster.Namespace)
+
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
-		return err
+		return kverrors.Wrap(err, "failed to get route URL", errCtx...)
 	}
+	errCtx = append(errCtx, "kibana_url", kibanaURL)
 
 	consoleExternalLogLink := NewConsoleExternalLogLink(
 		"kibana",
@@ -205,8 +242,8 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 	}
 
 	err = clusterRequest.Create(consoleExternalLogLink)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana console external log link for %q: %v", cluster.Name, err)
+	if err != nil && !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failure creating Kibana console external log link", errCtx...)
 	}
 	return nil
 }
@@ -214,22 +251,29 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 func (clusterRequest *KibanaRequest) removeSharedConfigMapPre45x() error {
 	cluster := clusterRequest.cluster
 
+	errCtx := kverrors.NewContext("namespace", cluster.Namespace,
+		"cluster", cluster.Name)
+
 	sharedConfig := NewConfigMap("sharing-config", cluster.GetNamespace(), map[string]string{})
 	err := clusterRequest.Delete(sharedConfig)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting Kibana route shared config: %v", err)
+	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to delete Kibana route shared config",
+			append(errCtx, "configmap", sharedConfig.Name)...)
 	}
 
 	sharedRole := NewRole("sharing-config-reader", cluster.Namespace, nil)
 	err = clusterRequest.Delete(sharedRole)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting Kibana route shared config role %q for %q: %v", sharedRole.Name, cluster.Name, err)
+	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
+		return errCtx.Wrap(err, "failed to delete Kibana route shared config role",
+			"role", sharedRole.Name,
+		)
 	}
 
 	sharedRoleBinding := NewRoleBinding("openshift-logging-sharing-config-reader-binding", cluster.Namespace, "", nil)
 	err = clusterRequest.Delete(sharedRoleBinding)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting Kibana route shared config role binding %q for %q: %v", sharedRoleBinding.Name, cluster.Name, err)
+	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
+		return errCtx.Wrap(err, "failed to delete Kibana route shared config role binding",
+			"role_binding", sharedRoleBinding.Name)
 	}
 
 	return nil

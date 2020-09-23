@@ -625,20 +625,7 @@ const (
   }
 }
 `
-	expectedReIndexPayload = `
-{
-  "source": {
-    "index": ".kibana"
-  },
-  "dest": {
-    "index": ".kibana-6"
-  },
-  "script": {
-    "inline": "ctx._source = [ ctx._type : ctx._source ]; ctx._source.type = ctx._type; ctx._id = ctx._type + \":\" + ctx._id; ctx._type = \"doc\"; ",
-    "lang": "painless"
-  }
-}
-`
+
 	expectedAliasesPayload = `
 {
   "actions" : [

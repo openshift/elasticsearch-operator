@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 )
 
 // CompareVersions will return one of:

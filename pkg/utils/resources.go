@@ -3,7 +3,7 @@ package utils
 import (
 	"reflect"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1beta1"

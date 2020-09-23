@@ -6,7 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -86,7 +87,9 @@ func (er *ElasticsearchRequest) UpdateClusterStatus() error {
 		})
 
 		if retryErr != nil {
-			return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cluster.Name, nretries, retryErr)
+			return kverrors.Wrap(retryErr, "failed to update status for cluster",
+				"cluster", cluster.Name,
+				"retries", nretries)
 		}
 	}
 
@@ -135,7 +138,9 @@ func (er *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus)
 	})
 
 	if retryErr != nil {
-		return fmt.Errorf("Error: could not update status for Elasticsearch %v after %v retries: %v", cluster.Name, nretries, retryErr)
+		return kverrors.Wrap(retryErr, "failed to update status for cluster",
+			"cluster", cluster.Name,
+			"retries", nretries)
 	}
 
 	return nil
@@ -775,7 +780,7 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 		}
 		return nil
 	})
-	return retryErr
+	return kverrors.Wrap(retryErr, "failed to update elasticsearch status")
 }
 
 func updateInvalidMasterCountCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {

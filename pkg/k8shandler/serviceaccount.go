@@ -2,11 +2,11 @@ package k8shandler
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/ViaQ/logerr/kverrors"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +18,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceAccount() (err error) {
 
 	err = createOrUpdateServiceAccount(dpl.Name, dpl.Namespace, er.cluster, er.client)
 	if err != nil {
-		return fmt.Errorf("Failure creating ServiceAccount %v", err)
+		return kverrors.Wrap(err, "Failure creating ServiceAccount")
 	}
 
 	return nil
@@ -30,8 +30,8 @@ func createOrUpdateServiceAccount(serviceAccountName, namespace string, cluster 
 
 	err := client.Create(context.TODO(), serviceAccount)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failure constructing serviceaccount for the Elasticsearch cluster: %v", err)
+		if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to construct ServiceAccount for the Elasticsearch cluster")
 		}
 	}
 

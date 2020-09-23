@@ -62,7 +62,7 @@ func singleNodeTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -105,7 +105,7 @@ func multipleNodesTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -161,7 +161,7 @@ func scaleUpNodesTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -235,7 +235,7 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	t.Log("Created non-data statefulset")
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -341,7 +341,7 @@ func fullClusterRedeployTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -462,7 +462,7 @@ func rollingRestartTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -507,6 +507,6 @@ func invalidMasterCountTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }

@@ -2,26 +2,24 @@ package utils
 
 import (
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/ViaQ/logerr/kverrors"
+
 	configv1 "github.com/openshift/api/config/v1"
-	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 )
 
 const (
@@ -29,17 +27,6 @@ const (
 	OsNodeLabel       = "kubernetes.io/os"
 	LinuxValue        = "linux"
 )
-
-var (
-	errNoImageTag    = errors.New("no image tag")
-	errMissingEnvVar = errors.New("missing env variable")
-)
-
-// COMPONENT_IMAGES are thee keys are based on the "container name" + "-{image,version}"
-var COMPONENT_IMAGES = map[string]string{
-	"kibana":       "KIBANA_IMAGE",
-	"kibana-proxy": "PROXY_IMAGE",
-}
 
 // EnsureLinuxNodeSelector takes given selector map and returns a selector map with linux node selector added into it.
 // If there is already a node type selector and is different from "linux" then it is overridden and warning is logged.
@@ -64,7 +51,7 @@ func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 func ToJson(obj interface{}) (string, error) {
 	bytes, err := json.Marshal(obj)
 	if err != nil {
-		return "", err
+		return "", kverrors.Wrap(err, "failed to marshal JSON")
 	}
 	return string(bytes), nil
 }
@@ -76,34 +63,13 @@ func LookupEnvWithDefault(envName, defaultValue string) string {
 	return defaultValue
 }
 
-func RandStringBase64(length int) (string, error) {
-	if length <= 0 {
-		return "", fmt.Errorf("Can't generate random strings of length: %d", length)
-	}
-
-	randString := make([]byte, length)
-	_, err := rand.Read(randString)
-
-	if err != nil {
-		return "", fmt.Errorf("Failed to generate random string: %v", err)
-	}
-
-	randStringBase64 := base64.StdEncoding.EncodeToString(randString)
-
-	return randStringBase64, nil
-}
-
 var letters = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
-func RandStringBytes(length int) (string, error) {
-	if length <= 0 {
-		return "", fmt.Errorf("Can't generate random strings of length: %d", length)
-	}
-
+func RandStringBytes(length uint) (string, error) {
 	randString := make([]byte, length)
 	_, err := rand.Read(randString)
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate random string: %v", err)
+		return "", kverrors.Wrap(err, "failed to generate random string")
 	}
 
 	for i, b := range randString {
@@ -112,32 +78,12 @@ func RandStringBytes(length int) (string, error) {
 	return string(randString), nil
 }
 
-// GetAnnotation returns the value of an annoation for a given key and true if the key was found
-func GetAnnotation(key string, meta metav1.ObjectMeta) (string, bool) {
-	for k, value := range meta.Annotations {
-		if k == key {
-			return value, true
-		}
-	}
-	return "", false
-}
-
-func AsOwner(o *kibana.Kibana) metav1.OwnerReference {
-	return metav1.OwnerReference{
-		APIVersion: kibana.SchemeGroupVersion.String(),
-		Kind:       "ClusterLogging",
-		Name:       o.Name,
-		UID:        o.UID,
-		Controller: GetBool(true),
-	}
-}
-
-//CalculateMD5Hash returns a MD5 hash of the give text
+// CalculateMD5Hash returns a MD5 hash of the give text
 func CalculateMD5Hash(text string) (string, error) {
 	hasher := md5.New()
 	_, err := hasher.Write([]byte(text))
 	if err != nil {
-		return "", err
+		return "", kverrors.Wrap(err, "failed to calculate hash")
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
@@ -191,61 +137,11 @@ func isTolerationSame(lhs, rhs v1.Toleration) bool {
 		tolerationSecondsBool
 }
 
-func AppendTolerations(lhsTolerations, rhsTolerations []v1.Toleration) []v1.Toleration {
-	if lhsTolerations == nil {
-		lhsTolerations = []v1.Toleration{}
-	}
-
-	return append(lhsTolerations, rhsTolerations...)
-}
-
-//AddOwnerRefToObject adds the parent as an owner to the child
+// AddOwnerRefToObject adds the parent as an owner to the child
 func AddOwnerRefToObject(object metav1.Object, ownerRef metav1.OwnerReference) {
 	if (metav1.OwnerReference{}) != ownerRef {
 		object.SetOwnerReferences(append(object.GetOwnerReferences(), ownerRef))
 	}
-}
-
-// GetComponentImage returns a full image pull spec for a given component
-// based on the component type
-func GetComponentImage(component string) string {
-
-	env_var_name, ok := COMPONENT_IMAGES[component]
-	if !ok {
-		log.Error(errMissingEnvVar, "Environment variable name mapping missing for component", "component", component)
-		return ""
-	}
-	imageTag := os.Getenv(env_var_name)
-	if imageTag == "" {
-		log.Error(errNoImageTag, "No image tag defined", "component", component, "environment_variable", env_var_name)
-	}
-	return imageTag
-}
-
-func GetFileContents(filePath string) []byte {
-	if filePath == "" {
-		return nil
-	}
-
-	contents, err := ioutil.ReadFile(filepath.Clean(filePath))
-	if err != nil {
-		log.Error(err, "Operator unable to read local file to get contents")
-		return nil
-	}
-
-	return contents
-}
-
-func GetShareDir() string {
-	shareDir := os.Getenv("LOGGING_SHARE_DIR")
-	if shareDir == "" {
-		return "/usr/share/logging"
-	}
-	return shareDir
-}
-
-func GetWorkingDirFileContents(filePath string) []byte {
-	return GetFileContents(GetWorkingDirFilePath(filePath))
 }
 
 func GetWorkingDirFilePath(toFile string) string {
@@ -257,9 +153,8 @@ func GetWorkingDirFilePath(toFile string) string {
 }
 
 func WriteToWorkingDirFile(toFile string, value []byte) error {
-
 	if err := ioutil.WriteFile(GetWorkingDirFilePath(toFile), value, 0644); err != nil {
-		return fmt.Errorf("Unable to write to working dir: %v", err)
+		return kverrors.Wrap(err, "Unable to write to working dir")
 	}
 
 	return nil
@@ -267,19 +162,6 @@ func WriteToWorkingDirFile(toFile string, value []byte) error {
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
-}
-
-func GetRandomWord(wordSize int) []byte {
-	b := make([]rune, wordSize)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return []byte(string(b))
-}
-
-func GetBool(value bool) *bool {
-	b := value
-	return &b
 }
 
 func GetInt32(value int32) *int32 {
@@ -290,17 +172,6 @@ func GetInt32(value int32) *int32 {
 func GetInt64(value int64) *int64 {
 	i := value
 	return &i
-}
-
-func CheckFileExists(filePath string) error {
-	_, err := os.Stat(filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("'%s' not found", filePath)
-		}
-		return err
-	}
-	return nil
 }
 
 func ContainsString(slice []string, s string) bool {
@@ -320,56 +191,6 @@ func RemoveString(slice []string, s string) (result []string) {
 		result = append(result, item)
 	}
 	return
-}
-
-func PodVolumeEquivalent(lhs, rhs []v1.Volume) bool {
-
-	if len(lhs) != len(rhs) {
-		return false
-	}
-
-	lhsMap := make(map[string]v1.Volume)
-	rhsMap := make(map[string]v1.Volume)
-
-	for _, vol := range lhs {
-		lhsMap[vol.Name] = vol
-	}
-
-	for _, vol := range rhs {
-		rhsMap[vol.Name] = vol
-	}
-
-	for name, lhsVol := range lhsMap {
-		if rhsVol, ok := rhsMap[name]; ok {
-			if lhsVol.Secret != nil && rhsVol.Secret != nil {
-				if lhsVol.Secret.SecretName != rhsVol.Secret.SecretName {
-					return false
-				}
-
-				continue
-			}
-			if lhsVol.ConfigMap != nil && rhsVol.ConfigMap != nil {
-				if lhsVol.ConfigMap.LocalObjectReference.Name != rhsVol.ConfigMap.LocalObjectReference.Name {
-					return false
-				}
-
-				continue
-			}
-			if lhsVol.HostPath != nil && rhsVol.HostPath != nil {
-				if lhsVol.HostPath.Path != rhsVol.HostPath.Path {
-					return false
-				}
-				continue
-			}
-
-			return false
-		} else {
-			// if rhsMap doesn't have the same key has lhsMap
-			return false
-		}
-	}
-
-	return true
 }
 
 /**
