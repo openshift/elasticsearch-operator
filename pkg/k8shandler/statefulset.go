@@ -263,9 +263,11 @@ func (n *statefulSetNode) replicaCount() (int32, error) {
 }
 
 func (n *statefulSetNode) isMissing() bool {
-	getNode := &apps.StatefulSet{}
-	if getErr := n.client.Get(context.TODO(), types.NamespacedName{Name: n.name(), Namespace: n.self.Namespace}, getNode); getErr != nil {
-		if errors.IsNotFound(getErr) {
+	obj := &apps.StatefulSet{}
+	key := types.NamespacedName{Name: n.name(), Namespace: n.self.Namespace}
+
+	if err := n.client.Get(context.TODO(), key, obj); err != nil {
+		if errors.IsNotFound(err) {
 			return true
 		}
 	}

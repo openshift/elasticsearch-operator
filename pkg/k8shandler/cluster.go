@@ -7,6 +7,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -58,7 +59,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 
 	// Update the cluster status immediately to refresh status.nodes
 	// before progressing with any unschedulable nodes.
-	// Ensures that deleted nodes
+	// Ensures that deleted nodes are removed from status.nodes.
 	if err := er.UpdateClusterStatus(); err != nil {
 		return err
 	}
@@ -200,17 +201,22 @@ func (er *ElasticsearchRequest) getNodeUpgradeInProgress() NodeTypeInterface {
 
 func (er *ElasticsearchRequest) progressUnschedulableNodes() error {
 	cluster := er.cluster
+	clusterNodes := nodes[nodeMapKey(cluster.GetName(), cluster.GetNamespace())]
 
-	for _, node := range cluster.Status.Nodes {
-		if isPodUnschedulableConditionTrue(node.Conditions) ||
-			isPodImagePullBackOff(node.Conditions) ||
-			isPodCrashLoopBackOff(node.Conditions) {
-			for _, nodeTypeInterface := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
-				if node.DeploymentName == nodeTypeInterface.name() ||
-					node.StatefulSetName == nodeTypeInterface.name() {
+	for _, nodeStatus := range cluster.Status.Nodes {
+		if isPodUnschedulableConditionTrue(nodeStatus.Conditions) ||
+			isPodImagePullBackOff(nodeStatus.Conditions) ||
+			isPodCrashLoopBackOff(nodeStatus.Conditions) {
 
-					if err := nodeTypeInterface.progressNodeChanges(); err != nil {
-						log.Error(err, "Failed to progress update of unschedulable node", "node", nodeTypeInterface.name())
+			for _, node := range clusterNodes {
+				if nodeStatus.DeploymentName == node.name() || nodeStatus.StatefulSetName == node.name() {
+					if node.isMissing() {
+						log.Info("Unschedulable node does not have k8s resource, skipping", "node", node.name())
+						continue
+					}
+
+					if err := node.progressNodeChanges(); err != nil {
+						log.Error(err, "Failed to progress update of unschedulable node", "node", node.name())
 						return err
 					}
 				}
