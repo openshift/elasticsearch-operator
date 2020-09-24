@@ -38,7 +38,7 @@ import json,sys
 r=json.load(sys.stdin)
 alias="${POLICY_MAPPING}-write"
 try:
-  indices = [index for index in r if r[index]['aliases'][alias]['is_write_index']]
+  indices = [index for index in r if r[index]['aliases'][alias].get('is_write_index')]
   if len(indices) > 0:
     print(indices[0])
 except:
