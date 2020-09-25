@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -358,6 +359,48 @@ func DeletePod(podName, namespace string, client client.Client) error {
 
 func GetPodList(namespace string, selector map[string]string, sdkClient client.Client) (*v1.PodList, error) {
 	list := &v1.PodList{}
+
+	labelSelector := labels.SelectorFromSet(selector)
+
+	err := sdkClient.List(
+		context.TODO(),
+		&client.ListOptions{Namespace: namespace, LabelSelector: labelSelector},
+		list,
+	)
+
+	return list, err
+}
+
+func GetDeploymentList(namespace string, selector map[string]string, sdkClient client.Client) (*appsv1.DeploymentList, error) {
+	list := &appsv1.DeploymentList{}
+
+	labelSelector := labels.SelectorFromSet(selector)
+
+	err := sdkClient.List(
+		context.TODO(),
+		&client.ListOptions{Namespace: namespace, LabelSelector: labelSelector},
+		list,
+	)
+
+	return list, err
+}
+
+func GetStatefulSetList(namespace string, selector map[string]string, sdkClient client.Client) (*appsv1.StatefulSetList, error) {
+	list := &appsv1.StatefulSetList{}
+
+	labelSelector := labels.SelectorFromSet(selector)
+
+	err := sdkClient.List(
+		context.TODO(),
+		&client.ListOptions{Namespace: namespace, LabelSelector: labelSelector},
+		list,
+	)
+
+	return list, err
+}
+
+func GetPVCList(namespace string, selector map[string]string, sdkClient client.Client) (*v1.PersistentVolumeClaimList, error) {
+	list := &v1.PersistentVolumeClaimList{}
 
 	labelSelector := labels.SelectorFromSet(selector)
 
