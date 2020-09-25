@@ -27,14 +27,13 @@ func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
 	dpl := er.cluster
 
 	name := fmt.Sprintf("%s-%s", dpl.Name, "prometheus-rules")
-	owner := getOwnerRef(dpl)
 
 	rule, err := buildPrometheusRule(name, dpl.Namespace, dpl.Labels)
 	if err != nil {
 		return fmt.Errorf("failed to build prometheus rule: %w", err)
 	}
 
-	addOwnerRefToObject(rule, owner)
+	dpl.AddOwnerRefTo(rule)
 
 	err = er.client.Create(ctx, rule)
 	if err == nil {

@@ -109,6 +109,7 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 	data := scriptMap
 	desired := k8s.NewConfigMap(indexManagementConfigmap, cluster.Namespace, imLabels, data)
 	cluster.AddOwnerRefTo(desired)
+
 	err := apiclient.Create(context.TODO(), desired)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {

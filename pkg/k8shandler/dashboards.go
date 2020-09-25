@@ -29,5 +29,8 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 			"openshift-elasticsearch.json": string(utils.GetFileContents(fp)),
 		},
 	}
+
+	er.cluster.AddOwnerRefTo(cm)
+
 	return er.CreateOrUpdateConfigMap(cm)
 }
