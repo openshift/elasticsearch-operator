@@ -1,19 +1,18 @@
 CURPATH=$(PWD)
 
+export GOBIN=$(CURDIR)/bin
+export PATH:=$(GOBIN):$(PATH)
+
+include .bingo/Variables.mk
+
 export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
-export GOBIN=$(CURDIR)/bin
-export PATH:=$(CURDIR)/bin:$(PATH)
 
-IMAGE_BUILDER_OPTS=
-IMAGE_BUILDER?=imagebuilder
-IMAGE_BUILD=$(IMAGE_BUILDER)
-export IMAGE_TAGGER?=docker tag
+export OCP_VERSION=4.6
 
 export APP_NAME=elasticsearch-operator
-IMAGE_TAG?=quay.io/openshift/origin-$(APP_NAME):latest
-export IMAGE_TAG
+IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
 MAIN_PKG=cmd/manager/main.go
@@ -25,52 +24,21 @@ DEPLOYMENT_NAMESPACE=openshift-logging
 REPLICAS?=0
 OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY: all build clean fmt generate gobindir gosec imagebuilder operator-sdk run sec test-e2e test-unit
+.PHONY: all build clean fmt generate gobindir run test-e2e test-unit
 
 all: build
 
 gobindir:
 	@mkdir -p $(GOBIN)
 
-GOSEC_VERSION?=2.2.0
-GOSEC_URL=https://github.com/securego/gosec/releases/download/v${GOSEC_VERSION}/gosec_${GOSEC_VERSION}_${OS_NAME}_amd64.tar.gz
-gosec: gobindir
-	@type -p gosec > /dev/null && \
-	gosec version | grep -q $(GOSEC_VERSION) || \
-	curl -sSfL  ${GOSEC_URL} | tar -z -C ./bin -x $@
-	@chmod +x $(GOBIN)/$@
-
-imagebuilder: gobindir
-	@if [ $${USE_IMAGE_STREAM:-false} = false ] && ! type -p imagebuilder > /dev/null ; \
-	then GOFLAGS="" GO111MODULE=off go get -u github.com/openshift/imagebuilder/cmd/imagebuilder ; \
-	fi
-
-OPERATOR_SDK_VERSION?=v0.16.0
-OPERATOR_SDK_URL=https://github.com/operator-framework/operator-sdk/releases/download/${OPERATOR_SDK_VERSION}/operator-sdk-${OPERATOR_SDK_VERSION}-$(shell uname -i)-${OS_NAME}-gnu
-operator-sdk: gobindir
-	@type -p operator_sdk > /dev/null && \
-	operator-sdk version | grep -q $(OPERATOR_SDK_VERSION) || \
-	curl -sSfL -o $(GOBIN)/$@ ${OPERATOR_SDK_URL}
-	@chmod +x $(GOBIN)/$@
-
-GOLANGCI_LINT_VERSION?=1.24.0
-GOLANGCI_LINT_URL=https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-${OS_NAME}-amd64.tar.gz
-golangci-lint: gobindir
-	@type -p golangci-lint > /dev/null && \
-	golangci-lint version | grep -q $(GOLANGCI_LINT_VERSION) || \
-	curl -sSfL ${GOLANGCI_LINT_URL} | tar -z --strip-components=1 -C ./bin -x golangci-lint-${GOLANGCI_LINT_VERSION}-${OS_NAME}-amd64/$@
-	@chmod +x $(GOBIN)/$@\
-
 GEN_TIMESTAMP=.zz_generate_timestamp
-generate: $(GEN_TIMESTAMP)
+generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK)
 $(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
-	@$(MAKE) operator-sdk
-	operator-sdk generate k8s
-	operator-sdk generate crds
+	@./hack/generate-crd.sh
 	@$(MAKE) fmt
 	@touch $@
 
-regenerate:
+regenerate: $(OPERATOR_SDK)
 	@rm -f $(GEN_TIMESTAMP)
 	@$(MAKE) generate
 
@@ -78,39 +46,36 @@ build: fmt
 	@go build -o $(GOBIN)/elasticsearch-operator $(MAIN_PKG)
 
 clean:
-	@rm bin/*
+	@rm -rf bin tmp _output
 	go clean -cache -testcache ./...
 
 fmt:
 	@gofmt -s -l -w $(shell find pkg cmd test -name '*.go')
 
-lint: golangci-lint fmt
-	@golangci-lint run -c golangci.yaml
+lint: $(GOLANGCI_LINT) fmt
+	@$(GOLANGCI_LINT) run -c golangci.yaml
 
-image: imagebuilder
-	@if [ $${USE_IMAGE_STREAM:-false} = false ] && [ $${SKIP_BUILD:-false} = false ] ; \
-	then hack/build-image.sh $(IMAGE_TAG) $(IMAGE_BUILDER) $(IMAGE_BUILDER_OPTS) ; \
+image:
+	@if [ $${SKIP_BUILD:-false} = false ] ; then \
+		podman build -t $(IMAGE_TAG) . ; \
 	fi
 
-test-e2e: gen-example-certs
-	LOGGING_IMAGE_STREAM=$(LOGGING_IMAGE_STREAM) REMOTE_CLUSTER=true hack/test-e2e.sh
-
 test-unit:
-	@go test -v ./pkg/... ./cmd/...
-
-test-sec: gosec
-	@gosec -severity medium -confidence medium -exclude G304 -quiet ./...
+	@go test ./pkg/... ./cmd/...
 
 deploy: deploy-image
-	hack/deploy.sh
+	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \
+	$(MAKE) elasticsearch-catalog-build && \
+	IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=image-registry.openshift-image-registry.svc:5000/openshift/elasticsearch-operator-registry \
+	IMAGE_ELASTICSEARCH_OPERATOR=image-registry.openshift-image-registry.svc:5000/openshift/origin-elasticsearch-operator:latest \
+	$(MAKE) elasticsearch-catalog-deploy && \
+	IMAGE_ELASTICSEARCH_OPERATOR=image-registry.openshift-image-registry.svc:5000/openshift/origin-elasticsearch-operator:latest \
+	$(MAKE) elasticsearch-operator-install
+
 .PHONY: deploy
 
-deploy-no-build:
-	hack/deploy.sh
-.PHONY: deploy-no-build
-
 deploy-image: image
-	hack/deploy-image.sh
+	IMAGE_TAG=$(IMAGE_TAG) hack/deploy-image.sh
 .PHONY: deploy-image
 
 deploy-example: deploy deploy-example-secret
@@ -150,10 +115,17 @@ scale-olm:
 	@oc -n openshift-operator-lifecycle-manager scale deployment/olm-operator --replicas=$(REPLICAS)
 .PHONY: scale-olm
 
-undeploy:
-	hack/undeploy.sh
-.PHONY: undeploy
+uninstall:
+	$(MAKE) elasticsearch-catalog-uninstall
+.PHONY: uninstall
 
+MANIFEST_VERSION?="4.6"
+generate-bundle: regenerate $(OPM)
+	mkdir -p bundle; \
+	$(OPM) alpha bundle generate --directory manifests/${MANIFEST_VERSION} --package elasticsearch-operator --channels ${MANIFEST_VERSION} --default ${MANIFEST_VERSION} --output-dir bundle/; \
+	find bundle/manifests/ -type f ! \( -name "elasticsearch-operator*.yaml" -o -name "*crd.yaml" \) -delete && \
+	$(OPERATOR_SDK) bundle validate --verbose bundle
+.PHONY: generate-bundle
 
 # to use these targets, ensure the following env vars are set:
 # either each IMAGE env var:
@@ -171,7 +143,7 @@ undeploy:
 RANDOM_SUFFIX:=$(shell echo $$RANDOM)
 TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
 test-e2e-olm: DEPLOYMENT_NAMESPACE="${TEST_NAMESPACE}"
-test-e2e-olm: gen-example-certs 
+test-e2e-olm:
 	TEST_NAMESPACE=${TEST_NAMESPACE} hack/test-e2e-olm.sh
 
 elasticsearch-catalog: elasticsearch-catalog-build elasticsearch-catalog-deploy

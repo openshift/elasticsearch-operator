@@ -12,7 +12,7 @@ spec:
       limits:
         memory: 1Gi
       requests:
-        cpu: 500m
+        cpu: 100m
         memory: 1Gi
   nodes:
   - nodeCount: 1
@@ -38,4 +38,4 @@ spec:
       policyRef: infra-policy
       aliases:
       - infra
-      - logs-infra
+      - logs.infra

@@ -9,6 +9,8 @@ import (
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,28 +22,41 @@ const (
 	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_rules.yml"
 )
 
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
+func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
+	ctx := context.TODO()
+	dpl := er.cluster
 
-	dpl := elasticsearchRequest.cluster
-
-	ruleName := fmt.Sprintf("%s-%s", dpl.Name, "prometheus-rules")
+	name := fmt.Sprintf("%s-%s", dpl.Name, "prometheus-rules")
 	owner := getOwnerRef(dpl)
 
-	promRule, err := buildPrometheusRule(ruleName, dpl.Namespace, dpl.Labels)
+	rule, err := buildPrometheusRule(name, dpl.Namespace, dpl.Labels)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build prometheus rule: %w", err)
 	}
 
-	addOwnerRefToObject(promRule, owner)
+	addOwnerRefToObject(rule, owner)
 
-	err = elasticsearchRequest.client.Create(context.TODO(), promRule)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return err
+	err = er.client.Create(ctx, rule)
+	if err == nil {
+		return nil
+	}
+	if !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to create prometheus rule: %w", err)
 	}
 
-	//TODO: handle update - use retry.RetryOnConflict
+	current := &monitoringv1.PrometheusRule{}
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err = er.client.Get(ctx, types.NamespacedName{Name: rule.Name, Namespace: rule.Namespace}, current)
+		if err != nil {
+			return err
+		}
 
-	return nil
+		current.Spec = rule.Spec
+		if err = er.client.Update(ctx, current); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func buildPrometheusRule(ruleName string, namespace string, labels map[string]string) (*monitoringv1.PrometheusRule, error) {
@@ -65,7 +80,7 @@ func buildPrometheusRule(ruleName string, namespace string, labels map[string]st
 func prometheusRule(ruleName, namespace string, labels map[string]string) *monitoringv1.PrometheusRule {
 	return &monitoringv1.PrometheusRule{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       monitoringv1.DefaultCrdKinds.PrometheusRule.Kind,
+			Kind:       monitoringv1.PrometheusRuleKind,
 			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
 

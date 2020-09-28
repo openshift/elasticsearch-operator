@@ -9,7 +9,6 @@ import (
 	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -37,16 +36,6 @@ var _ = Describe("Index Management", func() {
 					},
 				},
 			},
-			FnCurlEsService: func(clusterName, namespace string, payload *esCurlStruct, client client.Client) {
-				chatter.Requests[payload.URI] = payload.RequestBody
-				if val, found := chatter.GetResponse(payload.URI); found {
-					payload.Error = val.Error
-					payload.StatusCode = val.StatusCode
-					payload.ResponseBody = val.BodyAsResponseBody()
-				} else {
-					payload.Error = fmt.Errorf("No fake response found for uri %q: %v", payload.URI, payload)
-				}
-			},
 		}
 	)
 
@@ -68,25 +57,30 @@ var _ = Describe("Index Management", func() {
 		BeforeEach(func() {
 			mappings = []elasticsearch.IndexManagementPolicyMappingSpec{mapping}
 			chatter = helpers.NewFakeElasticsearchChatter(
-				map[string]helpers.FakeElasticsearchResponse{
+				map[string]helpers.FakeElasticsearchResponses{
 					"_template": {
-						Error:      nil,
-						StatusCode: 200,
-						Body: `{
-							"ocp-gen-my-deleted-one": {},
-							"ocp-gen-node.infra": {},
-							"user-created": {}
-						}`,
+						{
+							Error:      nil,
+							StatusCode: 200,
+							Body: `{
+                                "ocp-gen-my-deleted-one": {},
+                                "ocp-gen-node.infra": {},
+                                "user-created": {}
+                            }`,
+						},
 					},
 					"_template/ocp-gen-my-deleted-one": {
-						Error:      nil,
-						StatusCode: 200,
-						Body: `{
-							"acknowleged": true
-						}`,
+						{
+							Error:      nil,
+							StatusCode: 200,
+							Body: `{
+                                "acknowleged": true
+                            }`,
+						},
 					},
 				},
 			)
+			request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 		})
 		Context("when an Elasticsearch template does not have an associated policy mapping", func() {
 			It("should be culled from Elasticsearch", func() {
@@ -104,19 +98,22 @@ var _ = Describe("Index Management", func() {
 	Describe("#createOrUpdateIndexTemplate", func() {
 		BeforeEach(func() {
 			chatter = helpers.NewFakeElasticsearchChatter(
-				map[string]helpers.FakeElasticsearchResponse{
+				map[string]helpers.FakeElasticsearchResponses{
 					"_template/ocp-gen-node.infra": {
-						Error:      nil,
-						StatusCode: 200,
-						Body:       `{ "acknowledged": true}`,
+						{
+							Error:      nil,
+							StatusCode: 200,
+							Body:       `{ "acknowledged": true}`,
+						},
 					},
 				},
 			)
+			request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 		})
 		It("should create an elasticsearch index template to support the index", func() {
 			Expect(request.createOrUpdateIndexTemplate(mapping)).To(BeNil())
-			body, _ := chatter.GetRequest("_template/ocp-gen-node.infra")
-			helpers.ExpectJson(body).ToEqual(
+			req, _ := chatter.GetRequest("_template/ocp-gen-node.infra")
+			helpers.ExpectJson(req.Body).ToEqual(
 				`{
 					"aliases": {
 						"infra": {},
@@ -134,22 +131,27 @@ var _ = Describe("Index Management", func() {
 		Context("when an index matching the pattern for rolling indices does not exist", func() {
 			It("should create it", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(
-					map[string]helpers.FakeElasticsearchResponse{
+					map[string]helpers.FakeElasticsearchResponses{
 						"_alias/node.infra-write": {
-							Error:      nil,
-							StatusCode: 404,
-							Body:       `{ "error": "some error", "status": 404}`,
+							{
+								Error:      nil,
+								StatusCode: 404,
+								Body:       `{ "error": "some error", "status": 404}`,
+							},
 						},
 						"node.infra-000001": {
-							Error:      nil,
-							StatusCode: 200,
-							Body:       `{ "acknowledged": true}`,
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body:       `{ "acknowledged": true}`,
+							},
 						},
 					},
 				)
+				request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 				Expect(request.initializeIndexIfNeeded(mapping)).To(BeNil())
-				body, _ := chatter.GetRequest("node.infra-000001")
-				helpers.ExpectJson(body).ToEqual(
+				req, _ := chatter.GetRequest("node.infra-000001")
+				helpers.ExpectJson(req.Body).ToEqual(
 					`{
 						"aliases": {
 							"infra": {},
@@ -168,22 +170,27 @@ var _ = Describe("Index Management", func() {
 		Context("when an index matching the pattern for rolling indices exist", func() {
 			It("should not try creating it", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(
-					map[string]helpers.FakeElasticsearchResponse{
+					map[string]helpers.FakeElasticsearchResponses{
 						"_alias/node.infra-write": {
-							Error:      nil,
-							StatusCode: 200,
-							Body: `{
-								"node.infra-000003": {},
-								"node.infra-000004": {}
-							}`,
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body: `{
+                                    "node.infra-000003": {},
+                                    "node.infra-000004": {}
+                                }`,
+							},
 						},
 						"node.infra-000001": {
-							Error:      nil,
-							StatusCode: 400,
-							Body:       `{ "error": "exists"}`,
+							{
+								Error:      nil,
+								StatusCode: 400,
+								Body:       `{ "error": "exists"}`,
+							},
 						},
 					},
 				)
+				request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 				Expect(request.initializeIndexIfNeeded(mapping)).To(BeNil())
 				_, found := chatter.GetRequest("node.infra-000001")
 				Expect(found).To(BeFalse(), "to not make a create request")

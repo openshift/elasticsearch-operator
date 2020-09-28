@@ -328,6 +328,45 @@ func TestDeploymentDifferentWithKibanaEnvVar(t *testing.T) {
 	}
 }
 
+func TestDeploymentDifferentWithKibanaReplicas(t *testing.T) {
+	ClusterRequest := &KibanaRequest{
+		client: nil,
+		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
+			Spec: kibana.KibanaSpec{
+				Replicas: 1,
+			},
+		},
+	}
+	lhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil)
+	lhsDeployment := NewDeployment(
+		"kibana",
+		ClusterRequest.cluster.Namespace,
+		"kibana",
+		"kibana",
+		lhsPodSpec,
+	)
+
+	rhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil)
+	rhsDeployment := NewDeployment(
+		"kibana",
+		ClusterRequest.cluster.Namespace,
+		"kibana",
+		"kibana",
+		rhsPodSpec,
+	)
+	newReplicas := new(int32)
+	*newReplicas = 2
+	rhsDeployment.Spec.Replicas = newReplicas
+
+	_, different := isDeploymentDifferent(lhsDeployment, rhsDeployment)
+	if !different {
+		t.Errorf("Exp. the kibana container to be different due to replicas")
+	}
+}
+
 func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 	clusterRequest := &KibanaRequest{
 		client: nil,

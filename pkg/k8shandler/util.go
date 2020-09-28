@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
@@ -97,12 +97,22 @@ func mergeSelectors(nodeSelectors, commonSelectors map[string]string) map[string
 }
 
 func areTolerationsSame(lhs, rhs []v1.Toleration) bool {
+
+	// if we are checking this as a part of pod spec comparison during a rollout we can't check this
+	// if we are comparing the deployment specs we can...
 	if len(lhs) != len(rhs) {
 		return false
 	}
 
-	for _, lhsToleration := range lhs {
-		if !containsToleration(lhsToleration, rhs) {
+	return containsSameTolerations(lhs, rhs)
+}
+
+// containsSameTolerations checks that the tolerations in rhs are all contained within lhs
+// this follows our other patterns of "current, desired"
+func containsSameTolerations(lhs, rhs []v1.Toleration) bool {
+
+	for _, rhsToleration := range rhs {
+		if !containsToleration(rhsToleration, lhs) {
 			return false
 		}
 	}
@@ -193,22 +203,22 @@ func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 	dataCount := int(getDataCount(dpl))
 
 	switch dpl.Spec.RedundancyPolicy {
-	case "":
 	case api.ZeroRedundancy:
+		return true
 	case api.SingleRedundancy:
+		fallthrough
 	case api.MultipleRedundancy:
+		fallthrough
 	case api.FullRedundancy:
+		return dataCount > 1
 	default:
 		return false
 	}
-
-	return !(dataCount == 1 && dpl.Spec.RedundancyPolicy == api.SingleRedundancy)
 }
 
-func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
-
-	dpl := elasticsearchRequest.cluster
-	client := elasticsearchRequest.client
+func (er *ElasticsearchRequest) isValidConf() error {
+	dpl := er.cluster
+	client := er.client
 
 	if !isValidMasterCount(dpl) {
 		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, client); err != nil {
@@ -243,6 +253,7 @@ func (elasticsearchRequest *ElasticsearchRequest) isValidConf() error {
 		}
 	}
 
+	// TODO: replace this with a validating web hook to ensure field is immutable
 	if ok, msg := hasValidUUIDs(dpl); !ok {
 		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionTrue, msg, client); err != nil {
 			return err
@@ -350,13 +361,55 @@ func DeletePod(podName, namespace string, client client.Client) error {
 func GetPodList(namespace string, selector map[string]string, sdkClient client.Client) (*v1.PodList, error) {
 	list := &v1.PodList{}
 
-	labelSelector := labels.SelectorFromSet(selector)
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(selector),
+	}
 
 	err := sdkClient.List(
 		context.TODO(),
-		&client.ListOptions{Namespace: namespace, LabelSelector: labelSelector},
 		list,
+		listOpts...,
 	)
+
+	return list, err
+}
+
+func GetDeploymentList(namespace string, selector map[string]string, sdkClient client.Client) (*appsv1.DeploymentList, error) {
+	list := &appsv1.DeploymentList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(selector),
+	}
+
+	err := sdkClient.List(context.TODO(), list, listOpts...)
+
+	return list, err
+}
+
+func GetStatefulSetList(namespace string, selector map[string]string, sdkClient client.Client) (*appsv1.StatefulSetList, error) {
+	list := &appsv1.StatefulSetList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(selector),
+	}
+
+	err := sdkClient.List(context.TODO(), list, listOpts...)
+
+	return list, err
+}
+
+func GetPVCList(namespace string, selector map[string]string, sdkClient client.Client) (*v1.PersistentVolumeClaimList, error) {
+	list := &v1.PersistentVolumeClaimList{}
+
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+		client.MatchingLabels(selector),
+	}
+
+	err := sdkClient.List(context.TODO(), list, listOpts...)
 
 	return list, err
 }

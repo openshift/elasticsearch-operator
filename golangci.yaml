@@ -5,3 +5,14 @@ linters:
     - gosimple
     - staticcheck
     - unused
+    - gosec
+    - gomodguard
+linters-settings:
+  depguard:
+    list-type: blacklist
+    include-go-root: false
+    packages-with-error-message:
+      # specify an error message to output when a blacklisted package is used
+      - github.com/sirupsen/logrus: "Only the internal package pkg/log is allowed"
+      - sigs.k8s.io/controller-runtime/pkg/log: "Only the internal package pkg/log is allowed"
+      - sigs.k8s.io/controller-runtime/pkg/log/zap: "Only the internal package pkg/log is allowed"

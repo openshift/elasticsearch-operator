@@ -11,6 +11,7 @@
     "for": "2m"
     "labels":
       "severity": "critical"
+
   - "alert": "ElasticsearchClusterNotHealthy"
     "annotations":
       "message": "Cluster {{ $labels.cluster }} health status has been YELLOW for at least 20m. Some shard replicas are not allocated."
@@ -20,6 +21,7 @@
     "for": "20m"
     "labels":
       "severity": "warning"
+
   - "alert": "ElasticsearchBulkRequestsRejectionJumps"
     "annotations":
       "message": "High Bulk Rejection Ratio at {{ $labels.node }} node in {{ $labels.cluster }} cluster. This node may not be keeping up with the indexing speed."
@@ -29,38 +31,58 @@
     "for": "10m"
     "labels":
       "severity": "warning"
+
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
-      "message": "Disk Low Watermark Reached at {{ $labels.node }} node in {{ $labels.cluster }} cluster. Shards can not be allocated to this node anymore. You should consider adding more disk to the node."
+      "message": "Disk Low Watermark Reached at {{ $labels.pod }} pod. Shards can not be allocated to this node anymore. You should consider adding more disk to the node."
       "summary": "Disk Low Watermark Reached - disk saturation is {{ $value }}%"
     "expr": |
-      sum by (cluster, instance, node) (
+      sum by (instance, pod) (
         round(
           (1 - (
             es_fs_path_available_bytes /
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > 85
+      ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_low_pct
     "for": "5m"
     "labels":
-      "severity": "alert"
+      "severity": info
+
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
-      "message": "Disk High Watermark Reached at {{ $labels.node }} node in {{ $labels.cluster }} cluster. Some shards will be re-allocated to different nodes if possible. Make sure more disk space is added to the node or drop old indices allocated to this node."
+      "message": "Disk High Watermark Reached at {{ $labels.pod }} pod. Some shards will be re-allocated to different nodes if possible. Make sure more disk space is added to the node or drop old indices allocated to this node."
       "summary": "Disk High Watermark Reached - disk saturation is {{ $value }}%"
     "expr": |
-      sum by (cluster, instance, node) (
+      sum by (instance, pod) (
         round(
           (1 - (
             es_fs_path_available_bytes /
             es_fs_path_total_bytes
           )
         ) * 100, 0.001)
-      ) > 90
+      ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_high_pct
     "for": "5m"
     "labels":
-      "severity": "high"
+      "severity": warning
+
+  - "alert": "ElasticsearchNodeDiskWatermarkReached"
+    "annotations":
+      "message": "Disk Flood Stage Watermark Reached at {{ $labels.pod }}. Every index having a shard allocated on this node is enforced a read-only block. The index block is automatically released when the disk utilization falls below the high watermark."
+      "summary": "Disk Flood Stage Watermark Reached - disk saturation is {{ $value }}%"
+    "expr": |
+      sum by (instance, pod) (
+        round(
+          (1 - (
+            es_fs_path_available_bytes /
+            es_fs_path_total_bytes
+          )
+        ) * 100, 0.001)
+      ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_flood_stage_pct
+    "for": "5m"
+    "labels":
+      "severity": critical
+
   - "alert": "ElasticsearchJVMHeapUseHigh"
     "annotations":
       "message": "JVM Heap usage on the node {{ $labels.node }} in {{ $labels.cluster }} cluster is {{ $value }}%."
@@ -70,6 +92,7 @@
     "for": "10m"
     "labels":
       "severity": "alert"
+
   - "alert": "AggregatedLoggingSystemCPUHigh"
     "annotations":
       "message": "System CPU usage on the node {{ $labels.node }} in {{ $labels.cluster }} cluster is {{ $value }}%"
@@ -79,6 +102,7 @@
     "for": "1m"
     "labels":
       "severity": "alert"
+
   - "alert": "ElasticsearchProcessCPUHigh"
     "annotations":
       "message": "ES process CPU usage on the node {{ $labels.node }} in {{ $labels.cluster }} cluster is {{ $value }}%"
@@ -88,3 +112,25 @@
     "for": "1m"
     "labels":
       "severity": "alert"
+
+  - alert: ElasticsearchDiskSpaceRunningLow
+    annotations:
+      message: |-
+        Cluster {{ $labels.cluster }} is predicted to be out of disk space within the next 6h.
+      summary: Cluster low on disk space
+    expr: |
+      sum(predict_linear(es_fs_path_available_bytes[6h], 6 * 3600)) < 0
+    for: 1h
+    labels:
+      severity: critical
+
+  - alert: ElasticsearchHighFileDescriptorUsage
+    annotations:
+      message: |-
+        Cluster {{ $labels.cluster }} is predicted to be out of file descriptors within the next hour
+      summary: Cluster low on file descriptors
+    expr: |
+      predict_linear(es_process_file_descriptors_max_number[1h], 3600) - predict_linear(es_process_file_descriptors_open_number[1h], 3600) < 0
+    for: 10m
+    labels:
+      severity: warning

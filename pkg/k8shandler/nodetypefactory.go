@@ -4,39 +4,42 @@ import (
 	"fmt"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NodeTypeInterface interace represents individual Elasticsearch node
 type NodeTypeInterface interface {
-	populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client)
-	state() api.ElasticsearchNodeStatus                      // this will get the current -- used for status
-	create() error                                           // this will create the node in the case where it is new
-	update(upgradeStatus *api.ElasticsearchNodeStatus) error // this will handle updates
-	rollingRestart(upgradeStatus *api.ElasticsearchNodeStatus)
-	fullClusterRestart(upgradeStatus *api.ElasticsearchNodeStatus)
-	progressUnshedulableNode(upgradeStatus *api.ElasticsearchNodeStatus) error
-	name() string
+	state() api.ElasticsearchNodeStatus // this will get the current -- used for status
 	updateReference(node NodeTypeInterface)
-	delete() error
+	populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client)
+
+	create() error // this will create the node in the case where it is new
 	isMissing() bool
+	name() string
+	delete() error
+
+	refreshHashes()
+	scaleDown() error
+	scaleUp() error
+	progressNodeChanges() error              // this function is used to tell the node to push out its changes
+	waitForNodeRejoinCluster() (error, bool) // this function is used to determine if a node has rejoined the cluster
+	waitForNodeLeaveCluster() (error, bool)  // this function is used to determine if a node has left the cluster
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment
 type NodeTypeFactory func(name, namespace string) NodeTypeInterface
 
 // this can potentially return a list if we have replicas > 1 for a data node
-func (elasticsearchRequest *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.ElasticsearchNode) []NodeTypeInterface {
+func (er *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.ElasticsearchNode) []NodeTypeInterface {
 
 	nodes := []NodeTypeInterface{}
 
 	roleMap := getNodeRoleMap(node)
 
-	cluster := elasticsearchRequest.cluster
-
 	// common spec => cluster.Spec.Spec
-	nodeName := fmt.Sprintf("%s-%s", cluster.Name, getNodeSuffix(uuid, roleMap))
+	nodeName := fmt.Sprintf("%s-%s", er.cluster.Name, getNodeSuffix(uuid, roleMap))
 
 	// if we have a data node then we need to create one deployment per replica
 	if isDataNode(node) {
@@ -44,11 +47,11 @@ func (elasticsearchRequest *ElasticsearchRequest) GetNodeTypeInterface(uuid stri
 		//   it is 1 instead of 0 because of legacy code
 		for replicaIndex := int32(1); replicaIndex <= node.NodeCount; replicaIndex++ {
 			dataNodeName := addDataNodeSuffix(nodeName, replicaIndex)
-			node := newDeploymentNode(dataNodeName, node, cluster, roleMap, elasticsearchRequest.client)
+			node := newDeploymentNode(dataNodeName, node, er.cluster, roleMap, er.client, er.esClient)
 			nodes = append(nodes, node)
 		}
 	} else {
-		node := newStatefulSetNode(nodeName, node, cluster, roleMap, elasticsearchRequest.client)
+		node := newStatefulSetNode(nodeName, node, er.cluster, roleMap, er.client, er.esClient)
 		nodes = append(nodes, node)
 	}
 
@@ -78,19 +81,19 @@ func addDataNodeSuffix(nodeName string, replicaNumber int32) string {
 }
 
 // newDeploymentNode constructs deploymentNode struct for data nodes
-func newDeploymentNode(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client) NodeTypeInterface {
+func newDeploymentNode(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, esClient elasticsearch.Client) NodeTypeInterface {
 	deploymentNode := deploymentNode{}
 
-	deploymentNode.populateReference(nodeName, node, cluster, roleMap, int32(1), client)
+	deploymentNode.populateReference(nodeName, node, cluster, roleMap, int32(1), client, esClient)
 
 	return &deploymentNode
 }
 
 // newStatefulSetNode constructs statefulSetNode struct for non-data nodes
-func newStatefulSetNode(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client) NodeTypeInterface {
+func newStatefulSetNode(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, esClient elasticsearch.Client) NodeTypeInterface {
 	statefulSetNode := statefulSetNode{}
 
-	statefulSetNode.populateReference(nodeName, node, cluster, roleMap, node.NodeCount, client)
+	statefulSetNode.populateReference(nodeName, node, cluster, roleMap, node.NodeCount, client, esClient)
 
 	return &statefulSetNode
 }
@@ -103,4 +106,16 @@ func containsNodeTypeInterface(node NodeTypeInterface, list []NodeTypeInterface)
 	}
 
 	return -1, false
+}
+
+func (er *ElasticsearchRequest) getNodeState(node NodeTypeInterface) *api.ElasticsearchNodeStatus {
+
+	index, status := getNodeStatus(node.name(), &er.cluster.Status)
+
+	if index == NOT_FOUND_INDEX {
+		state := node.state()
+		status = &state
+	}
+
+	return status
 }

@@ -35,30 +35,38 @@ func (fw *FakeClient) WasUpdated(name string) bool {
 	}
 	return false
 }
-func (fw *FakeClient) Create(ctx context.Context, obj runtime.Object) error {
+func (fw *FakeClient) Create(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
 	if fw.Error != nil {
 		return fw.Error
 	}
-	return fw.Client.Create(ctx, obj)
+	return fw.Client.Create(ctx, obj, opts...)
 }
 
-func (fw *FakeClient) Delete(ctx context.Context, obj runtime.Object, opts ...client.DeleteOptionFunc) error {
+func (fw *FakeClient) Delete(ctx context.Context, obj runtime.Object, opts ...client.DeleteOption) error {
 	return fw.Error
 }
 
-func (fw *FakeClient) Update(ctx context.Context, obj runtime.Object) error {
+func (fw *FakeClient) DeleteAllOf(ctx context.Context, obj runtime.Object, opts ...client.DeleteAllOfOption) error {
+	return fw.Error
+}
+
+func (fw *FakeClient) Update(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
 	fw.updated = append(fw.updated, obj)
-	return fw.Client.Update(ctx, obj)
+	return fw.Client.Update(ctx, obj, opts...)
 }
 
 func (fw *FakeClient) Get(ctx context.Context, key client.ObjectKey, obj runtime.Object) error {
 	return fw.Client.Get(ctx, key, obj)
 }
 
-func (fw *FakeClient) List(ctx context.Context, opts *client.ListOptions, list runtime.Object) error {
+func (fw *FakeClient) List(ctx context.Context, list runtime.Object, opts ...client.ListOption) error {
+	return fw.Error
+}
+
+func (fw *FakeClient) Patch(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
 	return fw.Error
 }
 
 func (fw *FakeClient) Status() client.StatusWriter {
-	return fw
+	return fw.Status()
 }
