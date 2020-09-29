@@ -155,6 +155,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		// ensure that MinMasters is (n / 2 + 1)
 		er.updateMinMasters()
 
+		// update our template primary shard counts in case they changed
+		er.updatePrimaryShards()
+
 		// ensure we always have shard allocation to All if we aren't doing an update...
 		er.tryEnsureAllShardAllocation()
 

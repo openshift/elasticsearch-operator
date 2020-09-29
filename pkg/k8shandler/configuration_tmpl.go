@@ -25,7 +25,7 @@ discovery.zen:
 
 gateway:
   recover_after_nodes: {{.NodeQuorum}}
-  expected_nodes: {{.RecoverExpectedShards}}
+  expected_nodes: {{.RecoverExpectedNodes}}
   recover_after_time: ${RECOVER_AFTER_TIME}
 
 path:

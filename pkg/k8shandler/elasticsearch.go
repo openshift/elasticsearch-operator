@@ -91,3 +91,12 @@ func (er *ElasticsearchRequest) updateReplicas() {
 		}
 	}
 }
+
+func (er *ElasticsearchRequest) updatePrimaryShards() {
+	if er.ClusterReady() {
+		primaryCount := int32(calculatePrimaryCount(er.cluster))
+		if err := er.esClient.UpdateTemplatePrimaryShards(primaryCount); err != nil {
+			er.L().Error(err, "Unable to update primary count")
+		}
+	}
+}
