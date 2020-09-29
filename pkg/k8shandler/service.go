@@ -15,9 +15,9 @@ import (
 )
 
 // CreateOrUpdateServices ensures the existence of the services for Elasticsearch cluster
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error {
+func (er *ElasticsearchRequest) CreateOrUpdateServices() error {
 
-	dpl := elasticsearchRequest.cluster
+	dpl := er.cluster
 
 	ownerRef := getOwnerRef(dpl)
 	annotations := make(map[string]string)
@@ -33,7 +33,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		true,
 		ownerRef,
 		map[string]string{},
-		elasticsearchRequest.client,
+		er.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -50,7 +50,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		false,
 		ownerRef,
 		map[string]string{},
-		elasticsearchRequest.client,
+		er.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)
@@ -62,7 +62,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		fmt.Sprintf("%s-%s", dpl.Name, "metrics"),
 		dpl.Namespace,
 		dpl.Name,
-		"restapi",
+		"metrics",
 		60001,
 		selectorForES("es-node-client", dpl.Name),
 		annotations,
@@ -71,7 +71,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateServices() error
 		map[string]string{
 			"scrape-metrics": "enabled",
 		},
-		elasticsearchRequest.client,
+		er.client,
 	)
 	if err != nil {
 		return fmt.Errorf("Failure creating service %v", err)

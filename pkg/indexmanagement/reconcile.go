@@ -13,7 +13,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
@@ -23,7 +22,7 @@ import (
 
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	"github.com/openshift/elasticsearch-operator/pkg/logger"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	k8s "github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
@@ -46,8 +45,8 @@ var (
 	millisPerDay    = uint64(millisPerHour * 24)
 	millisPerWeek   = uint64(millisPerDay * 7)
 
-	//fullExecMode 0777
-	fullExecMode = utils.GetInt32(int32(511))
+	//fullExecMode octal 0777
+	fullExecMode = utils.GetInt32(int32(0777))
 
 	imLabels = map[string]string{
 		"provider":      "openshift",
@@ -73,12 +72,13 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 			expected.Insert(fmt.Sprintf("%s-delete-%s", cluster.Name, mapping.Name))
 		}
 	}
-	logger.Debugf("Expecting to have cronjobs in %s: %v", cluster.Namespace, expected.List())
-
-	labelSelector := labels.SelectorFromSet(imLabels)
 
 	cronList := &batch.CronJobList{}
-	if err := apiclient.List(context.TODO(), &client.ListOptions{Namespace: cluster.Namespace, LabelSelector: labelSelector}, cronList); err != nil {
+	listOpts := []client.ListOption{
+		client.InNamespace(cluster.Namespace),
+		client.MatchingLabels(imLabels),
+	}
+	if err := apiclient.List(context.TODO(), cronList, listOpts...); err != nil {
 		return err
 	}
 	existing := sets.NewString()
@@ -86,7 +86,6 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 		existing.Insert(cron.Name)
 	}
 	difference := existing.Difference(expected)
-	logger.Debugf("Removing cronjobs in %s: %v", cluster.Namespace, difference.List())
 	for _, name := range difference.List() {
 		cronjob := &batch.CronJob{
 			TypeMeta: metav1.TypeMeta{
@@ -100,7 +99,7 @@ func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsea
 		}
 		err := apiclient.Delete(context.TODO(), cronjob)
 		if err != nil && !errors.IsNotFound(err) {
-			logger.Errorf("Failure culling %s/%s cronjob %v", cluster.Namespace, name, err)
+			log.Error(err, "Failed removing cronjob", "namespace", cluster.Namespace, "name", name)
 		}
 	}
 	return nil
@@ -122,7 +121,6 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 				return fmt.Errorf("Unable to get configmap %s/%s during reconciliation: %v", desired.Namespace, desired.Name, retryError)
 			}
 			if !reflect.DeepEqual(desired.Data, current.Data) {
-				logger.Debugf("Updating configmap %s/%s", current.Namespace, current.Name)
 				current.Data = desired.Data
 				return apiclient.Update(context.TODO(), current)
 			}
@@ -134,7 +132,7 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 
 func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
 	if policy.Phases.Hot == nil {
-		logger.Infof("Skipping rollover cronjob for policymapping %q; hot phase not defined", mapping.Name)
+		log.Info("Skipping rollover cronjob for policymapping; hot phase not defined", "policymapping", mapping.Name)
 		return nil
 	}
 	schedule, err := crontabScheduleFor(policy.PollInterval)
@@ -166,7 +164,7 @@ func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsear
 
 func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
 	if policy.Phases.Delete == nil {
-		logger.Infof("Skipping curation cronjob for policymapping %q; delete phase not defined", mapping.Name)
+		log.Info("Skipping curation cronjob for policymapping; delete phase not defined", "policymapping", mapping.Name)
 		return nil
 	}
 	schedule, err := crontabScheduleFor(policy.PollInterval)
@@ -218,63 +216,49 @@ func reconcileCronJob(apiclient client.Client, cluster *apis.Elasticsearch, desi
 }
 
 func areCronJobsSame(lhs, rhs *batch.CronJob) bool {
-	logger.Debugf("Evaluating cronjob '%s/%s' ...", lhs.Namespace, lhs.Name)
 	if len(lhs.Spec.JobTemplate.Spec.Template.Spec.Containers) != len(lhs.Spec.JobTemplate.Spec.Template.Spec.Containers) {
-		logger.Debugf("Container lengths are different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 		return false
 	}
 	if !comparators.AreStringMapsSame(lhs.Spec.JobTemplate.Spec.Template.Spec.NodeSelector, rhs.Spec.JobTemplate.Spec.Template.Spec.NodeSelector) {
-		logger.Debugf("NodeSelector is different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 		return false
 	}
 
 	if !comparators.AreTolerationsSame(lhs.Spec.JobTemplate.Spec.Template.Spec.Tolerations, rhs.Spec.JobTemplate.Spec.Template.Spec.Tolerations) {
-		logger.Debugf("Tolerations are different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 		return false
 	}
 	if lhs.Spec.Schedule != rhs.Spec.Schedule {
-		logger.Debugf("Schedule is different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 		lhs.Spec.Schedule = rhs.Spec.Schedule
 		return false
 	}
 	if lhs.Spec.Suspend != nil && rhs.Spec.Suspend != nil && *lhs.Spec.Suspend != *rhs.Spec.Suspend {
-		logger.Debugf("Suspend is different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 		return false
 	}
 
 	for i, container := range lhs.Spec.JobTemplate.Spec.Template.Spec.Containers {
-		logger.Debugf("Evaluating cronjob container %q ...", container.Name)
 		other := rhs.Spec.JobTemplate.Spec.Template.Spec.Containers[i]
 		if container.Name != other.Name {
-			logger.Debugf("Container name is different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 			return false
 		}
 		if container.Image != other.Image {
-			logger.Debugf("Container image is different between current and desired for %s/%s: %q != %q", lhs.Namespace, lhs.Name, container.Image, other.Image)
 			return false
 		}
 
 		if !reflect.DeepEqual(container.Command, other.Command) {
-			logger.Debugf("Container command is different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 			return false
 		}
 		if !reflect.DeepEqual(container.Args, other.Args) {
-			logger.Debugf("Container command args is different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 			return false
 		}
 
 		if !comparators.AreResourceRequementsSame(container.Resources, other.Resources) {
-			logger.Debugf("Container resources are different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 			return false
 		}
 
 		if !comparators.EnvValueEqual(container.Env, other.Env) {
-			logger.Debugf("Container EnvVars are different between current and desired for %s/%s", lhs.Namespace, lhs.Name)
 			return false
 		}
 
 	}
-	logger.Debug("The current and desired cronjobs are the same")
 	return true
 }
 

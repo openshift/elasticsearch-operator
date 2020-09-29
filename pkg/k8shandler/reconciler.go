@@ -3,22 +3,38 @@ package k8shandler
 import (
 	"fmt"
 
-	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/go-logr/logr"
+	elasticsearchv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ElasticsearchRequest struct {
-	client          client.Client
-	cluster         *elasticsearch.Elasticsearch
-	FnCurlEsService func(clusterName, namespace string, payload *esCurlStruct, client client.Client)
+	client   client.Client
+	cluster  *elasticsearchv1.Elasticsearch
+	esClient elasticsearch.Client
+	ll       logr.Logger
 }
 
-func Reconcile(requestCluster *elasticsearch.Elasticsearch, requestClient client.Client) error {
+// L is the logger used for this request.
+// TODO This needs to be removed in favor of using context.Context() with values.
+func (er *ElasticsearchRequest) L() logr.Logger {
+	if er.ll == nil {
+		er.ll = log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+	}
+	return er.ll
+}
+
+func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
+
+	esClient := elasticsearch.NewClient(requestCluster.Name, requestCluster.Namespace, requestClient)
 
 	elasticsearchRequest := ElasticsearchRequest{
-		client:          requestClient,
-		cluster:         requestCluster,
-		FnCurlEsService: curlESService,
+		client:   requestClient,
+		cluster:  requestCluster,
+		esClient: esClient,
+		ll:       log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// Ensure existence of servicesaccount
@@ -40,8 +56,12 @@ func Reconcile(requestCluster *elasticsearch.Elasticsearch, requestClient client
 		return fmt.Errorf("Failed to reconcile Services for Elasticsearch cluster: %v", err)
 	}
 
+	if err := elasticsearchRequest.CreateOrUpdateDashboards(); err != nil {
+		return fmt.Errorf("Failed to reconcile Dashboards for Elasticsearch cluster: %v", err)
+	}
+
 	// Ensure Elasticsearch cluster itself is up to spec
-	//if err = k8shandler.CreateOrUpdateElasticsearchCluster(cluster, "elasticsearch", "elasticsearch"); err != nil {
+	//if err = elasticsearch.CreateOrUpdateElasticsearchCluster(cluster, "elasticsearch", "elasticsearch"); err != nil {
 	if err := elasticsearchRequest.CreateOrUpdateElasticsearchCluster(); err != nil {
 		return fmt.Errorf("Failed to reconcile Elasticsearch deployment spec: %v", err)
 	}

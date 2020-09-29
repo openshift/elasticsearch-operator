@@ -8,53 +8,82 @@ import (
 // IndexManagementSpec specifies index management for an Elasticsearch cluster
 // +k8s:openapi-gen=true
 type IndexManagementSpec struct {
-	Policies []IndexManagementPolicySpec        `json:"policies"`
+	// A list of polices for managing an indices
+	//
+	// +optional
+	Policies []IndexManagementPolicySpec `json:"policies"`
+
+	// Mappings of policies to indicies
+	//
+	// +optional
 	Mappings []IndexManagementPolicyMappingSpec `json:"mappings"`
 }
 
-//TimeUnit is a time unit like h,m,d
+// TimeUnit is a time unit like h,m,d
+//
+// +kubebuilder:validation:Pattern:="^([0-9]+)([yMwdhHms]{0,1})$"
 type TimeUnit string
 
-//IndexManagementPolicySpec is a definition of an index management policy
+// IndexManagementPolicySpec is a definition of an index management policy
 // +k8s:openapi-gen=true
 type IndexManagementPolicySpec struct {
-	Name         string                    `json:"name"`
-	PollInterval TimeUnit                  `json:"pollInterval"`
-	Phases       IndexManagementPhasesSpec `json:"phases"`
+	// The unique name of the policy
+	Name string `json:"name"`
+
+	// How often to check an index meets the desired criteria (e.g. 1m)
+	PollInterval TimeUnit `json:"pollInterval"`
+
+	Phases IndexManagementPhasesSpec `json:"phases"`
 }
 
 // +k8s:openapi-gen=true
 type IndexManagementPhasesSpec struct {
-	Hot    *IndexManagementHotPhaseSpec    `json:"hot,omitempty"`
+	// +nullable
+	Hot *IndexManagementHotPhaseSpec `json:"hot,omitempty"`
+	// +nullable
 	Delete *IndexManagementDeletePhaseSpec `json:"delete,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 type IndexManagementDeletePhaseSpec struct {
+	// The minimum age of an index before it should be deleted (e.g. 10d)
+	//
 	MinAge TimeUnit `json:"minAge"`
 }
 
 // +k8s:openapi-gen=true
 type IndexManagementHotPhaseSpec struct {
+	// +optional
 	Actions IndexManagementActionsSpec `json:"actions"`
 }
 
 // +k8s:openapi-gen=true
 type IndexManagementActionsSpec struct {
+	// +nullable
+	// +optional
 	Rollover *IndexManagementActionSpec `json:"rollover"`
 }
 
 // +k8s:openapi-gen=true
 type IndexManagementActionSpec struct {
+	// The maximum age of an index before it should be rolled over (e.g. 7d)
 	MaxAge TimeUnit `json:"maxAge"`
 }
 
 //IndexManagementPolicyMappingSpec maps a management policy to an index
 // +k8s:openapi-gen=true
 type IndexManagementPolicyMappingSpec struct {
-	Name      string   `json:"name"`
-	PolicyRef string   `json:"policyRef"`
-	Aliases   []string `json:"aliases,omitempty"`
+	// The unique name of the policy mapping
+	//
+	// +optional
+	Name string `json:"name"`
+
+	// A reference to a defined policy
+	// +optional
+	PolicyRef string `json:"policyRef"`
+
+	// Aliases to apply to a template
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 type PolicyMap map[string]IndexManagementPolicySpec

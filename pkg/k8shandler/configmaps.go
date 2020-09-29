@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"runtime"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,6 +32,7 @@ type esYmlStruct struct {
 	EsUnicastHost         string
 	NodeQuorum            string
 	RecoverExpectedShards string
+	SystemCallFilter      string
 }
 
 type log4j2PropertiesStruct struct {
@@ -44,17 +46,63 @@ type indexSettingsStruct struct {
 	ReplicaShards string
 }
 
-// CreateOrUpdateConfigMaps ensures the existence of ConfigMaps with Elasticsearch configuration
-func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
+// CreateOrUpdateConfigMap reconciles a configmap
+func (er *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error {
+	err := er.client.Create(context.TODO(), cm)
+	if err == nil {
+		return nil
+	}
+	if !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("failure constructing ConfigMap: %w", err)
+	}
 
-	dpl := elasticsearchRequest.cluster
+	// Get existing configMap to check if it is same as what we want
+	current := cm.DeepCopy()
+	err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
+	if err != nil {
+		return fmt.Errorf("unable to get configMap: %w", err)
+	}
+
+	if configMapContentChanged(current, cm) {
+		// Cluster settings has changed, make sure it doesnt go unnoticed
+		if err := updateConditionWithRetry(er.cluster, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
+			return err
+		}
+
+		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
+				log.Info("Could not get configmap, retrying...", "configmap", cm.Name, "error", err)
+				// FIXME: return structured error and update RetryOnConflict to use errors.Is
+				return err
+			}
+
+			current.Data = cm.Data
+			if err := er.client.Update(context.TODO(), current); err != nil {
+				log.Error(err, "Failed to update configmap, retrying...", "configmap", cm.Name)
+				return err
+			}
+			return nil
+		})
+	} else {
+		if err := updateConditionWithRetry(er.cluster, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// CreateOrUpdateConfigMaps ensures the existence of ConfigMaps with Elasticsearch configuration
+func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
+
+	dpl := er.cluster
 
 	kibanaIndexMode, err := kibanaIndexMode("")
 	if err != nil {
 		return err
 	}
-	dataNodeCount := int((getDataCount(dpl)))
-	masterNodeCount := int((getMasterCount(dpl)))
+	dataNodeCount := int(getDataCount(dpl))
+	masterNodeCount := int(getMasterCount(dpl))
 
 	logConfig := getLogConfig(dpl.GetAnnotations())
 
@@ -68,12 +116,13 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 		strconv.Itoa(dataNodeCount),
 		strconv.Itoa(dataNodeCount),
 		strconv.Itoa(calculateReplicaCount(dpl)),
+		strconv.FormatBool(runtime.GOARCH == "amd64"),
 		logConfig,
 	)
 
 	addOwnerRefToObject(configmap, getOwnerRef(dpl))
 
-	err = elasticsearchRequest.client.Create(context.TODO(), configmap)
+	err = er.client.Create(context.TODO(), configmap)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
@@ -82,32 +131,32 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 		if errors.IsAlreadyExists(err) {
 			// Get existing configMap to check if it is same as what we want
 			current := configmap.DeepCopy()
-			err = elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
+			err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
 			if err != nil {
 				return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
 			}
 
 			if configMapContentChanged(current, configmap) {
 				// Cluster settings has changed, make sure it doesnt go unnoticed
-				if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+				if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
 					return err
 				}
 
 				return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					if getErr := elasticsearchRequest.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); getErr != nil {
-						logrus.Debugf("Could not get Elasticsearch configmap %v: %v", configmap.Name, getErr)
-						return getErr
+					if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
+						log.Error(err, "Could not get Elasticsearch configmap", configmap.Name)
+						return err
 					}
 
 					current.Data = configmap.Data
-					if updateErr := elasticsearchRequest.client.Update(context.TODO(), current); updateErr != nil {
-						logrus.Debugf("Failed to update Elasticsearch configmap %v: %v", configmap.Name, updateErr)
-						return updateErr
+					if err := er.client.Update(context.TODO(), current); err != nil {
+						log.Error(err, "Failed to update Elasticsearch configmap", configmap.Name)
+						return err
 					}
 					return nil
 				})
 			} else {
-				if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, elasticsearchRequest.client); err != nil {
+				if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
 					return err
 				}
 			}
@@ -117,11 +166,11 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 	return nil
 }
 
-func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount string, logConfig LogConfig) (error, map[string]string) {
+func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) (error, map[string]string) {
 
 	data := map[string]string{}
 	buf := &bytes.Buffer{}
-	if err := renderEsYml(buf, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards); err != nil {
+	if err := renderEsYml(buf, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, systemCallFilter); err != nil {
 		return err, data
 	}
 	data[esConfig] = buf.String()
@@ -143,9 +192,9 @@ func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShard
 
 // newConfigMap returns a v1.ConfigMap object
 func newConfigMap(configMapName, namespace string, labels map[string]string,
-	kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount string, logConfig LogConfig) *v1.ConfigMap {
+	kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) *v1.ConfigMap {
 
-	err, data := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, logConfig)
+	err, data := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, systemCallFilter, logConfig)
 	if err != nil {
 		return nil
 	}
@@ -189,7 +238,7 @@ func configMapContentChanged(old, new *v1.ConfigMap) bool {
 	return false
 }
 
-func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards string) error {
+func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, systemCallFilter string) error {
 	t := template.New("elasticsearch.yml")
 	config := esYmlTmpl
 	t, err := t.Parse(config)
@@ -201,6 +250,7 @@ func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost, nodeQuorum, recove
 		EsUnicastHost:         esUnicastHost,
 		NodeQuorum:            nodeQuorum,
 		RecoverExpectedShards: recoverExpectedShards,
+		SystemCallFilter:      systemCallFilter,
 	}
 
 	return t.Execute(w, esy)

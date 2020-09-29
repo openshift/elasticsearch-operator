@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -19,13 +21,18 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 const (
 	DefaultWorkingDir = "/tmp/ocp-eo"
 	OsNodeLabel       = "kubernetes.io/os"
 	LinuxValue        = "linux"
+)
+
+var (
+	errNoImageTag    = errors.New("no image tag")
+	errMissingEnvVar = errors.New("missing env variable")
 )
 
 // COMPONENT_IMAGES are thee keys are based on the "container name" + "-{image,version}"
@@ -41,12 +48,14 @@ func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 	if selectors == nil {
 		return map[string]string{OsNodeLabel: LinuxValue}
 	}
-	if os, ok := selectors[OsNodeLabel]; ok {
-		if os == LinuxValue {
+	if name, ok := selectors[OsNodeLabel]; ok {
+		if name == LinuxValue {
 			return selectors
 		}
 		// Selector is provided but is not "linux"
-		logrus.Warnf("Overriding node selector value: %s=%s to %s", OsNodeLabel, os, LinuxValue)
+		log.Info("Overriding node selector value",
+			"from", fmt.Sprintf("%s=%s", OsNodeLabel, name),
+			"to", LinuxValue)
 	}
 	selectors[OsNodeLabel] = LinuxValue
 	return selectors
@@ -203,27 +212,24 @@ func GetComponentImage(component string) string {
 
 	env_var_name, ok := COMPONENT_IMAGES[component]
 	if !ok {
-		logrus.Errorf("Environment variable name mapping missing for component: %s", component)
+		log.Error(errMissingEnvVar, "Environment variable name mapping missing for component", "component", component)
 		return ""
 	}
 	imageTag := os.Getenv(env_var_name)
 	if imageTag == "" {
-		logrus.Errorf("No image tag defined for component '%s' by environment variable '%s'", component, env_var_name)
+		log.Error(errNoImageTag, "No image tag defined", "component", component, "environment_variable", env_var_name)
 	}
-	logrus.Debugf("Setting component image for '%s' to: '%s'", component, imageTag)
 	return imageTag
 }
 
 func GetFileContents(filePath string) []byte {
-
 	if filePath == "" {
-		logrus.Debug("Empty file path provided for retrieving file contents")
 		return nil
 	}
 
 	contents, err := ioutil.ReadFile(filepath.Clean(filePath))
 	if err != nil {
-		logrus.Errorf("Operator unable to read local file to get contents: %v", err)
+		log.Error(err, "Operator unable to read local file to get contents")
 		return nil
 	}
 
@@ -439,12 +445,9 @@ func EnvVarSourceEqual(esource1, esource2 v1.EnvVarSource) bool {
 }
 
 func EnvVarResourceFieldSelectorEqual(resource1, resource2 v1.ResourceFieldSelector) bool {
-	if (resource1.ContainerName == resource2.ContainerName) &&
-		(resource1.Resource == resource2.Resource) &&
-		(resource1.Divisor.Cmp(resource2.Divisor) == 0) {
-		return true
-	}
-	return false
+	return resource1.ContainerName == resource2.ContainerName &&
+		resource1.Resource == resource2.Resource &&
+		resource1.Divisor.Cmp(resource2.Divisor) == 0
 }
 
 func SetProxyEnvVars(proxyConfig *configv1.Proxy) []v1.EnvVar {
@@ -483,4 +486,19 @@ func SetProxyEnvVars(proxyConfig *configv1.Proxy) []v1.EnvVar {
 			})
 	}
 	return envVars
+}
+
+func Contains(list []string, s string) bool {
+	for _, item := range list {
+		if s == item {
+			return true
+		}
+	}
+
+	return false
+}
+
+func GetMajorVersion(v string) string {
+	ver := strings.Split(v, ".")
+	return ver[0]
 }

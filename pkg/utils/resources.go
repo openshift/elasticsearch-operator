@@ -3,7 +3,7 @@ package utils
 import (
 	"reflect"
 
-	"github.com/sirupsen/logrus"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1beta1"
@@ -13,28 +13,29 @@ import (
 func CompareResources(current, desired v1.ResourceRequirements) (bool, v1.ResourceRequirements) {
 
 	changed := false
+	desiredResources := *current.DeepCopy()
 
 	if desired.Limits.Cpu().Cmp(*current.Limits.Cpu()) != 0 {
-		current.Limits[v1.ResourceCPU] = *desired.Limits.Cpu()
+		desiredResources.Limits[v1.ResourceCPU] = *desired.Limits.Cpu()
 		changed = true
 	}
 	// Check memory limits
 	if desired.Limits.Memory().Cmp(*current.Limits.Memory()) != 0 {
-		current.Limits[v1.ResourceMemory] = *desired.Limits.Memory()
+		desiredResources.Limits[v1.ResourceMemory] = *desired.Limits.Memory()
 		changed = true
 	}
 	// Check CPU requests
 	if desired.Requests.Cpu().Cmp(*current.Requests.Cpu()) != 0 {
-		current.Requests[v1.ResourceCPU] = *desired.Requests.Cpu()
+		desiredResources.Requests[v1.ResourceCPU] = *desired.Requests.Cpu()
 		changed = true
 	}
 	// Check memory requests
 	if desired.Requests.Memory().Cmp(*current.Requests.Memory()) != 0 {
-		current.Requests[v1.ResourceMemory] = *desired.Requests.Memory()
+		desiredResources.Requests[v1.ResourceMemory] = *desired.Requests.Memory()
 		changed = true
 	}
 
-	return changed, current
+	return changed, desiredResources
 }
 
 func AreResourcesDifferent(current, desired interface{}) bool {
@@ -46,7 +47,7 @@ func AreResourcesDifferent(current, desired interface{}) bool {
 	desiredType := reflect.TypeOf(desired)
 
 	if currentType != desiredType {
-		logrus.Warnf("Attempting to compare resources for different types [%v] and [%v]", currentType, desiredType)
+		log.Info("Attempting to compare resources for different types", "current", currentType, "desired", desiredType)
 		return false
 	}
 
@@ -64,7 +65,7 @@ func AreResourcesDifferent(current, desired interface{}) bool {
 		desiredContainers = desired.(*batch.CronJob).Spec.JobTemplate.Spec.Template.Spec.Containers
 
 	default:
-		logrus.Warnf("Attempting to check resources for unmatched type [%v]", currentType)
+		log.Info("Attempting to check resources for unmatched type", "type", currentType)
 		return false
 	}
 
