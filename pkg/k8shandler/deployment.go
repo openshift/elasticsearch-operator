@@ -71,7 +71,7 @@ func (node *deploymentNode) populateReference(nodeName string, n api.Elasticsear
 		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, n, cluster.Spec.Spec, labels, roleMap, client, logConfig),
 	}
 
-	addOwnerRefToObject(&deployment, getOwnerRef(cluster))
+	cluster.AddOwnerRefTo(&deployment)
 
 	node.self = deployment
 	node.clusterName = cluster.Name

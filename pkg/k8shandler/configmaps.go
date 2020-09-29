@@ -120,7 +120,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 		logConfig,
 	)
 
-	addOwnerRefToObject(configmap, getOwnerRef(dpl))
+	dpl.AddOwnerRefTo(configmap)
 
 	err = er.client.Create(context.TODO(), configmap)
 	if err != nil {

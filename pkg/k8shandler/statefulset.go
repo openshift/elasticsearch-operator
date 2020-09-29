@@ -84,7 +84,7 @@ func (n *statefulSetNode) populateReference(nodeName string, node api.Elasticsea
 	}
 	statefulSet.Spec.Template.Spec.Containers[0].ReadinessProbe = nil
 
-	addOwnerRefToObject(&statefulSet, getOwnerRef(cluster))
+	cluster.AddOwnerRefTo(&statefulSet)
 
 	n.self = statefulSet
 	n.clusterName = cluster.Name
