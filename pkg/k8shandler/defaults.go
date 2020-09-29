@@ -20,7 +20,8 @@ const (
 	defaultESProxyMemoryLimit   = "64Mi"
 	defaultESProxyMemoryRequest = "64Mi"
 
-	maxMasterCount = 3
+	maxMasterCount       = 3
+	maxPrimaryShardCount = 5
 
 	elasticsearchCertsPath  = "/etc/openshift/elasticsearch/secret"
 	elasticsearchConfigPath = "/usr/share/java/elasticsearch/config"
@@ -48,8 +49,19 @@ func esUnicastHost(clusterName, namespace string) string {
 	return fmt.Sprintf("%v-cluster.%v.svc", clusterName, namespace)
 }
 
+func calculatePrimaryCount(dpl *api.Elasticsearch) int {
+	dataNodeCount := int(getDataCount(dpl))
+	if dataNodeCount > maxPrimaryShardCount {
+		return maxPrimaryShardCount
+	}
+
+	// we can just return this without error checking because we validate
+	// we have at least one data node in the cluster
+	return dataNodeCount
+}
+
 func calculateReplicaCount(dpl *api.Elasticsearch) int {
-	dataNodeCount := int((getDataCount(dpl)))
+	dataNodeCount := int(getDataCount(dpl))
 	repType := dpl.Spec.RedundancyPolicy
 	switch repType {
 	case api.FullRedundancy:
