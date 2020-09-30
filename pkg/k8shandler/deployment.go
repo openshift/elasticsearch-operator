@@ -74,7 +74,7 @@ func (deploymentNode *deploymentNode) populateReference(nodeName string, node ap
 		Template:                newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, node, cluster.Spec.Spec, labels, roleMap, client, logConfig),
 	}
 
-	addOwnerRefToObject(&deployment, getOwnerRef(cluster))
+	cluster.AddOwnerRefTo(&deployment)
 
 	deploymentNode.self = deployment
 	deploymentNode.clusterName = cluster.Name

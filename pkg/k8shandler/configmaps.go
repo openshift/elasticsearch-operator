@@ -74,7 +74,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateConfigMaps() (er
 		logConfig,
 	)
 
-	addOwnerRefToObject(configmap, getOwnerRef(dpl))
+	dpl.AddOwnerRefTo(configmap)
 
 	err = elasticsearchRequest.client.Create(context.TODO(), configmap)
 	if err != nil {

@@ -73,7 +73,7 @@ func (statefulSetNode *statefulSetNode) populateReference(nodeName string, node 
 	}
 	statefulSet.Spec.Template.Spec.Containers[0].ReadinessProbe = nil
 
-	addOwnerRefToObject(&statefulSet, getOwnerRef(cluster))
+	cluster.AddOwnerRefTo(&statefulSet)
 
 	statefulSetNode.self = statefulSet
 	statefulSetNode.clusterName = cluster.Name
