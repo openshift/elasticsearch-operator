@@ -36,7 +36,7 @@ prometheus:
   indices: false
 
 # increase the max header size above 8kb default
-http.max_header_size: 16kb
+http.max_header_size: 128kb
 
 opendistro_security:
   authcz.admin_dn:
