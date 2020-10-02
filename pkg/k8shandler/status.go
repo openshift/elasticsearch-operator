@@ -205,146 +205,175 @@ func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchSt
 		er.refreshDiskWatermarkThresholds()
 	}
 
-	for nodeIndex := range status.Nodes {
-		node := &status.Nodes[nodeIndex]
+	for nodeIndex, nodeStatus := range status.Nodes {
+		nodeStatus := &nodeStatus
 
 		nodeName := "unknown name"
-		if node.DeploymentName != "" {
-			nodeName = node.DeploymentName
+		if nodeStatus.DeploymentName != "" {
+			nodeName = nodeStatus.DeploymentName
 		} else {
-			if node.StatefulSetName != "" {
-				nodeName = node.StatefulSetName
+			if nodeStatus.StatefulSetName != "" {
+				nodeName = nodeStatus.StatefulSetName
 			}
 		}
 
-		nodePodList, _ := GetPodList(
-			cluster.Namespace,
-			map[string]string{
-				"component":    "elasticsearch",
-				"cluster-name": cluster.Name,
-				"node-name":    nodeName,
-			},
-			er.client,
-		)
-		for _, nodePod := range nodePodList.Items {
+		matchingLabels := map[string]string{
+			"component":    "elasticsearch",
+			"cluster-name": cluster.Name,
+			"node-name":    nodeName,
+		}
 
-			isUnschedulable := false
-			for _, podCondition := range nodePod.Status.Conditions {
-				if podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse {
-					podCondition.Type = v1.PodReasonUnschedulable
-					podCondition.Status = v1.ConditionTrue
-					updatePodUnschedulableCondition(node, podCondition)
-					isUnschedulable = true
-				}
-			}
+		nodePodList, _ := GetPodList(cluster.Namespace, matchingLabels, er.client)
 
-			if isUnschedulable {
-				continue
-			}
-			updatePodUnschedulableCondition(node, v1.PodCondition{
-				Status: v1.ConditionFalse,
-			})
+		er.pruneStatus(status, nodeIndex, nodeName, nodePodList.Items)
+		er.updatePodNodeConditions(nodeName, nodeStatus, nodePodList.Items, thresholdEnabled)
+	}
+}
 
-			// if the pod can't be scheduled we shouldn't enter here
-			for _, containerStatus := range nodePod.Status.ContainerStatuses {
-				if containerStatus.Name == "elasticsearch" {
-					if containerStatus.State.Waiting != nil {
-						updatePodNotReadyCondition(
-							node,
-							api.ESContainerWaiting,
-							containerStatus.State.Waiting.Reason,
-							containerStatus.State.Waiting.Message,
-						)
-					} else {
-						updatePodNotReadyCondition(
-							node,
-							api.ESContainerWaiting,
-							"",
-							"",
-						)
-					}
-					if containerStatus.State.Terminated != nil {
-						updatePodNotReadyCondition(
-							node,
-							api.ESContainerTerminated,
-							containerStatus.State.Terminated.Reason,
-							containerStatus.State.Terminated.Message,
-						)
-					} else {
-						updatePodNotReadyCondition(
-							node,
-							api.ESContainerTerminated,
-							"",
-							"",
-						)
-					}
-				}
-				if containerStatus.Name == "proxy" {
-					if containerStatus.State.Waiting != nil {
-						updatePodNotReadyCondition(
-							node,
-							api.ProxyContainerWaiting,
-							containerStatus.State.Waiting.Reason,
-							containerStatus.State.Waiting.Message,
-						)
-					} else {
-						updatePodNotReadyCondition(
-							node,
-							api.ProxyContainerWaiting,
-							"",
-							"",
-						)
-					}
-					if containerStatus.State.Terminated != nil {
-						updatePodNotReadyCondition(
-							node,
-							api.ProxyContainerTerminated,
-							containerStatus.State.Terminated.Reason,
-							containerStatus.State.Terminated.Message,
-						)
-					} else {
-						updatePodNotReadyCondition(
-							node,
-							api.ProxyContainerTerminated,
-							"",
-							"",
-						)
+func (er *ElasticsearchRequest) pruneStatus(status *api.ElasticsearchStatus, nodeIndex int, nodeName string, pods []v1.Pod) {
+	clusterNodes := nodes[nodeMapKey(er.cluster.GetName(), er.cluster.GetNamespace())]
+
+	for _, node := range clusterNodes {
+		if nodeName == node.name() && node.isMissing() {
+			logrus.Debug("Pruning node status")
+			// Prune node status list for non existing nodes
+			status.Nodes = append(status.Nodes[:nodeIndex], status.Nodes[nodeIndex+1:]...)
+
+			if len(pods) == 0 {
+				for nodeRole, podStateMap := range status.Pods {
+					for podState, podNames := range podStateMap {
+						for idx, podName := range podNames {
+							if strings.HasPrefix(podName, nodeName) {
+								// Prune pod state maps for non existing pods
+								status.Pods[nodeRole][podState] = append(podNames[:idx], podNames[idx+1:]...)
+							}
+						}
 					}
 				}
 			}
+		}
+	}
+}
 
-			if !thresholdEnabled {
-				// disk threshold is not enabled, continue to next node
-				continue
+func (er *ElasticsearchRequest) updatePodNodeConditions(nodeName string, node *api.ElasticsearchNodeStatus, pods []v1.Pod, thresholdEnabled bool) {
+
+	for _, nodePod := range pods {
+
+		isUnschedulable := false
+		for _, podCondition := range nodePod.Status.Conditions {
+			if podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse {
+				podCondition.Type = v1.PodReasonUnschedulable
+				podCondition.Status = v1.ConditionTrue
+				updatePodUnschedulableCondition(node, podCondition)
+				isUnschedulable = true
 			}
+		}
 
-			usage, percent, err := esClient.GetNodeDiskUsage(nodeName)
-			if err != nil {
-				logrus.Debugf("Unable to get disk usage for %v", nodeName)
-				continue
-			}
+		if isUnschedulable {
+			continue
+		}
+		updatePodUnschedulableCondition(node, v1.PodCondition{
+			Status: v1.ConditionFalse,
+		})
 
-			if exceedsLowWatermark(usage, percent) {
-				if exceedsHighWatermark(usage, percent) {
-					updatePodNodeStorageCondition(
+		// if the pod can't be scheduled we shouldn't enter here
+		for _, containerStatus := range nodePod.Status.ContainerStatuses {
+			if containerStatus.Name == "elasticsearch" {
+				if containerStatus.State.Waiting != nil {
+					updatePodNotReadyCondition(
 						node,
-						"Disk Watermark High",
-						fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Shards will be relocated from this node.", usage, percent),
+						api.ESContainerWaiting,
+						containerStatus.State.Waiting.Reason,
+						containerStatus.State.Waiting.Message,
 					)
 				} else {
-					updatePodNodeStorageCondition(
+					updatePodNotReadyCondition(
 						node,
-						"Disk Watermark Low",
-						fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Shards will be not be allocated on this node.", usage, percent),
+						api.ESContainerWaiting,
+						"",
+						"",
 					)
 				}
-			} else {
-				if percent > float64(0.0) {
-					// if we were able to pull the usage but it isn't above the thresholds -- clear the status message
-					updatePodNodeStorageCondition(node, "", "")
+				if containerStatus.State.Terminated != nil {
+					updatePodNotReadyCondition(
+						node,
+						api.ESContainerTerminated,
+						containerStatus.State.Terminated.Reason,
+						containerStatus.State.Terminated.Message,
+					)
+				} else {
+					updatePodNotReadyCondition(
+						node,
+						api.ESContainerTerminated,
+						"",
+						"",
+					)
 				}
 			}
+			if containerStatus.Name == "proxy" {
+				if containerStatus.State.Waiting != nil {
+					updatePodNotReadyCondition(
+						node,
+						api.ProxyContainerWaiting,
+						containerStatus.State.Waiting.Reason,
+						containerStatus.State.Waiting.Message,
+					)
+				} else {
+					updatePodNotReadyCondition(
+						node,
+						api.ProxyContainerWaiting,
+						"",
+						"",
+					)
+				}
+				if containerStatus.State.Terminated != nil {
+					updatePodNotReadyCondition(
+						node,
+						api.ProxyContainerTerminated,
+						containerStatus.State.Terminated.Reason,
+						containerStatus.State.Terminated.Message,
+					)
+				} else {
+					updatePodNotReadyCondition(
+						node,
+						api.ProxyContainerTerminated,
+						"",
+						"",
+					)
+				}
+			}
+		}
 
+		if !thresholdEnabled {
+			// disk threshold is not enabled, continue to next node
+			continue
+		}
+
+		usage, percent, err := er.esClient.GetNodeDiskUsage(nodeName)
+		if err != nil {
+			logrus.Debugf("Unable to get disk usage for %v", nodeName)
+			continue
+		}
+
+		if exceedsLowWatermark(usage, percent) {
+			if exceedsHighWatermark(usage, percent) {
+				updatePodNodeStorageCondition(
+					node,
+					"Disk Watermark High",
+					fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Shards will be relocated from this node.", usage, percent),
+				)
+			} else {
+				updatePodNodeStorageCondition(
+					node,
+					"Disk Watermark Low",
+					fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Shards will be not be allocated on this node.", usage, percent),
+				)
+			}
+		} else {
+			if percent > float64(0.0) {
+				// if we were able to pull the usage but it isn't above the thresholds -- clear the status message
+				updatePodNodeStorageCondition(node, "", "")
+			}
 		}
 	}
 }
