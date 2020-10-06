@@ -197,8 +197,8 @@ try_func_until_result_is_not_empty get_es_indices_names ${ES_POD_TIMEOUT}
 new_indices=$(get_es_indices_names)
 
 if [ "$old_indices" != "$new_indices" ]; then
-  log:info "Test failed"
+  log::info "Test failed"
   exit 1
 fi
 
-log:info "Test passed"
+log::info "Test passed"
