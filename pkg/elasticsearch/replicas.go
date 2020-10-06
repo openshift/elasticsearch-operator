@@ -1,7 +1,6 @@
 package elasticsearch
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -62,49 +61,6 @@ func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	return payload.ResponseBody, payload.Error
-}
-
-func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, error) {
-
-	// get the index template and then update the replica and put it
-	indexTemplates, _ := ec.GetIndexTemplates()
-
-	for templateName := range indexTemplates {
-
-		if template, ok := indexTemplates[templateName].(map[string]interface{}); ok {
-			if settings, ok := template["settings"].(map[string]interface{}); ok {
-				if index, ok := settings["index"].(map[string]interface{}); ok {
-					currentReplicas, ok := index["number_of_replicas"].(string)
-
-					if ok && currentReplicas != fmt.Sprintf("%d", replicaCount) {
-						template["settings"].(map[string]interface{})["index"].(map[string]interface{})["number_of_replicas"] = fmt.Sprintf("%d", replicaCount)
-
-						templateJson, _ := json.Marshal(template)
-
-						payload := &EsRequest{
-							Method:      http.MethodPut,
-							URI:         fmt.Sprintf("_template/%s", templateName),
-							RequestBody: string(templateJson),
-						}
-
-						ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-
-						acknowledged := false
-						if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
-							acknowledged = acknowledgedBool
-						}
-
-						if !(payload.StatusCode == 200 && acknowledged) {
-							log.Error(payload.Error, "unable to update tmeplate", "template", templateName)
-						}
-					}
-				}
-			}
-		}
-
-	}
-
-	return true, nil
 }
 
 func (ec *esClient) updateIndexReplicas(index string, replicaCount int32) (bool, error) {

@@ -50,6 +50,38 @@ type IndexTemplate struct {
 	Aliases  map[string]IndexAlias `json:"aliases,omitempty"`
 }
 
+type GetIndexTemplate struct {
+	Order         int32                           `json:"order,omitempty"`
+	IndexPatterns []string                        `json:"index_patterns,omitempty"`
+	Settings      GetIndexTemplateSettings        `json:"settings,omitempty"`
+	Aliases       map[string]IndexAlias           `json:"aliases,omitempty"`
+	Mappings      map[string]IndexMappingSettings `json:"mappings,omitempty"`
+}
+
+type GetIndexTemplateSettings struct {
+	Index IndexTemplateSettings `json:"index,omitempty"`
+}
+
+type IndexTemplateSettings struct {
+	Unassigned       UnassignedIndexSetting `json:"unassigned,omitempty"`
+	Translog         TranslogIndexSetting   `json:"translog,omitempty"`
+	RefreshInterval  string                 `json:"refresh_interval,omitempty"`
+	NumberOfShards   string                 `json:"number_of_shards,omitempty"`
+	NumberOfReplicas string                 `json:"number_of_replicas,omitempty"`
+}
+
+type UnassignedIndexSetting struct {
+	NodeLeft NodeLeftSetting `json:"node_left,omitempty"`
+}
+
+type NodeLeftSetting struct {
+	DelayedTimeout string `json:"delayed_timeout,omitempty"`
+}
+
+type TranslogIndexSetting struct {
+	FlushThresholdSize string `json:"flush_threshold_size,omitempty"`
+}
+
 type Aliases struct {
 }
 

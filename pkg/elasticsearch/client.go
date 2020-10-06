@@ -83,7 +83,8 @@ type Client interface {
 	CreateIndexTemplate(name string, template *estypes.IndexTemplate) error
 	DeleteIndexTemplate(name string) error
 	ListTemplates() (sets.String, error)
-	GetIndexTemplates() (map[string]interface{}, error)
+	GetIndexTemplates() (map[string]estypes.GetIndexTemplate, error)
+	UpdateTemplatePrimaryShards(shardCount int32) error
 
 	SetSendRequestFn(fn FnEsSendRequest)
 }
