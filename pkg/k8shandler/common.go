@@ -3,6 +3,7 @@ package k8shandler
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 
@@ -597,39 +598,35 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 	specVol := node.Storage
 	volSource := v1.VolumeSource{}
 
-	switch {
-	case specVol.StorageClassName != nil && specVol.Size != nil:
-		claimName := fmt.Sprintf("%s-%s", clusterName, nodeName)
-		volSource.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{
-			ClaimName: claimName,
-		}
-
-		volSpec := v1.PersistentVolumeClaimSpec{
-			AccessModes: []v1.PersistentVolumeAccessMode{
-				v1.ReadWriteOnce,
-			},
-			Resources: v1.ResourceRequirements{
-				Requests: v1.ResourceList{
-					v1.ResourceStorage: *specVol.Size,
-				},
-			},
-			StorageClassName: specVol.StorageClassName,
-		}
-
-		err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, namespace, clusterName, client)
-		if err != nil {
-			log.Error(err, "Unable to create PersistentVolumeClaim")
-		}
-
-	case specVol.Size != nil:
-		volSource.EmptyDir = &v1.EmptyDirVolumeSource{
-			SizeLimit: specVol.Size,
-		}
-
-	default:
+	// Ephemeral storage
+	emptySpecVol := api.ElasticsearchStorageSpec{}
+	if reflect.DeepEqual(specVol, emptySpecVol) {
 		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
+		return volSource
 	}
 
+	// Persistent storage
+	claimName := fmt.Sprintf("%s-%s", clusterName, nodeName)
+	volSource.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{
+		ClaimName: claimName,
+	}
+
+	volSpec := v1.PersistentVolumeClaimSpec{
+		AccessModes: []v1.PersistentVolumeAccessMode{
+			v1.ReadWriteOnce,
+		},
+		Resources: v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				v1.ResourceStorage: *specVol.Size,
+			},
+		},
+		StorageClassName: specVol.StorageClassName,
+	}
+
+	err := createOrUpdatePersistentVolumeClaim(volSpec, claimName, namespace, clusterName, client)
+	if err != nil {
+		log.Error(err, "Unable to create PersistentVolumeClaim")
+	}
 	return volSource
 }
 

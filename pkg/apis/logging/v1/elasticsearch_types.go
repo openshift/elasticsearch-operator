@@ -144,7 +144,7 @@ type ElasticsearchNode struct {
 	// The type of backing storage that should be used for the node
 	//
 	// +optional
-	Storage ElasticsearchStorageSpec `json:"storage"`
+	Storage ElasticsearchStorageSpec `json:"storage,omitempty"`
 
 	// GenUUID will be populated by the operator if not provided
 	//
@@ -185,6 +185,7 @@ type ElasticsearchNodeSpec struct {
 type ElasticsearchStorageSpec struct {
 	// The name of the storage class to use with creating the node's PVC.
 	// More info: https://kubernetes.io/docs/concepts/storage/storage-classes/
+	// +optional
 	StorageClassName *string `json:"storageClassName,omitempty"`
 
 	// The max storage capacity for the node to provision.
