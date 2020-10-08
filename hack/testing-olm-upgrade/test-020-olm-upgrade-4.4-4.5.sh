@@ -66,6 +66,13 @@ get_es_indices() {
     | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices
 }
 
+get_index_count() {
+  index=$1
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=$index/_count | grep -o 'count\":[0-9]*'|cut -d':' -f2
+}
+
 get_es_indices_names() {
   oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
     | awk 'NR==1{print $1}' \
@@ -150,6 +157,9 @@ log::info "Reading old ES indices"
 try_func_until_result_is_not_empty get_es_indices ${ES_POD_TIMEOUT}
 old_indices=$(get_es_indices_names)
 
+log::info "Reading count of .operations"
+infra_count=$(get_index_count '.operations*')
+
 #### INSTALLING 4.5
 log::info "Deploying the ES operator from the catalog..."
 # deploy cluster logging catalog from local code
@@ -200,5 +210,10 @@ if [ "$old_indices" != "$new_indices" ]; then
   log::info "Test failed"
   exit 1
 fi
-
+log::info "Check count of infra indices"
+post_infra_count=$(get_index_count 'infra')
+if [ "$post_infra_count" -lt "$infra_count" ] ; then
+  log::info "Test failed - There should be more infra records after migration"
+  exit 1
+fi
 log::info "Test passed"
