@@ -366,7 +366,7 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 func TestProxyContainerResourcesDefined(t *testing.T) {
 
 	expectedCPU := resource.MustParse("100m")
-	expectedMemory := resource.MustParse("64Mi")
+	expectedMemory := resource.MustParse("256Mi")
 
 	empty := v1.ResourceRequirements{}
 	proxyResources := newESProxyResourceRequirements(empty, empty)

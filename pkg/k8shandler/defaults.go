@@ -17,8 +17,8 @@ const (
 	defaultESMemoryRequest = "1Gi"
 	// ESProxy
 	defaultESProxyCpuRequest    = "100m"
-	defaultESProxyMemoryLimit   = "64Mi"
-	defaultESProxyMemoryRequest = "64Mi"
+	defaultESProxyMemoryLimit   = "256Mi"
+	defaultESProxyMemoryRequest = "256Mi"
 
 	maxMasterCount       = 3
 	maxPrimaryShardCount = 5
