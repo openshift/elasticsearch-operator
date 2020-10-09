@@ -52,8 +52,12 @@ clean:
 fmt:
 	@gofmt -s -l -w $(shell find pkg cmd test -name '*.go')
 
-lint: $(GOLANGCI_LINT) fmt
+lint: $(GOLANGCI_LINT) fmt lint-prom
 	@$(GOLANGCI_LINT) run -c golangci.yaml
+
+lint-prom: $(PROMTOOL)
+	@$(PROMTOOL) check rules ./files/prometheus_rules.yml
+	@$(PROMTOOL) check rules ./files/prometheus_alerts.yml
 
 image:
 	@if [ $${SKIP_BUILD:-false} = false ] ; then \

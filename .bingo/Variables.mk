@@ -46,3 +46,9 @@ $(OPM): .bingo/opm.mod
 	@echo "(re)installing $(GOBIN)/opm-v1.13.6"
 	@cd .bingo && $(GO) build -mod=mod  -modfile=opm.mod -o=$(GOBIN)/opm-v1.13.6 "github.com/operator-framework/operator-registry/cmd/opm"
 
+PROMTOOL := $(GOBIN)/promtool-v1.8.2-0.20200522113006-f4dd45609a05
+$(PROMTOOL): .bingo/promtool.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/promtool-v1.8.2-0.20200522113006-f4dd45609a05"
+	@cd .bingo && $(GO) build -mod=mod -modfile=promtool.mod -o=$(GOBIN)/promtool-v1.8.2-0.20200522113006-f4dd45609a05 "github.com/prometheus/prometheus/cmd/promtool"
+
