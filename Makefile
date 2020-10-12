@@ -9,7 +9,7 @@ export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
 
-export OCP_VERSION=4.6
+export OCP_VERSION=4.7
 
 export APP_NAME=elasticsearch-operator
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
@@ -123,7 +123,7 @@ uninstall:
 	$(MAKE) elasticsearch-catalog-uninstall
 .PHONY: uninstall
 
-MANIFEST_VERSION?="4.6"
+MANIFEST_VERSION?="4.7"
 generate-bundle: regenerate $(OPM)
 	mkdir -p bundle; \
 	$(OPM) alpha bundle generate --directory manifests/${MANIFEST_VERSION} --package elasticsearch-operator --channels ${MANIFEST_VERSION} --default ${MANIFEST_VERSION} --output-dir bundle/; \
