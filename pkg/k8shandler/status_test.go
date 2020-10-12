@@ -2,6 +2,7 @@ package k8shandler
 
 import (
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -365,4 +366,84 @@ func populateNodes(clusterName string, objs []runtime.Object, client client.Clie
 		nodes = append(nodes, node)
 	}
 	return nodes
+}
+
+func TestUnschedulableNodesConditions(t *testing.T) {
+
+	testCluster := &loggingv1.Elasticsearch{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-namespace",
+			Name:      "elasticsearch",
+		},
+		Status: loggingv1.ElasticsearchStatus{
+			Nodes: []loggingv1.ElasticsearchNodeStatus{
+				{
+					DeploymentName: "elasticsearch-cdm-lvmn62il-1",
+				},
+			},
+		},
+	}
+
+	nowTime, _ := time.Parse("RFC3339", "2020-10-12T20:40:18Z")
+	transitionTime := metav1.NewTime(nowTime)
+
+	mockedPodList := &corev1.PodList{
+		Items: []corev1.Pod{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Pod",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"cluster-name":   "elasticsearch",
+						"component":      "elasticsearch",
+						"es-node-client": "true",
+						"es-node-data":   "true",
+						"es-node-master": "true",
+						"node-name":      "elasticsearch-cdm-lvmn62il-1",
+					},
+					Namespace: "test-namespace",
+				},
+				Status: corev1.PodStatus{
+					Conditions: []corev1.PodCondition{
+						{
+							Type:               corev1.PodScheduled,
+							Status:             corev1.ConditionFalse,
+							Reason:             corev1.PodReasonUnschedulable,
+							Message:            "0/6 nodes are available: 6 Insufficient memory.",
+							LastTransitionTime: transitionTime,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	mockClient := fake.NewFakeClient(mockedPodList)
+	er := &ElasticsearchRequest{client: mockClient, cluster: testCluster}
+
+	// call updatePodNodeConditions and verify we have the correct node conditions
+
+	status := testCluster.Status.DeepCopy()
+
+	err := er.updatePodNodeConditions(status, false)
+
+	if err != nil {
+		t.Errorf("Received error while testing updating pod node conditions: %v", err)
+	}
+
+	testCluster.Status.Nodes[0].Conditions = []loggingv1.ClusterCondition{
+		{
+			Type:               loggingv1.Unschedulable,
+			Reason:             "Unschedulable",
+			Status:             corev1.ConditionTrue,
+			Message:            "0/6 nodes are available: 6 Insufficient memory.",
+			LastTransitionTime: transitionTime,
+		},
+	}
+
+	if diff := cmp.Diff(testCluster.Status.Nodes, status.Nodes); diff != "" {
+		t.Errorf("Expected cluster node statuses to be same. Diff is %s", diff)
+	}
 }
