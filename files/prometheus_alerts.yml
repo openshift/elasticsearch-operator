@@ -22,12 +22,12 @@
     "labels":
       "severity": "warning"
 
-  - "alert": "ElasticsearchIndexingRequestsRejectionJumps"
+  - "alert": "ElasticsearchWriteRequestsRejectionJumps"
     "annotations":
-      "message": "High Indexing Rejection Ratio at {{ $labels.node }} node in {{ $labels.cluster }} cluster. This node may not be keeping up with the indexing speed."
-      "summary": "High Indexing Rejection Ratio - {{ $value }}%"
+      "message": "High Write Rejection Ratio at {{ $labels.node }} node in {{ $labels.cluster }} cluster. This node may not be keeping up with the indexing speed."
+      "summary": "High Write Rejection Ratio - {{ $value }}%"
     "expr": |
-      round( indexing:reject_ratio:rate2m * 100, 0.001 ) > 5
+      round( writing:reject_ratio:rate2m * 100, 0.001 ) > 5
     "for": "10m"
     "labels":
       "severity": "warning"
