@@ -14,8 +14,6 @@ VERSION=${VERSION:-$(basename $(find ${repo_dir}/manifests -type d | sort -r | h
 
 IMAGE_TAG=${IMAGE_TAG:-"quay.io/openshift/origin-elasticsearch-operator:latest"}
 
-ADMIN_USER=${ADMIN_USER:-admin}
-ADMIN_PSWD=${ADMIN_USER:-admin123}
 NAMESPACE=${NAMESPACE:-openshift-logging}
 REMOTE_REGISTRY=${REMOTE_REGISTRY:-false}
 # set to true if you are not running this on the same machine where

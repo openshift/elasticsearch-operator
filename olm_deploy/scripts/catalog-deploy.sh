@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/bash
 set -eou pipefail
 OPENSHIFT_VERSION=${OPENSHIFT_VERSION:-4.6}
 export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:elasticsearch-operator-registry}

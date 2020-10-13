@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # $1 - namespace
 # $2 - deployment name
 set -eou pipefail
