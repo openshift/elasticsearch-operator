@@ -3,11 +3,11 @@
 - "name": "logging_elasticsearch.rules"
   "rules":
   - "expr": |
-      rate(es_threadpool_threads_count{name="index", type="rejected"}[2m])
-    "record": "indexing:rejected_requests:rate2m"
+      rate(es_threadpool_threads_count{name="write", type="rejected"}[2m])
+    "record": "writing:rejected_requests:rate2m"
   - "expr": |
-      rate(es_threadpool_threads_count{name="index", type="completed"}[2m])
-    "record": "indexing:completed_requests:rate2m"
+      rate(es_threadpool_threads_count{name="write", type="completed"}[2m])
+    "record": "writing:completed_requests:rate2m"
   - "expr": |
-      sum by (cluster, instance, node) (indexing:rejected_requests:rate2m) / on (cluster, instance, node) (indexing:completed_requests:rate2m)
-    "record": "indexing:reject_ratio:rate2m"
+      sum by (cluster, instance, node) (writing:rejected_requests:rate2m) / on (cluster, instance, node) (writing:completed_requests:rate2m)
+    "record": "writing:reject_ratio:rate2m"
