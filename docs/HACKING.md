@@ -8,19 +8,24 @@
 
 ## Kubernetes
 
-Make sure certificates are pre-generated and deployed as secret.
-Upload the Custom Resource Definition to your Kubernetes cluster:
-
-    $ kubectl create -f deploy/crd.yaml
+Make sure certificates are pre-generated and deployed as secret, e.g., `make deploy-example-secret`.
 
 Deploy the required roles to the cluster:
 
-    $ kubectl create -f deploy/rbac.yaml
+    $ kubectl create ns openshift-logging
+    $ kubectl apply -f manifests/01-service-account.yaml 
+    $ kubectl apply -f manifests/02-role.yaml 
+    $ kubectl apply -f manifests/03-role-bindings.yaml
+
+Upload the Custom Resource Definition to your Kubernetes cluster:
+
+    $ kubectl apply -f manifests/crd.yaml
 
 Deploy custom resource and the Deployment resource of the operator:
 
-    $ kubectl create -f deploy/cr.yaml
-    $ kubectl create -f deploy/operator.yaml
+    $ kubectl apply -f manifests/05-deployment.yaml 
+    $ kubectl apply -f hack/cr.yaml
+
 
 ## OpenShift
 
@@ -87,21 +92,22 @@ targets assume you have cluster admin access. Following are a few of these targe
 ### deploy
 Deploy the resources for the operator, build the operator image, push the image to the Openshift registry
 
-### deploy-setup
-Deploy the pre-requirements for the operator to function (i.e. CRD, RBAC, sample secret)
-
 ### deploy-example
-Deploy an example custom resource for a single node Elasticsearch cluster
+Deploy elasticsearch-operator (`make deploy`) and deploy an example custom resource for
+a single node Elasticsearch cluster (`hack/cr.yaml`)
 
 ### elasticsearch-cleanup
 Remove all deployed resources
 
 ### run
-Deploy the example cluster and start running the operator.  The end result is that there will be an
+Deploy the example cluster and start running the operator. The end result is that there will be an
 `elasticsearch` custom resource, and an elasticsearch pod running.  You can view the operator log by
 looking at the log file specified by `$(RUN_LOG)` (default `elasticsearch-operator.log`).  The command
 is run in the background - when finished, kill the process by killing the pid, which is written to the
 file `$(RUN_PID)` (default `elasticsearch-operator.pid`) e.g. `kill $(cat elasticsearch-operator.pid)`
+
+### run-local
+
 
 # Customize your cluster
 
