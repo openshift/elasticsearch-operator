@@ -66,7 +66,6 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 	cpuValue := resource.MustParse("256m")
 	memValue := resource.MustParse("1Gi")
 
-	storageClassName := "gp2"
 	storageClassSize := resource.MustParse("2Gi")
 
 	esDataNode := loggingv1.ElasticsearchNode{
@@ -75,12 +74,11 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 			loggingv1.ElasticsearchRoleData,
 			loggingv1.ElasticsearchRoleMaster,
 		},
-		NodeCount: int32(replicas),
 		Storage: loggingv1.ElasticsearchStorageSpec{
-			StorageClassName: &storageClassName,
-			Size:             &storageClassSize,
+			Size: &storageClassSize,
 		},
-		GenUUID: &dataUUID,
+		NodeCount: int32(replicas),
+		GenUUID:   &dataUUID,
 	}
 
 	// create elasticsearch custom resource
@@ -173,7 +171,6 @@ func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return fmt.Errorf("Could not get namespace: %v", err)
-
 	}
 
 	if err := generateCertificates(t, namespace, uuid); err != nil {
@@ -304,7 +301,6 @@ func createKibanaProxySecret(f *test.Framework, ctx *test.Context, esUUID string
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
 		return fmt.Errorf("Could not get namespace: %v", err)
-
 	}
 
 	kibanaProxySecret := utils.Secret(

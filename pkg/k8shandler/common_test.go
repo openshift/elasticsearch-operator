@@ -1,8 +1,11 @@
 package k8shandler
 
 import (
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -10,6 +13,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
@@ -22,11 +27,6 @@ var (
 
 	nodeCpuValue = resource.MustParse("600m")
 	nodeMemValue = resource.MustParse("3Gi")
-
-	commonProxyCpuValue = resource.MustParse("100m")
-	commonProxyMemValue = resource.MustParse("64Mi")
-	nodeProxyCpuValue   = resource.MustParse("128m")
-	nodeProxyMemValue   = resource.MustParse("256Mi")
 
 	defaultTestCpuRequest = resource.MustParse(defaultESCpuRequest)
 	defaultTestMemLimit   = resource.MustParse(defaultESMemoryLimit)
@@ -648,6 +648,132 @@ func TestPodDiskToleration(t *testing.T) {
 	}
 	if !areTolerationsSame(podSpec.Tolerations, expectedToleration) {
 		t.Errorf("Exp. the tolerations to contain %v", expectedToleration)
+	}
+}
+
+func TestNewVolumeSource(t *testing.T) {
+	const (
+		clusterName = "elastisearch"
+		nodeName    = "elasticsearch-cdm-1"
+		namespace   = "openshift-logging"
+	)
+
+	var (
+		claimName   = fmt.Sprintf("%s-%s", clusterName, nodeName)
+		gp2SCName   = "gp2"
+		storageSize = resource.MustParse("2Gi")
+	)
+
+	tests := []struct {
+		desc string
+		node api.ElasticsearchNode
+		vs   v1.VolumeSource
+		pvc  *v1.PersistentVolumeClaim
+	}{
+		{
+			desc: "ephemeral storage on empty storage spec",
+			node: api.ElasticsearchNode{},
+			vs: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			desc: "persistent storage with default storage class",
+			node: api.ElasticsearchNode{
+				Storage: api.ElasticsearchStorageSpec{
+					Size: &storageSize,
+				},
+			},
+			vs: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+				},
+			},
+			pvc: &v1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      claimName,
+					Namespace: namespace,
+					Labels: map[string]string{
+						"logging-cluster": clusterName,
+					},
+					ResourceVersion: "1",
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{
+						v1.ReadWriteOnce,
+					},
+					Resources: v1.ResourceRequirements{
+						Requests: v1.ResourceList{
+							v1.ResourceStorage: storageSize,
+						},
+					},
+				},
+			},
+		},
+		{
+			desc: "persistent storage with custom storage class",
+			node: api.ElasticsearchNode{
+				Storage: api.ElasticsearchStorageSpec{
+					StorageClassName: &gp2SCName,
+					Size:             &storageSize,
+				},
+			},
+			vs: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: claimName,
+				},
+			},
+			pvc: &v1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      claimName,
+					Namespace: namespace,
+					Labels: map[string]string{
+						"logging-cluster": clusterName,
+					},
+					ResourceVersion: "1",
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{
+						v1.ReadWriteOnce,
+					},
+					Resources: v1.ResourceRequirements{
+						Requests: v1.ResourceList{
+							v1.ResourceStorage: storageSize,
+						},
+					},
+					StorageClassName: &gp2SCName,
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		test := test
+		client := fake.NewFakeClient()
+
+		vs := newVolumeSource(clusterName, nodeName, namespace, test.node, client)
+		if diff := cmp.Diff(test.vs, vs); diff != "" {
+			t.Errorf("diff: %s", diff)
+		}
+
+		if test.pvc != nil {
+			key := types.NamespacedName{Name: claimName, Namespace: namespace}
+			pvc := &v1.PersistentVolumeClaim{}
+			if err := client.Get(context.TODO(), key, pvc); err != nil {
+				t.Errorf("got err: %s, want nil", err)
+			}
+
+			if diff := cmp.Diff(test.pvc, pvc); diff != "" {
+				t.Errorf("diff: %s", diff)
+			}
+		}
 	}
 }
 

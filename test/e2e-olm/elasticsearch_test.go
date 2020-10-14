@@ -206,7 +206,6 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	nonDataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for non data nodes: %v", nonDataUUID)
 
-	storageClassName := "gp2"
 	storageClassSize := resource.MustParse("2G")
 
 	esNonDataNode := loggingv1.ElasticsearchNode{
@@ -216,8 +215,7 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 		},
 		NodeCount: int32(1),
 		Storage: loggingv1.ElasticsearchStorageSpec{
-			StorageClassName: &storageClassName,
-			Size:             &storageClassSize,
+			Size: &storageClassSize,
 		},
 		GenUUID: &nonDataUUID,
 	}
