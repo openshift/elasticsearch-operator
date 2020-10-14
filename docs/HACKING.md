@@ -238,15 +238,11 @@ You'll need `podman` in addition to `docker`.
 If you used the new `openshift-installer`, it creates a user named `kubeadmin`
 with the password in the file `installer/auth/kubeadmin_password`.
 
-To push the image to the remote registry, set `REMOTE_REGISTRY=true`, `PUSH_USER=kubeadmin`,
-`KUBECONFIG=/path/to/installer/auth/kubeconfig`, and
-`PUSH_PASSWORD=$( cat /path/to/installer/auth/kubeadmin_password )`.  You do not have to
-`oc login` to the cluster.  If you already built the image, use `SKIP_BUILD=true` to do
-a push only.
+If you already built the image with `make image`, use `SKIP_BUILD=true` to do a push
+only. You need `oc login` to the cluster before pushing the image to the register.
 
 ```bash
-REMOTE_REGISTRY=true PUSH_USER=kubeadmin SKIP_BUILD=true \
-KUBECONFIG=/path/to/installer/auth/kubeconfig \
-PUSH_PASSWORD=$( cat /path/to/installer/auth/kubeadmin_password ) \
-make deploy-image
+oc login --token=<token> --server=https://api.<cluster>:6443
+# Or oc login -u kubeadmin -p <password>, if using openshift installer
+SKIP_BUILD=true make deploy-image
 ```
