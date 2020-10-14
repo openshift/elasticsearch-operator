@@ -68,7 +68,7 @@
 
   - "alert": "ElasticsearchNodeDiskWatermarkReached"
     "annotations":
-      "message": "Disk Flood Stage Watermark Reached at {{ $labels.pod }}. Every index having a shard allocated on this node is enforced a read-only block. The index block is automatically released when the disk utilization falls below the high watermark."
+      "message": "Disk Flood Stage Watermark Reached at {{ $labels.pod }}. Every index having a shard allocated on this node is enforced a read-only block. The index block must be released manually when the disk utilization falls below the high watermark."
       "summary": "Disk Flood Stage Watermark Reached - disk saturation is {{ $value }}%"
     "expr": |
       sum by (instance, pod) (
