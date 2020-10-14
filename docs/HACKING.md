@@ -6,7 +6,7 @@
 - In case hostmounted volume is used, the directory on the host must have 777 permissions and the following selinux labels (TODO).
 - In case secure cluster is used, the certificates must be pre-generated and uploaded to the secret `<elasticsearch_cluster_name>-certs`
 
-## Kubernetes
+## Kubernetes (Obsolete)
 
 Make sure certificates are pre-generated and deployed as secret, e.g., `make deploy-example-secret`.
 
