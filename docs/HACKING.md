@@ -75,6 +75,12 @@ and `hack/deploy.sh` for more details.
     `oc login --username=kubeadmin --password=$( cat ../installer/auth/kubeadmin_password )`
     The user should already have `cluster-admin` rights.
 
+*   To build the image on your dev machine, base images need to be pulled from the openshift
+    CI registry. First, request a token from `https://api.ci.openshift.org/oauth/token/request`
+    and use the token to login the registry cluster: oc login --token=<some token> --server=https://api.ci.openshift.org. Retrieve the registry secret to a local file by
+    `oc registry login --to=pull-secret.txt`. Copy the `pull-secret.txt` to the configuration
+    file of docker registry, e.g., `cp pull-secret.txt $HOME/.docker/config.json`. Then `make image`
+
 It is additionally possible to deploy the operator to an Openshift cluster using the provided make targets.  These
 targets assume you have cluster admin access. Following are a few of these targets:
 
@@ -87,7 +93,7 @@ Deploy the pre-requirements for the operator to function (i.e. CRD, RBAC, sample
 ### deploy-example
 Deploy an example custom resource for a single node Elasticsearch cluster
 
-### deploy-undeploy
+### elasticsearch-cleanup
 Remove all deployed resources
 
 ### run
