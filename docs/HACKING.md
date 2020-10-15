@@ -91,7 +91,9 @@ Deploy the resources for the operator, build the operator image, push the image 
 Deploy the pre-requirements for the operator to function (i.e. CRD, RBAC, sample secret)
 
 ### deploy-example
-Deploy an example custom resource for a single node Elasticsearch cluster
+Install the operator and deploy an example custom resource for a single node
+Elasticsearch cluster in the default namespace `openshift-logging`. To deploy
+in a different namespace: `DEPLOYMENT_NAMESPACE=newproject make deploy-example`.
 
 ### elasticsearch-cleanup
 Remove all deployed resources
