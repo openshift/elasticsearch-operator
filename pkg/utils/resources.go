@@ -8,12 +8,19 @@ import (
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func CompareResources(current, desired v1.ResourceRequirements) (bool, v1.ResourceRequirements) {
 
 	changed := false
 	desiredResources := *current.DeepCopy()
+	if desiredResources.Limits == nil {
+		desiredResources.Limits = map[v1.ResourceName]resource.Quantity{}
+	}
+	if desiredResources.Requests == nil {
+		desiredResources.Requests = map[v1.ResourceName]resource.Quantity{}
+	}
 
 	if desired.Limits.Cpu().Cmp(*current.Limits.Cpu()) != 0 {
 		desiredResources.Limits[v1.ResourceCPU] = *desired.Limits.Cpu()
