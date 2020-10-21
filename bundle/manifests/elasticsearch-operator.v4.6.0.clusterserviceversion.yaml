@@ -50,7 +50,7 @@ metadata:
                       }
                     }
                   },
-                  "redundancyPolicy": "SingleRedundancy",
+                  "redundancyPolicy": "ZeroRedundancy",
                   "nodes": [
                     {
                         "nodeCount": 1,

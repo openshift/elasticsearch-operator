@@ -20,7 +20,7 @@ RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
 LOGGING_IMAGE_STREAM?=stable
 OPERATOR_NAMESPACE=openshift-operators-redhat
-DEPLOYMENT_NAMESPACE=openshift-logging
+DEPLOYMENT_NAMESPACE?=openshift-logging
 REPLICAS?=0
 OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
