@@ -22,14 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// addOwnerRefToObject appends the desired OwnerReference to the object
-// deprecated in favor of Elasticsearch#AddOwnerRefTo
-func addOwnerRefToObject(o metav1.Object, r metav1.OwnerReference) {
-	if (metav1.OwnerReference{}) != r {
-		o.SetOwnerReferences(append(o.GetOwnerReferences(), r))
-	}
-}
-
 func getImage() string {
 	return utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
 }
