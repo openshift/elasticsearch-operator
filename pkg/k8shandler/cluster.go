@@ -60,7 +60,7 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateElasticsearchClu
 
 	// Update the cluster status immediately to refresh status.nodes
 	// before progressing with any unschedulable nodes.
-	// Ensures that deleted nodes
+	// Ensures that deleted nodes are removed from status.nodes.
 	if err := elasticsearchRequest.UpdateClusterStatus(); err != nil {
 		return err
 	}
@@ -253,15 +253,22 @@ func getNodeUpgradeInProgress(cluster *api.Elasticsearch) NodeTypeInterface {
 }
 
 func progressUnshedulableNodes(cluster *api.Elasticsearch) {
-	for _, node := range cluster.Status.Nodes {
-		if isPodUnschedulableConditionTrue(node.Conditions) ||
-			isPodImagePullBackOff(node.Conditions) {
-			for _, nodeTypeInterface := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
-				if node.DeploymentName == nodeTypeInterface.name() ||
-					node.StatefulSetName == nodeTypeInterface.name() {
-					logrus.Debugf("Node %s is unschedulable, trying to recover...", nodeTypeInterface.name())
-					if err := nodeTypeInterface.progressUnshedulableNode(&node); err != nil {
-						logrus.Warnf("Failed to progress update of unschedulable node '%s': %v", nodeTypeInterface.name(), err)
+	clusterNodes := nodes[nodeMapKey(cluster.GetName(), cluster.GetNamespace())]
+
+	for _, nodeStatus := range cluster.Status.Nodes {
+		if isPodUnschedulableConditionTrue(nodeStatus.Conditions) ||
+			isPodImagePullBackOff(nodeStatus.Conditions) {
+
+			for _, node := range clusterNodes {
+				if nodeStatus.DeploymentName == node.name() || nodeStatus.StatefulSetName == node.name() {
+					if node.isMissing() {
+						logrus.Infof("Unschedulable node does not have k8s resource, skipping node %s", node.name())
+						continue
+					}
+
+					logrus.Debugf("Node %s is unschedulable, trying to recover...", node.name())
+					if err := node.progressUnshedulableNode(&nodeStatus); err != nil {
+						logrus.Warnf("Failed to progress update of unschedulable node '%s': %v", node.name(), err)
 					}
 				}
 			}

@@ -329,9 +329,11 @@ func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 }
 
 func (node *deploymentNode) isMissing() bool {
-	getNode := &apps.Deployment{}
-	if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.name(), Namespace: node.self.Namespace}, getNode); getErr != nil {
-		if errors.IsNotFound(getErr) {
+	obj := &apps.Deployment{}
+	key := types.NamespacedName{Name: node.name(), Namespace: node.self.Namespace}
+
+	if err := node.client.Get(context.TODO(), key, obj); err != nil {
+		if errors.IsNotFound(err) {
 			return true
 		}
 	}

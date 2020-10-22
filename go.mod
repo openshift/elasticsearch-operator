@@ -20,6 +20,7 @@ require (
 	github.com/go-openapi/swag v0.19.0 // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/google/btree v1.0.0 // indirect
+	github.com/google/martian v2.1.0+incompatible
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20190405143950-35c7fd233bfd // indirect
