@@ -10,6 +10,7 @@ import (
 
 	"github.com/ViaQ/logerr/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 
@@ -49,6 +50,12 @@ func registerSchemes(t *testing.T) {
 
 	consoleLinkList := &consolev1.ConsoleLinkList{}
 	err = test.AddToFrameworkScheme(consolev1.Install, consoleLinkList)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	routeList := &routev1.RouteList{}
+	err = test.AddToFrameworkScheme(routev1.Install, routeList)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
