@@ -2,15 +2,15 @@ package k8shandler
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/ViaQ/logerr/kverrors"
 	"github.com/go-logr/logr"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -106,7 +106,6 @@ func (n *statefulSetNode) scaleUp() error {
 }
 
 func (n *statefulSetNode) state() api.ElasticsearchNodeStatus {
-	//var rolloutForReload v1.ConditionStatus
 	var rolloutForUpdate v1.ConditionStatus
 	var rolloutForCertReload v1.ConditionStatus
 
@@ -150,10 +149,10 @@ func (n *statefulSetNode) waitForNodeRejoinCluster() (error, bool) {
 			return false, err
 		}
 
-		return (n.replicas <= clusterSize), nil
+		return n.replicas <= clusterSize, nil
 	})
 
-	return err, (err == nil)
+	return err, err == nil
 }
 
 func (n *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
@@ -164,10 +163,10 @@ func (n *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
 			return false, err
 		}
 
-		return (n.replicas > clusterSize), nil
+		return n.replicas > clusterSize, nil
 	})
 
-	return err, (err == nil)
+	return err, err == nil
 }
 
 func (n *statefulSetNode) setPartition(partitions int32) error {
@@ -189,7 +188,7 @@ func (n *statefulSetNode) setPartition(partitions int32) error {
 		nodeCopy.Spec.UpdateStrategy.RollingUpdate.Partition = &partitions
 
 		if err := n.client.Update(context.TODO(), nodeCopy); err != nil {
-			n.L().Info("Failed to update node resource", "error", err)
+			n.L().Info("Failed to update node resource. Retrying...", "error", err)
 			return err
 		}
 
@@ -198,7 +197,10 @@ func (n *statefulSetNode) setPartition(partitions int32) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("could not update Elasticsearch node %v after %v retries: %w", n.self.Name, nretries, err)
+		return kverrors.Wrap(err, "could not update Elasticsearch node",
+			"node", n.self.Name,
+			"retries", nretries,
+		)
 	}
 
 	n.L().Info("successfully updated Elasticsearch node")
@@ -245,7 +247,10 @@ func (n *statefulSetNode) setReplicaCount(replicas int32) error {
 		return nil
 	})
 	if retryErr != nil {
-		return fmt.Errorf("could not update Elasticsearch node %v after %v retries: %v", n.self.Name, nretries, retryErr)
+		return kverrors.Wrap(retryErr, "could not update Elasticsearch node",
+			"node", n.self.Name,
+			"retries", nretries,
+		)
 	}
 
 	return nil
@@ -267,7 +272,7 @@ func (n *statefulSetNode) isMissing() bool {
 	key := types.NamespacedName{Name: n.name(), Namespace: n.self.Namespace}
 
 	if err := n.client.Get(context.TODO(), key, obj); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return true
 		}
 	}
@@ -284,8 +289,8 @@ func (n *statefulSetNode) create() error {
 	if n.self.ObjectMeta.ResourceVersion == "" {
 		err := n.client.Create(context.TODO(), &n.self)
 		if err != nil {
-			if !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("Could not create node resource: %v", err)
+			if !apierrors.IsAlreadyExists(err) {
+				return kverrors.Wrap(err, "could not create node resource")
 			} else {
 				n.scale()
 				return nil
@@ -376,52 +381,61 @@ func (n *statefulSetNode) isChanged() bool {
 }
 
 func (n *statefulSetNode) progressNodeChanges() error {
-	if n.isChanged() {
-		replicas, err := n.replicaCount()
-		if err != nil {
-			return fmt.Errorf("Unable to get number of replicas prior to restart for %v", n.name())
-		}
-
-		if err := n.setPartition(replicas); err != nil {
-			n.L().Error(err, "unable to set partition")
-		}
-
-		if err := n.executeUpdate(); err != nil {
-			return err
-		}
-
-		ordinal, err := n.partition()
-		if err != nil {
-			return fmt.Errorf("unable to get node ordinal value: %w", err)
-		}
-
-		// start partition at replicas and incrementally update it to 0
-		// making sure nodes rejoin between each one
-		for index := ordinal; index > 0; index-- {
-
-			// make sure we have all nodes in the cluster first -- always
-			if err, _ := n.waitForNodeRejoinCluster(); err != nil {
-				return fmt.Errorf("Timed out waiting for %v to rejoin cluster", n.name())
-			}
-
-			// update partition to cause next pod to be updated
-			if err := n.setPartition(index - 1); err != nil {
-				n.L().Info("unable to set partition", "error", err)
-			}
-
-			// wait for the node to leave the cluster
-			if err, _ := n.waitForNodeLeaveCluster(); err != nil {
-				return fmt.Errorf("Timed out waiting for %v to leave the cluster", n.name())
-			}
-		}
-
-		// this is here again because we need to make sure all nodes have rejoined
-		// before we move on and say we're done
-		if err, _ := n.waitForNodeRejoinCluster(); err != nil {
-			return fmt.Errorf("Timed out waiting for %v to rejoin cluster", n.name())
-		}
-
-		n.refreshHashes()
+	if !n.isChanged() {
+		return nil
 	}
+	replicas, err := n.replicaCount()
+	if err != nil {
+		return kverrors.Wrap(err, "Unable to get number of replicas prior to restart for node",
+			"node", n.name(),
+		)
+	}
+
+	if err := n.setPartition(replicas); err != nil {
+		n.L().Error(err, "unable to set partition")
+	}
+
+	if err := n.executeUpdate(); err != nil {
+		return err
+	}
+
+	ordinal, err := n.partition()
+	if err != nil {
+		return kverrors.Wrap(err, "unable to get node ordinal value")
+	}
+
+	// start partition at replicas and incrementally update it to 0
+	// making sure nodes rejoin between each one
+	for index := ordinal; index > 0; index-- {
+
+		// make sure we have all nodes in the cluster first -- always
+		if err, _ := n.waitForNodeRejoinCluster(); err != nil {
+			return kverrors.Wrap(err, "timed out waiting for node to rejoin cluster",
+				"node", n.name(),
+			)
+		}
+
+		// update partition to cause next pod to be updated
+		if err := n.setPartition(index - 1); err != nil {
+			n.L().Info("unable to set partition", "error", err)
+		}
+
+		// wait for the node to leave the cluster
+		if err, _ := n.waitForNodeLeaveCluster(); err != nil {
+			return kverrors.Wrap(err, "timed out waiting for node to leave the cluster",
+				"node", n.name(),
+			)
+		}
+	}
+
+	// this is here again because we need to make sure all nodes have rejoined
+	// before we move on and say we're done
+	if err, _ := n.waitForNodeRejoinCluster(); err != nil {
+		return kverrors.Wrap(err, "timed out waiting for node to rejoin cluster",
+			"node", n.name(),
+		)
+	}
+
+	n.refreshHashes()
 	return nil
 }

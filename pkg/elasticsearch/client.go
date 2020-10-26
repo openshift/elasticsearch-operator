@@ -16,8 +16,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,6 +124,13 @@ func (ec *esClient) SetSendRequestFn(fn FnEsSendRequest) {
 
 func (ec *esClient) ClusterName() string {
 	return ec.cluster
+}
+
+func (ec *esClient) errorCtx() kverrors.Context {
+	return kverrors.NewContext(
+		"namespace", ec.namespace,
+		"cluster", ec.ClusterName(),
+	)
 }
 
 // FIXME: this needs to return an error instead of swallowing

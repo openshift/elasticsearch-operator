@@ -1,9 +1,8 @@
 package kibana
 
 import (
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/ViaQ/logerr/kverrors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,8 +43,10 @@ func (clusterRequest *KibanaRequest) RemoveService(serviceName string) error {
 	)
 
 	err := clusterRequest.Delete(service)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %v service %v", serviceName, err)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return kverrors.Wrap(err, "failed to delete service",
+			"service", serviceName,
+		)
 	}
 
 	return nil

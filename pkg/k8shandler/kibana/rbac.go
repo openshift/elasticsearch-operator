@@ -1,16 +1,15 @@
 package kibana
 
 import (
-	"fmt"
-
+	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	rbac "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//NewPolicyRule stubs policy rule
+// NewPolicyRule stubs policy rule
 func NewPolicyRule(apiGroups, resources, resourceNames, verbs []string) rbac.PolicyRule {
 	return rbac.PolicyRule{
 		APIGroups:     apiGroups,
@@ -20,12 +19,12 @@ func NewPolicyRule(apiGroups, resources, resourceNames, verbs []string) rbac.Pol
 	}
 }
 
-//NewPolicyRules stubs policy rules
+// NewPolicyRules stubs policy rules
 func NewPolicyRules(rules ...rbac.PolicyRule) []rbac.PolicyRule {
 	return rules
 }
 
-//NewRole stubs a role
+// NewRole stubs a role
 func NewRole(roleName, namespace string, rules []rbac.PolicyRule) *rbac.Role {
 	return &rbac.Role{
 		TypeMeta: metav1.TypeMeta{
@@ -40,7 +39,7 @@ func NewRole(roleName, namespace string, rules []rbac.PolicyRule) *rbac.Role {
 	}
 }
 
-//NewSubject stubs a new subect
+// NewSubject stubs a new subject
 func NewSubject(kind, name string) rbac.Subject {
 	return rbac.Subject{
 		Kind:     kind,
@@ -49,12 +48,12 @@ func NewSubject(kind, name string) rbac.Subject {
 	}
 }
 
-//NewSubjects stubs subjects
+// NewSubjects stubs subjects
 func NewSubjects(subjects ...rbac.Subject) []rbac.Subject {
 	return subjects
 }
 
-//NewRoleBinding stubs a role binding
+// NewRoleBinding stubs a role binding
 func NewRoleBinding(bindingName, namespace, roleName string, subjects []rbac.Subject) *rbac.RoleBinding {
 	return &rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
@@ -74,7 +73,7 @@ func NewRoleBinding(bindingName, namespace, roleName string, subjects []rbac.Sub
 	}
 }
 
-//NewClusterRoleBinding stubs a cluster role binding
+// NewClusterRoleBinding stubs a cluster role binding
 func NewClusterRoleBinding(bindingName, roleName string, subjects []rbac.Subject) *rbac.ClusterRoleBinding {
 	return &rbac.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
@@ -93,7 +92,7 @@ func NewClusterRoleBinding(bindingName, roleName string, subjects []rbac.Subject
 	}
 }
 
-// CreateClusterRole creates a cluser role or returns error
+// CreateClusterRole creates a cluster role or returns error
 func (clusterRequest *KibanaRequest) CreateClusterRole(name string, rules []rbac.PolicyRule) (*rbac.ClusterRole, error) {
 	clusterRole := &rbac.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
@@ -109,13 +108,15 @@ func (clusterRequest *KibanaRequest) CreateClusterRole(name string, rules []rbac
 	utils.AddOwnerRefToObject(clusterRole, getOwnerRef(clusterRequest.cluster))
 
 	err := clusterRequest.Create(clusterRole)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return nil, fmt.Errorf("Failure creating '%s' clusterrole: %v", name, err)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return nil, kverrors.Wrap(err, "failed to create cluster role",
+			"cluster_role", name,
+		)
 	}
 	return clusterRole, nil
 }
 
-//RemoveClusterRoleBinding removes a cluster role binding
+// RemoveClusterRoleBinding removes a cluster role binding
 func (clusterRequest *KibanaRequest) RemoveClusterRoleBinding(name string) error {
 
 	binding := NewClusterRoleBinding(
@@ -125,8 +126,10 @@ func (clusterRequest *KibanaRequest) RemoveClusterRoleBinding(name string) error
 	)
 
 	err := clusterRequest.Delete(binding)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %q clusterrolebinding: %v", name, err)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return kverrors.Wrap(err, "failed to delete cluster role",
+			"cluster_role", name,
+		)
 	}
 
 	return nil

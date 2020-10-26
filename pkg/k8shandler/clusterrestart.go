@@ -1,14 +1,18 @@
 package k8shandler
 
 import (
-	"fmt"
+	"errors"
 
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 )
+
+// ErrFlushShardsFailed indicates a failure when trying to flush shards
+var ErrFlushShardsFailed = kverrors.New("flush shards failed")
 
 type ClusterRestart struct {
 	client           elasticsearch.Client
@@ -253,7 +257,7 @@ func (er *ElasticsearchRequest) scaleDownThenUpFunc(clusterRestart ClusterRestar
 		}
 
 		if er.AnyNodeReady() {
-			return fmt.Errorf("Waiting for all nodes to leave the cluster")
+			return kverrors.New("waiting for all nodes to leave the cluster")
 		}
 
 		if err := clusterRestart.scaleUpNodes(); err != nil {
@@ -271,7 +275,11 @@ func (clusterRestart ClusterRestart) restartNoop() error {
 
 func (clusterRestart ClusterRestart) ensureClusterHealthValid() error {
 	if status, _ := clusterRestart.client.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
-		return fmt.Errorf("Waiting for cluster %q to be recovered: %s / %v", clusterRestart.clusterName, status, desiredClusterStates)
+		return kverrors.New("Waiting for cluster to be recovered",
+			"namespace", clusterRestart.clusterNamespace,
+			"cluster", clusterRestart.clusterName,
+			"status", status,
+			"desired_status", desiredClusterStates)
 	}
 
 	return nil
@@ -280,26 +288,27 @@ func (clusterRestart ClusterRestart) ensureClusterHealthValid() error {
 func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error {
 	// set shard allocation as primaries
 	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
-		return fmt.Errorf("Unable to set shard allocation to primaries: %v", err)
+		return kverrors.Wrap(err, "unable to set shard allocation to primaries",
+			"namespace", clusterRestart.clusterNamespace,
+			"cluster", clusterRestart.clusterName)
 	}
 
 	// flush nodes
 	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
-		log.Error(err, "Unable to perform synchronized flush", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
+		log.Error(err, "failed to flush nodes",
+			"namespace", clusterRestart.clusterNamespace,
+			"cluster", clusterRestart.clusterName,
+		)
+		return ErrFlushShardsFailed
 	}
 
 	return nil
 }
 
 func (clusterRestart ClusterRestart) optionalSetPrimariesShardsAndFlush() error {
-	// set shard allocation as primaries
-	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
-		log.Error(err, "Unable to set shard allocation to primaries", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
-	}
-
-	// flush nodes
-	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
-		log.Error(err, "Unable to perform synchronized flush", "namespace", clusterRestart.clusterNamespace, "name", clusterRestart.clusterName)
+	err := clusterRestart.requiredSetPrimariesShardsAndFlush()
+	if err != nil {
+		log.Error(err, "failed to set primaries shards and flush")
 	}
 
 	return nil
@@ -331,7 +340,7 @@ func (clusterRestart ClusterRestart) waitAllNodesRejoin() error {
 func (clusterRestart ClusterRestart) setAllShards() error {
 	// reenable shard allocation
 	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationAll); !ok {
-		return fmt.Errorf("Unable to enable shard allocation: %v", err)
+		return kverrors.Wrap(err, "failed to enable shard allocation")
 	}
 
 	return nil
@@ -543,9 +552,11 @@ func (r Restarter) restartCluster() error {
 	}
 
 	if r.prepCondition() {
-
 		if err := r.prep(); err != nil {
-			return err
+			// ignore flush failures
+			if !errors.Is(err, ErrFlushShardsFailed) {
+				return err
+			}
 		}
 
 		r.prepSignaler()

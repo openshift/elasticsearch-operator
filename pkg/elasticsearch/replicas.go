@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 // This will idempotently update the index templates and update indices' replica count
@@ -40,12 +38,10 @@ func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
 				}
 			}
 		} else {
-			log.Error(nil, "unable to evaluate the number of replicas for index",
+			return false, ec.errorCtx().New("unable to evaluate the number of replicas for index",
 				"index", index,
 				"health", health,
-				"cluster", ec.cluster,
-				"namespace", ec.namespace)
-			return false, fmt.Errorf("unable to evaluate number of replicas for index")
+			)
 		}
 	}
 

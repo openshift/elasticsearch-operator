@@ -1,8 +1,7 @@
 package k8shandler
 
 import (
-	"fmt"
-
+	"github.com/ViaQ/logerr/kverrors"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -13,7 +12,6 @@ import (
 var (
 	r             ClusterRestart
 	restarter     Restarter
-	er            *ElasticsearchRequest
 	testNodes     []NodeTypeInterface
 	updateStatus  func()
 	nodeStatus    *api.ElasticsearchNodeStatus
@@ -441,5 +439,5 @@ var _ = Describe("clusterrestart", func() {
 })
 
 func (cr ClusterRestart) restartFail() error {
-	return fmt.Errorf("We apologise for the fault in this function. Those responsible have been sacked.")
+	return kverrors.New("we apologise for the fault in this function. Those responsible have been sacked.")
 }

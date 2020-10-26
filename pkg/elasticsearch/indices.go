@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 )
@@ -24,13 +25,17 @@ func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
 		return nil, nil
 	}
 	if payload.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed getting index %s. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+		return nil, ec.errorCtx().New("failed to get index",
+			"index", name,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 
 	index := &estypes.Index{}
 	err := json.Unmarshal([]byte(payload.RawResponseBody), index)
 	if err != nil {
-		return nil, fmt.Errorf("failed decoding raw response body into `estypes.Index` for %s: %s", name, err)
+		return nil, kverrors.Wrap(err, "failed decoding raw response body into `estypes.Index`",
+			"index", name)
 	}
 	index.Name = name
 	return index, nil
@@ -49,14 +54,18 @@ func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, err
 		return nil, payload.Error
 	}
 	if payload.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed getting index %s. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+		return nil, ec.errorCtx().New("failed to get index",
+			"index", name,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 
 	res := estypes.CatIndicesResponses{}
 	raw := payload.ResponseBody["results"].(string)
 	err := json.Unmarshal([]byte(raw), &res)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse _cat/indices response body for index %q: %s", name, err)
+		return nil, kverrors.Wrap(err, "failed to parse _cat/indices response body",
+			"index", name)
 	}
 	return res, nil
 }
@@ -76,7 +85,10 @@ func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
 		return payload.Error
 	}
 	if payload.StatusCode != 200 && payload.StatusCode != 201 {
-		return fmt.Errorf("There was an error creating index %s. Error code: %v, %v", index.Name, payload.StatusCode != 200, payload.ResponseBody)
+		return ec.errorCtx().New("failed to create index",
+			"index", index.Name,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 	return nil
 }
@@ -91,13 +103,18 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error
 		return nil, payload.Error
 	}
 	if payload.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get index settings for %q. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+		return nil, ec.errorCtx().New("failed to get index settings",
+			"index", name,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 
 	settings := &estypes.IndexSettings{}
 	err := json.Unmarshal([]byte(payload.RawResponseBody), settings)
 	if err != nil {
-		return nil, fmt.Errorf("failed decoding raw response body into `estypes.IndexSettings` for %s: %s", name, err)
+		return nil, kverrors.Wrap(err, "failed to decode response body",
+			"destination_type", "estypes.IndexSettings",
+			"index", name)
 	}
 	return settings, nil
 }
@@ -117,7 +134,10 @@ func (ec *esClient) UpdateIndexSettings(name string, settings *estypes.IndexSett
 		return payload.Error
 	}
 	if payload.StatusCode != http.StatusOK && payload.StatusCode != http.StatusCreated {
-		return fmt.Errorf("failed to update index settings for %q. Error code: %v, %v", name, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+		return ec.errorCtx().New("failed to update index settings",
+			"index", name,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 	return nil
 }
@@ -142,11 +162,13 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 		RequestBody: body,
 	}
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-	if payload.Error != nil {
-		return payload.Error
-	}
-	if payload.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to reindex from %q to %q. Error code: %v, %v", src, dst, payload.StatusCode != http.StatusOK, payload.ResponseBody)
+	if payload.Error != nil || payload.StatusCode != http.StatusOK {
+		return ec.errorCtx().New("failed to reindex",
+			"from", src,
+			"to", dst,
+			"response_error", payload.Error,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 
 	return nil
@@ -168,12 +190,15 @@ func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
 		return payload.Error
 	}
 	if payload.StatusCode != http.StatusOK && payload.StatusCode != http.StatusCreated {
-		return fmt.Errorf("failed to update aliases. Error code: %v, %v", payload.StatusCode != http.StatusOK, payload.ResponseBody)
+		return ec.errorCtx().New("failed to update aliases",
+			"response_error", payload.Error,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
 	return nil
 }
 
-//ListIndicesForAlias returns a list of indices and the alias for the given pattern (e.g. foo-*, *-write)
+// ListIndicesForAlias returns a list of indices and the alias for the given pattern (e.g. foo-*, *-write)
 func (ec *esClient) ListIndicesForAlias(aliasPattern string) ([]string, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
@@ -181,16 +206,17 @@ func (ec *esClient) ListIndicesForAlias(aliasPattern string) ([]string, error) {
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-	if payload.Error != nil {
-		return nil, payload.Error
-	}
 	if payload.StatusCode == 404 {
 		return []string{}, nil
 	}
-	if payload.StatusCode != 200 {
-		return nil, fmt.Errorf("There was an error retrieving list of indices aliased to %s. Error code: %v, %v", aliasPattern, payload.StatusCode != 200, payload.ResponseBody)
+	if payload.Error != nil || payload.StatusCode != 200 {
+		return nil, ec.errorCtx().New("failed to get list of indices from alias",
+			"alias", aliasPattern,
+			"response_error", payload.Error,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody)
 	}
-	response := []string{}
+	var response []string
 	for index := range payload.ResponseBody {
 		response = append(response, index)
 	}

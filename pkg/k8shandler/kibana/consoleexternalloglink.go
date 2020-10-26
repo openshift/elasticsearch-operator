@@ -1,15 +1,13 @@
 package kibana
 
 import (
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
+	"github.com/ViaQ/logerr/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//NewConsoleExternalLogLink stubs an instance of a ConsoleExternalLogLink
+// NewConsoleExternalLogLink stubs an instance of a ConsoleExternalLogLink
 func NewConsoleExternalLogLink(resourceName, namespace, consoleText, hrefTemplate string) *consolev1.ConsoleExternalLogLink {
 	return &consolev1.ConsoleExternalLogLink{
 		TypeMeta: metav1.TypeMeta{
@@ -32,7 +30,7 @@ func NewConsoleExternalLogLink(resourceName, namespace, consoleText, hrefTemplat
 	}
 }
 
-//RemoveConsoleExternalLogLink with given name and namespace
+// RemoveConsoleExternalLogLink with given name and namespace
 func (clusterRequest *KibanaRequest) RemoveConsoleExternalLogLink(resourceName string) (err error) {
 	consoleExternalLogLink := NewConsoleExternalLogLink(
 		resourceName,
@@ -42,8 +40,9 @@ func (clusterRequest *KibanaRequest) RemoveConsoleExternalLogLink(resourceName s
 	)
 
 	err = clusterRequest.Delete(consoleExternalLogLink)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %v ConsoleExternalLogLink %v", resourceName, err)
+	if err == nil || apierrors.IsNotFound(kverrors.Root(err)) {
+		return nil
 	}
-	return nil
+	return kverrors.Wrap(err, "failed to delete ConsoleExternalLogLink",
+		"name", resourceName)
 }

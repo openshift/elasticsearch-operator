@@ -1,9 +1,8 @@
 package kibana
 
 import (
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/ViaQ/logerr/kverrors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +26,10 @@ func (clusterRequest *KibanaRequest) RemoveServiceMonitor(smName string) error {
 	serviceMonitor := NewServiceMonitor(smName, clusterRequest.cluster.Namespace)
 
 	err := clusterRequest.Delete(serviceMonitor)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %v service monitor: %v", serviceMonitor, err)
+	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to delete service monitor",
+			"service_monitor", serviceMonitor,
+		)
 	}
 
 	return nil

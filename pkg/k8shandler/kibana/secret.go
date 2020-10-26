@@ -1,12 +1,12 @@
 package kibana
 
 import (
-	"fmt"
 	"sort"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/ViaQ/logerr/kverrors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	core "k8s.io/api/core/v1"
 )
@@ -27,34 +27,39 @@ var secretCertificates = map[string]map[string]string{
 func (clusterRequest *KibanaRequest) GetSecret(secretName string) (*core.Secret, error) {
 	secret := &core.Secret{}
 	if err := clusterRequest.Get(secretName, secret); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
 			return nil, err
 		}
-		return nil, fmt.Errorf("Failed to get %v secret: %v", secret.Name, err)
+		return nil, kverrors.Wrap(err, "failed to get secret",
+			"name", secret.Name,
+		)
 	}
 
 	return secret, nil
 }
 
-func (clusterRequest *KibanaRequest) readSecrets() (err error) {
-
+// readSecrets reads all of the secrets it can find within secretCertificates
+// if any of the secrets are not found then they are ignored
+func (clusterRequest *KibanaRequest) readSecrets() error {
 	for secretName, certMap := range secretCertificates {
-		if err = clusterRequest.extractCertificates(secretName, certMap); err != nil {
-			return
+		err := clusterRequest.extractCertificates(secretName, certMap)
+		if err != nil {
+			return kverrors.Wrap(err, "failed to extract secret",
+				"secret_name", secretName)
 		}
 	}
 
 	return nil
 }
 
-func (clusterRequest *KibanaRequest) extractCertificates(secretName string, certs map[string]string) (err error) {
-
+func (clusterRequest *KibanaRequest) extractCertificates(secretName string, certs map[string]string) error {
 	for secretKey, certPath := range certs {
-		if err = clusterRequest.extractSecretToFile(secretName, secretKey, certPath); err != nil {
-			if errors.IsNotFound(err) {
-				return nil
-			}
-			return
+		err := clusterRequest.extractSecretToFile(secretName, secretKey, certPath)
+		if err != nil {
+			return kverrors.Wrap(err, "failed to extract cert",
+				"key", secretKey,
+				"cert_path", certPath,
+			)
 		}
 	}
 
@@ -64,10 +69,12 @@ func (clusterRequest *KibanaRequest) extractCertificates(secretName string, cert
 func (clusterRequest *KibanaRequest) extractSecretToFile(secretName string, key string, toFile string) (err error) {
 	secret, err := clusterRequest.GetSecret(secretName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
 			return err
 		}
-		return fmt.Errorf("Unable to extract secret %s to file: %v", secretName, err)
+		return kverrors.Wrap(err, "unable to extract secret to file",
+			"secret", secretName,
+		)
 	}
 
 	value, ok := secret.Data[key]

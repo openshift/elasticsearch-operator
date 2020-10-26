@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ViaQ/logerr/kverrors"
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 func calculateConditions(policy apis.IndexManagementPolicySpec, primaryShards int32) rolloverConditions {
@@ -27,13 +27,13 @@ func calculateConditions(policy apis.IndexManagementPolicySpec, primaryShards in
 func calculateMillisForTimeUnit(timeunit apis.TimeUnit) (uint64, error) {
 	match := reTimeUnit.FindStringSubmatch(string(timeunit))
 	if match == nil || len(match) < 2 {
-		return 0, fmt.Errorf("Unable to convert timeunit to millis for invalid timeunit %q", timeunit)
+		return 0, kverrors.New("unable to convert timeunit to millis for invalid timeunit",
+			"unit", timeunit)
 	}
 	n := match[1]
 	number, err := strconv.ParseUint(n, 10, 0)
 	if err != nil {
-		log.Error(err, "unable to parse uint", "raw", n)
-		return 0, err
+		return 0, kverrors.Wrap(err, "unable to parse uint", "value", n)
 	}
 	switch match[2] {
 	case "w":
@@ -47,18 +47,18 @@ func calculateMillisForTimeUnit(timeunit apis.TimeUnit) (uint64, error) {
 	case "s":
 		return number * millisPerSecond, nil
 	}
-	return 0, fmt.Errorf("conversion to millis for time unit %q is unsupported", match[2])
+	return 0, kverrors.New("conversion to millis for time unit is unsupported", "timeunit", match[2])
 }
 
 func crontabScheduleFor(timeunit apis.TimeUnit) (string, error) {
 	match := reTimeUnit.FindStringSubmatch(string(timeunit))
 	if match == nil {
-		return "", fmt.Errorf("Unable to create crontab schedule for invalid timeunit %q", timeunit)
+		return "", kverrors.New("Unable to create crontab schedule for invalid timeunit", "timeunit", timeunit)
 	}
 	switch match[2] {
 	case "m":
 		return fmt.Sprintf("*/%s * * * *", match[1]), nil
 	}
 
-	return "", fmt.Errorf("crontab schedule for time unit %q is unsupported", match[2])
+	return "", kverrors.New("crontab schedule for time unit is unsupported", "timeunit", match[2])
 }

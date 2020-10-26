@@ -12,16 +12,14 @@ import (
 )
 
 var (
-	deployment                      apps.Deployment
-	nodeContainer, desiredContainer v1.Container
-	node                            *deploymentNode
+	nodeContainer v1.Container
 )
 
 var _ = Describe("deployment", func() {
 	defer GinkgoRecover()
 
 	var (
-		current *deploymentNode = &deploymentNode{
+		current = &deploymentNode{
 			self: apps.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "aName",

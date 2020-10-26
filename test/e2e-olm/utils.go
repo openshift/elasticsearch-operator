@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ViaQ/logerr/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
@@ -15,7 +16,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/test"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,7 +61,7 @@ func elasticsearchNameFor(uuid string) string {
 func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, esUUID, dataUUID string, replicas int) (*loggingv1.Elasticsearch, error) {
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
-		return nil, fmt.Errorf("Could not get namespace: %v", err)
+		return nil, kverrors.Wrap(err, "failed to get namespace")
 	}
 
 	cpuValue := resource.MustParse("256m")
@@ -126,7 +127,9 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 
 	err = f.Client.Create(context.TODO(), cr, cleanupOpts)
 	if err != nil {
-		return nil, fmt.Errorf("could not create exampleElasticsearch: %v", err)
+		return nil, kverrors.Wrap(err, "failed to create elasticsearch CR",
+			"name", cr.Name,
+			"namespace", cr.Namespace)
 	}
 
 	return cr, nil
@@ -138,7 +141,7 @@ func updateElasticsearchSpec(t *testing.T, f *test.Framework, desired *loggingv1
 		key := client.ObjectKey{Name: desired.GetName(), Namespace: desired.GetNamespace()}
 
 		if err := f.Client.Get(context.TODO(), key, current); err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(kverrors.Root(err)) {
 				// Stop retry because CR not found
 				return false, err
 			}
@@ -152,7 +155,7 @@ func updateElasticsearchSpec(t *testing.T, f *test.Framework, desired *loggingv1
 		t.Logf("Update Spec: %#v", current.Spec)
 
 		if err := f.Client.Update(context.TODO(), current); err != nil {
-			if errors.IsConflict(err) {
+			if apierrors.IsConflict(kverrors.Root(err)) {
 				// Retry update because resource needs to get updated
 				return false, nil
 			}
@@ -170,7 +173,7 @@ func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 	t.Log("Creating required secret")
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
-		return fmt.Errorf("Could not get namespace: %v", err)
+		return kverrors.Wrap(err, "failed to get watch namespace")
 	}
 
 	if err := generateCertificates(t, namespace, uuid); err != nil {
@@ -201,7 +204,9 @@ func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 
 	err = f.Client.Create(context.TODO(), elasticsearchSecret, cleanupOpts)
 	if err != nil {
-		return err
+		return kverrors.Wrap(err, "failed to create elasticsearch secret",
+			"name", elasticsearchSecret.Name,
+			"namespace", elasticsearchSecret.Namespace)
 	}
 
 	return nil
@@ -210,7 +215,7 @@ func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 func updateElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Context, uuid string) error {
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
-		return fmt.Errorf("Could not get namespace: %v", err)
+		return kverrors.Wrap(err, "failed to get watch namespace")
 	}
 
 	elasticsearchSecret := &corev1.Secret{}
@@ -219,7 +224,9 @@ func updateElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 	secretName := types.NamespacedName{Name: name, Namespace: namespace}
 
 	if err = f.Client.Get(context.TODO(), secretName, elasticsearchSecret); err != nil {
-		return fmt.Errorf("Could not get secret %s: %v", elasticsearchCRName, err)
+		return kverrors.Wrap(err, "failed to get secret",
+			"name", secretName,
+			"namespace", namespace)
 	}
 
 	elasticsearchSecret.Data = map[string][]byte{
@@ -270,7 +277,7 @@ func createKibanaCR(namespace string) *loggingv1.Kibana {
 func createKibanaSecret(f *test.Framework, ctx *test.Context, esUUID string) error {
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
-		return fmt.Errorf("Could not get namespace: %v", err)
+		return kverrors.Wrap(err, "failed to get namespace")
 	}
 
 	kibanaSecret := utils.Secret(
@@ -300,7 +307,7 @@ func createKibanaSecret(f *test.Framework, ctx *test.Context, esUUID string) err
 func createKibanaProxySecret(f *test.Framework, ctx *test.Context, esUUID string) error {
 	namespace, err := ctx.GetWatchNamespace()
 	if err != nil {
-		return fmt.Errorf("Could not get namespace: %v", err)
+		return kverrors.Wrap(err, "failed to get namespace")
 	}
 
 	kibanaProxySecret := utils.Secret(
@@ -333,13 +340,16 @@ func generateCertificates(t *testing.T, namespace, uuid string) error {
 
 	err := os.MkdirAll(workDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("failed to create certificate tmp dir: %s", err)
+		return kverrors.Wrap(err, "failed to create certificate tmp dir",
+			"dir", workDir)
 	}
 
 	cmd := exec.Command("./hack/cert_generation.sh", workDir, namespace, storeName)
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("failed to generate certificate for %q: %v\n:%s", storeName, err, string(out))
+		return kverrors.Wrap(err, "failed to generate certificate",
+			"store_name", storeName,
+			"output", string(out))
 	}
 
 	return nil

@@ -2,10 +2,10 @@ package k8shandler
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/ViaQ/logerr/kverrors"
 	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -15,11 +15,12 @@ func GetElasticsearchCR(c client.Client, ns string) (*loggingv1.Elasticsearch, e
 	opts := &client.ListOptions{Namespace: ns}
 
 	if err := c.List(context.TODO(), esl, opts); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, err
 		}
 
-		return nil, fmt.Errorf("unable to get elasticsearch instance in %q: %w", ns, err)
+		return nil, kverrors.Wrap(err, "unable to get elasticsearch instance",
+			"namespace", ns)
 	}
 
 	if len(esl.Items) == 0 {
@@ -27,7 +28,7 @@ func GetElasticsearchCR(c client.Client, ns string) (*loggingv1.Elasticsearch, e
 			Group:    loggingv1.SchemeGroupVersion.Group,
 			Resource: "Elasticsearch",
 		}
-		return nil, errors.NewNotFound(gr, "elasticsearch")
+		return nil, apierrors.NewNotFound(gr, "elasticsearch")
 	}
 
 	return &esl.Items[0], nil

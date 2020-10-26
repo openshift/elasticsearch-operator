@@ -2,10 +2,10 @@ package k8shandler
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,7 +13,7 @@ import (
 	v1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	rbac "k8s.io/api/rbac/v1"
-	errors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -122,8 +122,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 
 func createOrUpdateClusterRole(role *rbac.ClusterRole, client client.Client) error {
 	if err := client.Create(context.TODO(), role); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create ClusterRole %s: %v", role.Name, err)
+		if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to create ClusterRole",
+				"name", role.Name)
 		}
 		existingRole := role.DeepCopy()
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -182,8 +183,10 @@ func reconcileRole(role *rbac.Role, client client.Client) error {
 	if err == nil {
 		return nil
 	}
-	if !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create Role %s/%s: %v", role.Namespace, role.Name, err)
+	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to create Role",
+			"namespace", role.Namespace,
+			"name", role.Name)
 	}
 	current := &rbac.Role{}
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -206,11 +209,13 @@ func reconcileRoleBinding(rb *rbac.RoleBinding, client client.Client) error {
 	if err == nil {
 		return nil
 	}
-	if !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failed to create RoleBinding %s/%s: %v", rb.Namespace, rb.Name, err)
+	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to create RoleBinding",
+			"name", rb.Name,
+			"namespace", rb.Namespace)
 	}
 	current := &rbac.RoleBinding{}
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(context.TODO(), types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace}, current); err != nil {
 			ll.Info("could not get RoleBindng", "error", err)
 			return err
@@ -223,21 +228,30 @@ func reconcileRoleBinding(rb *rbac.RoleBinding, client client.Client) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return kverrors.Wrap(err, "failed to reconcile RoleBinding",
+			"name", rb.Name,
+			"namespace", rb.Namespace)
+	}
+	return nil
 }
 
 func createOrUpdateClusterRoleBinding(roleBinding *rbac.ClusterRoleBinding, client client.Client) error {
 	if err := client.Create(context.TODO(), roleBinding); err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create ClusterRoleBindig %s: %v", roleBinding.Name, err)
+		if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to create ClusterRoleBindig",
+				"name", roleBinding.Name)
 		}
 		existingRoleBinding := roleBinding.DeepCopy()
 		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if getErr := client.Get(context.TODO(), types.NamespacedName{Name: existingRoleBinding.Name, Namespace: existingRoleBinding.Namespace}, existingRoleBinding); getErr != nil {
-				return fmt.Errorf("could not get ClusterRole %v: %v", existingRoleBinding.Name, getErr)
+				return kverrors.Wrap(getErr, "failed to get ClusterRole",
+					"name", existingRoleBinding.Name)
 			}
 			existingRoleBinding.Subjects = roleBinding.Subjects
 			if updateErr := client.Update(context.TODO(), existingRoleBinding); updateErr != nil {
-				return fmt.Errorf("failed to update ClusterRoleBinding %v status: %v", existingRoleBinding.Name, updateErr)
+				return kverrors.Wrap(updateErr, "failed to update ClusterRoleBinding",
+					"name", existingRoleBinding.Name)
 			}
 			return nil
 		})

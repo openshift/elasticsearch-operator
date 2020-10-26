@@ -7,13 +7,14 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/ViaQ/logerr/kverrors"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -747,8 +748,8 @@ func EnforceNetworkPolicy(namespace string, client client.Client, ownerRef []met
 
 	err := client.Create(context.TODO(), &policy)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Could not create network policy: %v", err)
+		if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to create network policy")
 		}
 	}
 
@@ -760,8 +761,8 @@ func RelaxNetworkPolicy(namespace string, client client.Client) error {
 	policy := newNetworkPolicy(namespace)
 	err := client.Delete(context.TODO(), &policy)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("Could not delete network policy: %v", err)
+		if !apierrors.IsNotFound(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to delete network policy")
 		}
 	}
 

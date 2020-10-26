@@ -15,6 +15,10 @@ github.com/Azure/go-autorest/tracing
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
+# github.com/ViaQ/logerr v0.0.0-20201008211411-9f0353e42495
+## explicit
+github.com/ViaQ/logerr/kverrors
+github.com/ViaQ/logerr/log
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
@@ -36,11 +40,10 @@ github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/evanphx/json-patch v4.5.0+incompatible
 github.com/evanphx/json-patch
-# github.com/go-logr/logr v0.1.0
+# github.com/go-logr/logr v0.2.1
 ## explicit
 github.com/go-logr/logr
-# github.com/go-logr/zapr v0.1.1
-## explicit
+# github.com/go-logr/zapr v0.2.0
 github.com/go-logr/zapr
 # github.com/go-openapi/jsonpointer v0.19.3
 github.com/go-openapi/jsonpointer
@@ -225,8 +228,7 @@ github.com/spf13/pflag
 go.uber.org/atomic
 # go.uber.org/multierr v1.5.0
 go.uber.org/multierr
-# go.uber.org/zap v1.14.1
-## explicit
+# go.uber.org/zap v1.16.0
 go.uber.org/zap
 go.uber.org/zap/buffer
 go.uber.org/zap/internal/bufferpool

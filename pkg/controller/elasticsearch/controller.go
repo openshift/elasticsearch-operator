@@ -17,8 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 )
 
 // Add creates a new Elasticsearch Controller and adds it to the Manager. The Manager will set fields on the Controller

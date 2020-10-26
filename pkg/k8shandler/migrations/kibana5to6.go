@@ -2,9 +2,9 @@ package migrations
 
 import (
 	"encoding/json"
-	"fmt"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 )
 
@@ -21,7 +21,8 @@ func (mr *migrationRequest) reIndexKibana5to6() error {
 	}
 
 	if !ok {
-		return fmt.Errorf("skipping migration not all nodes match min required versions %q", kibana5to6EsVersion)
+		return kverrors.New("skipping migration not all nodes match min required versions",
+			"min_required_version", kibana5to6EsVersion)
 	}
 
 	if mr.migrationCompleted() {
@@ -60,7 +61,8 @@ func (mr *migrationRequest) migrationCompleted() bool {
 func (mr *migrationRequest) setKibanaIndexReadOnly() error {
 	curSett, err := mr.esClient.GetIndexSettings(kibanaIndex)
 	if err != nil {
-		return fmt.Errorf("failed to get index settings for %q: %s", kibanaIndex, err)
+		return kverrors.Wrap(err, "failed to get index settings",
+			"index", kibanaIndex)
 	}
 
 	if curSett != nil {
@@ -81,7 +83,8 @@ func (mr *migrationRequest) setKibanaIndexReadOnly() error {
 	}
 
 	if err := mr.esClient.UpdateIndexSettings(kibanaIndex, settings); err != nil {
-		return fmt.Errorf("failed to set index %q to read only: %s", kibanaIndex, err)
+		return kverrors.Wrap(err, "failed to set index to read only",
+			"index", kibanaIndex)
 	}
 	return nil
 }
@@ -89,7 +92,8 @@ func (mr *migrationRequest) setKibanaIndexReadOnly() error {
 func (mr *migrationRequest) createNewKibana6Index() error {
 	curIndex, err := mr.esClient.GetIndex(kibana6Index)
 	if err != nil {
-		return fmt.Errorf("failed to get index for %q: %s", kibana6Index, err)
+		return kverrors.Wrap(err, "failed to get index",
+			"index", kibanaIndex)
 	}
 
 	if curIndex != nil {
@@ -102,7 +106,7 @@ func (mr *migrationRequest) createNewKibana6Index() error {
 	mappings := make(map[string]interface{})
 	err = json.Unmarshal([]byte(kibana6IndexMappings), &mappings)
 	if err != nil {
-		return fmt.Errorf("failed to read kibana 6 mappings: %s", err)
+		return kverrors.Wrap(err, "failed to parse kibana 6 mappings")
 	}
 
 	index := &estypes.Index{
@@ -120,7 +124,8 @@ func (mr *migrationRequest) createNewKibana6Index() error {
 	}
 
 	if err := mr.esClient.CreateIndex(kibana6Index, index); err != nil {
-		return fmt.Errorf("failed to create new index %q: %s", kibana6Index, err)
+		return kverrors.Wrap(err, "failed to create new index",
+			"index", kibana6Index)
 	}
 	return nil
 }
@@ -128,7 +133,8 @@ func (mr *migrationRequest) createNewKibana6Index() error {
 func (mr *migrationRequest) reIndexIntoKibana6() error {
 	indices, err := mr.esClient.GetAllIndices(kibana6Index)
 	if err != nil {
-		return fmt.Errorf("failed fetching doc count for %q before re-indexing: %s", kibana6Index, err)
+		return kverrors.Wrap(err, "failed to fetch doc count before re-indexing",
+			"index", kibana6Index)
 	}
 
 	var index *estypes.CatIndicesResponse
@@ -140,7 +146,9 @@ func (mr *migrationRequest) reIndexIntoKibana6() error {
 	}
 
 	if index == nil {
-		return fmt.Errorf("failed fetching doc count for index %q: index not found", kibana6Index)
+		return kverrors.New("failed to fetch doc count before re-indexing",
+			"index", kibana6Index,
+			"reason", "index not found")
 	}
 
 	if index.DocsCount != "0" {
@@ -150,7 +158,7 @@ func (mr *migrationRequest) reIndexIntoKibana6() error {
 
 	err = mr.esClient.ReIndex(kibanaIndex, kibana6Index, kibanReIndexScript, "painless")
 	if err != nil {
-		return fmt.Errorf("failed to reindex kibana6: %s", err)
+		return kverrors.Wrap(err, "failed to reindex")
 	}
 	return nil
 }
@@ -178,7 +186,7 @@ func (mr *migrationRequest) aliasKibana() error {
 	}
 
 	if err := mr.esClient.UpdateAlias(actions); err != nil {
-		return fmt.Errorf("failed to change alias %s to %s: %s", kibanaIndex, kibana6Index, err)
+		return kverrors.Wrap(err, "failed to update alias")
 	}
 	return nil
 }

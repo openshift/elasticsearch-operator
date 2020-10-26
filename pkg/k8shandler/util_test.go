@@ -274,8 +274,8 @@ func TestValidNoNodesSpecified(t *testing.T) {
 		t.Error("Expected no nodes defined to be flagged as valid, was found to be invalid redundancy policy")
 	}
 
-	if ok, msg := hasValidUUIDs(esCR); !ok {
-		t.Errorf("Expected no nodes defined to be flagged as valid, was found to be invalid UUIDs: %v", msg)
+	if err := validateUUIDs(esCR); err != nil {
+		t.Errorf("Expected no nodes defined to be flagged as valid, was found to be invalid UUIDs: %v", err)
 	}
 }
 

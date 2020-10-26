@@ -3,7 +3,7 @@ package k8shandler
 import (
 	"strings"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

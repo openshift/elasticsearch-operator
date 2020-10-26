@@ -2,19 +2,19 @@ package k8shandler
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/ViaQ/logerr/log"
 	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +29,6 @@ type deploymentNode struct {
 
 	clusterName string
 
-	currentRevision string
-
 	replicas int32
 
 	client client.Client
@@ -39,7 +37,6 @@ type deploymentNode struct {
 }
 
 func (node *deploymentNode) populateReference(nodeName string, n api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client) {
-
 	labels := newLabels(cluster.Name, nodeName, roleMap)
 
 	deployment := apps.Deployment{
@@ -97,8 +94,7 @@ func (node *deploymentNode) name() string {
 }
 
 func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
-
-	//var rolloutForReload v1.ConditionStatus
+	// var rolloutForReload v1.ConditionStatus
 	var rolloutForUpdate v1.ConditionStatus
 	var rolloutForCertReload v1.ConditionStatus
 
@@ -135,12 +131,11 @@ func (node *deploymentNode) delete() error {
 }
 
 func (node *deploymentNode) create() error {
-
 	if node.self.ObjectMeta.ResourceVersion == "" {
 		err := node.client.Create(context.TODO(), &node.self)
 		if err != nil {
-			if !errors.IsAlreadyExists(err) {
-				return fmt.Errorf("Could not create node resource: %v", err)
+			if !apierrors.IsAlreadyExists(err) {
+				return kverrors.Wrap(err, "could not create node resource")
 			} else {
 				return node.pause()
 			}
@@ -187,7 +182,6 @@ func (node *deploymentNode) nodeRevision() string {
 }
 
 func (node *deploymentNode) waitForNodeRollout() error {
-
 	podLabels := map[string]string{
 		"node-name": node.name(),
 	}
@@ -207,9 +201,7 @@ func (node *deploymentNode) podSpecMatches() bool {
 }
 
 func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
-
 	podList, err := GetPodList(node.self.Namespace, labels, node.client)
-
 	if err != nil {
 		log.Error(err, "Could not get node pods", "node", node.name())
 		return false
@@ -233,7 +225,6 @@ func (node *deploymentNode) unpause() error {
 }
 
 func (node *deploymentNode) setPaused(paused bool) error {
-
 	// we use pauseNode so that we don't revert any new changes that should be made and
 	// noticed in state()
 	pauseNode := node.self.DeepCopy()
@@ -262,7 +253,10 @@ func (node *deploymentNode) setPaused(paused bool) error {
 		return nil
 	})
 	if retryErr != nil {
-		return fmt.Errorf("Error: could not update Elasticsearch node %v after %v retries: %v", node.self.Name, nretries, retryErr)
+		return kverrors.Wrap(retryErr, "could not update Elasticsearch node after retries",
+			"node", node.self.Name,
+			"retries", nretries,
+		)
 	}
 
 	node.self.Spec.Paused = pauseNode.Spec.Paused
@@ -296,7 +290,10 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 		return nil
 	})
 	if retryErr != nil {
-		return fmt.Errorf("Error: could not update Elasticsearch node %v after %v retries: %v", node.self.Name, nretries, retryErr)
+		return kverrors.Wrap(retryErr, "could not update Elasticsearch node",
+			"node", node.self.Name,
+			"retries", nretries,
+		)
 	}
 
 	return nil
@@ -336,7 +333,7 @@ func (node *deploymentNode) isMissing() bool {
 	key := types.NamespacedName{Name: node.name(), Namespace: node.self.Namespace}
 
 	if err := node.client.Get(context.TODO(), key, obj); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return true
 		}
 	}
@@ -367,25 +364,33 @@ func (node *deploymentNode) executeUpdate() error {
 }
 
 func (node *deploymentNode) progressNodeChanges() error {
-	if node.isChanged() || !node.podSpecMatches() {
-		if err := node.executeUpdate(); err != nil {
-			return err
-		}
-
-		if err := node.unpause(); err != nil {
-			return fmt.Errorf("unable to unpause node %q: %v", node.name(), err)
-		}
-
-		if err := node.waitForNodeRollout(); err != nil {
-			return fmt.Errorf("Timed out waiting for node %v to rollout", node.name())
-		}
-
-		if err := node.pause(); err != nil {
-			return fmt.Errorf("unable to pause node %q: %v", node.name(), err)
-		}
-
-		node.refreshHashes()
+	if !node.isChanged() && node.podSpecMatches() {
+		return nil
 	}
+
+	if err := node.executeUpdate(); err != nil {
+		return err
+	}
+
+	if err := node.unpause(); err != nil {
+		return kverrors.Wrap(err, "unable to unpause node",
+			"node", node.name(),
+		)
+	}
+
+	if err := node.waitForNodeRollout(); err != nil {
+		return kverrors.New("timed out waiting for node to rollout",
+			"node", node.name(),
+		)
+	}
+
+	if err := node.pause(); err != nil {
+		return kverrors.Wrap(err, "unable to pause node",
+			"node", node.name(),
+		)
+	}
+
+	node.refreshHashes()
 	return nil
 }
 
@@ -402,7 +407,6 @@ func (node *deploymentNode) refreshHashes() {
 }
 
 func (node *deploymentNode) isChanged() bool {
-
 	desiredTemplate := node.self.Spec.Template
 	currentDeployment := apps.Deployment{}
 

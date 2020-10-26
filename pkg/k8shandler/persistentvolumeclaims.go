@@ -2,12 +2,12 @@ package k8shandler
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +28,7 @@ func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newNa
 		return updatePersistentVolumeClaim(claim, client)
 	}
 
-	if !errors.IsNotFound(err) {
+	if !apierrors.IsNotFound(err) {
 		log.Error(err, "Could not get PVC", "pvc", newName)
 		return err
 	}
@@ -38,8 +38,8 @@ func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newNa
 		return nil
 	}
 
-	if !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create PVC: %w", err)
+	if !apierrors.IsAlreadyExists(err) {
+		return kverrors.Wrap(err, "unable to create PVC")
 	}
 
 	return updatePersistentVolumeClaim(claim, client)
@@ -51,12 +51,14 @@ func updatePersistentVolumeClaim(claim *v1.PersistentVolumeClaim, client client.
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(context.TODO(), types.NamespacedName{Name: claim.Name, Namespace: claim.Namespace}, current); err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				// the object doesn't exist -- it was likely culled
 				// recreate it on the next time through if necessary
 				return nil
 			}
-			return fmt.Errorf("Failed to get %v PVC: %v", claim.Name, err)
+			return kverrors.Wrap(err, "failed to get PVC",
+				"claim", claim.Name,
+			)
 		}
 
 		if !reflect.DeepEqual(current.ObjectMeta.Labels, claim.ObjectMeta.Labels) {

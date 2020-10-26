@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -23,11 +23,13 @@ func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemp
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-	if payload.Error != nil {
-		return payload.Error
-	}
-	if payload.StatusCode != 200 && payload.StatusCode != 201 {
-		return fmt.Errorf("There was an error creating index template %s. Error code: %v, %v", name, payload.StatusCode != 200, payload.ResponseBody)
+	if payload.Error != nil || (payload.StatusCode != 200 && payload.StatusCode != 201) {
+		return ec.errorCtx().New("failed to create index template",
+			"template", name,
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody,
+			"response_error", payload.Error,
+		)
 	}
 	return nil
 }
@@ -39,13 +41,15 @@ func (ec *esClient) DeleteIndexTemplate(name string) error {
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-	if payload.Error != nil {
-		return payload.Error
+	if payload.Error == nil && (payload.StatusCode == 404 || payload.StatusCode < 300) {
+		return nil
 	}
-	if payload.StatusCode != 200 && payload.StatusCode != 404 {
-		return fmt.Errorf("There was an error deleting template %s. Error code: %v", name, payload.StatusCode)
-	}
-	return nil
+
+	return ec.errorCtx().New("failed to delete index template",
+		"template", name,
+		"response_status", payload.StatusCode,
+		"response_body", payload.ResponseBody,
+		"response_error", payload.Error)
 }
 
 //ListTemplates returns a list of templates
@@ -56,11 +60,11 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-	if payload.Error != nil {
-		return nil, payload.Error
-	}
-	if payload.StatusCode != 200 {
-		return nil, fmt.Errorf("There was an error retrieving list of templates. Error code: %v, %v", payload.StatusCode != 200, payload.ResponseBody)
+	if payload.Error != nil || payload.StatusCode != 200 {
+		return nil, ec.errorCtx().New("failed to get list of index templates",
+			"response_status", payload.StatusCode,
+			"response_body", payload.ResponseBody,
+			"response_error", payload.Error)
 	}
 	response := sets.NewString()
 	for name := range payload.ResponseBody {

@@ -26,7 +26,7 @@ func (clusterRequest *KibanaRequest) Create(object runtime.Object) error {
 	return clusterRequest.client.Create(context.TODO(), object)
 }
 
-//Update the runtime Object or return error
+// Update the runtime Object or return error
 func (clusterRequest *KibanaRequest) Update(object runtime.Object) error {
 	return clusterRequest.client.Update(context.TODO(), object)
 }

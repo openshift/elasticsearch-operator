@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 
@@ -76,7 +76,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			return er.UpdateClusterStatus()
 		}
 
-		er.UpdateClusterStatus()
+		 _ = er.UpdateClusterStatus()
 	}
 
 	// if there is a node currently being upgraded, work on that first
@@ -101,7 +101,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			}
 		}
 
-		er.UpdateClusterStatus()
+		_ = er.UpdateClusterStatus()
 	}
 
 	// We didn't have any in progress, but we have ones scheduled to be updated
@@ -133,7 +133,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			}
 		}
 
-		er.UpdateClusterStatus()
+		_ = er.UpdateClusterStatus()
 	}
 
 	if er.getNodeUpgradeInProgress() == nil {

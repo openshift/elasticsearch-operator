@@ -13,9 +13,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/pkg/apis"
 	"github.com/openshift/elasticsearch-operator/pkg/controller"
-	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/version"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -41,7 +41,7 @@ var (
 )
 
 func main() {
-	log.Init("elasticsearch-operator")
+	log.MustInit("elasticsearch-operator")
 	log.Info("starting up...",
 		"operator_version", version.Version,
 		"go_version", runtime.Version(),

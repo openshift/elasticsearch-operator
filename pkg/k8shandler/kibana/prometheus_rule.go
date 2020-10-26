@@ -1,13 +1,11 @@
 package kibana
 
 import (
-	"bytes"
-	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
-	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/ViaQ/logerr/kverrors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,24 +30,24 @@ func (clusterRequest *KibanaRequest) RemovePrometheusRule(ruleName string) error
 	promRule := NewPrometheusRule(ruleName, clusterRequest.cluster.Namespace)
 
 	err := clusterRequest.Delete(promRule)
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("Failure deleting %v prometheus rule: %v", promRule, err)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return kverrors.Wrap(err, "failed to delete prometheus rule",
+			"rule", promRule,
+		)
 	}
 
 	return nil
 }
 
 func NewPrometheusRuleSpecFrom(filePath string) (*monitoringv1.PrometheusRuleSpec, error) {
-	if err := utils.CheckFileExists(filePath); err != nil {
-		return nil, err
-	}
-	fileContent, err := ioutil.ReadFile(filepath.Clean(filePath))
+	f, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
-		return nil, fmt.Errorf("'%s' not readable", filePath)
+		return nil, kverrors.Wrap(err, "failed to read prometheus spec file", "filePath", filePath)
 	}
+	defer f.Close()
 	ruleSpec := monitoringv1.PrometheusRuleSpec{}
-	if err := k8sYAML.NewYAMLOrJSONDecoder(bytes.NewBufferString(string(fileContent)), 1000).Decode(&ruleSpec); err != nil {
-		return nil, err
+	if err := k8sYAML.NewYAMLOrJSONDecoder(f, 1000).Decode(&ruleSpec); err != nil {
+		return nil, kverrors.Wrap(err, "failed to read prometheus spec from file", "filePath", filePath)
 	}
 	return &ruleSpec, nil
 }

@@ -1,8 +1,7 @@
 package migrations
 
 import (
-	"fmt"
-
+	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
@@ -33,20 +32,28 @@ func (mr *migrationRequest) RunKibanaMigrations() error {
 
 	indices, err := mr.esClient.GetAllIndices(kibanaIndex)
 	if err != nil {
-		return fmt.Errorf("failed to get `.kibana` index health before running migrations: %s", err)
+		return kverrors.Wrap(err, "failed to get indices before running migrations",
+			"alias", kibanaIndex,
+		)
 	}
 
 	health, err := getIndexHealth(indices, kibanaIndex)
 	if err != nil {
-		return fmt.Errorf("failed to get `.kibana` index health before running migrations: %s", err)
+		return kverrors.Wrap(err, "failed to get index health before running migrations",
+			"index", kibanaIndex)
 	}
 
 	if health != "green" && health != "yellow" {
-		return fmt.Errorf("waiting for `.kibana` index recovery before running migrations: %s / (green,yellow)", health)
+		return kverrors.New("waiting for index recovery before running migrations",
+			"current_status", health,
+			"desired_status", "green/yellow",
+			"index", kibanaIndex)
 	}
 
 	if err := mr.reIndexKibana5to6(); err != nil {
-		return fmt.Errorf("failed re-indexing `.kibana` into `.kibana-6`: %s", err)
+		return kverrors.Wrap(err, "failed to reindex",
+			"from", kibanaIndex,
+			"to", kibana6Index)
 	}
 	return nil
 }
@@ -74,7 +81,8 @@ func (mr *migrationRequest) matchRequiredMajorVersion(version string) (bool, err
 
 func getIndexHealth(indices estypes.CatIndicesResponses, name string) (string, error) {
 	if len(indices) == 0 {
-		return "unknown", fmt.Errorf("failed to get index health for %q ", name)
+		return "unknown", kverrors.New("failed to get index health",
+			"index", name)
 	}
 
 	return indices[0].Health, nil

@@ -10,9 +10,10 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/openshift/elasticsearch-operator/pkg/log"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,15 +53,19 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error 
 	if err == nil {
 		return nil
 	}
-	if !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("failure constructing ConfigMap: %w", err)
+	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to construct configmap",
+			"name", cm.Name,
+			"namespace", cm.Namespace)
 	}
 
 	// Get existing configMap to check if it is same as what we want
 	current := cm.DeepCopy()
 	err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
 	if err != nil {
-		return fmt.Errorf("unable to get configMap: %w", err)
+		return kverrors.Wrap(err, "failed to update configmap",
+			"name", cm.Name,
+			"namespace", cm.Namespace)
 	}
 
 	if configMapContentChanged(current, cm) {
@@ -69,10 +74,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error 
 			return err
 		}
 
-		return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
 				log.Info("Could not get configmap, retrying...", "configmap", cm.Name, "error", err)
-				// FIXME: return structured error and update RetryOnConflict to use errors.Is
 				return err
 			}
 
@@ -83,6 +87,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error 
 			}
 			return nil
 		})
+		return kverrors.Wrap(err, "failed to update configmap",
+			"name", cm.Name,
+			"namespace", cm.Namespace)
 	} else {
 		if err := updateConditionWithRetry(er.cluster, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
 			return err
@@ -123,43 +130,52 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 	dpl.AddOwnerRefTo(configmap)
 
 	err = er.client.Create(context.TODO(), configmap)
+	if err == nil {
+		return nil
+	}
+	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+		return kverrors.Wrap(err, "failed to construct elasticsearch configmap",
+			"name", configmap.Name,
+			"namespace", configmap.Namespace,
+			"cluster", configmap.ClusterName)
+	}
+
+	// Get existing configMap to check if it is same as what we want
+	current := configmap.DeepCopy()
+	err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("Failure constructing Elasticsearch ConfigMap: %v", err)
+		return kverrors.Wrap(err, "failed to get Elasticsearch cluster configMap",
+			"name", current.Name,
+			"namespace", current.Namespace,
+			"cluster", current.ClusterName)
+	}
+
+	if configMapContentChanged(current, configmap) {
+		// Cluster settings has changed, make sure it doesnt go unnoticed
+		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
+			return err
 		}
 
-		if errors.IsAlreadyExists(err) {
-			// Get existing configMap to check if it is same as what we want
-			current := configmap.DeepCopy()
-			err = er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current)
-			if err != nil {
-				return fmt.Errorf("Unable to get Elasticsearch cluster configMap: %v", err)
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
+				log.Error(err, "Could not get Elasticsearch configmap", configmap.Name)
+				return err
 			}
 
-			if configMapContentChanged(current, configmap) {
-				// Cluster settings has changed, make sure it doesnt go unnoticed
-				if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
-					return err
-				}
-
-				return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					if err := er.client.Get(context.TODO(), types.NamespacedName{Name: current.Name, Namespace: current.Namespace}, current); err != nil {
-						log.Error(err, "Could not get Elasticsearch configmap", configmap.Name)
-						return err
-					}
-
-					current.Data = configmap.Data
-					if err := er.client.Update(context.TODO(), current); err != nil {
-						log.Error(err, "Failed to update Elasticsearch configmap", configmap.Name)
-						return err
-					}
-					return nil
-				})
-			} else {
-				if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
-					return err
-				}
+			current.Data = configmap.Data
+			if err := er.client.Update(context.TODO(), current); err != nil {
+				log.Error(err, "Failed to update Elasticsearch configmap", configmap.Name)
+				return err
 			}
+			return nil
+		})
+		return kverrors.Wrap(err, "failed to update configmap",
+			"name", configmap.Name,
+			"namespace", configmap.Namespace,
+			"cluster", configmap.ClusterName)
+	} else {
+		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
+			return err
 		}
 	}
 
