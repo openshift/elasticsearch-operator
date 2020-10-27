@@ -2,11 +2,13 @@ linters:
   disable:
     - megacheck
   enable:
+    - bodyclose
+    - gomodguard
+    - gosec
     - gosimple
     - staticcheck
+    - stylecheck
     - unused
-    - gosec
-    - gomodguard
 linters-settings:
   depguard:
     list-type: blacklist

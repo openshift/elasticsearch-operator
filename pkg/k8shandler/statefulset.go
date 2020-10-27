@@ -50,7 +50,6 @@ func (n *statefulSetNode) L() logr.Logger {
 }
 
 func (n *statefulSetNode) populateReference(nodeName string, node api.ElasticsearchNode, cluster *api.Elasticsearch, roleMap map[api.ElasticsearchNodeRole]bool, replicas int32, client client.Client, esClient elasticsearch.Client) {
-
 	labels := newLabels(cluster.Name, nodeName, roleMap)
 
 	statefulSet := apps.StatefulSet{
@@ -170,7 +169,6 @@ func (n *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
 }
 
 func (n *statefulSetNode) setPartition(partitions int32) error {
-
 	nodeCopy := n.self.DeepCopy()
 
 	nretries := -1
@@ -208,7 +206,6 @@ func (n *statefulSetNode) setPartition(partitions int32) error {
 }
 
 func (n *statefulSetNode) partition() (int32, error) {
-
 	desired := &apps.StatefulSet{}
 
 	if err := n.client.Get(context.TODO(), types.NamespacedName{Name: n.self.Name, Namespace: n.self.Namespace}, desired); err != nil {
@@ -220,7 +217,6 @@ func (n *statefulSetNode) partition() (int32, error) {
 }
 
 func (n *statefulSetNode) setReplicaCount(replicas int32) error {
-
 	nodeCopy := n.self.DeepCopy()
 
 	nretries := -1
@@ -257,7 +253,6 @@ func (n *statefulSetNode) setReplicaCount(replicas int32) error {
 }
 
 func (n *statefulSetNode) replicaCount() (int32, error) {
-
 	desired := &apps.StatefulSet{}
 
 	if err := n.client.Get(context.TODO(), types.NamespacedName{Name: n.self.Name, Namespace: n.self.Namespace}, desired); err != nil {
@@ -285,7 +280,6 @@ func (n *statefulSetNode) delete() error {
 }
 
 func (n *statefulSetNode) create() error {
-
 	if n.self.ObjectMeta.ResourceVersion == "" {
 		err := n.client.Create(context.TODO(), &n.self)
 		if err != nil {
@@ -310,7 +304,6 @@ func (n *statefulSetNode) create() error {
 func (n *statefulSetNode) executeUpdate() error {
 	// see if we need to update the deployment object and verify we have latest to update
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-
 		currentStatefulSet := apps.StatefulSet{}
 
 		err := n.client.Get(context.TODO(), types.NamespacedName{Name: n.self.Name, Namespace: n.self.Namespace}, &currentStatefulSet)
@@ -346,7 +339,6 @@ func (n *statefulSetNode) refreshHashes() {
 }
 
 func (n *statefulSetNode) scale() {
-
 	desired := n.self.DeepCopy()
 	err := n.client.Get(context.TODO(), types.NamespacedName{Name: n.self.Name, Namespace: n.self.Namespace}, &n.self)
 	// error check that it exists, etc
@@ -366,7 +358,6 @@ func (n *statefulSetNode) scale() {
 }
 
 func (n *statefulSetNode) isChanged() bool {
-
 	desiredTemplate := n.self.Spec.Template
 	currentStatefulSet := apps.StatefulSet{}
 

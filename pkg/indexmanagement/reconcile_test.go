@@ -55,7 +55,7 @@ var _ = Describe("Index Management", func() {
 		cronjob = newCronJob(cluster.Name, "animage", cluster.Namespace, name, "*/5 * * * *", selector, tolerations, []core.EnvVar{}, fnContainerHandler)
 	})
 	Describe("#reconcileCronJob", func() {
-		var fnCronsAreSame = func(lhs, rhs *batch.CronJob) bool {
+		fnCronsAreSame := func(lhs, rhs *batch.CronJob) bool {
 			return true
 		}
 		Describe("when trying to create the cronjob", func() {
@@ -71,7 +71,6 @@ var _ = Describe("Index Management", func() {
 					err := reconcileCronJob(apiclient, cluster, cronjob, fnCronsAreSame)
 					Expect(err).To(BeNil())
 				})
-
 			})
 			Context("and errors because it already exists", func() {
 				Context("and the current is the same as desired", func() {
@@ -97,7 +96,6 @@ var _ = Describe("Index Management", func() {
 						Expect(testclient.WasUpdated(cronjob.Name)).To(BeTrue(), "Exp. to update the cronjob")
 					})
 				})
-
 			})
 		})
 	})
@@ -139,7 +137,6 @@ var _ = Describe("Index Management", func() {
 					err := ReconcileCurationCronjob(apiclient, cluster, policy, mapping, primaryShards)
 					Expect(err).To(BeNil())
 				})
-
 			})
 			Context("and errors because it already exists", func() {
 				Context("when the current is different from the desired", func() {
@@ -153,7 +150,6 @@ var _ = Describe("Index Management", func() {
 						Expect(testclient.WasUpdated(cronjob.Name)).To(BeTrue(), "Exp. to update the cronjob")
 					})
 				})
-
 			})
 		})
 	})
@@ -191,7 +187,6 @@ var _ = Describe("Index Management", func() {
 					err := ReconcileRolloverCronjob(apiclient, cluster, policy, mapping, primaryShards)
 					Expect(err).To(BeNil())
 				})
-
 			})
 			Context("and errors because it already exists", func() {
 				Context("when the current is different from the desired", func() {
@@ -205,7 +200,6 @@ var _ = Describe("Index Management", func() {
 						Expect(testclient.WasUpdated(cronjob.Name)).To(BeTrue(), "Exp. to update the cronjob")
 					})
 				})
-
 			})
 		})
 	})

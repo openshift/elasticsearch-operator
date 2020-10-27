@@ -134,7 +134,6 @@ type ReconcileKibana struct {
 
 // Reconcile reads that state of the cluster for a Kibana object and makes changes based on the state read
 func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-
 	// get CR
 	kibanaInstance := &loggingv1.Kibana{}
 	key := types.NamespacedName{
@@ -181,7 +180,6 @@ func (r *ReconcileKibana) Reconcile(request reconcile.Request) (reconcile.Result
 
 // handleSecret returns true if metaname is such that (cr_name) matches or that (cr_name + "-proxy") matches
 func handleSecret(meta metav1.Object) bool {
-
 	// iterate over registeredKibanas that match the namespace
 	namespace := meta.GetNamespace()
 
@@ -204,7 +202,6 @@ func handleSecret(meta metav1.Object) bool {
 
 // handleConfigMap returns true if metaname is contained in the GlobalProxyList constant
 func handleConfigMap(meta metav1.Object) bool {
-
 	// iterate over registeredKibanas that match the namespace
 	namespace := meta.GetNamespace()
 
@@ -222,7 +219,6 @@ func handleConfigMap(meta metav1.Object) bool {
 
 // handlePod returns true if metaname contains a registered kibana name as substring
 func handlePod(meta metav1.Object) bool {
-
 	// iterate over registeredKibanas that match the namespace
 	namespace := meta.GetNamespace()
 
@@ -283,7 +279,6 @@ func unregisterKibanaNamespacedName(request reconcile.Request) {
 // this is used for when we get a proxy config or trusted CA change
 // it will return requests for all known kibana CRs
 func getKibanaEvents(a handler.MapObject) []reconcile.Request {
-
 	requests := []reconcile.Request{}
 
 	registeredKibanas.mux.Lock()
@@ -299,7 +294,6 @@ func getKibanaEvents(a handler.MapObject) []reconcile.Request {
 // this is used when we have a secret update
 // it will return requests for all known kibana CRs that match
 func getNamespacedKibanaEvent(a handler.MapObject) []reconcile.Request {
-
 	namespace := a.Meta.GetNamespace()
 	requests := []reconcile.Request{}
 

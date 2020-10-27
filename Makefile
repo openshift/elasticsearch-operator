@@ -49,8 +49,8 @@ clean:
 	@rm -rf bin tmp _output
 	go clean -cache -testcache ./...
 
-fmt:
-	@gofmt -s -l -w $(shell find pkg cmd test -name '*.go')
+fmt: $(GOFUMPORTS)
+	@$(GOFUMPORTS) -l -w $(shell find pkg cmd test -name '*.go')
 
 lint: $(GOLANGCI_LINT) fmt lint-prom
 	@$(GOLANGCI_LINT) run -c golangci.yaml

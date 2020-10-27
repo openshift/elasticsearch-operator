@@ -26,6 +26,7 @@ func NewFakeClient(client client.Client, err error) *FakeClient {
 		updated: []runtime.Object{},
 	}
 }
+
 func (fw *FakeClient) WasUpdated(name string) bool {
 	for _, o := range fw.updated {
 		listkey, _ := client.ObjectKeyFromObject(o)
@@ -35,6 +36,7 @@ func (fw *FakeClient) WasUpdated(name string) bool {
 	}
 	return false
 }
+
 func (fw *FakeClient) Create(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
 	if fw.Error != nil {
 		return fw.Error

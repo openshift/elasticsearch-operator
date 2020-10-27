@@ -118,7 +118,6 @@ func (clusterRequest *KibanaRequest) CreateClusterRole(name string, rules []rbac
 
 // RemoveClusterRoleBinding removes a cluster role binding
 func (clusterRequest *KibanaRequest) RemoveClusterRoleBinding(name string) error {
-
 	binding := NewClusterRoleBinding(
 		name,
 		"",

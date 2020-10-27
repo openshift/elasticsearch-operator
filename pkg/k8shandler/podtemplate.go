@@ -11,7 +11,6 @@ import (
 // ArePodTemplateSpecDifferent compares two v1.PodTemplateSpecs
 // and returns True or False
 func ArePodTemplateSpecDifferent(lhs, rhs v1.PodTemplateSpec) bool {
-
 	return ArePodSpecDifferent(lhs.Spec, rhs.Spec, true)
 }
 
@@ -97,7 +96,6 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 
 // check that all of rhs (desired) are contained within lhs (current)
 func containsSameVolumeMounts(lhs, rhs []v1.VolumeMount) bool {
-
 	for _, rVolumeMount := range rhs {
 		found := false
 
@@ -122,7 +120,6 @@ func containsSameVolumeMounts(lhs, rhs []v1.VolumeMount) bool {
 // if we use reflect.DeepEqual we will keep recognizing a difference due to defaultModes
 // we want to check that rhs is contained within lhs
 func containsSameVolumes(lhs, rhs []v1.Volume) bool {
-
 	for _, rVolume := range rhs {
 		found := false
 

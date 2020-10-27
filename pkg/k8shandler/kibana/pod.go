@@ -19,7 +19,7 @@ func NewPodSpec(serviceAccountName string, containers []core.Container, volumes 
 	}
 }
 
-//NewContainer stubs an instance of a Container
+// NewContainer stubs an instance of a Container
 func NewContainer(containerName string, imageName string, pullPolicy core.PullPolicy, resources core.ResourceRequirements) core.Container {
 	return core.Container{
 		Name:            containerName,
@@ -29,7 +29,7 @@ func NewContainer(containerName string, imageName string, pullPolicy core.PullPo
 	}
 }
 
-//GetPodList for a given selector and namespace
+// GetPodList for a given selector and namespace
 func (clusterRequest *KibanaRequest) GetPodList(selector map[string]string) (*core.PodList, error) {
 	list := &core.PodList{
 		TypeMeta: metav1.TypeMeta{

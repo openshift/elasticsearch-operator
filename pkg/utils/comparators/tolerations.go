@@ -4,7 +4,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-//AreTolerationsSame compares two lists of tolerations for equality
+// AreTolerationsSame compares two lists of tolerations for equality
 func AreTolerationsSame(lhs, rhs []v1.Toleration) bool {
 	if len(lhs) != len(rhs) {
 		return false
@@ -30,13 +30,12 @@ func containsToleration(toleration v1.Toleration, tolerations []v1.Toleration) b
 }
 
 func isTolerationSame(lhs, rhs v1.Toleration) bool {
-
 	tolerationSecondsBool := false
 	// check that both are either null or not null
 	if (lhs.TolerationSeconds == nil) == (rhs.TolerationSeconds == nil) {
 		if lhs.TolerationSeconds != nil {
 			// only compare values (attempt to dereference) if pointers aren't nil
-			tolerationSecondsBool = (*lhs.TolerationSeconds == *rhs.TolerationSeconds)
+			tolerationSecondsBool = *lhs.TolerationSeconds == *rhs.TolerationSeconds
 		} else {
 			tolerationSecondsBool = true
 		}

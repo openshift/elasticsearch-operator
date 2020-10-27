@@ -48,7 +48,6 @@ type Restarter struct {
 }
 
 func (er *ElasticsearchRequest) PerformFullClusterUpdate(nodes []NodeTypeInterface) error {
-
 	r := ClusterRestart{
 		client:           er.esClient,
 		clusterName:      er.cluster.Name,
@@ -84,7 +83,6 @@ func (er *ElasticsearchRequest) PerformFullClusterUpdate(nodes []NodeTypeInterfa
 }
 
 func (er *ElasticsearchRequest) PerformFullClusterCertRestart(nodes []NodeTypeInterface) error {
-
 	r := ClusterRestart{
 		client:           er.esClient,
 		clusterName:      er.cluster.Name,
@@ -120,7 +118,6 @@ func (er *ElasticsearchRequest) PerformFullClusterCertRestart(nodes []NodeTypeIn
 }
 
 func (er *ElasticsearchRequest) PerformFullClusterRestart(nodes []NodeTypeInterface) error {
-
 	r := ClusterRestart{
 		client:           er.esClient,
 		clusterName:      er.cluster.Name,
@@ -156,7 +153,6 @@ func (er *ElasticsearchRequest) PerformFullClusterRestart(nodes []NodeTypeInterf
 }
 
 func (er *ElasticsearchRequest) PerformNodeRestart(node NodeTypeInterface) error {
-
 	scheduledNode := []NodeTypeInterface{node}
 
 	r := ClusterRestart{
@@ -190,7 +186,6 @@ func (er *ElasticsearchRequest) PerformNodeRestart(node NodeTypeInterface) error
 }
 
 func (er *ElasticsearchRequest) PerformNodeUpdate(node NodeTypeInterface) error {
-
 	scheduledNode := []NodeTypeInterface{node}
 
 	r := ClusterRestart{
@@ -224,7 +219,6 @@ func (er *ElasticsearchRequest) PerformNodeUpdate(node NodeTypeInterface) error 
 }
 
 func (er *ElasticsearchRequest) PerformRollingUpdate(nodes []NodeTypeInterface) error {
-
 	for _, node := range nodes {
 		if err := er.PerformNodeUpdate(node); err != nil {
 			return err
@@ -235,7 +229,6 @@ func (er *ElasticsearchRequest) PerformRollingUpdate(nodes []NodeTypeInterface) 
 }
 
 func (er *ElasticsearchRequest) PerformRollingRestart(nodes []NodeTypeInterface) error {
-
 	for _, node := range nodes {
 		if err := er.PerformNodeRestart(node); err != nil {
 			return err
@@ -249,9 +242,7 @@ func (er *ElasticsearchRequest) PerformRollingRestart(nodes []NodeTypeInterface)
 // to determine if the cluster has any nodes running. If we use the NodeInterface function waitForNodeLeaveCluster
 // we may get stuck because we have no cluster nodes to query from.
 func (er *ElasticsearchRequest) scaleDownThenUpFunc(clusterRestart ClusterRestart) func() error {
-
 	return func() error {
-
 		if err := clusterRestart.scaleDownNodes(); err != nil {
 			return err
 		}
@@ -269,15 +260,15 @@ func (er *ElasticsearchRequest) scaleDownThenUpFunc(clusterRestart ClusterRestar
 }
 
 // used for when we have no operations to perform during a restart phase
-func (clusterRestart ClusterRestart) restartNoop() error {
+func (cr ClusterRestart) restartNoop() error {
 	return nil
 }
 
-func (clusterRestart ClusterRestart) ensureClusterHealthValid() error {
-	if status, _ := clusterRestart.client.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
+func (cr ClusterRestart) ensureClusterHealthValid() error {
+	if status, _ := cr.client.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
 		return kverrors.New("Waiting for cluster to be recovered",
-			"namespace", clusterRestart.clusterNamespace,
-			"cluster", clusterRestart.clusterName,
+			"namespace", cr.clusterNamespace,
+			"cluster", cr.clusterName,
 			"status", status,
 			"desired_status", desiredClusterStates)
 	}
@@ -285,19 +276,19 @@ func (clusterRestart ClusterRestart) ensureClusterHealthValid() error {
 	return nil
 }
 
-func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error {
+func (cr ClusterRestart) requiredSetPrimariesShardsAndFlush() error {
 	// set shard allocation as primaries
-	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
+	if ok, err := cr.client.SetShardAllocation(api.ShardAllocationPrimaries); !ok {
 		return kverrors.Wrap(err, "unable to set shard allocation to primaries",
-			"namespace", clusterRestart.clusterNamespace,
-			"cluster", clusterRestart.clusterName)
+			"namespace", cr.clusterNamespace,
+			"cluster", cr.clusterName)
 	}
 
 	// flush nodes
-	if ok, err := clusterRestart.client.DoSynchronizedFlush(); !ok {
+	if ok, err := cr.client.DoSynchronizedFlush(); !ok {
 		log.Error(err, "failed to flush nodes",
-			"namespace", clusterRestart.clusterNamespace,
-			"cluster", clusterRestart.clusterName,
+			"namespace", cr.clusterNamespace,
+			"cluster", cr.clusterName,
 		)
 		return ErrFlushShardsFailed
 	}
@@ -305,8 +296,8 @@ func (clusterRestart ClusterRestart) requiredSetPrimariesShardsAndFlush() error 
 	return nil
 }
 
-func (clusterRestart ClusterRestart) optionalSetPrimariesShardsAndFlush() error {
-	err := clusterRestart.requiredSetPrimariesShardsAndFlush()
+func (cr ClusterRestart) optionalSetPrimariesShardsAndFlush() error {
+	err := cr.requiredSetPrimariesShardsAndFlush()
 	if err != nil {
 		log.Error(err, "failed to set primaries shards and flush")
 	}
@@ -314,21 +305,21 @@ func (clusterRestart ClusterRestart) optionalSetPrimariesShardsAndFlush() error 
 	return nil
 }
 
-func (clusterRestart ClusterRestart) waitAllNodesRejoinAndSetAllShards() error {
+func (cr ClusterRestart) waitAllNodesRejoinAndSetAllShards() error {
 	// reenable shard allocation
-	if err := clusterRestart.waitAllNodesRejoin(); err != nil {
+	if err := cr.waitAllNodesRejoin(); err != nil {
 		return err
 	}
 
-	if err := clusterRestart.setAllShards(); err != nil {
+	if err := cr.setAllShards(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (clusterRestart ClusterRestart) waitAllNodesRejoin() error {
-	for _, node := range clusterRestart.scheduledNodes {
+func (cr ClusterRestart) waitAllNodesRejoin() error {
+	for _, node := range cr.scheduledNodes {
 		if err, _ := node.waitForNodeRejoinCluster(); err != nil {
 			return err
 		}
@@ -337,42 +328,40 @@ func (clusterRestart ClusterRestart) waitAllNodesRejoin() error {
 	return nil
 }
 
-func (clusterRestart ClusterRestart) setAllShards() error {
+func (cr ClusterRestart) setAllShards() error {
 	// reenable shard allocation
-	if ok, err := clusterRestart.client.SetShardAllocation(api.ShardAllocationAll); !ok {
+	if ok, err := cr.client.SetShardAllocation(api.ShardAllocationAll); !ok {
 		return kverrors.Wrap(err, "failed to enable shard allocation")
 	}
 
 	return nil
 }
 
-func (clusterRestart ClusterRestart) scaleDownThenUpNodes() error {
-
-	if err := clusterRestart.scaleDownNodes(); err != nil {
+func (cr ClusterRestart) scaleDownThenUpNodes() error {
+	if err := cr.scaleDownNodes(); err != nil {
 		return err
 	}
 
-	for _, node := range clusterRestart.scheduledNodes {
+	for _, node := range cr.scheduledNodes {
 		if err, _ := node.waitForNodeLeaveCluster(); err != nil {
 			return err
 		}
 	}
 
-	if err := clusterRestart.scaleUpNodes(); err != nil {
+	if err := cr.scaleUpNodes(); err != nil {
 		return err
 	}
 
-	if err := clusterRestart.waitAllNodesRejoin(); err != nil {
+	if err := cr.waitAllNodesRejoin(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (clusterRestart ClusterRestart) scaleDownNodes() error {
-
+func (cr ClusterRestart) scaleDownNodes() error {
 	// scale down all nodes
-	for _, node := range clusterRestart.scheduledNodes {
+	for _, node := range cr.scheduledNodes {
 		if err := node.scaleDown(); err != nil {
 			return err
 		}
@@ -381,10 +370,9 @@ func (clusterRestart ClusterRestart) scaleDownNodes() error {
 	return nil
 }
 
-func (clusterRestart ClusterRestart) scaleUpNodes() error {
-
+func (cr ClusterRestart) scaleUpNodes() error {
 	// scale all nodes back up
-	for _, node := range clusterRestart.scheduledNodes {
+	for _, node := range cr.scheduledNodes {
 		if err := node.scaleUp(); err != nil {
 			return err
 		}
@@ -395,8 +383,8 @@ func (clusterRestart ClusterRestart) scaleUpNodes() error {
 	return nil
 }
 
-func (clusterRestart ClusterRestart) pushNodeUpdates() error {
-	for _, node := range clusterRestart.scheduledNodes {
+func (cr ClusterRestart) pushNodeUpdates() error {
+	for _, node := range cr.scheduledNodes {
 		if err := node.progressNodeChanges(); err != nil {
 			return err
 		}
@@ -406,7 +394,6 @@ func (clusterRestart ClusterRestart) pushNodeUpdates() error {
 }
 
 func (r *Restarter) setClusterConditions(updateStatus func()) {
-
 	// cluster conditions
 	r.precheckCondition = func() bool {
 		return containsClusterCondition(api.Restarting, v1.ConditionFalse, r.clusterStatus) &&
@@ -470,7 +457,6 @@ func (r *Restarter) setClusterConditions(updateStatus func()) {
 }
 
 func (r *Restarter) setNodeConditions(updateStatus func()) {
-
 	// node conditions
 	r.precheckCondition = func() bool {
 		return r.nodeStatus.UpgradeStatus.UnderUpgrade != v1.ConditionTrue
@@ -541,7 +527,6 @@ func (r *Restarter) setNodeConditions(updateStatus func()) {
 
 // template function used for all restarts
 func (r Restarter) restartCluster() error {
-
 	if r.precheckCondition() {
 		if err := r.precheck(); err != nil {
 			return err

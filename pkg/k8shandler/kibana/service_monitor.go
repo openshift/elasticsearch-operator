@@ -22,7 +22,6 @@ func NewServiceMonitor(serviceMonitorName, namespace string) *monitoringv1.Servi
 }
 
 func (clusterRequest *KibanaRequest) RemoveServiceMonitor(smName string) error {
-
 	serviceMonitor := NewServiceMonitor(smName, clusterRequest.cluster.Namespace)
 
 	err := clusterRequest.Delete(serviceMonitor)

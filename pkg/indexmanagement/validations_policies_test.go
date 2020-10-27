@@ -40,7 +40,6 @@ var _ = Describe("Index Management", func() {
 		})
 
 		Context("Name", func() {
-
 			It("should spec a name", func() {
 				validatePoliciesForSpec(esapi.IndexManagementPolicySpec{})
 				expectStatus(cluster).hasPolicy("policy[0]").
@@ -59,7 +58,6 @@ var _ = Describe("Index Management", func() {
 			})
 		})
 		Context("PollInterval", func() {
-
 			It("should spec a value", func() {
 				validatePoliciesForSpec(esapi.IndexManagementPolicySpec{
 					Name: "foo",
@@ -81,7 +79,6 @@ var _ = Describe("Index Management", func() {
 			})
 		})
 		Context("Phase time unit", func() {
-
 			Context("hot phase", func() {
 				It("should spec a value", func() {
 					validatePoliciesForSpec(esapi.IndexManagementPolicySpec{
@@ -98,7 +95,6 @@ var _ = Describe("Index Management", func() {
 				})
 			})
 			Context("delete phase", func() {
-
 				It("should spec a value", func() {
 					validatePoliciesForSpec(esapi.IndexManagementPolicySpec{
 						Name:         "delete",
@@ -149,5 +145,4 @@ var _ = Describe("Index Management", func() {
 				withPolicyStatusReason(esapi.IndexManagementPolicyReasonConditionsMet)
 		})
 	})
-
 })

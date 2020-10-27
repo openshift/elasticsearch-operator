@@ -81,7 +81,6 @@ func WaitForPods(t *testing.T, f *test.Framework, namespace string, labels map[s
 		}
 		return true, nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +265,6 @@ func WaitForStatefulset(t *testing.T, kubeclient kubernetes.Interface, namespace
 }
 
 func GenerateUUID() string {
-
 	uuid, err := utils.RandStringBytes(8)
 	if err != nil {
 		return ""
@@ -318,7 +316,6 @@ func WaitForIndexReplicas(t *testing.T, kubeclient kubernetes.Interface, namespa
 	esClient := elasticsearch.NewClient(clusterName, namespace, mockClient)
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-
 		// get all index replica count
 		indexHealth, err := esClient.GetIndexReplicaCounts()
 		if err != nil {
@@ -380,7 +377,6 @@ func parseString(path string, interfaceMap map[string]interface{}) string {
 }
 
 func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interface{} {
-
 	current := interfaceMap
 	keys := strings.Split(path, ".")
 	keyCount := len(keys)

@@ -22,7 +22,6 @@ var _ = Describe("clusterrestart", func() {
 	defer GinkgoRecover()
 
 	BeforeEach(func() {
-
 		testNodes = []NodeTypeInterface{}
 
 		r = ClusterRestart{
@@ -48,7 +47,6 @@ var _ = Describe("clusterrestart", func() {
 	// test to ensure the node restart gating progresses all the way through
 	Context("node restarts", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -81,7 +79,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("node fails precheck", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -108,7 +105,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("node fails prep", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -138,7 +134,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("node fails main", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -170,7 +165,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("node fails post", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -203,7 +197,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("node fails recovery", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -288,7 +281,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("cluster fails prep", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -307,7 +299,6 @@ var _ = Describe("clusterrestart", func() {
 		})
 
 		It("should fail to complete restarting", func() {
-
 			expectedStatus := clusterStatus
 			expectedStatus.Conditions = api.ClusterConditions{
 				{
@@ -323,7 +314,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("cluster fails main", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -362,7 +352,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("cluster fails post", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,
@@ -402,7 +391,6 @@ var _ = Describe("clusterrestart", func() {
 
 	Context("cluster fails recovery", func() {
 		JustBeforeEach(func() {
-
 			testNode := &deploymentNode{}
 			testNodes = []NodeTypeInterface{
 				testNode,

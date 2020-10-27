@@ -7,7 +7,6 @@ import (
 )
 
 func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {
-
 	clusterHealth := api.ClusterHealth{}
 
 	payload := &EsRequest{
@@ -35,7 +34,6 @@ func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {
 }
 
 func (ec *esClient) GetClusterHealthStatus() (string, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/health",
@@ -54,7 +52,6 @@ func (ec *esClient) GetClusterHealthStatus() (string, error) {
 }
 
 func (ec *esClient) GetClusterNodeCount() (int32, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/health",

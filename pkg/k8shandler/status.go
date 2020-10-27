@@ -18,16 +18,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const healthUnknown = "cluster health unknown"
-const NOT_FOUND_INDEX = -1
+const (
+	healthUnknown   = "cluster health unknown"
+	NOT_FOUND_INDEX = -1
+)
 
-var DISK_WATERMARK_LOW_PCT *float64
-var DISK_WATERMARK_HIGH_PCT *float64
-var DISK_WATERMARK_LOW_ABS *resource.Quantity
-var DISK_WATERMARK_HIGH_ABS *resource.Quantity
+var (
+	DISK_WATERMARK_LOW_PCT  *float64
+	DISK_WATERMARK_HIGH_PCT *float64
+	DISK_WATERMARK_LOW_ABS  *resource.Quantity
+	DISK_WATERMARK_HIGH_ABS *resource.Quantity
+)
 
 func (er *ElasticsearchRequest) UpdateClusterStatus() error {
-
 	cluster := er.cluster
 	esClient := er.esClient
 
@@ -101,7 +104,6 @@ func (er *ElasticsearchRequest) GetCurrentPodStateMap() map[api.ElasticsearchNod
 }
 
 func (er *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) error {
-
 	index, _ := getNodeStatus(node.name(), clusterStatus)
 
 	if index == NOT_FOUND_INDEX {
@@ -114,7 +116,6 @@ func (er *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus
 }
 
 func (er *ElasticsearchRequest) updateNodeStatus(status api.ElasticsearchStatus) error {
-
 	cluster := er.cluster
 	// if there is nothing to update, don't
 	if reflect.DeepEqual(cluster.Status, status) {
@@ -152,7 +153,7 @@ func containsClusterCondition(condition api.ClusterConditionType, status v1.Cond
 	//
 	// if we're looking for a status of v1.ConditionFalse then we want the condition
 	// to either be present with status of false or to not find the condition
-	defaultValue := (status != v1.ConditionTrue)
+	defaultValue := status != v1.ConditionTrue
 
 	for _, clusterCondition := range elasticsearchStatus.Conditions {
 		if clusterCondition.Type == condition {
@@ -175,7 +176,6 @@ func getNodeStatus(name string, status *api.ElasticsearchStatus) (int, *api.Elas
 }
 
 func rolePodStateMap(namespace, clusterName string, client client.Client) map[api.ElasticsearchNodeRole]api.PodStateMap {
-
 	clientList, _ := GetPodList(
 		namespace,
 		map[string]string{
@@ -237,7 +237,6 @@ func podStateMap(podList []v1.Pod) api.PodStateMap {
 }
 
 func isPodReady(pod v1.Pod) bool {
-
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			return false
@@ -499,7 +498,7 @@ func (er *ElasticsearchRequest) updatePodNodeConditions(status *api.Elasticsearc
 }
 
 func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
-	//quantity, err := resource.ParseQuantity(string)
+	// quantity, err := resource.ParseQuantity(string)
 	low, high, err := er.esClient.GetDiskWatermarks()
 	if err != nil {
 		er.L().Info("Unable to refresh disk watermarks from cluster, using defaults", "error", err)
@@ -537,21 +536,17 @@ func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 		// error
 		er.L().Error(err, "Unknown type for high", "type", fmt.Sprintf("%T", high))
 	}
-
 }
 
 func exceedsLowWatermark(usage string, percent float64) bool {
-
 	return exceedsWatermarks(usage, percent, DISK_WATERMARK_LOW_ABS, DISK_WATERMARK_LOW_PCT)
 }
 
 func exceedsHighWatermark(usage string, percent float64) bool {
-
 	return exceedsWatermarks(usage, percent, DISK_WATERMARK_HIGH_ABS, DISK_WATERMARK_HIGH_PCT)
 }
 
 func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Quantity, watermarkPercent *float64) bool {
-
 	if usage == "" || percent < float64(0) {
 		return false
 	}
@@ -628,7 +623,6 @@ func updatePodUnschedulableCondition(node *api.ElasticsearchNodeStatus, podCondi
 }
 
 func updatePodNotReadyCondition(node *api.ElasticsearchNodeStatus, conditionType api.ClusterConditionType, reason, message string) bool {
-
 	var status v1.ConditionStatus
 	if message == "" && reason == "" {
 		status = v1.ConditionFalse
@@ -646,7 +640,6 @@ func updatePodNotReadyCondition(node *api.ElasticsearchNodeStatus, conditionType
 }
 
 func updatePodNodeStorageCondition(node *api.ElasticsearchNodeStatus, reason, message string) bool {
-
 	var status v1.ConditionStatus
 	if message == "" && reason == "" {
 		status = v1.ConditionFalse

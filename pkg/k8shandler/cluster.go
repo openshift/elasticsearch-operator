@@ -17,8 +17,10 @@ import (
 
 const expectedMinVersion = "6.0"
 
-var wrongConfig bool
-var nodes map[string][]NodeTypeInterface
+var (
+	wrongConfig bool
+	nodes       map[string][]NodeTypeInterface
+)
 
 var aliasNeededMap map[string]bool
 
@@ -53,8 +55,8 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		return err
 	}
 
-	//clearing transient setting because of a bug in earlier releases which
-	//may leave the shard allocation in an undesirable state
+	// clearing transient setting because of a bug in earlier releases which
+	// may leave the shard allocation in an undesirable state
 	er.tryEnsureNoTransitiveShardAllocations()
 
 	// Update the cluster status immediately to refresh status.nodes
@@ -76,7 +78,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			return er.UpdateClusterStatus()
 		}
 
-		 _ = er.UpdateClusterStatus()
+		_ = er.UpdateClusterStatus()
 	}
 
 	// if there is a node currently being upgraded, work on that first
@@ -124,9 +126,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 				log.Error(err, "failed to perform full cluster update")
 				return er.UpdateClusterStatus()
 			}
-
 		} else {
-
 			if err := er.PerformRollingUpdate(scheduledNodes); err != nil {
 				log.Error(err, "failed to perform rolling update")
 				return er.UpdateClusterStatus()
@@ -210,7 +210,6 @@ func (er *ElasticsearchRequest) progressUnschedulableNodes() error {
 		if isPodUnschedulableConditionTrue(nodeStatus.Conditions) ||
 			isPodImagePullBackOff(nodeStatus.Conditions) ||
 			isPodCrashLoopBackOff(nodeStatus.Conditions) {
-
 			for _, node := range clusterNodes {
 				if nodeStatus.DeploymentName == node.name() || nodeStatus.StatefulSetName == node.name() {
 					if node.isMissing() {
@@ -246,7 +245,6 @@ func (er *ElasticsearchRequest) setUUIDs() {
 }
 
 func (er *ElasticsearchRequest) setUUID(index int, uuid string) {
-
 	ll := log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 
 	nretries := -1

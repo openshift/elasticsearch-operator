@@ -43,7 +43,6 @@ func CompareVersions(lhs, rhs string) int {
 }
 
 func buildVersionArray(version string) []int {
-
 	var versions []int
 	for _, v := range strings.Split(version, ".") {
 		i, err := strconv.Atoi(v)

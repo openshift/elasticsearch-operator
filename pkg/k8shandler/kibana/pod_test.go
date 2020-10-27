@@ -23,7 +23,6 @@ func CheckIfThereIsOnlyTheLinuxSelector(podSpec core.PodSpec, t *testing.T) {
 }
 
 func TestNodeAllocationLabelsForPod(t *testing.T) {
-
 	// Create pod with nil selectors, we expect a new selectors map will be created
 	// and it will contain only linux allocation selector.
 	podSpec := NewPodSpec(

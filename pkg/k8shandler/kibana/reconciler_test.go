@@ -2,7 +2,6 @@ package kibana
 
 import (
 	"fmt"
-
 	"reflect"
 	"strings"
 	"testing"
@@ -43,7 +42,6 @@ func TestNewKibanaPodSpecSetsProxyToUseServiceAccountAsOAuthClient(t *testing.T)
 }
 
 func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
-
 	cluster := &KibanaRequest{
 		cluster: &kibana.Kibana{
 			ObjectMeta: metav1.ObjectMeta{
@@ -57,7 +55,7 @@ func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 		t.Error("Exp. there to be 2 container")
 	}
 
-	//check kibana
+	// check kibana
 	resources := podSpec.Containers[0].Resources
 	if resources.Limits[v1.ResourceMemory] != defaultKibanaMemory {
 		t.Errorf("Exp. the default memory limit to be %v", defaultKibanaMemory)
@@ -72,7 +70,7 @@ func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 	if podSpec.NodeSelector == nil {
 		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
 	}
-	//check proxy
+	// check proxy
 	resources = podSpec.Containers[1].Resources
 	if resources.Limits[v1.ResourceMemory] != defaultKibanaProxyMemory {
 		t.Errorf("Exp. the default memory limit to be %v", defaultKibanaMemory)
@@ -111,7 +109,7 @@ func TestNewKibanaPodSpecWhenResourcesAreDefined(t *testing.T) {
 		t.Error("Exp. there to be 2 container")
 	}
 
-	//check kibana
+	// check kibana
 	resources := podSpec.Containers[0].Resources
 	if resources.Limits[v1.ResourceMemory] != limitMemory {
 		t.Errorf("Exp. the default memory limit to be %v", limitMemory)
@@ -126,7 +124,7 @@ func TestNewKibanaPodSpecWhenResourcesAreDefined(t *testing.T) {
 	limitMemory = resource.MustParse("200Gi")
 	requestMemory = resource.MustParse("220Gi")
 	requestCPU = resource.MustParse("2500m")
-	//check proxy
+	// check proxy
 	resources = podSpec.Containers[1].Resources
 	if resources.Limits[v1.ResourceMemory] != limitMemory {
 		t.Errorf("Exp. the default memory limit to be %v", limitMemory)
@@ -137,8 +135,8 @@ func TestNewKibanaPodSpecWhenResourcesAreDefined(t *testing.T) {
 	if resources.Requests[v1.ResourceCPU] != requestCPU {
 		t.Errorf("Exp. the default CPU request to be %v", requestCPU)
 	}
-
 }
+
 func TestNewKibanaPodSpecWhenNodeSelectorIsDefined(t *testing.T) {
 	expSelector := map[string]string{
 		"foo":             "bar",
@@ -158,7 +156,7 @@ func TestNewKibanaPodSpecWhenNodeSelectorIsDefined(t *testing.T) {
 
 	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
 
-	//check kibana
+	// check kibana
 	if !reflect.DeepEqual(podSpec.NodeSelector, expSelector) {
 		t.Errorf("Exp. the nodeSelector to be %q but was %q", expSelector, podSpec.NodeSelector)
 	}
@@ -186,7 +184,6 @@ func TestNewKibanaPodNoTolerations(t *testing.T) {
 }
 
 func TestNewKibanaPodWithTolerations(t *testing.T) {
-
 	expTolerations := []v1.Toleration{
 		{
 			Key:      "node-role.kubernetes.io/master",
@@ -216,7 +213,6 @@ func TestNewKibanaPodWithTolerations(t *testing.T) {
 }
 
 func TestNewKibanaPodSpecWhenProxyConfigExists(t *testing.T) {
-
 	clusterRequest := &KibanaRequest{
 		client: nil,
 		cluster: &kibana.Kibana{

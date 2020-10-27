@@ -15,7 +15,6 @@ import (
 // that matches the ElasticsearchRequest name but the UUID may be different
 // NOTE: we only try to recover if our nodes do not have a UUID defined
 func (er *ElasticsearchRequest) recoverOrphanedCluster() error {
-
 	nodesToMatch := make(map[int]loggingv1.ElasticsearchNode)
 	for nodeIndex, node := range er.cluster.Spec.Nodes {
 		if node.GenUUID == nil {
@@ -52,7 +51,6 @@ func (er *ElasticsearchRequest) recoverOrphanedCluster() error {
 }
 
 func (er *ElasticsearchRequest) deploymentSpecMatchNode(node loggingv1.ElasticsearchNode, deployment appsv1.DeploymentSpec, count int32) bool {
-
 	// we know roles will match, first check node count
 	if node.NodeCount != count {
 		return false
@@ -62,7 +60,6 @@ func (er *ElasticsearchRequest) deploymentSpecMatchNode(node loggingv1.Elasticse
 }
 
 func (er *ElasticsearchRequest) statefulSetSpecMatchNode(node loggingv1.ElasticsearchNode, statefulset appsv1.StatefulSetSpec) bool {
-
 	// we know roles will match, first check node count
 	if node.NodeCount != *statefulset.Replicas {
 		return false
@@ -72,7 +69,6 @@ func (er *ElasticsearchRequest) statefulSetSpecMatchNode(node loggingv1.Elastics
 }
 
 func (er *ElasticsearchRequest) podSpecMatchNode(node loggingv1.ElasticsearchNode, podSpec corev1.PodSpec) bool {
-
 	selectors := mergeSelectors(node.NodeSelector, er.cluster.Spec.Spec.NodeSelector)
 	selectors = utils.EnsureLinuxNodeSelector(selectors)
 
@@ -114,7 +110,6 @@ func (er *ElasticsearchRequest) podSpecMatchNode(node loggingv1.ElasticsearchNod
 }
 
 func parseNodeName(name string) (clusterName, roles, uuid string) {
-
 	splitName := strings.Split(name, "-")
 
 	// deployment/statefulset names
@@ -139,7 +134,6 @@ func parseNodeName(name string) (clusterName, roles, uuid string) {
 }
 
 func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, nodesToMatch map[int]loggingv1.ElasticsearchNode) error {
-
 	uuidCounts := make(map[string]int32)
 	if len(nodesToMatch) > 0 {
 		// collect uuid counts
@@ -259,13 +253,11 @@ func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, node
 
 // for PVCs we only need to match on roles and replicas for the sake of naming
 func (er *ElasticsearchRequest) recoverFromPVCs(knownUUIDs []string, nodesToMatch map[int]loggingv1.ElasticsearchNode) error {
-
 	selector := map[string]string{
 		"logging-cluster": er.cluster.Name,
 	}
 
 	pvcList, err := GetPVCList(er.cluster.Namespace, selector, er.client)
-
 	if err != nil {
 		log.Error(err, "Unable to retrieve PVC list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 		return err

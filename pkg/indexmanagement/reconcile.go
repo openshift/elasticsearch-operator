@@ -25,7 +25,7 @@ import (
 	"github.com/ViaQ/logerr/log"
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
-	k8s "github.com/openshift/elasticsearch-operator/pkg/types/k8s"
+	"github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
 )
@@ -47,8 +47,8 @@ var (
 	millisPerDay    = uint64(millisPerHour * 24)
 	millisPerWeek   = uint64(millisPerDay * 7)
 
-	//fullExecMode octal 0777
-	fullExecMode = utils.GetInt32(int32(0777))
+	// fullExecMode octal 0777
+	fullExecMode int32 = 0o777
 
 	imLabels = map[string]string{
 		"provider":      "openshift",
@@ -306,7 +306,7 @@ func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelect
 		Containers:         []v1.Container{container},
 		Volumes: []v1.Volume{
 			{Name: "certs", VolumeSource: v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: clusterName}}},
-			{Name: "scripts", VolumeSource: v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: fullExecMode}}},
+			{Name: "scripts", VolumeSource: v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: &fullExecMode}}},
 		},
 		NodeSelector:                  utils.EnsureLinuxNodeSelector(nodeSelector),
 		Tolerations:                   tolerations,

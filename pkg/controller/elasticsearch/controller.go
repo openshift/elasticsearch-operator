@@ -71,7 +71,6 @@ func (r *ReconcileElasticsearch) Reconcile(request reconcile.Request) (reconcile
 	cluster := &loggingv1.Elasticsearch{}
 
 	err := r.client.Get(context.TODO(), request.NamespacedName, cluster)
-
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("Flushing nodes", "objectKey", request.NamespacedName)

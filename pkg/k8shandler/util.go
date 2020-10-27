@@ -49,7 +49,6 @@ func getLogConfig(annotations map[string]string) LogConfig {
 }
 
 func selectorForES(nodeRole string, clusterName string) map[string]string {
-
 	return map[string]string{
 		nodeRole:       "true",
 		"cluster-name": clusterName,
@@ -68,7 +67,6 @@ func appendDefaultLabel(clusterName string, labels map[string]string) map[string
 }
 
 func areSelectorsSame(lhs, rhs map[string]string) bool {
-
 	if len(lhs) != len(rhs) {
 		return false
 	}
@@ -84,7 +82,6 @@ func areSelectorsSame(lhs, rhs map[string]string) bool {
 }
 
 func mergeSelectors(nodeSelectors, commonSelectors map[string]string) map[string]string {
-
 	if commonSelectors == nil {
 		commonSelectors = make(map[string]string)
 	}
@@ -97,7 +94,6 @@ func mergeSelectors(nodeSelectors, commonSelectors map[string]string) map[string
 }
 
 func areTolerationsSame(lhs, rhs []v1.Toleration) bool {
-
 	// if we are checking this as a part of pod spec comparison during a rollout we can't check this
 	// if we are comparing the deployment specs we can...
 	if len(lhs) != len(rhs) {
@@ -110,7 +106,6 @@ func areTolerationsSame(lhs, rhs []v1.Toleration) bool {
 // containsSameTolerations checks that the tolerations in rhs are all contained within lhs
 // this follows our other patterns of "current, desired"
 func containsSameTolerations(lhs, rhs []v1.Toleration) bool {
-
 	for _, rhsToleration := range rhs {
 		if !containsToleration(rhsToleration, lhs) {
 			return false
@@ -131,7 +126,6 @@ func containsToleration(toleration v1.Toleration, tolerations []v1.Toleration) b
 }
 
 func isTolerationSame(lhs, rhs v1.Toleration) bool {
-
 	tolerationSecondsBool := false
 	// check that both are either null or not null
 	if (lhs.TolerationSeconds == nil) == (rhs.TolerationSeconds == nil) {
@@ -180,7 +174,6 @@ func getDataCount(dpl *api.Elasticsearch) int32 {
 }
 
 func isValidMasterCount(dpl *api.Elasticsearch) bool {
-
 	if len(dpl.Spec.Nodes) == 0 {
 		return true
 	}
@@ -190,7 +183,6 @@ func isValidMasterCount(dpl *api.Elasticsearch) bool {
 }
 
 func isValidDataCount(dpl *api.Elasticsearch) bool {
-
 	if len(dpl.Spec.Nodes) == 0 {
 		return true
 	}
@@ -266,7 +258,6 @@ func (er *ElasticsearchRequest) isValidConf() error {
 }
 
 func validateUUIDs(dpl *api.Elasticsearch) error {
-
 	// TODO:
 	// check that someone didn't update a uuid
 	// check status.nodes[*].deploymentName for list of used uuids
@@ -316,9 +307,7 @@ func validateUUIDs(dpl *api.Elasticsearch) error {
 }
 
 func isUUIDFound(uuid string, nodes []api.ElasticsearchNode) bool {
-
 	for _, node := range nodes {
-
 		if node.GenUUID != nil {
 			if *node.GenUUID == uuid {
 				return true
@@ -330,7 +319,6 @@ func isUUIDFound(uuid string, nodes []api.ElasticsearchNode) bool {
 }
 
 func sliceContainsString(slice []string, value string) bool {
-
 	for _, s := range slice {
 		if value == s {
 			return true

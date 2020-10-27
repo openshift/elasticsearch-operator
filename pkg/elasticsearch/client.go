@@ -137,7 +137,6 @@ func (ec *esClient) errorCtx() kverrors.Context {
 func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", cluster, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
-
 	if err != nil {
 		log.Error(err, "failed to parse URL", "url", u)
 		return
@@ -212,10 +211,8 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 }
 
 func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest, client client.Client) {
-
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
-
 	if err != nil {
 		log.Error(err, "unable to parse URL", "url", u)
 		return
@@ -289,7 +286,6 @@ func ensureTokenHeader(header http.Header) http.Header {
 func readSAToken(tokenFile string) (string, bool) {
 	// read from /var/run/secrets/kubernetes.io/serviceaccount/token
 	token, err := ioutil.ReadFile(tokenFile)
-
 	if err != nil {
 		log.Error(err, "Unable to read auth token from file", "file", tokenFile)
 		return "", false
@@ -305,7 +301,6 @@ func readSAToken(tokenFile string) (string, bool) {
 
 // this client is used with the SA token, it does not present any client certs
 func getTLSClient(clusterName, namespace string, client client.Client) *http.Client {
-
 	// get the contents of the secret
 	extractSecret(clusterName, namespace, client)
 
@@ -333,7 +328,6 @@ func getTLSClient(clusterName, namespace string, client client.Client) *http.Cli
 // this client is used in the case where the SA token is not honored. it presents client certs
 // and validates the ES cluster CA cert
 func getMTlsClient(clusterName, namespace string, client client.Client) *http.Client {
-
 	// get the contents of the secret
 	extractSecret(clusterName, namespace, client)
 
@@ -429,7 +423,7 @@ func extractSecret(secretName, namespace string, client client.Client) {
 	// make sure that the dir === secretName exists
 	secretDir := path.Join(certLocalPath, secretName)
 	if _, err := os.Stat(secretDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(secretDir, 0755); err != nil {
+		if err = os.MkdirAll(secretDir, 0o755); err != nil {
 			log.Error(err, "Error creating dir", "dir", secretDir)
 		}
 	}
@@ -444,7 +438,7 @@ func extractSecret(secretName, namespace string, client client.Client) {
 		}
 
 		secretFile := path.Join(certLocalPath, secretName, key)
-		if err := ioutil.WriteFile(secretFile, value, 0644); err != nil {
+		if err := ioutil.WriteFile(secretFile, value, 0o644); err != nil {
 			log.Error(err, "failed to write value to file", "value", value, "file", secretFile)
 		}
 	}

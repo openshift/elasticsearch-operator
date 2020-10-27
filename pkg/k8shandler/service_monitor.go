@@ -17,7 +17,6 @@ const (
 
 // CreateOrUpdateServiceMonitors ensures the existence of ServiceMonitors for Elasticsearch cluster
 func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
-
 	dpl := er.cluster
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
 

@@ -17,7 +17,6 @@ func (ec *esClient) UpdateReplicaCount(replicaCount int32) error {
 }
 
 func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
-
 	indexHealth, _ := ec.GetIndexReplicaCounts()
 
 	// get list of indices and call updateIndexReplicas for each one

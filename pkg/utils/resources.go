@@ -12,7 +12,6 @@ import (
 )
 
 func CompareResources(current, desired v1.ResourceRequirements) (bool, v1.ResourceRequirements) {
-
 	changed := false
 	desiredResources := *current.DeepCopy()
 	if desiredResources.Limits == nil {
@@ -46,7 +45,6 @@ func CompareResources(current, desired v1.ResourceRequirements) (bool, v1.Resour
 }
 
 func AreResourcesDifferent(current, desired interface{}) bool {
-
 	var currentContainers []v1.Container
 	var desiredContainers []v1.Container
 

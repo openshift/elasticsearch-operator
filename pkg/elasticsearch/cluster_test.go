@@ -48,7 +48,6 @@ func TestGetClusterNodeVersion(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestGetLowestClusterVersion(t *testing.T) {

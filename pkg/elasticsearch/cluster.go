@@ -32,7 +32,6 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 }
 
 func (ec *esClient) GetThresholdEnabled() (bool, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/settings?include_defaults=true",
@@ -45,21 +44,18 @@ func (ec *esClient) GetThresholdEnabled() (bool, error) {
 	if value := walkInterfaceMap(
 		"defaults.cluster.routing.allocation.disk.threshold_enabled",
 		payload.ResponseBody); value != nil {
-
 		enabled = value
 	}
 
 	if value := walkInterfaceMap(
 		"persistent.cluster.routing.allocation.disk.threshold_enabled",
 		payload.ResponseBody); value != nil {
-
 		enabled = value
 	}
 
 	if value := walkInterfaceMap(
 		"transient.cluster.routing.allocation.disk.threshold_enabled",
 		payload.ResponseBody); value != nil {
-
 		enabled = value
 	}
 
@@ -74,7 +70,6 @@ func (ec *esClient) GetThresholdEnabled() (bool, error) {
 }
 
 func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/settings?include_defaults=true",
@@ -88,42 +83,36 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 	if value := walkInterfaceMap(
 		"defaults.cluster.routing.allocation.disk.watermark.low",
 		payload.ResponseBody); value != nil {
-
 		low = value
 	}
 
 	if value := walkInterfaceMap(
 		"defaults.cluster.routing.allocation.disk.watermark.high",
 		payload.ResponseBody); value != nil {
-
 		high = value
 	}
 
 	if value := walkInterfaceMap(
 		"persistent.cluster.routing.allocation.disk.watermark.low",
 		payload.ResponseBody); value != nil {
-
 		low = value
 	}
 
 	if value := walkInterfaceMap(
 		"persistent.cluster.routing.allocation.disk.watermark.high",
 		payload.ResponseBody); value != nil {
-
 		high = value
 	}
 
 	if value := walkInterfaceMap(
 		"transient.cluster.routing.allocation.disk.watermark.low",
 		payload.ResponseBody); value != nil {
-
 		low = value
 	}
 
 	if value := walkInterfaceMap(
 		"transient.cluster.routing.allocation.disk.watermark.high",
 		payload.ResponseBody); value != nil {
-
 		high = value
 	}
 
@@ -151,7 +140,6 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 }
 
 func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {
-
 	payload := &EsRequest{
 		Method:      http.MethodPut,
 		URI:         "_cluster/settings",
@@ -165,11 +153,10 @@ func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {
 		acknowledged = acknowledgedBool
 	}
 
-	return (payload.StatusCode == 200 && acknowledged), payload.Error
+	return payload.StatusCode == 200 && acknowledged, payload.Error
 }
 
 func (ec *esClient) GetMinMasterNodes() (int32, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/settings",
@@ -190,7 +177,6 @@ func (ec *esClient) GetMinMasterNodes() (int32, error) {
 
 // TODO: also check that the number of shards in the response > 0?
 func (ec *esClient) DoSynchronizedFlush() (bool, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodPost,
 		URI:    "_flush/synced",
@@ -256,7 +242,6 @@ func (ec *esClient) GetLowestClusterVersion() (string, error) {
 }
 
 func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/state/nodes",

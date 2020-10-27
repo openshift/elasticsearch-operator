@@ -13,12 +13,11 @@ import (
 )
 
 const (
-	//ocpTemplatePrefix is the prefix all operator generated templates
+	// ocpTemplatePrefix is the prefix all operator generated templates
 	ocpTemplatePrefix = "ocp-gen"
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
-
 	cluster := er.cluster
 	if cluster.Spec.IndexManagement == nil {
 		return nil
@@ -91,6 +90,7 @@ func (er *ElasticsearchRequest) cullIndexManagement(mappings []logging.IndexMana
 		}
 	}
 }
+
 func (er *ElasticsearchRequest) initializeIndexIfNeeded(mapping logging.IndexManagementPolicyMappingSpec) error {
 	cluster := er.cluster
 	esClient := er.esClient

@@ -22,6 +22,12 @@ $(BINGO): .bingo/bingo.mod
 	@echo "(re)installing $(GOBIN)/bingo-v0.2.3"
 	@cd .bingo && $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.2.3 "github.com/bwplotka/bingo"
 
+GOFUMPORTS := $(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6
+$(GOFUMPORTS): .bingo/gofumports.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6"
+	@cd .bingo && $(GO) build -mod=mod -modfile=gofumports.mod -o=$(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6 "mvdan.cc/gofumpt/gofumports"
+
 GOLANGCI_LINT := $(GOBIN)/golangci-lint-v1.27.0
 $(GOLANGCI_LINT): .bingo/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.

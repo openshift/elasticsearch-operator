@@ -54,11 +54,9 @@ var _ = Describe("Index Management", func() {
 				},
 			},
 		}
-
 	})
 
 	Describe("#VerifyAndNormalizeIndexManagement", func() {
-
 		Context("when IndexManagment is not spec'd", func() {
 			It("should report a Dropped state", func() {
 				cluster.Spec.IndexManagement = nil
@@ -124,7 +122,6 @@ var _ = Describe("Index Management", func() {
 		})
 
 		Context("when there are some validation failures", func() {
-
 			Context("for mappings", func() {
 				It("should result in an Degraded state", func() {
 					cluster.Spec.IndexManagement.Mappings = append(cluster.Spec.IndexManagement.Mappings,
@@ -214,6 +211,5 @@ var _ = Describe("Index Management", func() {
 				})
 			})
 		})
-
 	})
 })

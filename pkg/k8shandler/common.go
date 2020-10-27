@@ -24,28 +24,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var (
-	defaultResources = map[string]v1.ResourceRequirements{
-		"proxy": {
-			Limits: v1.ResourceList{
-				v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryLimit),
-			},
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse(defaultESProxyCpuRequest),
-				v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryRequest),
-			},
+var defaultResources = map[string]v1.ResourceRequirements{
+	"proxy": {
+		Limits: v1.ResourceList{
+			v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryLimit),
 		},
-		"elasticsearch": {
-			Limits: v1.ResourceList{
-				v1.ResourceMemory: resource.MustParse(defaultESMemoryLimit),
-			},
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse(defaultESCpuRequest),
-				v1.ResourceMemory: resource.MustParse(defaultESMemoryRequest),
-			},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse(defaultESProxyCpuRequest),
+			v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryRequest),
 		},
-	}
-)
+	},
+	"elasticsearch": {
+		Limits: v1.ResourceList{
+			v1.ResourceMemory: resource.MustParse(defaultESMemoryLimit),
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse(defaultESCpuRequest),
+			v1.ResourceMemory: resource.MustParse(defaultESMemoryRequest),
+		},
+	},
+}
 
 func getESImage() string {
 	return utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
@@ -113,7 +111,6 @@ func isDataNode(node api.ElasticsearchNode) bool {
 }
 
 func newAffinity(roleMap map[api.ElasticsearchNodeRole]bool) *v1.Affinity {
-
 	labelSelectorReqs := []metav1.LabelSelectorRequirement{}
 	if roleMap[api.ElasticsearchRoleClient] {
 		labelSelectorReqs = append(labelSelectorReqs, metav1.LabelSelectorRequirement{
@@ -155,7 +152,6 @@ func newAffinity(roleMap map[api.ElasticsearchNodeRole]bool) *v1.Affinity {
 }
 
 func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRequirements v1.ResourceRequirements) v1.Container {
-
 	return v1.Container{
 		Name:            "elasticsearch",
 		Image:           imageName,
@@ -203,7 +199,6 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 }
 
 func newProxyContainer(imageName, clusterName, namespace string, logConfig LogConfig, resourceRequirements v1.ResourceRequirements) v1.Container {
-
 	container := v1.Container{
 		Name:            "proxy",
 		Image:           imageName,
@@ -264,7 +259,6 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 }
 
 func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.ElasticsearchNodeRole]bool) []v1.EnvVar {
-
 	return []v1.EnvVar{
 		{
 			Name:  "DC_NAME",
@@ -335,7 +329,6 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 
 // TODO: add isChanged check for labels and label selector
 func newLabels(clusterName, nodeName string, roleMap map[api.ElasticsearchNodeRole]bool) map[string]string {
-
 	return map[string]string{
 		"es-node-client": strconv.FormatBool(roleMap[api.ElasticsearchRoleClient]),
 		"es-node-data":   strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
@@ -347,7 +340,6 @@ func newLabels(clusterName, nodeName string, roleMap map[api.ElasticsearchNodeRo
 }
 
 func newLabelSelector(clusterName, nodeName string, roleMap map[api.ElasticsearchNodeRole]bool) map[string]string {
-
 	return map[string]string{
 		"es-node-client": strconv.FormatBool(roleMap[api.ElasticsearchRoleClient]),
 		"es-node-data":   strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
@@ -358,7 +350,6 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 }
 
 func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
-
 	resourceRequirements := newESResourceRequirements(node.Resources, commonSpec.Resources)
 	proxyResourceRequirements := newESProxyResourceRequirements(node.ProxyResources, commonSpec.ProxyResources)
 
@@ -457,7 +448,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements, default
 	} else {
 		// either one is not zero or both aren't zero (common)
 
-		//check node for override
+		// check node for override
 		if nodeRequestMem.IsZero() {
 			// no node request mem, check that common has it
 			if commonRequestMem.IsZero() {
@@ -513,7 +504,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements, default
 	} else {
 		// either one is not zero or both aren't zero (common)
 
-		//check node for override
+		// check node for override
 		if nodeRequestCPU.IsZero() {
 			// no node request mem, check that common has it
 			if commonRequestCPU.IsZero() {
@@ -595,7 +586,6 @@ func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchN
 }
 
 func newVolumeSource(clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) v1.VolumeSource {
-
 	specVol := node.Storage
 	volSource := v1.VolumeSource{}
 
@@ -661,7 +651,6 @@ spec:
       port: 9200
 */
 func newNetworkPolicy(namespace string) networking.NetworkPolicy {
-
 	protocol := v1.ProtocolTCP
 	port := intstr.FromInt(9200)
 	internalPort := intstr.FromInt(9300)
@@ -742,7 +731,6 @@ func newNetworkPolicy(namespace string) networking.NetworkPolicy {
 }
 
 func EnforceNetworkPolicy(namespace string, client client.Client, ownerRef []metav1.OwnerReference) error {
-
 	policy := newNetworkPolicy(namespace)
 	policy.ObjectMeta.OwnerReferences = ownerRef
 
@@ -757,7 +745,6 @@ func EnforceNetworkPolicy(namespace string, client client.Client, ownerRef []met
 }
 
 func RelaxNetworkPolicy(namespace string, client client.Client) error {
-
 	policy := newNetworkPolicy(namespace)
 	err := client.Delete(context.TODO(), &policy)
 	if err != nil {

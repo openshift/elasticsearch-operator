@@ -369,7 +369,6 @@ func populateNodes(clusterName string, objs []runtime.Object, client client.Clie
 }
 
 func TestUnschedulableNodesConditions(t *testing.T) {
-
 	testCluster := &loggingv1.Elasticsearch{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-namespace",
@@ -428,7 +427,6 @@ func TestUnschedulableNodesConditions(t *testing.T) {
 	status := testCluster.Status.DeepCopy()
 
 	err := er.updatePodNodeConditions(status, false)
-
 	if err != nil {
 		t.Errorf("Received error while testing updating pod node conditions: %v", err)
 	}

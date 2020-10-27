@@ -104,7 +104,6 @@ func AreTolerationsSame(lhs, rhs []v1.Toleration) bool {
 	}
 
 	return true
-
 }
 
 func containsToleration(toleration v1.Toleration, tolerations []v1.Toleration) bool {
@@ -118,13 +117,12 @@ func containsToleration(toleration v1.Toleration, tolerations []v1.Toleration) b
 }
 
 func isTolerationSame(lhs, rhs v1.Toleration) bool {
-
 	tolerationSecondsBool := false
 	// check that both are either null or not null
 	if (lhs.TolerationSeconds == nil) == (rhs.TolerationSeconds == nil) {
 		if lhs.TolerationSeconds != nil {
 			// only compare values (attempt to dereference) if pointers aren't nil
-			tolerationSecondsBool = (*lhs.TolerationSeconds == *rhs.TolerationSeconds)
+			tolerationSecondsBool = *lhs.TolerationSeconds == *rhs.TolerationSeconds
 		} else {
 			tolerationSecondsBool = true
 		}
@@ -153,7 +151,7 @@ func GetWorkingDirFilePath(toFile string) string {
 }
 
 func WriteToWorkingDirFile(toFile string, value []byte) error {
-	if err := ioutil.WriteFile(GetWorkingDirFilePath(toFile), value, 0644); err != nil {
+	if err := ioutil.WriteFile(GetWorkingDirFilePath(toFile), value, 0o644); err != nil {
 		return kverrors.Wrap(err, "Unable to write to working dir")
 	}
 

@@ -6,7 +6,6 @@ import (
 )
 
 func TestVersionsEqual(t *testing.T) {
-
 	lhs := "5.6.16"
 	rhs := "5.6.16"
 
@@ -21,7 +20,6 @@ func TestVersionsEqual(t *testing.T) {
 }
 
 func TestLhsVersionNewer(t *testing.T) {
-
 	lhs := "6.8.1"
 	rhs := "5.6.16"
 
@@ -36,7 +34,6 @@ func TestLhsVersionNewer(t *testing.T) {
 }
 
 func TestRhsVersionNewer(t *testing.T) {
-
 	lhs := "5.6.16"
 	rhs := "6.8.1"
 
@@ -51,7 +48,6 @@ func TestRhsVersionNewer(t *testing.T) {
 }
 
 func TestRhsReleaseVersionMissing(t *testing.T) {
-
 	lhs := "6.8.1"
 	rhs := "6.8"
 
@@ -66,7 +62,6 @@ func TestRhsReleaseVersionMissing(t *testing.T) {
 }
 
 func TestRhsMinorVersionMissing(t *testing.T) {
-
 	lhs := "6.8.1"
 	rhs := "6"
 
@@ -81,7 +76,6 @@ func TestRhsMinorVersionMissing(t *testing.T) {
 }
 
 func TestLhsReleaseVersionNewer(t *testing.T) {
-
 	lhs := "6.8.1"
 	rhs := "6.8.0"
 
@@ -96,7 +90,6 @@ func TestLhsReleaseVersionNewer(t *testing.T) {
 }
 
 func TestLhsMinorVersionNewer(t *testing.T) {
-
 	lhs := "6.8.1"
 	rhs := "6.0"
 
@@ -111,7 +104,6 @@ func TestLhsMinorVersionNewer(t *testing.T) {
 }
 
 func TestValidVersionArray(t *testing.T) {
-
 	version := "6.8.1"
 	expectedArray := []int{6, 8, 1}
 
@@ -123,7 +115,6 @@ func TestValidVersionArray(t *testing.T) {
 }
 
 func TestInvalidVersionArray(t *testing.T) {
-
 	version := "6.8.a.0"
 	expectedArray := []int{6, 8}
 

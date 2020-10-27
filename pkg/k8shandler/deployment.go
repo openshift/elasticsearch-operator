@@ -315,7 +315,7 @@ func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
 		return node.esClient.IsNodeInCluster(node.name())
 	})
 
-	return err, (err == nil)
+	return err, err == nil
 }
 
 func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
@@ -325,7 +325,7 @@ func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
 		return !inCluster, checkErr
 	})
 
-	return err, (err == nil)
+	return err, err == nil
 }
 
 func (node *deploymentNode) isMissing() bool {

@@ -72,7 +72,6 @@ func (clusterRequest *KibanaRequest) GetDeploymentList(selector map[string]strin
 
 // RemoveDeployment of given name and namespace
 func (clusterRequest *KibanaRequest) RemoveDeployment(deploymentName string) error {
-
 	deployment := NewDeployment(
 		deploymentName,
 		clusterRequest.cluster.Namespace,

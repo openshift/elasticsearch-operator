@@ -23,7 +23,6 @@ func TestHeaderGenWithToken(t *testing.T) {
 
 	if !ok {
 		t.Errorf("Expected to be able to read file [%s] but couldn't", tokenFile)
-
 	} else {
 		if actual != expected {
 			t.Errorf("Expected %q but got %q", expected, actual)

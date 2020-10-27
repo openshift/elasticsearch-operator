@@ -16,7 +16,6 @@ import (
 )
 
 func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newName, namespace, clusterName string, client client.Client) error {
-
 	// for some reason if the PVC already exists but creating it again would violate
 	// quota we get an error regarding quota not that it already exists
 	// so check to see if it already exists
@@ -46,7 +45,6 @@ func createOrUpdatePersistentVolumeClaim(pvc v1.PersistentVolumeClaimSpec, newNa
 }
 
 func updatePersistentVolumeClaim(claim *v1.PersistentVolumeClaim, client client.Client) error {
-
 	current := &v1.PersistentVolumeClaim{}
 
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -85,7 +83,6 @@ func createPersistentVolumeClaim(pvcName, namespace, clusterName string, volSpec
 }
 
 func persistentVolumeClaim(pvcName, namespace, clusterName string) *v1.PersistentVolumeClaim {
-
 	pvcLabels := map[string]string{
 		"logging-cluster": clusterName,
 	}
