@@ -15,7 +15,6 @@ var _ = Describe("prometheusrules", func() {
 
 	Context("rules", func() {
 		It("should build without errors", func() {
-
 			_, err := ruleSpec(rulePath)
 
 			Expect(err).To(BeNil())
@@ -24,7 +23,6 @@ var _ = Describe("prometheusrules", func() {
 
 	Context("alerts", func() {
 		It("should build without errors", func() {
-
 			_, err := ruleSpec(alertPath)
 
 			Expect(err).To(BeNil())

@@ -101,7 +101,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMap(cm *v1.ConfigMap) error 
 
 // CreateOrUpdateConfigMaps ensures the existence of ConfigMaps with Elasticsearch configuration
 func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
-
 	dpl := er.cluster
 
 	kibanaIndexMode, err := kibanaIndexMode("")
@@ -183,7 +182,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 }
 
 func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) (error, map[string]string) {
-
 	data := map[string]string{}
 	buf := &bytes.Buffer{}
 	if err := renderEsYml(buf, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, systemCallFilter); err != nil {
@@ -209,7 +207,6 @@ func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes
 // newConfigMap returns a v1.ConfigMap object
 func newConfigMap(configMapName, namespace string, labels map[string]string,
 	kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) *v1.ConfigMap {
-
 	err, data := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter, logConfig)
 	if err != nil {
 		return nil
@@ -304,7 +301,6 @@ func renderIndexSettings(w io.Writer, primaryShardsCount, replicaShardsCount str
 }
 
 func getConfigmap(configmapName, namespace string, client client.Client) *v1.ConfigMap {
-
 	configMap := v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -317,7 +313,6 @@ func getConfigmap(configmapName, namespace string, client client.Client) *v1.Con
 	}
 
 	err := client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, &configMap)
-
 	if err != nil {
 		// check if doesn't exist
 	}
@@ -326,7 +321,6 @@ func getConfigmap(configmapName, namespace string, client client.Client) *v1.Con
 }
 
 func getConfigmapDataHash(configmapName, namespace string, client client.Client) string {
-
 	hash := ""
 
 	configMap := getConfigmap(configmapName, namespace, client)

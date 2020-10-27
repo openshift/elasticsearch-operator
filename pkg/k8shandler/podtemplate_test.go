@@ -133,7 +133,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different emptyDir volumes declared", func() {
 		JustBeforeEach(func() {
-
 			rhs = v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -153,7 +152,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different emptyDir volumes sizes declared", func() {
 		JustBeforeEach(func() {
-
 			lhs.Spec.Volumes = []v1.Volume{
 				emptyVolume,
 			}
@@ -182,7 +180,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different emptyDir volumes sizes", func() {
 		JustBeforeEach(func() {
-
 			size := resource.MustParse("10G")
 			emptyVolume.EmptyDir.SizeLimit = &size
 
@@ -213,7 +210,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different configmap volumes declared", func() {
 		JustBeforeEach(func() {
-
 			rhs = v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -233,7 +229,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different configmap volumes names", func() {
 		JustBeforeEach(func() {
-
 			configmapVolume.ConfigMap.Name = "configmap"
 			lhs.Spec.Volumes = []v1.Volume{
 				configmapVolume,
@@ -261,7 +256,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different secret volumes declared", func() {
 		JustBeforeEach(func() {
-
 			rhs = v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -281,7 +275,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different secret volumes names", func() {
 		JustBeforeEach(func() {
-
 			lhs.Spec.Volumes = []v1.Volume{
 				secretVolume,
 			}
@@ -308,7 +301,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different pvc volumes declared", func() {
 		JustBeforeEach(func() {
-
 			rhs = v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -328,7 +320,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("different pvc volumes names", func() {
 		JustBeforeEach(func() {
-
 			lhs.Spec.Volumes = []v1.Volume{
 				pvcVolume,
 			}
@@ -657,7 +648,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("proxy memory request resource change", func() {
 		JustBeforeEach(func() {
-
 			proxyContainer := v1.Container{
 				Name: "testProxyContainer",
 				Resources: v1.ResourceRequirements{
@@ -714,7 +704,6 @@ var _ = Describe("podtemplate", func() {
 
 	Context("proxy memory limit resource change", func() {
 		JustBeforeEach(func() {
-
 			proxyContainer := v1.Container{
 				Name: "testProxyContainer",
 				Resources: v1.ResourceRequirements{

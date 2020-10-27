@@ -37,7 +37,6 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateConfigMap(configMap *corev1.C
 
 	if !apierrors.IsAlreadyExists(err) {
 		return errCtx.Wrap(err, "failed to create configmap")
-
 	}
 
 	current := &corev1.ConfigMap{}
@@ -84,14 +83,12 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateConfigMap(configMap *corev1.C
 	})
 	if retryErr != nil {
 		return errCtx.Wrap(err, "failed to create or update configmap")
-
 	}
 	return nil
 }
 
 // RemoveConfigMap with a given name and namespace
 func (clusterRequest *KibanaRequest) RemoveConfigMap(configmapName string) error {
-
 	configMap := NewConfigMap(
 		configmapName,
 		clusterRequest.cluster.Namespace,

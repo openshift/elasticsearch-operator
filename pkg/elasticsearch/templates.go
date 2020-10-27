@@ -52,7 +52,7 @@ func (ec *esClient) DeleteIndexTemplate(name string) error {
 		"response_error", payload.Error)
 }
 
-//ListTemplates returns a list of templates
+// ListTemplates returns a list of templates
 func (ec *esClient) ListTemplates() (sets.String, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
@@ -92,7 +92,6 @@ func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, er
 }
 
 func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, error) {
-
 	// get the index template and then update the replica and put it
 	indexTemplates, err := ec.GetIndexTemplates()
 	if err != nil {
@@ -135,7 +134,6 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 }
 
 func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
-
 	// get the index template and then update the shards and put it
 	indexTemplates, err := ec.GetIndexTemplates()
 	if err != nil {

@@ -19,6 +19,7 @@ fi
 cat /tmp/response.txt
 exit 1
 `
+
 const deleteScript = `
 set -uo pipefail
 ERRORS=/tmp/errors.txt

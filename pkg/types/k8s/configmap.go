@@ -6,7 +6,6 @@ import (
 )
 
 func NewConfigMap(name, namespace string, labels map[string]string, data map[string]string) *v1.ConfigMap {
-
 	return &v1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",

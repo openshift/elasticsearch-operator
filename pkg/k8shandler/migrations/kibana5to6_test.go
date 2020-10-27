@@ -10,7 +10,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -20,7 +19,7 @@ var _ = Describe("Migrating", func() {
 	var (
 		chatter   *helpers.FakeElasticsearchChatter
 		client    elasticsearch.Client
-		k8sClient kclient.Client = fake.NewFakeClient()
+		k8sClient = fake.NewFakeClient()
 	)
 
 	const (
@@ -29,7 +28,6 @@ var _ = Describe("Migrating", func() {
 	)
 
 	Describe("index `.kibana` into `.kibana-6`", func() {
-
 		Context("updating the settings of the old `.kibana` index", func() {
 			It("should sets it index to read only", func() {
 				chatter = helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
@@ -339,7 +337,6 @@ var _ = Describe("Migrating", func() {
 				Expect(found).To(BeTrue())
 				Expect(req.SeqNo).To(Equal(seqNo), fmt.Sprintf("URI: %s", req.URI))
 			}
-
 		})
 	})
 })

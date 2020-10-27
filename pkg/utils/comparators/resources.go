@@ -5,7 +5,6 @@ import (
 )
 
 func AreResourceRequementsSame(lhs, rhs v1.ResourceRequirements) bool {
-
 	if rhs.Limits.Cpu().Cmp(*lhs.Limits.Cpu()) != 0 {
 		return false
 	}

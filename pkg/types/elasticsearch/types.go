@@ -37,7 +37,7 @@ func (index *Index) AddAlias(name string, isWriteIndex bool) *Index {
 }
 
 type Index struct {
-	//Name  intentionally not serialized
+	// Name  intentionally not serialized
 	Name     string                 `json:"-"`
 	Settings IndexSettings          `json:"settings,omitempty"`
 	Aliases  map[string]IndexAlias  `json:"aliases,omitempty"`

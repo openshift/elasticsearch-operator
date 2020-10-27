@@ -8,7 +8,6 @@ import (
 )
 
 func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
-
 	payload := &EsRequest{
 		Method:      http.MethodPut,
 		URI:         "_cluster/settings",
@@ -26,7 +25,6 @@ func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
 }
 
 func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, error) {
-
 	payload := &EsRequest{
 		Method:      http.MethodPut,
 		URI:         "_cluster/settings",
@@ -43,7 +41,6 @@ func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, er
 }
 
 func (ec *esClient) GetShardAllocation() (string, error) {
-
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/settings?include_defaults=true",
@@ -56,21 +53,18 @@ func (ec *esClient) GetShardAllocation() (string, error) {
 	if value := walkInterfaceMap(
 		"defaults.cluster.routing.allocation.enable",
 		payload.ResponseBody); value != nil {
-
 		allocation = value
 	}
 
 	if value := walkInterfaceMap(
 		"persistent.cluster.routing.allocation.enable",
 		payload.ResponseBody); value != nil {
-
 		allocation = value
 	}
 
 	if value := walkInterfaceMap(
 		"transient.cluster.routing.allocation.enable",
 		payload.ResponseBody); value != nil {
-
 		allocation = value
 	}
 

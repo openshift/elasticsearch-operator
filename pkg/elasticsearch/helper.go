@@ -39,7 +39,6 @@ func parseFloat64(path string, interfaceMap map[string]interface{}) float64 {
 }
 
 func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interface{} {
-
 	current := interfaceMap
 	keys := strings.Split(path, ".")
 	keyCount := len(keys)

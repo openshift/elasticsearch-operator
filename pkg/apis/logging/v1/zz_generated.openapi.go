@@ -58,7 +58,8 @@ func schema_pkg_apis_logging_v1_Elasticsearch(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1.ElasticsearchSpec", "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1.ElasticsearchStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1.ElasticsearchSpec", "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1.ElasticsearchStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta",
+		},
 	}
 }
 

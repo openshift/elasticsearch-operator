@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	cluster                              = "elasticsearch"
-	namespace                            = "openshift-logging"
-	k8sClient                            = fake.NewFakeClient()
-	indexTemplate *estypes.IndexTemplate = estypes.NewIndexTemplate("abc-**", []string{"foo"}, 1, 0)
+	cluster       = "elasticsearch"
+	namespace     = "openshift-logging"
+	k8sClient     = fake.NewFakeClient()
+	indexTemplate = estypes.NewIndexTemplate("abc-**", []string{"foo"}, 1, 0)
 )
 
 func TestCreateIndexTemplateWhenError(t *testing.T) {

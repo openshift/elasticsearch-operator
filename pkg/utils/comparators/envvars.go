@@ -13,7 +13,6 @@ Notes:
 - needs to adjust with k8s.io/api/core/v#/types.go when the types are updated.
 **/
 func EnvValueEqual(lhs, rhs []v1.EnvVar) bool {
-
 	if len(lhs) != len(rhs) {
 		return false
 	}
@@ -42,7 +41,6 @@ func EnvValueEqual(lhs, rhs []v1.EnvVar) bool {
 }
 
 func EnvVarEqual(lhs, rhs v1.EnvVar) bool {
-
 	if lhs.ValueFrom != nil {
 		if rhs.ValueFrom == nil {
 			return false
@@ -62,7 +60,6 @@ func EnvVarEqual(lhs, rhs v1.EnvVar) bool {
 }
 
 func EnvVarSourceEqual(lhs, rhs v1.EnvVarSource) bool {
-
 	if lhs.FieldRef != nil && rhs.FieldRef != nil {
 		return EnvFieldRefEqual(*lhs.FieldRef, *rhs.FieldRef)
 	}
@@ -83,7 +80,6 @@ func EnvVarSourceEqual(lhs, rhs v1.EnvVarSource) bool {
 }
 
 func EnvFieldRefEqual(lhs, rhs v1.ObjectFieldSelector) bool {
-
 	// taken from https://godoc.org/k8s.io/api/core/v1#ObjectFieldSelector
 	// this is the default value, so if omitted by us k8s will add this value in
 	defaultAPIVersion := "v1"
@@ -104,7 +100,6 @@ func EnvFieldRefEqual(lhs, rhs v1.ObjectFieldSelector) bool {
 }
 
 func EnvResourceFieldRefEqual(lhs, rhs v1.ResourceFieldSelector) bool {
-
 	// taken from https://godoc.org/k8s.io/api/core/v1#ResourceFieldSelector
 	// divisor's default value is "1"
 	if lhs.Divisor.Cmp(rhs.Divisor) != 0 {

@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-//NewRole stubs a role
+// NewRole stubs a role
 func NewRole(roleName, namespace string, rules []rbac.PolicyRule) *rbac.Role {
 	return &rbac.Role{
 		TypeMeta: metav1.TypeMeta{
@@ -20,7 +20,7 @@ func NewRole(roleName, namespace string, rules []rbac.PolicyRule) *rbac.Role {
 	}
 }
 
-//NewRoleBinding stubs a role binding
+// NewRoleBinding stubs a role binding
 func NewRoleBinding(bindingName, namespace, roleName string, subjects []rbac.Subject) *rbac.RoleBinding {
 	return &rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{

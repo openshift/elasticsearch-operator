@@ -1,15 +1,15 @@
 package k8shandler
 
 import (
-	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/ginkgo"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
 	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/ginkgo"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -82,7 +82,6 @@ var (
 
 // 1
 func TestResourcesCommonAndNodeDefined(t *testing.T) {
-
 	commonRequirements := buildResource(
 		commonCpuValue,
 		commonCpuValue,
@@ -113,7 +112,6 @@ func TestResourcesCommonAndNodeDefined(t *testing.T) {
 
 // 2
 func TestResourcesNoNodeDefined(t *testing.T) {
-
 	commonRequirements := buildResource(
 		commonCpuValue,
 		commonCpuValue,
@@ -139,7 +137,6 @@ func TestResourcesNoNodeDefined(t *testing.T) {
 
 // 3
 func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
-
 	commonRequirements := v1.ResourceRequirements{}
 
 	nodeRequirements := v1.ResourceRequirements{}
@@ -159,7 +156,6 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 
 // 4
 func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
-
 	commonRequirements := buildResource(
 		commonCpuValue,
 		commonCpuValue,
@@ -188,7 +184,6 @@ func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
 
 // 5
 func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
-
 	commonRequirements := buildResource(
 		commonCpuValue,
 		commonCpuValue,
@@ -217,7 +212,6 @@ func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
 
 // 6
 func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
-
 	commonRequirements := buildResourceOnlyRequests(
 		commonCpuValue,
 		commonMemValue,
@@ -240,7 +234,6 @@ func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
 
 // 7
 func TestResourcesCommonLimitAndNoNodeDefined(t *testing.T) {
-
 	commonRequirements := buildResourceOnlyLimits(
 		commonCpuValue,
 		commonMemValue,
@@ -264,7 +257,6 @@ func TestResourcesCommonLimitAndNoNodeDefined(t *testing.T) {
 
 // 8
 func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
-
 	commonRequirements := v1.ResourceRequirements{}
 
 	nodeRequirements := buildResourceOnlyRequests(
@@ -287,7 +279,6 @@ func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
 
 // 9
 func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
-
 	commonRequirements := v1.ResourceRequirements{}
 
 	nodeRequirements := buildResourceOnlyLimits(
@@ -311,7 +302,6 @@ func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
 
 // 10
 func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
-
 	commonRequirements := buildResourceOnlyLimits(
 		commonCpuValue,
 		commonMemValue,
@@ -338,7 +328,6 @@ func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
 
 // 11
 func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
-
 	commonRequirements := buildResourceOnlyRequests(
 		commonCpuValue,
 		commonMemValue,
@@ -364,7 +353,6 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 }
 
 func TestProxyContainerResourcesDefined(t *testing.T) {
-
 	expectedCPU := resource.MustParse("100m")
 	expectedMemory := resource.MustParse("256Mi")
 
@@ -397,7 +385,6 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 }
 
 func TestProxyContainerResourcesDefinedFromCommonSpec(t *testing.T) {
-
 	empty := v1.ResourceRequirements{}
 
 	expectedCPU := resource.MustParse("200m")
@@ -433,7 +420,6 @@ func TestProxyContainerResourcesDefinedFromCommonSpec(t *testing.T) {
 }
 
 func TestProxyContainerResourcesDefinedFromNodeSpec(t *testing.T) {
-
 	expectedCPU := resource.MustParse("150m")
 	expectedMemoryLimit := resource.MustParse("200Mi")
 	expectedMemoryRequest := resource.MustParse("100Mi")
@@ -561,7 +547,6 @@ func TestProxyContainerSpec(t *testing.T) {
 }
 
 func TestPodSpecHasTaintTolerations(t *testing.T) {
-
 	expectedTolerations := []v1.Toleration{
 		{
 			Key:      "node.kubernetes.io/disk-pressure",
@@ -580,7 +565,6 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 // All pods created by Elasticsearch operator needs to be allocated to linux nodes.
 // See LOG-411
 func TestPodNodeSelectors(t *testing.T) {
-
 	var podSpec v1.PodSpec
 
 	// Create podSpecTemplate providing nil/empty node selectors, we expect the PodTemplateSpec.Spec selectors
@@ -627,7 +611,6 @@ func TestPodNodeSelectors(t *testing.T) {
 }
 
 func TestPodDiskToleration(t *testing.T) {
-
 	expectedToleration := []v1.Toleration{
 		{
 			Key:      "node.kubernetes.io/disk-pressure",
@@ -853,9 +836,7 @@ var _ = Describe("common.go", func() {
 	defer GinkgoRecover()
 
 	Describe("#newEnvVars", func() {
-		var (
-			envVars []v1.EnvVar
-		)
+		var envVars []v1.EnvVar
 		BeforeEach(func() {
 			envVars = newEnvVars("theNodeName", "theClusterName", "theInstanceRam", map[api.ElasticsearchNodeRole]bool{})
 		})

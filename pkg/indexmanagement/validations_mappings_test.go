@@ -58,7 +58,6 @@ var _ = Describe("Index Management", func() {
 			})
 		})
 		Context("Name", func() {
-
 			It("should spec a name", func() {
 				validateMappingsForSpec(esapi.IndexManagementPolicyMappingSpec{})
 				expectStatus(cluster).hasMapping("mapping[0]").
@@ -77,7 +76,6 @@ var _ = Describe("Index Management", func() {
 			})
 		})
 		Context("PolicyRef", func() {
-
 			It("should spec a value", func() {
 				validateMappingsForSpec(esapi.IndexManagementPolicyMappingSpec{
 					Name: "foo",
@@ -109,5 +107,4 @@ var _ = Describe("Index Management", func() {
 				withMappingStatusReason(esapi.IndexManagementMappingReasonConditionsMet)
 		})
 	})
-
 })

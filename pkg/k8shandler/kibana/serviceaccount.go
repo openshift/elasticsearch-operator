@@ -26,7 +26,6 @@ func NewServiceAccount(accountName string, namespace string) *core.ServiceAccoun
 
 // CreateOrUpdateServiceAccount creates or updates a ServiceAccount for logging with the given name
 func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, annotations *map[string]string) error {
-
 	serviceAccount := NewServiceAccount(name, clusterRequest.cluster.Namespace)
 	if annotations != nil {
 		if serviceAccount.GetObjectMeta().GetAnnotations() == nil {
@@ -50,7 +49,6 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 
 	if !apierrors.IsAlreadyExists(err) {
 		return errCtx.Wrap(err, "failed to create service account")
-
 	}
 
 	current := &core.ServiceAccount{}
@@ -78,14 +76,12 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 	})
 	if retryErr != nil {
 		return errCtx.Wrap(retryErr, "failed to update service account")
-
 	}
 	return nil
 }
 
 // RemoveServiceAccount of given name and namespace
 func (clusterRequest *KibanaRequest) RemoveServiceAccount(serviceAccountName string) error {
-
 	serviceAccount := NewServiceAccount(serviceAccountName, clusterRequest.cluster.Namespace)
 
 	if serviceAccountName == "logcollector" {

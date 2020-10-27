@@ -26,7 +26,6 @@ func NewPrometheusRule(ruleName, namespace string) *monitoringv1.PrometheusRule 
 }
 
 func (clusterRequest *KibanaRequest) RemovePrometheusRule(ruleName string) error {
-
 	promRule := NewPrometheusRule(ruleName, clusterRequest.cluster.Namespace)
 
 	err := clusterRequest.Delete(promRule)

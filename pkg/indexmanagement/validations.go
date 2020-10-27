@@ -8,9 +8,7 @@ import (
 	esapi "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 )
 
-var (
-	reTimeUnit = regexp.MustCompile("^(?P<number>\\d+)(?P<unit>[yMwdhHms])$")
-)
+var reTimeUnit = regexp.MustCompile("^(?P<number>\\d+)(?P<unit>[yMwdhHms])$")
 
 const (
 	pollIntervalFailMessage  = "The pollInterval is missing or requires a valid time unit (e.g. 3d)"
@@ -18,8 +16,8 @@ const (
 	policyRefFailMessage     = "A policy mapping must reference a defined IndexManagement policy"
 )
 
-//VerifyAndNormalize validates the spec'd indexManagement and returns a spec which removes policies
-//and mappings that are invalid
+// VerifyAndNormalize validates the spec'd indexManagement and returns a spec which removes policies
+// and mappings that are invalid
 func VerifyAndNormalize(cluster *esapi.Elasticsearch) *esapi.IndexManagementSpec {
 	result := &esapi.IndexManagementSpec{}
 	status := esapi.NewIndexManagementStatus()

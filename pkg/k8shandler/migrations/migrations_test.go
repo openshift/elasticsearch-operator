@@ -6,7 +6,6 @@ import (
 
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -16,7 +15,7 @@ var _ = Describe("Running", func() {
 	var (
 		chatter   *helpers.FakeElasticsearchChatter
 		client    elasticsearch.Client
-		k8sClient kclient.Client = fake.NewFakeClient()
+		k8sClient = fake.NewFakeClient()
 	)
 
 	const (
@@ -67,7 +66,6 @@ var _ = Describe("Running", func() {
 			}
 
 			Expect(kr.RunKibanaMigrations()).Should(Succeed())
-
 		})
 
 		It("should skip if `.kibana` index health is not available", func() {
@@ -93,7 +91,6 @@ var _ = Describe("Running", func() {
 			}
 
 			Expect(kr.RunKibanaMigrations()).ShouldNot(Succeed())
-
 		})
 	})
 })

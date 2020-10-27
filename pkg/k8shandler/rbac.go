@@ -18,7 +18,6 @@ import (
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
-
 	dpl := er.cluster
 
 	// elasticsearch RBAC
@@ -203,6 +202,7 @@ func reconcileRole(role *rbac.Role, client client.Client) error {
 		return nil
 	})
 }
+
 func reconcileRoleBinding(rb *rbac.RoleBinding, client client.Client) error {
 	ll := log.WithValues("namespace", rb.Namespace, "name", rb.Name)
 	err := client.Create(context.TODO(), rb)

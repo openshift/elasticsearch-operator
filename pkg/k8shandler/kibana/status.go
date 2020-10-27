@@ -73,7 +73,6 @@ func podStateMap(podList []v1.Pod) kibana.PodStateMap {
 }
 
 func isPodReady(pod v1.Pod) bool {
-
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			return false

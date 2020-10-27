@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	elasticsearchv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ElasticsearchRequest struct {
@@ -26,7 +26,6 @@ func (er *ElasticsearchRequest) L() logr.Logger {
 }
 
 func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
-
 	esClient := elasticsearch.NewClient(requestCluster.Name, requestCluster.Namespace, requestClient)
 
 	elasticsearchRequest := ElasticsearchRequest{

@@ -324,5 +324,4 @@ var _ = Describe("Reconciling", func() {
 func newFakeEsClient(k8sClient client.Client, responses map[string]helpers.FakeElasticsearchResponses) elasticsearch.Client {
 	esChatter := helpers.NewFakeElasticsearchChatter(responses)
 	return helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", k8sClient, esChatter)
-
 }

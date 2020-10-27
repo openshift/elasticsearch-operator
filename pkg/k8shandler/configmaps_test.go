@@ -14,7 +14,6 @@ var _ = Describe("configmaps.go", func() {
 	var ()
 
 	Describe("#renderLog4j2Properties", func() {
-
 		It("should create a well-formed file without error", func() {
 			out := bytes.NewBufferString("")
 			logConfig := LogConfig{"debug", "trace", "mylogger"}
@@ -103,7 +102,6 @@ logger.index_indexing_slowlog.level = trace
 logger.index_indexing_slowlog.appenderRef.index_indexing_slowlog_rolling.ref = index_indexing_slowlog_rolling
 logger.index_indexing_slowlog.additivity = false`))
 		})
-
 	})
 })
 
@@ -177,5 +175,4 @@ opendistro_security:
       truststore_password: tspass`)
 		})
 	})
-
 })

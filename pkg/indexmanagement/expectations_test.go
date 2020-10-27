@@ -21,6 +21,7 @@ func expectStatus(testCluster *esapi.Elasticsearch) *statusTestContext {
 		cluster: testCluster,
 	}
 }
+
 func (cxt *statusTestContext) hasState(state esapi.IndexManagementState) *statusTestContext {
 	Expect(cxt.cluster).ToNot(BeNil(), "Cluster is nil")
 	Expect(cxt.cluster.Status).ToNot(BeNil(), "cluster.Status is nil")
@@ -36,6 +37,7 @@ func (cxt *statusTestContext) withMessage(message string) *statusTestContext {
 	Expect(cxt.cluster.Status.IndexManagementStatus.Message).To(Equal(message))
 	return cxt
 }
+
 func (cxt *statusTestContext) withReason(reason esapi.IndexManagementStatusReason) *statusTestContext {
 	Expect(cxt.cluster).ToNot(BeNil(), "Cluster is nil")
 	Expect(cxt.cluster.Status).ToNot(BeNil(), "cluster.Status is nil")
@@ -54,10 +56,11 @@ func (cxt *statusTestContext) hasPolicy(name string) *statusTestContext {
 			break
 		}
 	}
-	//if we get here then the validation failed
+	// if we get here then the validation failed
 	Expect(cxt.policyStatus).ToNot(BeNil(), fmt.Sprintf("PolicyStatus not found for %s: %v", name, cxt.cluster.Status.IndexManagementStatus.Policies))
 	return cxt
 }
+
 func (cxt *statusTestContext) hasMapping(name string) *statusTestContext {
 	Expect(cxt.cluster).ToNot(BeNil(), "Cluster is nil")
 	Expect(cxt.cluster.Status).ToNot(BeNil(), "cluster.Status is nil")
@@ -68,26 +71,31 @@ func (cxt *statusTestContext) hasMapping(name string) *statusTestContext {
 			break
 		}
 	}
-	//if we get here then the validation failed
+	// if we get here then the validation failed
 	Expect(cxt.mappingStatus).ToNot(BeNil(), fmt.Sprintf("MappingStatus not found for %s: %v", name, cxt.cluster.Status.IndexManagementStatus.Mappings))
 	return cxt
 }
+
 func (cxt *statusTestContext) withPolicyState(state esapi.IndexManagementPolicyState) *statusTestContext {
 	Expect(cxt.policyStatus.State).To(Equal(state))
 	return cxt
 }
+
 func (cxt *statusTestContext) withMappingState(state esapi.IndexManagementMappingState) *statusTestContext {
 	Expect(cxt.mappingStatus.State).To(Equal(state), fmt.Sprintf("status: %v", cxt.mappingStatus))
 	return cxt
 }
+
 func (cxt *statusTestContext) withPolicyStatusReason(reason esapi.IndexManagementPolicyReason) *statusTestContext {
 	Expect(cxt.policyStatus.Reason).To(Equal(reason))
 	return cxt
 }
+
 func (cxt *statusTestContext) withMappingStatusReason(reason esapi.IndexManagementMappingReason) *statusTestContext {
 	Expect(cxt.mappingStatus.Reason).To(Equal(reason))
 	return cxt
 }
+
 func (cxt *statusTestContext) withPolicyCondition(conditionType esapi.IndexManagementPolicyConditionType, reason esapi.IndexManagementPolicyConditionReason) *statusTestContext {
 	for _, condition := range cxt.policyStatus.Conditions {
 		if condition.Type == conditionType {
@@ -99,6 +107,7 @@ func (cxt *statusTestContext) withPolicyCondition(conditionType esapi.IndexManag
 	Expect(cxt.policyCondition.Reason).To(Equal(reason))
 	return cxt
 }
+
 func (cxt *statusTestContext) withMappingCondition(conditionType esapi.IndexManagementMappingConditionType, reason esapi.IndexManagementMappingConditionReason) *statusTestContext {
 	for _, condition := range cxt.mappingStatus.Conditions {
 		if condition.Type == conditionType {
@@ -110,10 +119,12 @@ func (cxt *statusTestContext) withMappingCondition(conditionType esapi.IndexMana
 	Expect(cxt.mappingCondition.Reason).To(Equal(reason))
 	return cxt
 }
+
 func (cxt *statusTestContext) withPolicyConditionMessage(message string) *statusTestContext {
 	Expect(cxt.policyCondition.Message).To(Equal(message))
 	return cxt
 }
+
 func (cxt *statusTestContext) withMappingConditionMessage(message string) *statusTestContext {
 	Expect(cxt.mappingCondition.Message).To(Equal(message))
 	return cxt

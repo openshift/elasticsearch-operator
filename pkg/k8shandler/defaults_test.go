@@ -16,7 +16,6 @@ var _ = Describe("defaults", func() {
 	defer GinkgoRecover()
 
 	BeforeEach(func() {
-
 		dataNode = api.ElasticsearchNode{
 			Roles: []api.ElasticsearchNodeRole{
 				api.ElasticsearchRoleClient,
@@ -26,9 +25,7 @@ var _ = Describe("defaults", func() {
 	})
 
 	Describe("#getPrimaryShardCount with excess data nodes", func() {
-
 		JustBeforeEach(func() {
-
 			dataNodeCount = 20
 			dataNode.NodeCount = int32(dataNodeCount)
 
@@ -46,9 +43,7 @@ var _ = Describe("defaults", func() {
 	})
 
 	Describe("#getPrimaryShardCount with 3 data nodes", func() {
-
 		JustBeforeEach(func() {
-
 			dataNodeCount = 3
 			dataNode.NodeCount = int32(dataNodeCount)
 

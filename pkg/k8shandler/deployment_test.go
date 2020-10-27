@@ -11,9 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	nodeContainer v1.Container
-)
+var nodeContainer v1.Container
 
 var _ = Describe("deployment", func() {
 	defer GinkgoRecover()
@@ -69,10 +67,9 @@ var _ = Describe("deployment", func() {
 	)
 
 	Context("isChanged()", func() {
-
-		//strange nameing in the method IMO.  The object to be updated is the node
-		//which in this case is "desired" since the spec is loaded from current and then
-		//reset to the value from "desired" if appropriate
+		// strange nameing in the method IMO.  The object to be updated is the node
+		// which in this case is "desired" since the spec is loaded from current and then
+		// reset to the value from "desired" if appropriate
 		It("should recognize container EnvVars when they change", func() {
 			Expect(desired.isChanged()).To(BeTrue())
 			Expect(desired.self.Spec.Template.Spec.Containers[0].Env).To(Equal(elasticsearch.Env))
@@ -96,6 +93,5 @@ var _ = Describe("deployment", func() {
 			Expect(desired.isChanged()).To(BeTrue())
 			Expect(desired.self.Spec.Template.Spec.Containers[0].Ports).To(Equal(elasticsearch.Ports))
 		})
-
 	})
 })

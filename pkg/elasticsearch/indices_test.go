@@ -7,9 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var (
-	fakeClient = fake.NewFakeClient()
-)
+var fakeClient = fake.NewFakeClient()
 
 func TestAliasAllNeededPass(t *testing.T) {
 	chatter := testhelpers.NewFakeElasticsearchChatter(

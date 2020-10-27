@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -14,7 +14,6 @@ func getSecret(secretName, namespace string, client client.Client) *v1.Secret {
 	secret := v1.Secret{}
 
 	err := client.Get(context.TODO(), types.NamespacedName{Name: secretName, Namespace: namespace}, &secret)
-
 	if err != nil {
 		// check if doesn't exist
 	}

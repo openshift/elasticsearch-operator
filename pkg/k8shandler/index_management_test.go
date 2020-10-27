@@ -40,12 +40,10 @@ var _ = Describe("Index Management", func() {
 	)
 
 	Describe("#CreateOrUpdateIndexManagement", func() {
-
 		Context("when IndexManagement is not spec'd", func() {
 			It("should process the resource as a noop", func() {
 				Expect(request.CreateOrUpdateIndexManagement()).To(BeNil())
 			})
-
 		})
 	})
 

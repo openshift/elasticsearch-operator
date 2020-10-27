@@ -1,10 +1,10 @@
 package indexmanagement
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"fmt"
 
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
@@ -14,7 +14,6 @@ var _ = Describe("Index Management", func() {
 	defer GinkgoRecover()
 
 	Describe("#crontabScheduleFor", func() {
-
 		It("should error if the timeunit is not convertible", func() {
 			_, err := crontabScheduleFor(apis.TimeUnit("15wk"))
 			Expect(err).To(Not(BeNil()), "Invalid time units should fail")
@@ -114,7 +113,6 @@ var _ = Describe("Index Management", func() {
 				value, err := calculateMillisForTimeUnit(apis.TimeUnit("12m"))
 				Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				Expect(value).To(BeEquivalentTo(uint64(720000)))
-
 			})
 			It("should succeed for 'seconds'", func() {
 				value, err := calculateMillisForTimeUnit(apis.TimeUnit("12s"))
@@ -122,6 +120,5 @@ var _ = Describe("Index Management", func() {
 				Expect(value).To(BeEquivalentTo(uint64(12000)))
 			})
 		})
-
 	})
 })

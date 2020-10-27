@@ -33,7 +33,6 @@ type NodeTypeFactory func(name, namespace string) NodeTypeInterface
 
 // this can potentially return a list if we have replicas > 1 for a data node
 func (er *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.ElasticsearchNode) []NodeTypeInterface {
-
 	nodes := []NodeTypeInterface{}
 
 	roleMap := getNodeRoleMap(node)
@@ -59,7 +58,6 @@ func (er *ElasticsearchRequest) GetNodeTypeInterface(uuid string, node api.Elast
 }
 
 func getNodeSuffix(uuid string, roleMap map[api.ElasticsearchNodeRole]bool) string {
-
 	suffix := ""
 	if roleMap[api.ElasticsearchRoleClient] {
 		suffix = fmt.Sprintf("%s%s", suffix, "c")
@@ -109,7 +107,6 @@ func containsNodeTypeInterface(node NodeTypeInterface, list []NodeTypeInterface)
 }
 
 func (er *ElasticsearchRequest) getNodeState(node NodeTypeInterface) *api.ElasticsearchNodeStatus {
-
 	index, status := getNodeStatus(node.name(), &er.cluster.Status)
 
 	if index == NOT_FOUND_INDEX {

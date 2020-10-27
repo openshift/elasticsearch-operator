@@ -30,11 +30,9 @@ const (
 	kibanaOAuthRedirectReference = "{\"kind\":\"OAuthRedirectReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"Route\",\"name\":\"kibana\"}}"
 )
 
-var (
-	kibanaServiceAccountAnnotations = map[string]string{
-		"serviceaccounts.openshift.io/oauth-redirectreference.first": kibanaOAuthRedirectReference,
-	}
-)
+var kibanaServiceAccountAnnotations = map[string]string{
+	"serviceaccounts.openshift.io/oauth-redirectreference.first": kibanaOAuthRedirectReference,
+}
 
 func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esClient elasticsearch.Client, proxyConfig *configv1.Proxy) error {
 	clusterKibanaRequest := KibanaRequest{
@@ -278,7 +276,6 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 }
 
 func (clusterRequest *KibanaRequest) getKibanaAnnotations(deployment *apps.Deployment) (map[string]string, error) {
-
 	if deployment.Spec.Template.ObjectMeta.Annotations == nil {
 		deployment.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 	}
@@ -332,7 +329,6 @@ func (clusterRequest *KibanaRequest) getKibanaAnnotations(deployment *apps.Deplo
 }
 
 func isDeploymentDifferent(current *apps.Deployment, desired *apps.Deployment) (*apps.Deployment, bool) {
-
 	different := false
 
 	// is this needed?
@@ -370,7 +366,6 @@ func isDeploymentDifferent(current *apps.Deployment, desired *apps.Deployment) (
 }
 
 func isDeploymentImageDifference(current *apps.Deployment, desired *apps.Deployment) bool {
-
 	for _, curr := range current.Spec.Template.Spec.Containers {
 		for _, des := range desired.Spec.Template.Spec.Containers {
 			// Only compare the images of containers with the same name
@@ -386,7 +381,6 @@ func isDeploymentImageDifference(current *apps.Deployment, desired *apps.Deploym
 }
 
 func updateCurrentDeploymentImages(current *apps.Deployment, desired *apps.Deployment) *apps.Deployment {
-
 	containers := current.Spec.Template.Spec.Containers
 
 	for index, curr := range current.Spec.Template.Spec.Containers {
@@ -404,7 +398,6 @@ func updateCurrentDeploymentImages(current *apps.Deployment, desired *apps.Deplo
 }
 
 func updateCurrentDeploymentEnvIfDifferent(current *apps.Deployment, desired *apps.Deployment) bool {
-
 	different := false
 
 	containers := current.Spec.Template.Spec.Containers
@@ -425,7 +418,6 @@ func updateCurrentDeploymentEnvIfDifferent(current *apps.Deployment, desired *ap
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
-
 	kibanaService := NewService(
 		"kibana",
 		clusterRequest.cluster.Namespace,
@@ -463,7 +455,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	if cluster.cluster != nil {
 		visSpec = cluster.cluster.Spec
 	}
-	var kibanaResources = visSpec.Resources
+	kibanaResources := visSpec.Resources
 	if kibanaResources == nil {
 		kibanaResources = &v1.ResourceRequirements{
 			Limits: v1.ResourceList{v1.ResourceMemory: defaultKibanaMemory},
@@ -515,7 +507,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		InitialDelaySeconds: 5, TimeoutSeconds: 4, PeriodSeconds: 5,
 	}
 
-	var kibanaProxyResources = visSpec.ProxySpec.Resources
+	kibanaProxyResources := visSpec.ProxySpec.Resources
 	if kibanaProxyResources == nil {
 		kibanaProxyResources = &v1.ResourceRequirements{
 			Limits: v1.ResourceList{v1.ResourceMemory: defaultKibanaProxyMemory},
@@ -552,7 +544,8 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 
 	kibanaProxyContainer.Env = []v1.EnvVar{
 		{Name: "OAP_DEBUG", Value: "false"},
-		{Name: "OCP_AUTH_PROXY_MEMORY_LIMIT",
+		{
+			Name: "OCP_AUTH_PROXY_MEMORY_LIMIT",
 			ValueFrom: &v1.EnvVarSource{
 				ResourceFieldRef: &v1.ResourceFieldSelector{
 					ContainerName: "kibana-proxy",
@@ -590,17 +583,19 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		"kibana",
 		[]v1.Container{kibanaContainer, kibanaProxyContainer},
 		[]v1.Volume{
-			{Name: "kibana", VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "kibana",
+			{
+				Name: "kibana", VolumeSource: v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "kibana",
+					},
 				},
 			},
-			},
-			{Name: "kibana-proxy", VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "kibana-proxy",
+			{
+				Name: "kibana-proxy", VolumeSource: v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "kibana-proxy",
+					},
 				},
-			},
 			},
 		},
 		visSpec.NodeSelector,
@@ -635,7 +630,8 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 					PodAffinityTerm: v1.PodAffinityTerm{
 						LabelSelector: &metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{
-								{Key: "logging-infra",
+								{
+									Key:      "logging-infra",
 									Operator: metav1.LabelSelectorOpIn,
 									Values:   []string{"kibana"},
 								},

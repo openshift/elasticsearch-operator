@@ -70,7 +70,7 @@ type IndexManagementActionSpec struct {
 	MaxAge TimeUnit `json:"maxAge"`
 }
 
-//IndexManagementPolicyMappingSpec maps a management policy to an index
+// IndexManagementPolicyMappingSpec maps a management policy to an index
 // +k8s:openapi-gen=true
 type IndexManagementPolicyMappingSpec struct {
 	// The unique name of the policy mapping
@@ -119,17 +119,17 @@ func NewIndexManagementStatus() *IndexManagementStatus {
 	}
 }
 
-//IndexManagementState of IndexManagment
+// IndexManagementState of IndexManagment
 type IndexManagementState string
 
 const (
-	//IndexManagementStateAccepted when polices and mappings are well defined and pass validations
+	// IndexManagementStateAccepted when polices and mappings are well defined and pass validations
 	IndexManagementStateAccepted IndexManagementState = "Accepted"
 
-	//IndexManagementStateDegraded some polices and mappings have failed validations
+	// IndexManagementStateDegraded some polices and mappings have failed validations
 	IndexManagementStateDegraded IndexManagementState = "Degraded"
 
-	//IndexManagementStateDropped when IndexManagement is not defined or there are no valid polices and mappings
+	// IndexManagementStateDropped when IndexManagement is not defined or there are no valid polices and mappings
 	IndexManagementStateDropped IndexManagementState = "Dropped"
 )
 
@@ -142,17 +142,17 @@ const (
 )
 
 type IndexManagementMappingStatus struct {
-	//Name of the corresponding mapping for this status
+	// Name of the corresponding mapping for this status
 	Name string `json:"name,omitempty"`
 
-	//State of the corresponding mapping for this status
+	// State of the corresponding mapping for this status
 	State IndexManagementMappingState `json:"state,omitempty"`
 
 	Reason IndexManagementMappingReason `json:"reason,omitempty"`
 
 	Message string `json:"message,omitempty"`
 
-	//Reasons for the state of the corresponding mapping for this status
+	// Reasons for the state of the corresponding mapping for this status
 	Conditions []IndexManagementMappingCondition `json:"conditions,omitempty"`
 
 	// LastUpdated represents the last time that the status was updated.
@@ -180,10 +180,10 @@ func (status *IndexManagementMappingStatus) AddPolicyMappingCondition(conditionT
 type IndexManagementMappingState string
 
 const (
-	//IndexManagementMappingStateAccepted passes validations
+	// IndexManagementMappingStateAccepted passes validations
 	IndexManagementMappingStateAccepted IndexManagementMappingState = "Accepted"
 
-	//IndexManagementMappingStateDropped fails validations
+	// IndexManagementMappingStateDropped fails validations
 	IndexManagementMappingStateDropped IndexManagementMappingState = "Dropped"
 )
 
@@ -216,19 +216,19 @@ const (
 )
 
 type IndexManagementPolicyStatus struct {
-	//Name of the corresponding policy for this status
+	// Name of the corresponding policy for this status
 	Name string `json:"name,omitempty"`
 
-	//State of the corresponding policy for this status
+	// State of the corresponding policy for this status
 	State IndexManagementPolicyState `json:"state,omitempty"`
 
-	//Reasons for the state of the corresponding policy for this status
+	// Reasons for the state of the corresponding policy for this status
 	Reason IndexManagementPolicyReason `json:"reason,omitempty"`
 
-	//Message about the corresponding policy
+	// Message about the corresponding policy
 	Message string `json:"message,omitempty"`
 
-	//Reasons for the state of the corresponding policy for this status
+	// Reasons for the state of the corresponding policy for this status
 	Conditions []IndexManagementPolicyCondition `json:"conditions,omitempty"`
 
 	// LastUpdated represents the last time that the status was updated.
@@ -256,10 +256,10 @@ func (status *IndexManagementPolicyStatus) AddPolicyCondition(conditionType Inde
 type IndexManagementPolicyState string
 
 const (
-	//IndexManagementPolicyStateAccepted passes validations
+	// IndexManagementPolicyStateAccepted passes validations
 	IndexManagementPolicyStateAccepted IndexManagementPolicyState = "Accepted"
 
-	//IndexManagementPolicyStateDropped fails validations
+	// IndexManagementPolicyStateDropped fails validations
 	IndexManagementPolicyStateDropped IndexManagementPolicyState = "Dropped"
 )
 

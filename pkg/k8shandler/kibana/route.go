@@ -55,9 +55,8 @@ func NewRoute(routeName, namespace, serviceName string) *route.Route {
 	}
 }
 
-//GetRouteURL retrieves the route URL from a given route and namespace
+// GetRouteURL retrieves the route URL from a given route and namespace
 func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, error) {
-
 	foundRoute := &route.Route{}
 
 	if err := clusterRequest.Get(routeName, foundRoute); err != nil {
@@ -70,9 +69,8 @@ func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, erro
 	return fmt.Sprintf("%s%s", "https://", foundRoute.Spec.Host), nil
 }
 
-//RemoveRoute with given name and namespace
+// RemoveRoute with given name and namespace
 func (clusterRequest *KibanaRequest) RemoveRoute(routeName string) error {
-
 	route := NewRoute(
 		routeName,
 		clusterRequest.cluster.Namespace,
@@ -89,7 +87,6 @@ func (clusterRequest *KibanaRequest) RemoveRoute(routeName string) error {
 }
 
 func (clusterRequest *KibanaRequest) CreateOrUpdateRoute(newRoute *route.Route) error {
-
 	err := clusterRequest.Create(newRoute)
 	if err == nil {
 		return nil
@@ -223,14 +220,16 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 		"kibana",
 		cluster.Namespace,
 		"Show in Kibana",
-		strings.Join([]string{kibanaURL,
+		strings.Join([]string{
+			kibanaURL,
 			"/app/kibana#/discover?_g=(time:(from:now-1w,mode:relative,to:now))&_a=(columns:!(kubernetes.container_name,message),query:(query_string:(analyze_wildcard:!t,query:'",
 			strings.Join([]string{
 				"kubernetes.pod_name:\"${resourceName}\"",
 				"kubernetes.namespace_name:\"${resourceNamespace}\"",
 				"kubernetes.container_name.raw:\"${containerName}\"",
 			}, " AND "),
-			"')),sort:!('@timestamp',desc))"},
+			"')),sort:!('@timestamp',desc))",
+		},
 			""),
 	)
 

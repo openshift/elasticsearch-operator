@@ -34,7 +34,6 @@ var _ = Describe("util.go", func() {
 })
 
 func TestSelectorsBothUndefined(t *testing.T) {
-
 	commonSelector := map[string]string{}
 
 	nodeSelector := map[string]string{}
@@ -49,7 +48,6 @@ func TestSelectorsBothUndefined(t *testing.T) {
 }
 
 func TestSelectorsCommonDefined(t *testing.T) {
-
 	commonSelector := map[string]string{
 		"common": "test",
 	}
@@ -68,7 +66,6 @@ func TestSelectorsCommonDefined(t *testing.T) {
 }
 
 func TestSelectorsNodeDefined(t *testing.T) {
-
 	commonSelector := map[string]string{}
 
 	nodeSelector := map[string]string{
@@ -87,7 +84,6 @@ func TestSelectorsNodeDefined(t *testing.T) {
 }
 
 func TestSelectorsCommonAndNodeDefined(t *testing.T) {
-
 	commonSelector := map[string]string{
 		"common": "test",
 	}
@@ -109,7 +105,6 @@ func TestSelectorsCommonAndNodeDefined(t *testing.T) {
 }
 
 func TestSelectorsCommonOverwritten(t *testing.T) {
-
 	commonSelector := map[string]string{
 		"common": "test",
 		"node":   "test",
@@ -135,7 +130,6 @@ func TestSelectorsCommonOverwritten(t *testing.T) {
 }
 
 func TestInvalidRedundancyPolicySpecified(t *testing.T) {
-
 	esNode := api.ElasticsearchNode{
 		Roles:     []api.ElasticsearchNodeRole{"data"},
 		NodeCount: int32(1),
@@ -148,7 +142,7 @@ func TestInvalidRedundancyPolicySpecified(t *testing.T) {
 		},
 	}
 
-	//replicaCount := calculateReplicaCount(esCR)
+	// replicaCount := calculateReplicaCount(esCR)
 	isValid := isValidRedundancyPolicy(esCR)
 
 	if isValid {
@@ -183,7 +177,6 @@ func TestInvalidRedundancyPolicySpecified(t *testing.T) {
 }
 
 func TestValidRedundancyPolicySpecified(t *testing.T) {
-
 	esNode := api.ElasticsearchNode{
 		Roles:     []api.ElasticsearchNodeRole{"data"},
 		NodeCount: int32(1),
@@ -248,7 +241,6 @@ func TestValidRedundancyPolicySpecified(t *testing.T) {
 }
 
 func TestValidNoNodesSpecified(t *testing.T) {
-
 	esCR := &api.Elasticsearch{
 		Spec: api.ElasticsearchSpec{
 			Nodes:            []api.ElasticsearchNode{},
@@ -280,7 +272,6 @@ func TestValidNoNodesSpecified(t *testing.T) {
 }
 
 func TestValidReplicaCount(t *testing.T) {
-
 	dataNodeCount := 5
 
 	esNode := api.ElasticsearchNode{
@@ -301,11 +292,9 @@ func TestValidReplicaCount(t *testing.T) {
 	if rc != dataNodeCount-1 {
 		t.Errorf("Expected 4 replica shards for 5 data nodes and FullRedundancy policy, got %d", rc)
 	}
-
 }
 
 func TestNoReplicaCount(t *testing.T) {
-
 	dataNodeCount := 5
 
 	esNode := api.ElasticsearchNode{
@@ -325,11 +314,9 @@ func TestNoReplicaCount(t *testing.T) {
 	if rc != 1 {
 		t.Errorf("Expected SingleRedundancy, when no policy is specified and cluster has 2 or more data nodes, got %d replica shards", rc)
 	}
-
 }
 
 func TestSingleNodeNoReplicaCount(t *testing.T) {
-
 	dataNodeCount := 1
 
 	esNode := api.ElasticsearchNode{
@@ -348,7 +335,6 @@ func TestSingleNodeNoReplicaCount(t *testing.T) {
 	if rc != 0 {
 		t.Errorf("Expected ZeroRedundancy, when no policy is specified and cluster has only 1 data node, got %d replica shards", rc)
 	}
-
 }
 
 func TestNoTolerations(t *testing.T) {
