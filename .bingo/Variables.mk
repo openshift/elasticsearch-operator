@@ -26,7 +26,7 @@ GOLANGCI_LINT := $(GOBIN)/golangci-lint-v1.27.0
 $(GOLANGCI_LINT): .bingo/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/golangci-lint-v1.27.0"
-	@cd .bingo && $(GO) build -mod=mod  -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.27.0 "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	@cd .bingo && $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.27.0 "github.com/golangci/golangci-lint/cmd/golangci-lint"
 
 JUNITREPORT := $(GOBIN)/junitreport
 $(JUNITREPORT): .bingo/junitreport.mod
@@ -38,13 +38,13 @@ OPERATOR_SDK := $(GOBIN)/operator-sdk-v0.18.2
 $(OPERATOR_SDK): .bingo/operator-sdk.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/operator-sdk-v0.18.2"
-	@cd .bingo && $(GO) build -mod=mod  -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v0.18.2 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
+	@cd .bingo && $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v0.18.2 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
 
 OPM := $(GOBIN)/opm-v1.13.6
 $(OPM): .bingo/opm.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/opm-v1.13.6"
-	@cd .bingo && $(GO) build -mod=mod  -modfile=opm.mod -o=$(GOBIN)/opm-v1.13.6 "github.com/operator-framework/operator-registry/cmd/opm"
+	@cd .bingo && $(GO) build -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.13.6 "github.com/operator-framework/operator-registry/cmd/opm"
 
 PROMTOOL := $(GOBIN)/promtool-v1.8.2-0.20200522113006-f4dd45609a05
 $(PROMTOOL): .bingo/promtool.mod
