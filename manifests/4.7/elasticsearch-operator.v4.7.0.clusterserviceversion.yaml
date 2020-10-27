@@ -16,14 +16,14 @@ metadata:
     capabilities: "Seamless Upgrades"
     certified: "false"
     description: |-
-      The Elasticsearch Operator for OKD provides a means for configuring and managing an Elasticsearch cluster for tracing and cluster logging.
+      The Elasticsearch Operator for OCP provides a means for configuring and managing an Elasticsearch cluster for tracing and cluster logging.
       ## Prerequisites and Requirements
       ### Elasticsearch Operator Namespace
       The Elasticsearch Operator must be deployed to the global operator group namespace
       ### Memory Considerations
       Elasticsearch is a memory intensive application.  The initial
-      set of OKD nodes may not be large enough to support the Elasticsearch cluster.  Additional OKD nodes must be added
-      to the OKD cluster if you desire to run with the recommended (or better) memory. Each ES node can operate with a
+      set of OCP nodes may not be large enough to support the Elasticsearch cluster.  Additional OCP nodes must be added
+      to the OCP cluster if you desire to run with the recommended (or better) memory. Each ES node can operate with a
       lower memory setting though this is not recommended for production deployments.
     containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
     createdAt: 2019-02-20T08:00:00Z
@@ -31,54 +31,84 @@ metadata:
     olm.skipRange: ">=4.5.0-0 <4.7.0"
     alm-examples: |-
         [
-            {
-                "apiVersion": "logging.openshift.io/v1",
-                "kind": "Elasticsearch",
-                "metadata": {
-                  "name": "elasticsearch"
-                },
-                "spec": {
-                  "managementState": "Managed",
-                  "nodeSpec": {
-                    "image": "quay.io/openshift/origin-logging-elasticsearch6:latest",
-                    "resources": {
-                      "limits": {
-                        "memory": "1Gi"
-                      },
-                      "requests": {
-                        "memory": "512Mi"
-                      }
-                    }
-                  },
-                  "redundancyPolicy": "SingleRedundancy",
-                  "nodes": [
-                    {
-                        "nodeCount": 1,
-                        "roles": ["client","data","master"]
-                    }
-                  ]
-                }
+          {
+            "apiVersion": "logging.openshift.io/v1",
+            "kind": "Elasticsearch",
+            "metadata": {
+              "name": "elasticsearch"
             },
-            {
-              "apiVersion": "logging.openshift.io/v1",
-              "kind": "Kibana",
-              "metadata": {
-                "name": "kibana"
-              },
-              "spec": {
-                "managementState": "Managed",
-                "replicas": 1,
-                "nodeSelector": {},
+            "spec": {
+              "managementState": "Managed"
+              "nodeSpec": {
                 "resources": {
                   "limits": {
-                    "memory": "512Mi"
+                    "memory": "1Gi"
                   },
                   "requests": {
-                    "memory": "512Mi"
+                    "cpu": "100m"
+                    "memory": "1Gi"
                   }
+                }
+              },
+              "nodes": [
+                {
+                  "nodeCount": 1,
+                  "roles": ["client", "data", "master"],
+                  "storage": {
+                    "size": "20G"
+                  }
+                }
+              ],
+              "redundancyPolicy": "ZeroRedundancy",
+              "indexManagement": {
+                "policies": [
+                  {
+                    "name": "infra-policy",
+                    "pollInterval": "30m",
+                    "phases": {
+                      "hot": {
+                        "actions": {
+                          "rollover": {
+                            "maxAge": "8h"
+                          }
+                        }
+                      },
+                      "delete": {
+                        "minAge": "2d"
+                      }
+                    }
+                  }
+                ],
+                "mappings": [
+                  {
+                    "name": "infra",
+                    "policyRef": "infra-policy",
+                    "aliases": ["infra", "logs.infra"]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "apiVersion": "logging.openshift.io/v1",
+            "kind": "Kibana",
+            "metadata": {
+              "name": "kibana"
+            },
+            "spec": {
+              "managementState": "Managed",
+              "replicas": 1,
+              "nodeSelector": {},
+              "resources": {
+                "limits": {
+                  "memory": "512Mi"
+                },
+                "requests": {
+                  "memory": "512Mi"
                 }
               }
             }
+          }
         ]
 spec:
   version: 4.7.0
@@ -86,9 +116,9 @@ spec:
   minKubeVersion: 1.18.3
 
   description: |
-    The Elasticsearch Operator for OKD provides a means for configuring and managing an Elasticsearch cluster for use in tracing and cluster logging.
-    This operator only supports OKD Cluster Logging and Jaeger.  It is tightly coupled to each and is not currently capable of
-    being used as a general purpose manager of Elasticsearch clusters running on OKD.
+    The Elasticsearch Operator for OCP provides a means for configuring and managing an Elasticsearch cluster for use in tracing and cluster logging.
+    This operator only supports OCP Cluster Logging and Jaeger.  It is tightly coupled to each and is not currently capable of
+    being used as a general purpose manager of Elasticsearch clusters running on OCP.
 
     Once installed, the operator provides the following features:
     * **Create/Destroy**: Deploy an Elasticsearch cluster to the same namespace in which the Elasticsearch custom resource is created.
@@ -100,7 +130,7 @@ spec:
     email: aos-logging@redhat.com
 
   provider:
-    name: Red Hat, Inc
+    name: Red Hat
 
   links:
   - name: Elastic
