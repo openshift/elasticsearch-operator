@@ -66,6 +66,19 @@ get_es_indices() {
     | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices
 }
 
+insert_record_to() {
+  index=$1
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=$index/_doc/1 -d '{"key":"value"}' -XPUT
+}
+get_record_from() {
+  index=$1
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=$index/_doc/1
+}
+
 get_es_indices_names() {
   oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
     | awk 'NR==1{print $1}' \
@@ -150,6 +163,13 @@ log::info "Reading old ES indices"
 try_func_until_result_is_not_empty get_es_indices ${ES_POD_TIMEOUT}
 old_indices=$(get_es_indices_names)
 
+log::info "Inserting data into the cluster"
+insert_record_to 'myindex'
+if ! $(get_record_from 'myindex') ; then
+  log::info "Unable to find data in 'myindex'"
+  exit 1
+fi
+
 #### INSTALLING 4.5
 log::info "Deploying the ES operator from the catalog..."
 # deploy cluster logging catalog from local code
@@ -198,6 +218,12 @@ new_indices=$(get_es_indices_names)
 
 if [ "$old_indices" != "$new_indices" ]; then
   log::info "Test failed"
+  exit 1
+fi
+
+log::info "Retrieving record inserted before migration"
+if ! $(get_record_from 'myindex') ; then
+  log::info "Unable to find data in 'myindex'"
   exit 1
 fi
 
