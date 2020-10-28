@@ -66,6 +66,20 @@ get_es_indices() {
     | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices
 }
 
+insert_record_to() {
+  index=$1
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=$index/doc/1 -d '{"key":"value"}' -XPUT
+}
+
+get_record_from() {
+  index=$1
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=$index/doc/1
+}
+
 get_es_indices_names() {
   oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
     | awk 'NR==1{print $1}' \
@@ -145,6 +159,13 @@ try_until_success es_cluster_ready ${ES_POD_TIMEOUT}
 log::info "Checking if the ES cluster is all yellow/green"
 try_func_until_text_alt get_es_cluster_status "\"green\"" "\"yellow\"" ${ES_POD_TIMEOUT}
 
+log::info "Inserting data into the cluster"
+insert_record_to 'myindex'
+if [ ! $(get_record_from 'myindex') ]; then
+  log::info "Unable to find data in 'myindex'"
+  exit 1
+fi
+
 # read OLD 4.4 indices into and map them by their names
 log::info "Reading old ES indices"
 try_func_until_result_is_not_empty get_es_indices ${ES_POD_TIMEOUT}
@@ -197,7 +218,13 @@ try_func_until_result_is_not_empty get_es_indices_names ${ES_POD_TIMEOUT}
 new_indices=$(get_es_indices_names)
 
 if [ "$old_indices" != "$new_indices" ]; then
-  log::info "Test failed"
+  log::info "Test failed - Indices names not matched"
+  exit 1
+fi
+
+log::info "Retrieving record inserted before migration"
+if [ ! $(get_record_from 'myindex') ]; then
+  log::info "Unable to find data in 'myindex'"
   exit 1
 fi
 
