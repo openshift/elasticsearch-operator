@@ -64,8 +64,11 @@ image:
 		podman build -t $(IMAGE_TAG) . ; \
 	fi
 
-test-unit:
+test-unit: test-unit-prom
 	@go test ./pkg/... ./cmd/...
+
+test-unit-prom: $(PROMTOOL)
+	@$(PROMTOOL) test rules ./test/files/prometheus-unit-tests/test.yml
 
 deploy: deploy-image
 	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \

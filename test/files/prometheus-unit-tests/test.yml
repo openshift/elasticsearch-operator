@@ -1,0 +1,144 @@
+rule_files:
+  - ../../../files/prometheus_rules.yml
+  - ../../../files/prometheus_alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+
+    input_series:
+      - series: 'es_cluster_status{cluster="elasticsearch"}'
+        values: '0+0x9 1+0x20 2+0x10'
+      - series: 'es_os_cpu_percent{cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
+        values: '10+10x8 95+0x100' # 10 20 30 40 50 60 70 80 90 -- 95 (100x)
+      - series: 'es_process_cpu_percent{cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
+        values: '10+10x8 95+0x100' # 10 20 30 40 50 60 70 80 90 -- 95 (100x)
+
+      # Rejected indexing requests simulation (note: this simulation also verifies all recording rules)
+        # Number of rejected write requests grows at constant pace for 10 minutes
+        # and then we repeat this patterns again. This gives us two 10m segments of the series to test on.
+        # Interestingly when the segments were exactly 10m long (constructed like: 1+0x9) the test was
+        # non-deterministic and it was failing randomly.
+      - series: 'es_threadpool_threads_count{name="write", type="rejected", cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
+        values: '1+1x10  1+1x10'
+        # Number of completed write requests grows in two segments. The first one grows fast enough to
+        # not trigger the alert. Second segment grows slower and makes the alert to fire.
+      - series: 'es_threadpool_threads_count{name="write", type="completed", cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
+        values: '1+20x10 1+10x10'
+
+      # Disk Watermark levels simulation
+        # We set low watermark level to 85%
+      - series: 'es_cluster_routing_allocation_disk_watermark_low_pct{instance="localhost:9090",pod="pod-1"}'
+        values: '85+0x9 85+0x9'
+        # Total disk available space is constant (10)
+      - series: 'es_fs_path_total_bytes{instance="localhost:9090",pod="pod-1"}'
+        values: '10+0x9 10+0x9'
+        # The remaining space on the disk drops from 10 to 1 within first 10 minutes
+        # and then stay at 1 for another 10 minutes.
+      - series: 'es_fs_path_available_bytes{instance="localhost:9090",pod="pod-1"}'
+        values: '10-1x9 1+0x10'
+
+
+    # Unit test for alerting rules.
+    alert_rule_test:
+
+      # For the first 10m the cluster is green
+      - eval_time: 5m
+        alertname: ElasticsearchClusterNotHealthy
+        exp_alerts:
+
+      # --------- ElasticsearchClusterNotHealthy (yellow) ---------
+      - eval_time: 30m
+        alertname: ElasticsearchClusterNotHealthy
+        exp_alerts:
+          - exp_labels:
+              cluster: elasticsearch
+              severity: warning
+            exp_annotations:
+              summary: "Cluster health status is YELLOW"
+              message: "Cluster elasticsearch health status has been YELLOW for at least 20m. Some shard replicas are not allocated."
+
+      # --------- ElasticsearchClusterNotHealthy (red) ---------
+      - eval_time: 33m
+        alertname: ElasticsearchClusterNotHealthy
+        exp_alerts:
+          - exp_labels:
+              cluster: elasticsearch
+              severity: critical
+            exp_annotations:
+              summary: "Cluster health status is RED"
+              message: "Cluster elasticsearch health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
+
+      # --------- ElasticsearchWriteRequestsRejectionJumps ---------
+      # Within the first 10m the percent of rejected requests is = 5% (the alert require > 5%)
+      - eval_time: 11m
+        alertname: ElasticsearchWriteRequestsRejectionJumps
+        exp_alerts:
+
+      - eval_time: 22m
+        alertname: ElasticsearchWriteRequestsRejectionJumps
+        exp_alerts:
+          - exp_labels:
+              cluster: elasticsearch
+              instance: localhost:9090
+              node: elasticsearch-cdm-1
+              severity: warning
+            exp_annotations:
+              summary: "High Write Rejection Ratio - 10%"
+              message: "High Write Rejection Ratio at elasticsearch-cdm-1 node in elasticsearch cluster. This node may not be keeping up with the indexing speed."
+
+      # --------- ElasticsearchNodeDiskWatermarkReached ---------
+      # By the end of 10th minute we do not expect the low watermark has been active for more than 5 minutes.
+      - eval_time: 10m
+        alertname: ElasticsearchNodeDiskWatermarkReached
+        exp_alerts:
+
+      # By the end of 15th minute we do expect the low watermark to be active more then 5 minutes.
+      - eval_time: 15m
+        alertname: ElasticsearchNodeDiskWatermarkReached
+        exp_alerts:
+          - exp_labels:
+              instance: localhost:9090
+              pod: pod-1
+              severity: info
+            exp_annotations:
+              summary: "Disk Low Watermark Reached - disk saturation is 90%"
+              message: "Disk Low Watermark Reached at pod-1 pod. Shards can not be allocated to this node anymore. You should consider adding more disk to the node."
+
+      # --------- AggregatedLoggingSystemCPUHigh ---------
+      - eval_time: 15m
+        alertname: AggregatedLoggingSystemCPUHigh
+        exp_alerts:
+          - exp_labels:
+              cluster: elasticsearch
+              instance: localhost:9090
+              node: elasticsearch-cdm-1
+              severity: alert
+            exp_annotations:
+              summary: "System CPU usage is high"
+              message: "System CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%"
+
+      # Critical value not reached - no alert is fired
+      - eval_time: 5m
+        alertname: AggregatedLoggingSystemCPUHigh
+        exp_alerts:
+
+      # --------- ElasticsearchProcessCPUHigh ---------
+      - eval_time: 15m
+        alertname: ElasticsearchProcessCPUHigh
+        exp_alerts:
+          - exp_labels:
+              cluster: elasticsearch
+              instance: localhost:9090
+              node: elasticsearch-cdm-1
+              severity: alert
+            exp_annotations:
+              summary: "ES process CPU usage is high"
+              message: "ES process CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%"
+
+      # Critical value not reached - no alert is fired
+      - eval_time: 5m
+        alertname: ElasticsearchProcessCPUHigh
+        exp_alerts:
+
