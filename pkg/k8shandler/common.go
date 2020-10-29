@@ -30,7 +30,7 @@ var defaultResources = map[string]v1.ResourceRequirements{
 			v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryLimit),
 		},
 		Requests: v1.ResourceList{
-			v1.ResourceCPU:    resource.MustParse(defaultESProxyCpuRequest),
+			v1.ResourceCPU:    resource.MustParse(defaultESProxyCPURequest),
 			v1.ResourceMemory: resource.MustParse(defaultESProxyMemoryRequest),
 		},
 	},
@@ -75,18 +75,6 @@ func getNodeRoleMap(node api.ElasticsearchNode) map[api.ElasticsearchNodeRole]bo
 		api.ElasticsearchRoleClient: isClient,
 		api.ElasticsearchRoleData:   isData,
 		api.ElasticsearchRoleMaster: isMaster,
-	}
-}
-
-// getOwnerRef returns an owner reference set as the vault cluster CR
-func getOwnerRef(v *api.Elasticsearch) metav1.OwnerReference {
-	trueVar := true
-	return metav1.OwnerReference{
-		APIVersion: api.SchemeGroupVersion.String(),
-		Kind:       "Elasticsearch",
-		Name:       v.Name,
-		UID:        v.UID,
-		Controller: &trueVar,
 	}
 }
 
@@ -258,7 +246,7 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 	return container
 }
 
-func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.ElasticsearchNodeRole]bool) []v1.EnvVar {
+func newEnvVars(nodeName, clusterName, instanceRAM string, roleMap map[api.ElasticsearchNodeRole]bool) []v1.EnvVar {
 	return []v1.EnvVar{
 		{
 			Name:  "DC_NAME",
@@ -298,7 +286,7 @@ func newEnvVars(nodeName, clusterName, instanceRam string, roleMap map[api.Elast
 		},
 		{
 			Name:  "INSTANCE_RAM",
-			Value: instanceRam,
+			Value: instanceRAM,
 		},
 		{
 			Name:  "HEAP_DUMP_LOCATION",

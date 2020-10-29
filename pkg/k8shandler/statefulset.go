@@ -140,7 +140,7 @@ func (n *statefulSetNode) name() string {
 	return n.self.Name
 }
 
-func (n *statefulSetNode) waitForNodeRejoinCluster() (error, bool) {
+func (n *statefulSetNode) waitForNodeRejoinCluster() (bool, error) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
 		clusterSize, err := n.esClient.GetClusterNodeCount()
 		if err != nil {
@@ -151,10 +151,10 @@ func (n *statefulSetNode) waitForNodeRejoinCluster() (error, bool) {
 		return n.replicas <= clusterSize, nil
 	})
 
-	return err, err == nil
+	return err == nil, err
 }
 
-func (n *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
+func (n *statefulSetNode) waitForNodeLeaveCluster() (bool, error) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
 		clusterSize, err := n.esClient.GetClusterNodeCount()
 		if err != nil {
@@ -165,7 +165,7 @@ func (n *statefulSetNode) waitForNodeLeaveCluster() (error, bool) {
 		return n.replicas > clusterSize, nil
 	})
 
-	return err, err == nil
+	return err == nil, err
 }
 
 func (n *statefulSetNode) setPartition(partitions int32) error {
@@ -400,7 +400,7 @@ func (n *statefulSetNode) progressNodeChanges() error {
 	for index := ordinal; index > 0; index-- {
 
 		// make sure we have all nodes in the cluster first -- always
-		if err, _ := n.waitForNodeRejoinCluster(); err != nil {
+		if _, err := n.waitForNodeRejoinCluster(); err != nil {
 			return kverrors.Wrap(err, "timed out waiting for node to rejoin cluster",
 				"node", n.name(),
 			)
@@ -412,7 +412,7 @@ func (n *statefulSetNode) progressNodeChanges() error {
 		}
 
 		// wait for the node to leave the cluster
-		if err, _ := n.waitForNodeLeaveCluster(); err != nil {
+		if _, err := n.waitForNodeLeaveCluster(); err != nil {
 			return kverrors.Wrap(err, "timed out waiting for node to leave the cluster",
 				"node", n.name(),
 			)
@@ -421,7 +421,7 @@ func (n *statefulSetNode) progressNodeChanges() error {
 
 	// this is here again because we need to make sure all nodes have rejoined
 	// before we move on and say we're done
-	if err, _ := n.waitForNodeRejoinCluster(); err != nil {
+	if _, err := n.waitForNodeRejoinCluster(); err != nil {
 		return kverrors.Wrap(err, "timed out waiting for node to rejoin cluster",
 			"node", n.name(),
 		)

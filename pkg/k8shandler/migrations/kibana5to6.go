@@ -138,9 +138,9 @@ func (mr *migrationRequest) reIndexIntoKibana6() error {
 	}
 
 	var index *estypes.CatIndicesResponse
-	for _, idx := range indices {
+	for i, idx := range indices {
 		if idx.Index == kibana6Index {
-			index = &idx
+			index = &indices[i]
 			break
 		}
 	}

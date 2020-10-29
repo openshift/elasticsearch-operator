@@ -2,8 +2,7 @@ package kibana
 
 import (
 	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
-	core "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,7 +46,7 @@ func (clusterRequest *KibanaRequest) getKibanaStatus() ([]kibana.KibanaStatus, e
 	return status, nil
 }
 
-func podStateMap(podList []v1.Pod) kibana.PodStateMap {
+func podStateMap(podList []corev1.Pod) kibana.PodStateMap {
 	stateMap := map[kibana.PodStateType][]string{
 		kibana.PodStateTypeReady:    {},
 		kibana.PodStateTypeNotReady: {},
@@ -56,15 +55,15 @@ func podStateMap(podList []v1.Pod) kibana.PodStateMap {
 
 	for _, pod := range podList {
 		switch pod.Status.Phase {
-		case v1.PodPending:
+		case corev1.PodPending:
 			stateMap[kibana.PodStateTypeNotReady] = append(stateMap[kibana.PodStateTypeNotReady], pod.Name)
-		case v1.PodRunning:
+		case corev1.PodRunning:
 			if isPodReady(pod) {
 				stateMap[kibana.PodStateTypeReady] = append(stateMap[kibana.PodStateTypeReady], pod.Name)
 			} else {
 				stateMap[kibana.PodStateTypeNotReady] = append(stateMap[kibana.PodStateTypeNotReady], pod.Name)
 			}
-		case v1.PodFailed:
+		case corev1.PodFailed:
 			stateMap[kibana.PodStateTypeFailed] = append(stateMap[kibana.PodStateTypeFailed], pod.Name)
 		}
 	}
@@ -72,7 +71,7 @@ func podStateMap(podList []v1.Pod) kibana.PodStateMap {
 	return stateMap
 }
 
-func isPodReady(pod v1.Pod) bool {
+func isPodReady(pod corev1.Pod) bool {
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			return false
@@ -87,10 +86,10 @@ func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[str
 	// get pod with label 'node-name=node.getName()'
 	podConditions := make(map[string]kibana.ClusterConditions)
 
-	nodePodList := &core.PodList{
+	nodePodList := &corev1.PodList{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
-			APIVersion: core.SchemeGroupVersion.String(),
+			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 	}
 
@@ -109,10 +108,10 @@ func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[str
 
 		isUnschedulable := false
 		for _, podCondition := range nodePod.Status.Conditions {
-			if podCondition.Type == v1.PodScheduled && podCondition.Status == v1.ConditionFalse {
+			if podCondition.Type == corev1.PodScheduled && podCondition.Status == corev1.ConditionFalse {
 				conditions = append(conditions, kibana.ClusterCondition{
 					Type:               kibana.Unschedulable,
-					Status:             v1.ConditionTrue,
+					Status:             corev1.ConditionTrue,
 					Reason:             podCondition.Reason,
 					Message:            podCondition.Message,
 					LastTransitionTime: podCondition.LastTransitionTime,
@@ -125,7 +124,7 @@ func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[str
 			for _, containerStatus := range nodePod.Status.ContainerStatuses {
 				if containerStatus.State.Waiting != nil {
 					conditions = append(conditions, kibana.ClusterCondition{
-						Status:             v1.ConditionTrue,
+						Status:             corev1.ConditionTrue,
 						Reason:             containerStatus.State.Waiting.Reason,
 						Message:            containerStatus.State.Waiting.Message,
 						LastTransitionTime: metav1.Now(),
@@ -133,7 +132,7 @@ func (clusterRequest *KibanaRequest) getPodConditions(component string) (map[str
 				}
 				if containerStatus.State.Terminated != nil {
 					conditions = append(conditions, kibana.ClusterCondition{
-						Status:             v1.ConditionTrue,
+						Status:             corev1.ConditionTrue,
 						Reason:             containerStatus.State.Terminated.Reason,
 						Message:            containerStatus.State.Terminated.Message,
 						LastTransitionTime: metav1.Now(),

@@ -71,7 +71,7 @@ func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, err
 }
 
 func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
-	body, err := utils.ToJson(index)
+	body, err := utils.ToJSON(index)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error
 }
 
 func (ec *esClient) UpdateIndexSettings(name string, settings *estypes.IndexSettings) error {
-	body, err := utils.ToJson(settings)
+	body, err := utils.ToJSON(settings)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 		},
 	}
 
-	body, err := utils.ToJson(reIndex)
+	body, err := utils.ToJSON(reIndex)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 }
 
 func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
-	body, err := utils.ToJson(actions)
+	body, err := utils.ToJSON(actions)
 	if err != nil {
 		return err
 	}

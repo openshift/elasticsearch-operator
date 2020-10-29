@@ -461,7 +461,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 			Limits: v1.ResourceList{v1.ResourceMemory: defaultKibanaMemory},
 			Requests: v1.ResourceList{
 				v1.ResourceMemory: defaultKibanaMemory,
-				v1.ResourceCPU:    defaultKibanaCpuRequest,
+				v1.ResourceCPU:    defaultKibanaCPURequest,
 			},
 		}
 	}
@@ -513,7 +513,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 			Limits: v1.ResourceList{v1.ResourceMemory: defaultKibanaProxyMemory},
 			Requests: v1.ResourceList{
 				v1.ResourceMemory: defaultKibanaProxyMemory,
-				v1.ResourceCPU:    defaultKibanaProxyCpuRequest,
+				v1.ResourceCPU:    defaultKibanaProxyCPURequest,
 			},
 		}
 	}

@@ -2,16 +2,15 @@ package utils
 
 import (
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/ViaQ/logerr/kverrors"
 
@@ -48,7 +47,7 @@ func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 	return selectors
 }
 
-func ToJson(obj interface{}) (string, error) {
+func ToJSON(obj interface{}) (string, error) {
 	bytes, err := json.Marshal(obj)
 	if err != nil {
 		return "", kverrors.Wrap(err, "failed to marshal JSON")
@@ -156,10 +155,6 @@ func WriteToWorkingDirFile(toFile string, value []byte) error {
 	}
 
 	return nil
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 func GetInt32(value int32) *int32 {

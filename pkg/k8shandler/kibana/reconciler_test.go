@@ -63,8 +63,8 @@ func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 	if resources.Requests[v1.ResourceMemory] != defaultKibanaMemory {
 		t.Errorf("Exp. the default memory request to be %v", defaultKibanaMemory)
 	}
-	if resources.Requests[v1.ResourceCPU] != defaultKibanaCpuRequest {
-		t.Errorf("Exp. the default CPU request to be %v", defaultKibanaCpuRequest)
+	if resources.Requests[v1.ResourceCPU] != defaultKibanaCPURequest {
+		t.Errorf("Exp. the default CPU request to be %v", defaultKibanaCPURequest)
 	}
 	// check node selecor
 	if podSpec.NodeSelector == nil {
@@ -78,8 +78,8 @@ func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 	if resources.Requests[v1.ResourceMemory] != defaultKibanaProxyMemory {
 		t.Errorf("Exp. the default memory request to be %v", defaultKibanaProxyMemory)
 	}
-	if resources.Requests[v1.ResourceCPU] != defaultKibanaCpuRequest {
-		t.Errorf("Exp. the default CPU request to be %v", defaultKibanaCpuRequest)
+	if resources.Requests[v1.ResourceCPU] != defaultKibanaCPURequest {
+		t.Errorf("Exp. the default CPU request to be %v", defaultKibanaCPURequest)
 	}
 }
 

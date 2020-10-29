@@ -299,33 +299,33 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 	return nil
 }
 
-func (node *deploymentNode) replicaCount() (error, int32) {
+func (node *deploymentNode) replicaCount() (int32, error) {
 	nodeCopy := &apps.Deployment{}
 
 	if err := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); err != nil {
 		log.Error(err, "Could not get Elasticsearch node resource")
-		return err, -1
+		return -1, err
 	}
 
-	return nil, nodeCopy.Status.Replicas
+	return nodeCopy.Status.Replicas, nil
 }
 
-func (node *deploymentNode) waitForNodeRejoinCluster() (error, bool) {
+func (node *deploymentNode) waitForNodeRejoinCluster() (bool, error) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
 		return node.esClient.IsNodeInCluster(node.name())
 	})
 
-	return err, err == nil
+	return err == nil, err
 }
 
-func (node *deploymentNode) waitForNodeLeaveCluster() (error, bool) {
+func (node *deploymentNode) waitForNodeLeaveCluster() (bool, error) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
 		inCluster, checkErr := node.esClient.IsNodeInCluster(node.name())
 
 		return !inCluster, checkErr
 	})
 
-	return err, err == nil
+	return err == nil, err
 }
 
 func (node *deploymentNode) isMissing() bool {

@@ -4,13 +4,12 @@ import (
 	"testing"
 
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
-	core "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Call this method if you want to test that podSpec's node selectors contain only the linux one.
 // Note: This method gets called from other tests. That is why we made it public to other packages.
-func CheckIfThereIsOnlyTheLinuxSelector(podSpec core.PodSpec, t *testing.T) {
+func CheckIfThereIsOnlyTheLinuxSelector(podSpec corev1.PodSpec, t *testing.T) {
 	if podSpec.NodeSelector == nil {
 		t.Errorf("Exp. the nodeSelector to contains the linux allocation selector but was %T", podSpec.NodeSelector)
 	}
@@ -27,8 +26,8 @@ func TestNodeAllocationLabelsForPod(t *testing.T) {
 	// and it will contain only linux allocation selector.
 	podSpec := NewPodSpec(
 		"Foo",
-		[]v1.Container{},
-		[]v1.Volume{},
+		[]corev1.Container{},
+		[]corev1.Volume{},
 		nil,
 		nil,
 	)
@@ -39,8 +38,8 @@ func TestNodeAllocationLabelsForPod(t *testing.T) {
 	// while existing selectors will be left intact.
 	podSpec = NewPodSpec(
 		"Foo",
-		[]v1.Container{},
-		[]v1.Volume{},
+		[]corev1.Container{},
+		[]corev1.Volume{},
 		map[string]string{"foo": "bar"},
 		nil,
 	)
@@ -61,8 +60,8 @@ func TestNodeAllocationLabelsForPod(t *testing.T) {
 	// Create pod with "linux" selector, we expect it stays unchanged.
 	podSpec = NewPodSpec(
 		"Foo",
-		[]v1.Container{},
-		[]v1.Volume{},
+		[]corev1.Container{},
+		[]corev1.Volume{},
 		map[string]string{utils.OsNodeLabel: utils.LinuxValue},
 		nil,
 	)
@@ -80,8 +79,8 @@ func TestNodeAllocationLabelsForPod(t *testing.T) {
 	// Create pod with some "non-linux" selector, we expect it is overridden.
 	podSpec = NewPodSpec(
 		"Foo",
-		[]v1.Container{},
-		[]v1.Volume{},
+		[]corev1.Container{},
+		[]corev1.Volume{},
 		map[string]string{utils.OsNodeLabel: "Donald Duck"},
 		nil,
 	)

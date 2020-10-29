@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func NormalizeJson(doc string) string {
+func NormalizeJSON(doc string) string {
 	doc = strings.TrimSpace(doc)
 	data := &map[string]interface{}{}
 	if err := json.Unmarshal([]byte(doc), data); err != nil {
@@ -22,17 +22,17 @@ func NormalizeJson(doc string) string {
 	return string(response)
 }
 
-type JsonExpectation struct {
+type JSONExpectation struct {
 	actual string
 }
 
-func ExpectJson(doc string) *JsonExpectation {
-	return &JsonExpectation{actual: doc}
+func ExpectJSON(doc string) *JSONExpectation {
+	return &JSONExpectation{actual: doc}
 }
 
-func (exp *JsonExpectation) ToEqual(doc string) {
-	actual := NormalizeJson(exp.actual)
-	expected := NormalizeJson(doc)
+func (exp *JSONExpectation) ToEqual(doc string) {
+	actual := NormalizeJSON(exp.actual)
+	expected := NormalizeJSON(doc)
 	if actual != expected {
 		fmt.Printf("Actual>:\n%s<\n", actual)
 		fmt.Printf("Expected>:\n%s\n<", expected)

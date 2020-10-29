@@ -322,7 +322,7 @@ func (er *ElasticsearchRequest) populateNodes() error {
 			}
 
 			// remove from status.Nodes
-			if index, _ := getNodeStatus(node.name(), &cluster.Status); index != NOT_FOUND_INDEX {
+			if index, _ := getNodeStatus(node.name(), &cluster.Status); index != NotFoundIndex {
 				cluster.Status.Nodes = append(cluster.Status.Nodes[:index], cluster.Status.Nodes[index+1:]...)
 			}
 		}

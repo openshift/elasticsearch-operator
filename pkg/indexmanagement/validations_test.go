@@ -86,9 +86,9 @@ var _ = Describe("Index Management", func() {
 					hasState(esapi.IndexManagementStateAccepted).
 					withReason(esapi.IndexManagementStatusReasonPassed)
 				Expect(result).ToNot(BeNil(), "Expected normalized IndexManagement")
-				jsonResult, err := utils.ToJson(result)
+				jsonResult, err := utils.ToJSON(result)
 				Expect(err).To(BeNil())
-				helpers.ExpectJson(jsonResult).ToEqual(
+				helpers.ExpectJSON(jsonResult).ToEqual(
 					`{
 						"mappings": [
 							{
@@ -132,9 +132,9 @@ var _ = Describe("Index Management", func() {
 						hasState(esapi.IndexManagementStateDegraded).
 						withReason(esapi.IndexManagementStatusReasonValidationFailed)
 					Expect(result).ToNot(BeNil(), "Expected normalized IndexManagement")
-					jsonResult, err := utils.ToJson(result)
+					jsonResult, err := utils.ToJSON(result)
 					Expect(err).To(BeNil())
-					helpers.ExpectJson(jsonResult).ToEqual(
+					helpers.ExpectJSON(jsonResult).ToEqual(
 						`{
 							"mappings": [
 								{
@@ -176,9 +176,9 @@ var _ = Describe("Index Management", func() {
 						hasState(esapi.IndexManagementStateDegraded).
 						withReason(esapi.IndexManagementStatusReasonValidationFailed)
 					Expect(result).ToNot(BeNil(), "Expected normalized IndexManagement")
-					jsonResult, err := utils.ToJson(result)
+					jsonResult, err := utils.ToJSON(result)
 					Expect(err).To(BeNil())
-					helpers.ExpectJson(jsonResult).ToEqual(
+					helpers.ExpectJSON(jsonResult).ToEqual(
 						`{
 							"mappings": [
 								{
