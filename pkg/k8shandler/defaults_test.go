@@ -3,7 +3,7 @@ package k8shandler
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	esapi "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	esapi "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 
 	"github.com/openshift/elasticsearch-operator/test/helpers"

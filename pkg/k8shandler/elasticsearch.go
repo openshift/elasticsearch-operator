@@ -1,7 +1,7 @@
 package k8shandler
 
 import (
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 // this function should be called before we try doing operations to make sure all our nodes are

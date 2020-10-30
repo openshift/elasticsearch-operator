@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"

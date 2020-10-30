@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ViaQ/logerr/log"
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

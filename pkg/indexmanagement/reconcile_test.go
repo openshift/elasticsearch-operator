@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	apis "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	fakeruntime "github.com/openshift/elasticsearch-operator/test/helpers/runtime"
 )
 

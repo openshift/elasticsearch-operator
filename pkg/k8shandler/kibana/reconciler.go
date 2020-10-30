@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	configv1 "github.com/openshift/api/config/v1"
-	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/migrations"
@@ -650,7 +650,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 func getOwnerRef(v *kibana.Kibana) metav1.OwnerReference {
 	trueVar := true
 	return metav1.OwnerReference{
-		APIVersion: kibana.SchemeGroupVersion.String(),
+		APIVersion: kibana.GroupVersion.String(),
 		Kind:       "Kibana",
 		Name:       v.Name,
 		UID:        v.UID,

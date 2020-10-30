@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 

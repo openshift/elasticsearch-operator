@@ -18,7 +18,7 @@ import (
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/ViaQ/logerr/log"
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

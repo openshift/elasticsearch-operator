@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 func TestPruneMissingNodes(t *testing.T) {

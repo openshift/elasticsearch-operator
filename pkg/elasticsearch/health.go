@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"net/http"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {

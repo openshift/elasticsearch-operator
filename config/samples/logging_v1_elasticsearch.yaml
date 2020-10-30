@@ -1,0 +1,7 @@
+apiVersion: logging.openshift.io/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch-sample
+spec:
+  # Add fields here
+  foo: bar

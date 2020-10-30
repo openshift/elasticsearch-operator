@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	esapi "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	esapi "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 var reTimeUnit = regexp.MustCompile("^(?P<number>\\d+)(?P<unit>[yMwdhHms])$")

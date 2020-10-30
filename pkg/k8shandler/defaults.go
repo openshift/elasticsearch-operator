@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ViaQ/logerr/kverrors"
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 const (

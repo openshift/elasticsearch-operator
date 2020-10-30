@@ -15,7 +15,7 @@ export APP_NAME=elasticsearch-operator
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
-MAIN_PKG=cmd/manager/main.go
+MAIN_PKG=main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
 LOGGING_IMAGE_STREAM?=stable
@@ -32,13 +32,13 @@ gobindir:
 	@mkdir -p $(GOBIN)
 
 GEN_TIMESTAMP=.zz_generate_timestamp
-generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK)
-$(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
+generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK) $(CONTROLLER_GEN)
+$(GEN_TIMESTAMP): $(shell find apis -name '*.go')
 	@./hack/generate-crd.sh
 	@$(MAKE) fmt
 	@touch $@
 
-regenerate: $(OPERATOR_SDK)
+regenerate: $(OPERATOR_SDK) $(OPERATOR_SDK) $(CONTROLLER_GEN)
 	@rm -f $(GEN_TIMESTAMP)
 	@$(MAKE) generate
 
@@ -50,7 +50,7 @@ clean:
 	go clean -cache -testcache ./...
 
 fmt: $(GOFUMPORTS)
-	@$(GOFUMPORTS) -l -w $(shell find pkg cmd test -name '*.go')
+	@$(GOFUMPORTS) -l -w $(shell find pkg apis controllers test -name '*.go')
 
 lint: $(GOLANGCI_LINT) fmt lint-prom
 	@$(GOLANGCI_LINT) run -c golangci.yaml

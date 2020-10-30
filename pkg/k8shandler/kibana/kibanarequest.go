@@ -3,7 +3,7 @@ package kibana
 import (
 	"context"
 
-	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"

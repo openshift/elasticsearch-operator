@@ -3,7 +3,7 @@ package indexmanagement
 import (
 	. "github.com/onsi/ginkgo"
 
-	esapi "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	esapi "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 var _ = Describe("Index Management", func() {

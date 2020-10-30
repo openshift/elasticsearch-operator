@@ -3,7 +3,7 @@ package k8shandler
 import (
 	"fmt"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"

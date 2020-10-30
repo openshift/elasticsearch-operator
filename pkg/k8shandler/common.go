@@ -18,7 +18,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -82,7 +82,7 @@ func getNodeRoleMap(node api.ElasticsearchNode) map[api.ElasticsearchNodeRole]bo
 func getOwnerRef(v *api.Elasticsearch) metav1.OwnerReference {
 	trueVar := true
 	return metav1.OwnerReference{
-		APIVersion: api.SchemeGroupVersion.String(),
+		APIVersion: api.GroupVersion.String(),
 		Kind:       "Elasticsearch",
 		Name:       v.Name,
 		UID:        v.UID,

@@ -3,7 +3,7 @@ package k8shandler
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	apps "k8s.io/api/apps/v1"

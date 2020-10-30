@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"

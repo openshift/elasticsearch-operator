@@ -8,7 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 // recoverOrphanedCluster is used to look for an existing cluster

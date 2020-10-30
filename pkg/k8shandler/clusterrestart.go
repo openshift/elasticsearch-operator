@@ -5,7 +5,7 @@ import (
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/ViaQ/logerr/log"
-	api "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	v1 "k8s.io/api/core/v1"

@@ -1,7 +1,7 @@
 package kibana
 
 import (
-	kibana "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

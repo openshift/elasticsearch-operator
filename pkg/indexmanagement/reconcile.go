@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ViaQ/logerr/log"
-	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	apis "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
