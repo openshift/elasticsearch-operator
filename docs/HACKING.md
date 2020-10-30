@@ -141,3 +141,22 @@ oc login --token=<token> --server=https://api.<cluster>:6443
 # Or oc login -u kubeadmin -p <password>, if using openshift installer
 SKIP_BUILD=true make deploy-image
 ```
+
+## Upgrading operator-sdk
+
+The elasticsearch operator relies on `operator-sdk` to scaffold and generate code and
+manifests.
+To upgrade the generated code to a new operator-sdk version, we need to follow the
+instructions in [operator-sdk's migration guide](https://master.sdk.operatorframework.io/docs/upgrading-sdk-version/).
+
+In addition, we must ensure that the k8s dependencies in the operator's `go.mod`
+match the selected version of operator-sdk. For example, for operator-sdk *v0.19.x*,
+check the k8s dependencies:
+
+- [Identify kubebuilder version referenced by operator-sdk](https://github.com/operator-framework/operator-sdk/blob/ef0bc885e40e6c86c0c079bea612b4eb908f6ec5/go.mod#L53)
+
+- [Identify controller-runtime version referenced by kubebuilder](https://github.com/kubernetes-sigs/kubebuilder/blob/36aa113dbe99a7bdd883d42f8545468a2017775d/pkg/plugin/v3/scaffolds/init.go#L38)
+
+- [Check controller-runtime's go.mod file](https://github.com/kubernetes-sigs/controller-runtime/blob/1c83ff6f06bc764c95dd69b0f743740c064c4bf6/go.mod#L23-L28)
+
+As a result, we can determine the versions of the k8s dependencies in the operator's `go.mod`.
