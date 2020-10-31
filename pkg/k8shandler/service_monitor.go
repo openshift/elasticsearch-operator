@@ -44,7 +44,14 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 		ServerName: fmt.Sprintf("%s-%s.%s.svc", clusterName, "metrics", namespace),
 		// ServerName can be e.g. elasticsearch-metrics.openshift-logging.svc
 	}
-	endpoint := monitoringv1.Endpoint{
+	proxy := monitoringv1.Endpoint{
+		Port:            clusterName,
+		Path:            "/metrics",
+		Scheme:          "https",
+		BearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+		TLSConfig:       &tlsConfig,
+	}
+	elasticsearch := monitoringv1.Endpoint{
 		Port:            clusterName,
 		Path:            "/_prometheus/metrics",
 		Scheme:          "https",
@@ -53,7 +60,7 @@ func createServiceMonitor(serviceMonitorName, clusterName, namespace string, lab
 	}
 	svcMonitor.Spec = monitoringv1.ServiceMonitorSpec{
 		JobLabel:  "monitor-elasticsearch",
-		Endpoints: []monitoringv1.Endpoint{endpoint},
+		Endpoints: []monitoringv1.Endpoint{proxy, elasticsearch},
 		Selector:  labelSelector,
 		NamespaceSelector: monitoringv1.NamespaceSelector{
 			MatchNames: []string{namespace},
