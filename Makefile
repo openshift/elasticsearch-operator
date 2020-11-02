@@ -20,7 +20,7 @@ COVERAGE_DIR=$(ARTIFACT_DIR)/coverage
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
-MAIN_PKG=cmd/manager/main.go
+MAIN_PKG=main.go
 RUN_LOG?=elasticsearch-operator.log
 RUN_PID?=elasticsearch-operator.pid
 LOGGING_IMAGE_STREAM?=stable
@@ -49,13 +49,14 @@ gobindir:
 	@mkdir -p $(GOBIN)
 
 GEN_TIMESTAMP=.zz_generate_timestamp
-generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK)
-$(GEN_TIMESTAMP): $(shell find pkg/apis -name '*.go')
-	@./hack/generate-crd.sh
+generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK) $(CONTROLLER_GEN)
+$(GEN_TIMESTAMP): $(shell find apis -name '*.go')
+	@$(CONTROLLER_GEN) object paths="./apis/..."
+	@$(CONTROLLER_GEN) crd:crdVersions=v1 rbac:roleName=elasticsearch-operator paths="./..." output:crd:artifacts:config=config/crd/bases
 	@$(MAKE) fmt
 	@touch $@
 
-regenerate: $(OPERATOR_SDK)
+regenerate: $(OPERATOR_SDK) $(CONTROLLER_GEN)
 	@rm -f $(GEN_TIMESTAMP)
 	@$(MAKE) generate
 
@@ -67,7 +68,7 @@ clean:
 	go clean -cache -testcache ./...
 
 fmt: $(GOFUMPORTS)
-	@$(GOFUMPORTS) -l -w $(shell find pkg cmd test -name '*.go')
+	@$(GOFUMPORTS) -l -w $(shell find internal apis controllers test version -name '*.go') ./*.go
 
 lint: $(GOLANGCI_LINT) fmt lint-prom
 	@$(GOLANGCI_LINT) run -c golangci.yaml
@@ -83,7 +84,7 @@ image:
 
 test-unit: $(GO_JUNIT_REPORT) coveragedir junitreportdir test-unit-prom
 	@set -o pipefail && \
-		go test -v -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./pkg/... ./cmd/... 2>&1 | \
+		go test -v -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./internal/... ./apis/... ./controllers/... ./. 2>&1 | \
 		tee /dev/stderr | \
 		$(GO_JUNIT_REPORT) > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 	@grep -v 'zz_generated\.' $(COVERAGE_DIR)/test-unit.cov > $(COVERAGE_DIR)/nogen.cov
@@ -150,13 +151,22 @@ uninstall:
 	$(MAKE) elasticsearch-catalog-uninstall
 .PHONY: uninstall
 
-MANIFEST_VERSION?="4.7"
-generate-bundle: regenerate $(OPM)
-	mkdir -p bundle; \
-	$(OPM) alpha bundle generate --directory manifests/${MANIFEST_VERSION} --package elasticsearch-operator --channels ${MANIFEST_VERSION} --default ${MANIFEST_VERSION} --output-dir bundle/; \
-	find bundle/manifests/ -type f ! \( -name "elasticsearch-operator*.yaml" -o -name "*crd.yaml" \) -delete && \
-	$(OPERATOR_SDK) bundle validate --verbose bundle
-.PHONY: generate-bundle
+# Generate bundle manifests and metadata, then validate generated files.
+# - the bundle manifests are copied to ./manifests/${OCP_VERSION}/, e.g., ./manifests/4.7/
+BUNDLE_VERSION?=$(OCP_VERSION).0
+# Options for 'bundle-build'
+BUNDLE_CHANNELS := --channels=${OCP_VERSION}
+BUNDLE_DEFAULT_CHANNEL := --default-channel=${OCP_VERSION}
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
+bundle: regenerate $(KUSTOMIZE)
+	$(OPERATOR_SDK) generate kustomize manifests -q
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
+	$(OPERATOR_SDK) bundle validate ./bundle
+	cp bundle/manifests/elasticsearch-operator.clusterserviceversion.yaml  manifests/${OCP_VERSION}/elasticsearch-operator.v${BUNDLE_VERSION}.clusterserviceversion.yaml
+	cp bundle/manifests/logging.openshift.io_elasticsearches.yaml  manifests/${OCP_VERSION}/logging.openshift.io_elasticsearches_crd.yaml
+	cp bundle/manifests/logging.openshift.io_kibanas.yaml  manifests/${OCP_VERSION}/logging.openshift.io_kibanas_crd.yaml
+.PHONY: bundle
 
 test-e2e-upgrade: 
 	hack/testing-olm-upgrade/test-030-olm-upgrade-n-1-n.sh

@@ -160,3 +160,13 @@ check the k8s dependencies:
 - [Check controller-runtime's go.mod file](https://github.com/kubernetes-sigs/controller-runtime/blob/1c83ff6f06bc764c95dd69b0f743740c064c4bf6/go.mod#L23-L28)
 
 As a result, we can determine the versions of the k8s dependencies in the operator's `go.mod`.
+
+### Generate Go code, CRD, RBAC, and bundle
+
+```bash
+# Generate Go code, CRD, ...
+make generate
+
+# Generate bundle directory
+make bundle
+```
