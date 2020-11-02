@@ -57,7 +57,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServices() error {
 	}
 
 	// legacy metrics service that likely can be rolled into the single service that goes through the proxy
-	annotations["service.alpha.openshift.io/serving-cert-secret-name"] = fmt.Sprintf("%s-%s", dpl.Name, "metrics")
+	annotations["service.beta.openshift.io/serving-cert-secret-name"] = fmt.Sprintf("%s-%s", dpl.Name, "metrics")
 	err = er.createOrUpdateService(
 		fmt.Sprintf("%s-%s", dpl.Name, "metrics"),
 		dpl.Namespace,
@@ -122,6 +122,7 @@ func (er *ElasticsearchRequest) createOrUpdateService(serviceName, namespace, cl
 		current.Spec.Selector = service.Spec.Selector
 		current.Spec.PublishNotReadyAddresses = service.Spec.PublishNotReadyAddresses
 		current.Labels = service.Labels
+		current.Annotations = service.Annotations
 		if err = client.Update(context.TODO(), current); err != nil {
 			return err
 		}
