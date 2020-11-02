@@ -42,7 +42,7 @@ regenerate: $(OPERATOR_SDK)
 	@rm -f $(GEN_TIMESTAMP)
 	@$(MAKE) generate
 
-build: fmt
+build:
 	@go build -o $(GOBIN)/elasticsearch-operator $(MAIN_PKG)
 
 clean:
