@@ -38,14 +38,14 @@ metadata:
               "name": "elasticsearch"
             },
             "spec": {
-              "managementState": "Managed"
+              "managementState": "Managed",
               "nodeSpec": {
                 "resources": {
                   "limits": {
                     "memory": "1Gi"
                   },
                   "requests": {
-                    "cpu": "100m"
+                    "cpu": "100m",
                     "memory": "1Gi"
                   }
                 }
