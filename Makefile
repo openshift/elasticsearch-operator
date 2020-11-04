@@ -12,6 +12,7 @@ export GO111MODULE=on
 export OCP_VERSION=4.7
 
 export APP_NAME=elasticsearch-operator
+ARTIFACT_DIR?=./tmp
 IMAGE_TAG?=127.0.0.1:5000/openshift/origin-$(APP_NAME):latest
 APP_REPO=github.com/openshift/$(APP_NAME)
 KUBECONFIG?=$(HOME)/.kube/config
@@ -27,6 +28,10 @@ OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 .PHONY: all build clean fmt generate gobindir run test-e2e test-unit
 
 all: build
+
+artifactdir:
+	@mkdir -p $(ARTIFACT_DIR)
+.PHONY: artifactdir
 
 gobindir:
 	@mkdir -p $(GOBIN)
@@ -64,8 +69,13 @@ image:
 		podman build -t $(IMAGE_TAG) . ; \
 	fi
 
-test-unit: test-unit-prom
-	@go test ./pkg/... ./cmd/...
+COVERAGE_DIR=$(ARTIFACT_DIR)/coverage
+test-unit: artifactdir test-unit-prom
+	@mkdir -p $(COVERAGE_DIR)
+	@go test -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./pkg/... ./cmd/...
+	@grep -v 'zz_generated\.' $(COVERAGE_DIR)/test-unit.cov > $(COVERAGE_DIR)/nogen.cov
+	@go tool cover -html=$(COVERAGE_DIR)/nogen.cov -o $(COVERAGE_DIR)/test-unit-coverage.html
+	@go tool cover -func=$(COVERAGE_DIR)/nogen.cov | tail -n 1
 
 test-unit-prom: $(PROMTOOL)
 	@$(PROMTOOL) test rules ./test/files/prometheus-unit-tests/test.yml
