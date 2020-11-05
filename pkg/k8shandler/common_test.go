@@ -23,9 +23,14 @@ var (
 	nodeCpuValue = resource.MustParse("600m")
 	nodeMemValue = resource.MustParse("3Gi")
 
-	defaultTestCpuRequest = resource.MustParse(defaultCPURequest)
-	defaultTestMemLimit   = resource.MustParse(defaultMemoryLimit)
-	defaultTestMemRequest = resource.MustParse(defaultMemoryRequest)
+	commonProxyCpuValue = resource.MustParse("100m")
+	commonProxyMemValue = resource.MustParse("64Mi")
+	nodeProxyCpuValue   = resource.MustParse("128m")
+	nodeProxyMemValue   = resource.MustParse("256Mi")
+
+	defaultTestCpuRequest = resource.MustParse(defaultESCpuRequest)
+	defaultTestMemLimit   = resource.MustParse(defaultESMemoryLimit)
+	defaultTestMemRequest = resource.MustParse(defaultESMemoryRequest)
 )
 
 /*
@@ -99,7 +104,7 @@ func TestResourcesCommonAndNodeDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -125,7 +130,7 @@ func TestResourcesNoNodeDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -145,7 +150,7 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 		defaultTestMemRequest,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -174,7 +179,7 @@ func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -203,7 +208,7 @@ func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
 		commonMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -226,7 +231,7 @@ func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
 		commonMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -250,7 +255,7 @@ func TestResourcesCommonLimitAndNoNodeDefined(t *testing.T) {
 		commonMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -273,7 +278,7 @@ func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -297,7 +302,7 @@ func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -324,7 +329,7 @@ func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
 		nodeMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -351,7 +356,7 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 		commonMemValue,
 	)
 
-	actual := newResourceRequirements(nodeRequirements, commonRequirements)
+	actual := newESResourceRequirements(nodeRequirements, commonRequirements)
 
 	if !areResourcesSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", printResource(expected), printResource(actual))
@@ -360,26 +365,21 @@ func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 
 func TestProxyContainerResourcesDefined(t *testing.T) {
 
-	imageName := "openshift/elasticsearch-proxy:1.1"
-	clusterName := "elasticsearch"
-
 	expectedCPU := resource.MustParse("100m")
 	expectedMemory := resource.MustParse("64Mi")
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
-	if err != nil {
-		t.Errorf("Failed to populate Proxy container: %v", err)
-	}
+	empty := v1.ResourceRequirements{}
+	proxyResources := newESProxyResourceRequirements(empty, empty)
 
-	if memoryLimit, ok := proxyContainer.Resources.Limits["memory"]; ok {
+	if memoryLimit, ok := proxyResources.Limits["memory"]; ok {
 		if memoryLimit.Cmp(expectedMemory) != 0 {
-			t.Errorf("Expected CPU limit %s but got %s", expectedMemory.String(), memoryLimit.String())
+			t.Errorf("Expected Memory limit %s but got %s", expectedMemory.String(), memoryLimit.String())
 		}
 	} else {
-		t.Errorf("Proxy container is missing CPU limit. Expected limit %s", expectedMemory.String())
+		t.Errorf("Proxy container is missing Memory limit. Expected limit %s", expectedMemory.String())
 	}
 
-	if cpuRequest, ok := proxyContainer.Resources.Requests["cpu"]; ok {
+	if cpuRequest, ok := proxyResources.Requests["cpu"]; ok {
 		if cpuRequest.Cmp(expectedCPU) != 0 {
 			t.Errorf("Expected CPU request %s but got %s", expectedCPU.String(), cpuRequest.String())
 		}
@@ -387,12 +387,87 @@ func TestProxyContainerResourcesDefined(t *testing.T) {
 		t.Errorf("Proxy container is missing CPU request. Expected request %s", expectedCPU.String())
 	}
 
-	if memoryLimit, ok := proxyContainer.Resources.Limits["memory"]; ok {
-		if memoryLimit.Cmp(expectedMemory) != 0 {
-			t.Errorf("Expected memory limit %s but got %s", expectedMemory.String(), memoryLimit.String())
+	if memoryRequest, ok := proxyResources.Requests["memory"]; ok {
+		if memoryRequest.Cmp(expectedMemory) != 0 {
+			t.Errorf("Expected memory request %s but got %s", expectedMemory.String(), memoryRequest.String())
 		}
 	} else {
-		t.Errorf("Proxy container is missing memory limit. Expected limit %s", expectedMemory.String())
+		t.Errorf("Proxy container is missing memory request. Expected request %s", expectedMemory.String())
+	}
+}
+
+func TestProxyContainerResourcesDefinedFromCommonSpec(t *testing.T) {
+
+	empty := v1.ResourceRequirements{}
+
+	expectedCPU := resource.MustParse("200m")
+	expectedMemoryLimit := resource.MustParse("256Mi")
+	expectedMemoryRequest := resource.MustParse("128Mi")
+
+	nodeProxySpec := buildNoCPULimitResource(expectedCPU, expectedMemoryLimit, expectedMemoryRequest)
+	proxyResources := newESProxyResourceRequirements(empty, nodeProxySpec)
+
+	if memoryLimit, ok := proxyResources.Limits["memory"]; ok {
+		if memoryLimit.Cmp(expectedMemoryLimit) != 0 {
+			t.Errorf("Expected Memory limit %s but got %s", expectedMemoryLimit.String(), memoryLimit.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing Memory limit. Expected limit %s", expectedMemoryLimit.String())
+	}
+
+	if cpuRequest, ok := proxyResources.Requests["cpu"]; ok {
+		if cpuRequest.Cmp(expectedCPU) != 0 {
+			t.Errorf("Expected CPU request %s but got %s", expectedCPU.String(), cpuRequest.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing CPU request. Expected request %s", expectedCPU.String())
+	}
+
+	if memoryRequest, ok := proxyResources.Requests["memory"]; ok {
+		if memoryRequest.Cmp(expectedMemoryRequest) != 0 {
+			t.Errorf("Expected memory request %s but got %s", expectedMemoryRequest.String(), memoryRequest.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing memory request. Expected request %s", expectedMemoryRequest.String())
+	}
+}
+
+func TestProxyContainerResourcesDefinedFromNodeSpec(t *testing.T) {
+
+	expectedCPU := resource.MustParse("150m")
+	expectedMemoryLimit := resource.MustParse("200Mi")
+	expectedMemoryRequest := resource.MustParse("100Mi")
+	nodeProxySpec := buildNoCPULimitResource(expectedCPU, expectedMemoryLimit, expectedMemoryRequest)
+
+	commonCPU := resource.MustParse("200m")
+	commonMemoryLimit := resource.MustParse("256Mi")
+	commonMemoryRequest := resource.MustParse("128Mi")
+	commonProxySpec := buildNoCPULimitResource(commonCPU, commonMemoryLimit, commonMemoryRequest)
+
+	proxyResources := newESProxyResourceRequirements(nodeProxySpec, commonProxySpec)
+
+	if memoryLimit, ok := proxyResources.Limits["memory"]; ok {
+		if memoryLimit.Cmp(expectedMemoryLimit) != 0 {
+			t.Errorf("Expected Memory limit %s but got %s", expectedMemoryLimit.String(), memoryLimit.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing Memory limit. Expected limit %s", expectedMemoryLimit.String())
+	}
+
+	if cpuRequest, ok := proxyResources.Requests["cpu"]; ok {
+		if cpuRequest.Cmp(expectedCPU) != 0 {
+			t.Errorf("Expected CPU request %s but got %s", expectedCPU.String(), cpuRequest.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing CPU request. Expected request %s", expectedCPU.String())
+	}
+
+	if memoryRequest, ok := proxyResources.Requests["memory"]; ok {
+		if memoryRequest.Cmp(expectedMemoryRequest) != 0 {
+			t.Errorf("Expected memory request %s but got %s", expectedMemoryRequest.String(), memoryRequest.String())
+		}
+	} else {
+		t.Errorf("Proxy container is missing memory request. Expected request %s", expectedMemoryRequest.String())
 	}
 }
 
@@ -400,10 +475,9 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
-	if err != nil {
-		t.Errorf("Failed to populate Proxy container: %v", err)
-	}
+	empty := v1.ResourceRequirements{}
+	proxyResources := newESProxyResourceRequirements(empty, empty)
+	proxyContainer := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{}, proxyResources)
 
 	want := []string{
 		"--tls-cert=/etc/proxy/elasticsearch/logging-es.crt",
@@ -435,10 +509,9 @@ func TestProxyContainerSpec(t *testing.T) {
 	imageName := "openshift/elasticsearch-proxy:1.1"
 	clusterName := "elasticsearch"
 
-	proxyContainer, err := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{})
-	if err != nil {
-		t.Errorf("Failed to populate Proxy container: %v", err)
-	}
+	empty := v1.ResourceRequirements{}
+	proxyResources := newESProxyResourceRequirements(empty, empty)
+	proxyContainer := newProxyContainer(imageName, clusterName, "openshift-logging", LogConfig{}, proxyResources)
 
 	wantArgs := []string{
 		"--metrics-listening-address=:60001",

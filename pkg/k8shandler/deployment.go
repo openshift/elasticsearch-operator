@@ -220,7 +220,8 @@ func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 	matches := false
 
 	for _, pod := range podList.Items {
-		if !ArePodSpecDifferent(node.self.Spec.Template.Spec, pod.Spec, false) {
+		// follow pattern used in other places of "current, desired"
+		if !ArePodSpecDifferent(pod.Spec, node.self.Spec.Template.Spec, false) {
 			matches = true
 		}
 	}
@@ -272,24 +273,30 @@ func (node *deploymentNode) setPaused(paused bool) error {
 }
 
 func (node *deploymentNode) setReplicaCount(replicas int32) error {
+
+	nodeCopy := &apps.Deployment{}
+
 	nretries := -1
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
-		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, &node.self); getErr != nil {
+		if getErr := node.client.Get(context.TODO(), types.NamespacedName{Name: node.self.Name, Namespace: node.self.Namespace}, nodeCopy); getErr != nil {
 			logrus.Debugf("Could not get Elasticsearch node resource %v: %v", node.self.Name, getErr)
 			return getErr
 		}
 
-		if *node.self.Spec.Replicas == replicas {
+		if *nodeCopy.Spec.Replicas == replicas {
 			return nil
+		}
+
+		nodeCopy.Spec.Replicas = &replicas
+
+		if updateErr := node.client.Update(context.TODO(), nodeCopy); updateErr != nil {
+			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
+			return updateErr
 		}
 
 		node.self.Spec.Replicas = &replicas
 
-		if updateErr := node.client.Update(context.TODO(), &node.self); updateErr != nil {
-			logrus.Debugf("Failed to update node resource %v: %v", node.self.Name, updateErr)
-			return updateErr
-		}
 		return nil
 	})
 	if retryErr != nil {

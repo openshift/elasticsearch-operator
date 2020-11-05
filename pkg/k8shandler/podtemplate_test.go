@@ -654,4 +654,118 @@ var _ = Describe("podtemplate", func() {
 			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
 		})
 	})
+
+	Context("proxy memory request resource change", func() {
+		JustBeforeEach(func() {
+
+			proxyContainer := v1.Container{
+				Name: "testProxyContainer",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("1Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("1Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+				},
+				Image: expectedImageName,
+			}
+
+			lhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+						proxyContainer,
+					},
+				},
+			}
+
+			proxyContainer2 := v1.Container{
+				Name: "testProxyContainer",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("1Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+				},
+				Image: expectedImageName,
+			}
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+						proxyContainer2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a request memory change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
+
+	Context("proxy memory limit resource change", func() {
+		JustBeforeEach(func() {
+
+			proxyContainer := v1.Container{
+				Name: "testProxyContainer",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("1Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("1Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+				},
+				Image: expectedImageName,
+			}
+
+			lhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+						proxyContainer,
+					},
+				},
+			}
+
+			proxyContainer2 := v1.Container{
+				Name: "testProxyContainer",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("2Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+					Requests: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("1Gi"),
+						v1.ResourceCPU:    resource.MustParse("600m"),
+					},
+				},
+				Image: expectedImageName,
+			}
+
+			rhs = v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						nodeContainer,
+						proxyContainer2,
+					},
+				},
+			}
+		})
+
+		It("should recognize a limit memory change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		})
+	})
 })

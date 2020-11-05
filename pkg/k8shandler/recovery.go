@@ -86,7 +86,7 @@ func (er *ElasticsearchRequest) podSpecMatchNode(node loggingv1.ElasticsearchNod
 		return false
 	}
 
-	nodeResources := newResourceRequirements(node.Resources, er.cluster.Spec.Spec.Resources)
+	nodeResources := newESResourceRequirements(node.Resources, er.cluster.Spec.Spec.Resources)
 
 	var deploymentNodeResources corev1.ResourceRequirements
 

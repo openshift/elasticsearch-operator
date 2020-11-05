@@ -85,6 +85,22 @@ spec:
                   genUUID:
                     type: string
                     nullable: true
+                  proxyResources:
+                    description: The resource requirements for the Elasticsearch proxy
+                    type: object
+                    properties:
+                      limits:
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                        nullable: true
+                      requests:
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                        type: object
+                        nullable: true
             indexManagement:
               description: Management spec for indicies
               type: object
@@ -176,3 +192,19 @@ spec:
                   description: Define which Nodes the Pods are scheduled on.
                   type: object
                   nullable: true
+                proxyResources:
+                  description: The resource requirements for the Elasticsearch proxy
+                  type: object
+                  properties:
+                    limits:
+                      description: 'Limits describes the maximum amount of compute
+                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                      nullable: true
+                    requests:
+                      description: 'Requests describes the minimum amount of compute
+                        resources required. If Requests is omitted for a container,
+                        it defaults to Limits if that is explicitly specified, otherwise
+                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                      nullable: true

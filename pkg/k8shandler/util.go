@@ -108,11 +108,12 @@ func areTolerationsSame(lhs, rhs []v1.Toleration) bool {
 	return containsSameTolerations(lhs, rhs)
 }
 
-// containsSameTolerations checks that the tolerations in lhs are all contained within rhs
+// containsSameTolerations checks that the tolerations in rhs are all contained within lhs
+// this follows our other patterns of "current, desired"
 func containsSameTolerations(lhs, rhs []v1.Toleration) bool {
 
-	for _, lhsToleration := range lhs {
-		if !containsToleration(lhsToleration, rhs) {
+	for _, rhsToleration := range rhs {
+		if !containsToleration(rhsToleration, lhs) {
 			return false
 		}
 	}
