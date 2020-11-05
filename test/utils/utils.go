@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"reflect"
 	"strconv"
@@ -279,6 +280,8 @@ func WaitForIndexTemplateReplicas(t *testing.T, kubeclient kubernetes.Interface,
 	mockClient := fake.NewFakeClient(getMockedSecret(clusterName, namespace))
 	esClient := elasticsearch.NewClient(clusterName, namespace, mockClient)
 
+	stringReplicas := fmt.Sprintf("%d", replicas)
+
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		// get all index replica count
 		indexTemplates, err := esClient.GetIndexTemplates()
@@ -289,21 +292,15 @@ func WaitForIndexTemplateReplicas(t *testing.T, kubeclient kubernetes.Interface,
 
 		// for each index -- check replica count
 		for templateName, template := range indexTemplates {
-			if numberOfReplicas := parseString("settings.index.number_of_replicas", template.(map[string]interface{})); numberOfReplicas != "" {
-				currentReplicas, err := strconv.ParseInt(numberOfReplicas, 10, 32)
-				if err != nil {
-					return false, err
-				}
+			currentReplicas := template.Settings.Index.NumberOfReplicas
 
-				if int32(currentReplicas) == replicas {
-					continue
-				}
-
-				t.Logf("Index template %s did not have correct replica count (%d/%d)", templateName, currentReplicas, replicas)
-				return false, nil
-			} else {
-				return false, nil
+			if currentReplicas == stringReplicas {
+				continue
 			}
+
+			t.Logf("Index template %s did not have correct replica count (%s/%d)", templateName, currentReplicas, replicas)
+			return false, nil
+
 		}
 
 		return true, nil

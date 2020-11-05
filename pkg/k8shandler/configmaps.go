@@ -28,11 +28,11 @@ const (
 
 // esYmlStruct is used to render esYmlTmpl to a proper elasticsearch.yml format
 type esYmlStruct struct {
-	KibanaIndexMode       string
-	EsUnicastHost         string
-	NodeQuorum            string
-	RecoverExpectedShards string
-	SystemCallFilter      string
+	KibanaIndexMode      string
+	EsUnicastHost        string
+	NodeQuorum           string
+	RecoverExpectedNodes string
+	SystemCallFilter     string
 }
 
 type log4j2PropertiesStruct struct {
@@ -114,7 +114,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 		esUnicastHost(dpl.Name, dpl.Namespace),
 		strconv.Itoa(masterNodeCount/2+1),
 		strconv.Itoa(dataNodeCount),
-		strconv.Itoa(dataNodeCount),
+		strconv.Itoa(calculatePrimaryCount(dpl)),
 		strconv.Itoa(calculateReplicaCount(dpl)),
 		strconv.FormatBool(runtime.GOARCH == "amd64"),
 		logConfig,
@@ -166,11 +166,11 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 	return nil
 }
 
-func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) (error, map[string]string) {
+func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) (error, map[string]string) {
 
 	data := map[string]string{}
 	buf := &bytes.Buffer{}
-	if err := renderEsYml(buf, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, systemCallFilter); err != nil {
+	if err := renderEsYml(buf, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, systemCallFilter); err != nil {
 		return err, data
 	}
 	data[esConfig] = buf.String()
@@ -192,9 +192,9 @@ func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShard
 
 // newConfigMap returns a v1.ConfigMap object
 func newConfigMap(configMapName, namespace string, labels map[string]string,
-	kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) *v1.ConfigMap {
+	kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) *v1.ConfigMap {
 
-	err, data := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, primaryShardsCount, replicaShardsCount, systemCallFilter, logConfig)
+	err, data := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter, logConfig)
 	if err != nil {
 		return nil
 	}
@@ -238,7 +238,7 @@ func configMapContentChanged(old, new *v1.ConfigMap) bool {
 	return false
 }
 
-func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedShards, systemCallFilter string) error {
+func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, systemCallFilter string) error {
 	t := template.New("elasticsearch.yml")
 	config := esYmlTmpl
 	t, err := t.Parse(config)
@@ -246,11 +246,11 @@ func renderEsYml(w io.Writer, kibanaIndexMode, esUnicastHost, nodeQuorum, recove
 		return err
 	}
 	esy := esYmlStruct{
-		KibanaIndexMode:       kibanaIndexMode,
-		EsUnicastHost:         esUnicastHost,
-		NodeQuorum:            nodeQuorum,
-		RecoverExpectedShards: recoverExpectedShards,
-		SystemCallFilter:      systemCallFilter,
+		KibanaIndexMode:      kibanaIndexMode,
+		EsUnicastHost:        esUnicastHost,
+		NodeQuorum:           nodeQuorum,
+		RecoverExpectedNodes: recoverExpectedNodes,
+		SystemCallFilter:     systemCallFilter,
 	}
 
 	return t.Execute(w, esy)

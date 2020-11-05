@@ -1,9 +1,11 @@
 package elasticsearch
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	estypes "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -67,7 +69,7 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 	return response, nil
 }
 
-func (ec *esClient) GetIndexTemplates() (map[string]interface{}, error) {
+func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_template/common.*",
@@ -75,5 +77,98 @@ func (ec *esClient) GetIndexTemplates() (map[string]interface{}, error) {
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 
-	return payload.ResponseBody, payload.Error
+	// unmarshal response body and return that
+	templates := map[string]estypes.GetIndexTemplate{}
+	err := json.Unmarshal([]byte(payload.RawResponseBody), &templates)
+	if err != nil {
+		return templates, fmt.Errorf("failed decoding raw response body into `map[string]estypes.GetIndexTemplate` for %s in namespace %s: %v", ec.cluster, ec.namespace, err)
+	}
+
+	return templates, payload.Error
+}
+
+func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, error) {
+
+	// get the index template and then update the replica and put it
+	indexTemplates, err := ec.GetIndexTemplates()
+	if err != nil {
+		return false, err
+	}
+
+	replicaString := fmt.Sprintf("%d", replicaCount)
+
+	for templateName, template := range indexTemplates {
+
+		currentReplicas := template.Settings.Index.NumberOfReplicas
+		if currentReplicas != replicaString {
+			template.Settings.Index.NumberOfReplicas = replicaString
+
+			templateJson, err := json.Marshal(template)
+			if err != nil {
+				return false, err
+			}
+
+			payload := &EsRequest{
+				Method:      http.MethodPut,
+				URI:         fmt.Sprintf("_template/%s", templateName),
+				RequestBody: string(templateJson),
+			}
+
+			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+
+			acknowledged := false
+			if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+				acknowledged = acknowledgedBool
+			}
+
+			if !(payload.StatusCode == 200 && acknowledged) {
+				log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
+
+	// get the index template and then update the shards and put it
+	indexTemplates, err := ec.GetIndexTemplates()
+	if err != nil {
+		return err
+	}
+
+	shardString := fmt.Sprintf("%d", shardCount)
+
+	for templateName, template := range indexTemplates {
+
+		currentShards := template.Settings.Index.NumberOfShards
+		if currentShards != shardString {
+			template.Settings.Index.NumberOfShards = shardString
+
+			templateJson, err := json.Marshal(template)
+			if err != nil {
+				return err
+			}
+
+			payload := &EsRequest{
+				Method:      http.MethodPut,
+				URI:         fmt.Sprintf("_template/%s", templateName),
+				RequestBody: string(templateJson),
+			}
+
+			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+
+			acknowledged := false
+			if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
+				acknowledged = acknowledgedBool
+			}
+
+			if !(payload.StatusCode == 200 && acknowledged) {
+				log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+			}
+		}
+	}
+
+	return nil
 }
