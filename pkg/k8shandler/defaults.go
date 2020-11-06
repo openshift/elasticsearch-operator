@@ -17,7 +17,7 @@ const (
 	defaultESMemoryLimit   = "4Gi"
 	defaultESMemoryRequest = "1Gi"
 	// ESProxy
-	defaultESProxyCpuRequest    = "100m"
+	defaultESProxyCPURequest    = "100m"
 	defaultESProxyMemoryLimit   = "256Mi"
 	defaultESProxyMemoryRequest = "256Mi"
 

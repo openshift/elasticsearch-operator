@@ -111,7 +111,7 @@ var _ = Describe("Index Management", func() {
 		It("should create an elasticsearch index template to support the index", func() {
 			Expect(request.createOrUpdateIndexTemplate(mapping)).To(BeNil())
 			req, _ := chatter.GetRequest("_template/ocp-gen-node.infra")
-			helpers.ExpectJson(req.Body).ToEqual(
+			helpers.ExpectJSON(req.Body).ToEqual(
 				`{
 					"aliases": {
 						"infra": {},
@@ -149,7 +149,7 @@ var _ = Describe("Index Management", func() {
 				request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
 				Expect(request.initializeIndexIfNeeded(mapping)).To(BeNil())
 				req, _ := chatter.GetRequest("node.infra-000001")
-				helpers.ExpectJson(req.Body).ToEqual(
+				helpers.ExpectJSON(req.Body).ToEqual(
 					`{
 						"aliases": {
 							"infra": {},

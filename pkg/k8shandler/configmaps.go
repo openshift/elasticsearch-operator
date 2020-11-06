@@ -181,33 +181,33 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() (err error) {
 	return nil
 }
 
-func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) (error, map[string]string) {
+func renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) (map[string]string, error) {
 	data := map[string]string{}
 	buf := &bytes.Buffer{}
 	if err := renderEsYml(buf, kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, systemCallFilter); err != nil {
-		return err, data
+		return data, err
 	}
 	data[esConfig] = buf.String()
 
 	buf = &bytes.Buffer{}
 	if err := renderLog4j2Properties(buf, logConfig); err != nil {
-		return err, data
+		return data, err
 	}
 	data[log4jConfig] = buf.String()
 
 	buf = &bytes.Buffer{}
 	if err := renderIndexSettings(buf, primaryShardsCount, replicaShardsCount); err != nil {
-		return err, data
+		return data, err
 	}
 	data[indexSettingsConfig] = buf.String()
 
-	return nil, data
+	return data, nil
 }
 
 // newConfigMap returns a v1.ConfigMap object
 func newConfigMap(configMapName, namespace string, labels map[string]string,
 	kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter string, logConfig LogConfig) *v1.ConfigMap {
-	err, data := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter, logConfig)
+	data, err := renderData(kibanaIndexMode, esUnicastHost, nodeQuorum, recoverExpectedNodes, primaryShardsCount, replicaShardsCount, systemCallFilter, logConfig)
 	if err != nil {
 		return nil
 	}

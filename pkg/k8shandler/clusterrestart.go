@@ -320,7 +320,7 @@ func (cr ClusterRestart) waitAllNodesRejoinAndSetAllShards() error {
 
 func (cr ClusterRestart) waitAllNodesRejoin() error {
 	for _, node := range cr.scheduledNodes {
-		if err, _ := node.waitForNodeRejoinCluster(); err != nil {
+		if _, err := node.waitForNodeRejoinCluster(); err != nil {
 			return err
 		}
 	}
@@ -343,7 +343,7 @@ func (cr ClusterRestart) scaleDownThenUpNodes() error {
 	}
 
 	for _, node := range cr.scheduledNodes {
-		if err, _ := node.waitForNodeLeaveCluster(); err != nil {
+		if _, err := node.waitForNodeLeaveCluster(); err != nil {
 			return err
 		}
 	}

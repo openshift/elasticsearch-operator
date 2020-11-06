@@ -12,7 +12,7 @@ import (
 )
 
 func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemplate) error {
-	body, err := utils.ToJson(template)
+	body, err := utils.ToJSON(template)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 		if currentReplicas != replicaString {
 			template.Settings.Index.NumberOfReplicas = replicaString
 
-			templateJson, err := json.Marshal(template)
+			templateJSON, err := json.Marshal(template)
 			if err != nil {
 				return false, err
 			}
@@ -114,7 +114,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 			payload := &EsRequest{
 				Method:      http.MethodPut,
 				URI:         fmt.Sprintf("_template/%s", templateName),
-				RequestBody: string(templateJson),
+				RequestBody: string(templateJSON),
 			}
 
 			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
@@ -148,7 +148,7 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 		if currentShards != shardString {
 			template.Settings.Index.NumberOfShards = shardString
 
-			templateJson, err := json.Marshal(template)
+			templateJSON, err := json.Marshal(template)
 			if err != nil {
 				return err
 			}
@@ -156,7 +156,7 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 			payload := &EsRequest{
 				Method:      http.MethodPut,
 				URI:         fmt.Sprintf("_template/%s", templateName),
-				RequestBody: string(templateJson),
+				RequestBody: string(templateJSON),
 			}
 
 			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)

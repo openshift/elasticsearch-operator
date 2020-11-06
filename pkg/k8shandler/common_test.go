@@ -22,13 +22,13 @@ import (
 )
 
 var (
-	commonCpuValue = resource.MustParse("500m")
+	commonCPUValue = resource.MustParse("500m")
 	commonMemValue = resource.MustParse("2Gi")
 
-	nodeCpuValue = resource.MustParse("600m")
+	nodeCPUValue = resource.MustParse("600m")
 	nodeMemValue = resource.MustParse("3Gi")
 
-	defaultTestCpuRequest = resource.MustParse(defaultESCpuRequest)
+	defaultTestCPURequest = resource.MustParse(defaultESCpuRequest)
 	defaultTestMemLimit   = resource.MustParse(defaultESMemoryLimit)
 	defaultTestMemRequest = resource.MustParse(defaultESMemoryRequest)
 )
@@ -83,22 +83,22 @@ var (
 // 1
 func TestResourcesCommonAndNodeDefined(t *testing.T) {
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		commonMemValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
+		nodeCPUValue,
+		nodeCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
+		nodeCPUValue,
+		nodeCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
@@ -113,8 +113,8 @@ func TestResourcesCommonAndNodeDefined(t *testing.T) {
 // 2
 func TestResourcesNoNodeDefined(t *testing.T) {
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
@@ -122,8 +122,8 @@ func TestResourcesNoNodeDefined(t *testing.T) {
 	nodeRequirements := v1.ResourceRequirements{}
 
 	expected := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
@@ -142,7 +142,7 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 	nodeRequirements := v1.ResourceRequirements{}
 
 	expected := buildNoCPULimitResource(
-		defaultTestCpuRequest,
+		defaultTestCPURequest,
 		defaultTestMemLimit,
 		defaultTestMemRequest,
 	)
@@ -157,20 +157,20 @@ func TestResourcesNoCommonNoNodeDefined(t *testing.T) {
 // 4
 func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		commonMemValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := buildResourceOnlyRequests(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		commonCpuValue,
-		nodeCpuValue,
+		commonCPUValue,
+		nodeCPUValue,
 		commonMemValue,
 		nodeMemValue,
 	)
@@ -185,20 +185,20 @@ func TestResourcesCommonAndNodeRequestDefined(t *testing.T) {
 // 5
 func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
 	commonRequirements := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		commonMemValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := buildResourceOnlyLimits(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		nodeCpuValue,
-		commonCpuValue,
+		nodeCPUValue,
+		commonCPUValue,
 		nodeMemValue,
 		commonMemValue,
 	)
@@ -213,14 +213,14 @@ func TestResourcesCommonAndNodeLimitDefined(t *testing.T) {
 // 6
 func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
 	commonRequirements := buildResourceOnlyRequests(
-		commonCpuValue,
+		commonCPUValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := v1.ResourceRequirements{}
 
 	expected := buildNoCPULimitResource(
-		commonCpuValue,
+		commonCPUValue,
 		commonMemValue,
 		commonMemValue,
 	)
@@ -235,15 +235,15 @@ func TestResourcesCommonRequestAndNoNodeDefined(t *testing.T) {
 // 7
 func TestResourcesCommonLimitAndNoNodeDefined(t *testing.T) {
 	commonRequirements := buildResourceOnlyLimits(
-		commonCpuValue,
+		commonCPUValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := v1.ResourceRequirements{}
 
 	expected := buildResource(
-		commonCpuValue,
-		commonCpuValue,
+		commonCPUValue,
+		commonCPUValue,
 		commonMemValue,
 		commonMemValue,
 	)
@@ -260,12 +260,12 @@ func TestResourcesNoCommonAndNodeRequestDefined(t *testing.T) {
 	commonRequirements := v1.ResourceRequirements{}
 
 	nodeRequirements := buildResourceOnlyRequests(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildNoCPULimitResource(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
@@ -282,13 +282,13 @@ func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
 	commonRequirements := v1.ResourceRequirements{}
 
 	nodeRequirements := buildResourceOnlyLimits(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		nodeCpuValue,
-		nodeCpuValue,
+		nodeCPUValue,
+		nodeCPUValue,
 		nodeMemValue,
 		nodeMemValue,
 	)
@@ -303,18 +303,18 @@ func TestResourcesNoCommonAndNodeLimitDefined(t *testing.T) {
 // 10
 func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
 	commonRequirements := buildResourceOnlyLimits(
-		commonCpuValue,
+		commonCPUValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := buildResourceOnlyRequests(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		commonCpuValue,
-		nodeCpuValue,
+		commonCPUValue,
+		nodeCPUValue,
 		commonMemValue,
 		nodeMemValue,
 	)
@@ -329,18 +329,18 @@ func TestResourcesCommonLimitAndNodeResourceDefined(t *testing.T) {
 // 11
 func TestResourcesCommonResourceAndNodeLimitDefined(t *testing.T) {
 	commonRequirements := buildResourceOnlyRequests(
-		commonCpuValue,
+		commonCPUValue,
 		commonMemValue,
 	)
 
 	nodeRequirements := buildResourceOnlyLimits(
-		nodeCpuValue,
+		nodeCPUValue,
 		nodeMemValue,
 	)
 
 	expected := buildResource(
-		nodeCpuValue,
-		commonCpuValue,
+		nodeCPUValue,
+		commonCPUValue,
 		nodeMemValue,
 		commonMemValue,
 	)

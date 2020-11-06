@@ -19,15 +19,15 @@ import (
 )
 
 const (
-	healthUnknown   = "cluster health unknown"
-	NOT_FOUND_INDEX = -1
+	healthUnknown = "cluster health unknown"
+	NotFoundIndex = -1
 )
 
 var (
-	DISK_WATERMARK_LOW_PCT  *float64
-	DISK_WATERMARK_HIGH_PCT *float64
-	DISK_WATERMARK_LOW_ABS  *resource.Quantity
-	DISK_WATERMARK_HIGH_ABS *resource.Quantity
+	DiskWatermarkLowPct  *float64
+	DiskWatermarkHighPct *float64
+	DiskWatermarkLowAbs  *resource.Quantity
+	DiskWatermarkHighAbs *resource.Quantity
 )
 
 func (er *ElasticsearchRequest) UpdateClusterStatus() error {
@@ -106,7 +106,7 @@ func (er *ElasticsearchRequest) GetCurrentPodStateMap() map[api.ElasticsearchNod
 func (er *ElasticsearchRequest) setNodeStatus(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatus, clusterStatus *api.ElasticsearchStatus) error {
 	index, _ := getNodeStatus(node.name(), clusterStatus)
 
-	if index == NOT_FOUND_INDEX {
+	if index == NotFoundIndex {
 		clusterStatus.Nodes = append(clusterStatus.Nodes, *nodeStatus)
 	} else {
 		clusterStatus.Nodes[index] = *nodeStatus
@@ -172,7 +172,7 @@ func getNodeStatus(name string, status *api.ElasticsearchStatus) (int, *api.Elas
 		}
 	}
 
-	return NOT_FOUND_INDEX, &api.ElasticsearchNodeStatus{}
+	return NotFoundIndex, &api.ElasticsearchNodeStatus{}
 }
 
 func rolePodStateMap(namespace, clusterName string, client client.Client) map[api.ElasticsearchNodeRole]api.PodStateMap {
@@ -507,15 +507,15 @@ func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	switch low.(type) {
 	case float64:
 		value := low.(float64)
-		DISK_WATERMARK_LOW_PCT = &value
-		DISK_WATERMARK_LOW_ABS = nil
+		DiskWatermarkLowPct = &value
+		DiskWatermarkLowAbs = nil
 	case string:
 		value, err := resource.ParseQuantity(strings.ToUpper(low.(string)))
 		if err != nil {
 			er.L().Info("Unable to parse quantity", "value", low.(string), "error", err)
 		}
-		DISK_WATERMARK_LOW_ABS = &value
-		DISK_WATERMARK_LOW_PCT = nil
+		DiskWatermarkLowAbs = &value
+		DiskWatermarkLowPct = nil
 	default:
 		er.L().Error(err, "Unknown type for low", "type", fmt.Sprintf("%T", low))
 	}
@@ -523,15 +523,15 @@ func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	switch high.(type) {
 	case float64:
 		value := high.(float64)
-		DISK_WATERMARK_HIGH_PCT = &value
-		DISK_WATERMARK_HIGH_ABS = nil
+		DiskWatermarkHighPct = &value
+		DiskWatermarkHighAbs = nil
 	case string:
 		value, err := resource.ParseQuantity(strings.ToUpper(high.(string)))
 		if err != nil {
 			er.L().Info("Unable to parse quantity", "value", high.(string), "error", err)
 		}
-		DISK_WATERMARK_HIGH_ABS = &value
-		DISK_WATERMARK_HIGH_PCT = nil
+		DiskWatermarkHighAbs = &value
+		DiskWatermarkHighPct = nil
 	default:
 		// error
 		er.L().Error(err, "Unknown type for high", "type", fmt.Sprintf("%T", high))
@@ -539,11 +539,11 @@ func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 }
 
 func exceedsLowWatermark(usage string, percent float64) bool {
-	return exceedsWatermarks(usage, percent, DISK_WATERMARK_LOW_ABS, DISK_WATERMARK_LOW_PCT)
+	return exceedsWatermarks(usage, percent, DiskWatermarkLowAbs, DiskWatermarkLowPct)
 }
 
 func exceedsHighWatermark(usage string, percent float64) bool {
-	return exceedsWatermarks(usage, percent, DISK_WATERMARK_HIGH_ABS, DISK_WATERMARK_HIGH_PCT)
+	return exceedsWatermarks(usage, percent, DiskWatermarkHighAbs, DiskWatermarkHighPct)
 }
 
 func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Quantity, watermarkPercent *float64) bool {

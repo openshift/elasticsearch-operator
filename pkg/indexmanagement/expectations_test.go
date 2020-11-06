@@ -50,9 +50,9 @@ func (cxt *statusTestContext) hasPolicy(name string) *statusTestContext {
 	Expect(cxt.cluster).ToNot(BeNil(), "Cluster is nil")
 	Expect(cxt.cluster.Status).ToNot(BeNil(), "cluster.Status is nil")
 	Expect(cxt.cluster.Spec.IndexManagement.Policies).ToNot(BeNil(), "cluster.Status.IndexManagementStatus.Policies is nil")
-	for _, policy := range cxt.cluster.Status.IndexManagementStatus.Policies {
+	for i, policy := range cxt.cluster.Status.IndexManagementStatus.Policies {
 		if policy.Name == name {
-			cxt.policyStatus = &policy
+			cxt.policyStatus = &cxt.cluster.Status.IndexManagementStatus.Policies[i]
 			break
 		}
 	}
@@ -65,9 +65,9 @@ func (cxt *statusTestContext) hasMapping(name string) *statusTestContext {
 	Expect(cxt.cluster).ToNot(BeNil(), "Cluster is nil")
 	Expect(cxt.cluster.Status).ToNot(BeNil(), "cluster.Status is nil")
 	Expect(cxt.cluster.Spec.IndexManagement.Mappings).ToNot(BeNil(), "cluster.Status.IndexManagementStatus.Mappings is nil")
-	for _, mapping := range cxt.cluster.Status.IndexManagementStatus.Mappings {
+	for i, mapping := range cxt.cluster.Status.IndexManagementStatus.Mappings {
 		if mapping.Name == name {
-			cxt.mappingStatus = &mapping
+			cxt.mappingStatus = &cxt.cluster.Status.IndexManagementStatus.Mappings[i]
 			break
 		}
 	}
@@ -97,9 +97,9 @@ func (cxt *statusTestContext) withMappingStatusReason(reason esapi.IndexManageme
 }
 
 func (cxt *statusTestContext) withPolicyCondition(conditionType esapi.IndexManagementPolicyConditionType, reason esapi.IndexManagementPolicyConditionReason) *statusTestContext {
-	for _, condition := range cxt.policyStatus.Conditions {
+	for i, condition := range cxt.policyStatus.Conditions {
 		if condition.Type == conditionType {
-			cxt.policyCondition = &condition
+			cxt.policyCondition = &cxt.policyStatus.Conditions[i]
 			break
 		}
 	}
@@ -109,9 +109,9 @@ func (cxt *statusTestContext) withPolicyCondition(conditionType esapi.IndexManag
 }
 
 func (cxt *statusTestContext) withMappingCondition(conditionType esapi.IndexManagementMappingConditionType, reason esapi.IndexManagementMappingConditionReason) *statusTestContext {
-	for _, condition := range cxt.mappingStatus.Conditions {
+	for i, condition := range cxt.mappingStatus.Conditions {
 		if condition.Type == conditionType {
-			cxt.mappingCondition = &condition
+			cxt.mappingCondition = &cxt.mappingStatus.Conditions[i]
 			break
 		}
 	}

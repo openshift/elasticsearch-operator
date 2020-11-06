@@ -24,8 +24,8 @@ type NodeTypeInterface interface {
 	scaleDown() error
 	scaleUp() error
 	progressNodeChanges() error              // this function is used to tell the node to push out its changes
-	waitForNodeRejoinCluster() (error, bool) // this function is used to determine if a node has rejoined the cluster
-	waitForNodeLeaveCluster() (error, bool)  // this function is used to determine if a node has left the cluster
+	waitForNodeRejoinCluster() (bool, error) // this function is used to determine if a node has rejoined the cluster
+	waitForNodeLeaveCluster() (bool, error)  // this function is used to determine if a node has left the cluster
 }
 
 // NodeTypeFactory is a factory to construct either statefulset or deployment
@@ -109,7 +109,7 @@ func containsNodeTypeInterface(node NodeTypeInterface, list []NodeTypeInterface)
 func (er *ElasticsearchRequest) getNodeState(node NodeTypeInterface) *api.ElasticsearchNodeStatus {
 	index, status := getNodeStatus(node.name(), &er.cluster.Status)
 
-	if index == NOT_FOUND_INDEX {
+	if index == NotFoundIndex {
 		state := node.state()
 		status = &state
 	}

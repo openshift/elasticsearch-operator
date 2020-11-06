@@ -11,8 +11,7 @@ import (
 	"github.com/ViaQ/logerr/kverrors"
 	batchv1 "k8s.io/api/batch/v1"
 	batch "k8s.io/api/batch/v1beta1"
-	core "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
@@ -128,7 +127,7 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 		return errCtx.Wrap(err, "failed to create cluster configmap")
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current := &v1.ConfigMap{}
+		current := &corev1.ConfigMap{}
 		retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
 		if retryError != nil {
 			return retryError
@@ -157,11 +156,11 @@ func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsear
 	if err != nil {
 		return kverrors.Wrap(err, "failed to serialize the rollover conditions to JSON")
 	}
-	envvars := []core.EnvVar{
+	envvars := []corev1.EnvVar{
 		{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString(payload)},
 		{Name: "POLICY_MAPPING", Value: mapping.Name},
 	}
-	fnContainerHandler := func(container *core.Container) {
+	fnContainerHandler := func(container *corev1.Container) {
 		container.Command = []string{"bash"}
 		container.Args = []string{
 			"-c",
@@ -188,11 +187,11 @@ func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsear
 		return err
 	}
 	name := fmt.Sprintf("%s-delete-%s", cluster.Name, mapping.Name)
-	envvars := []core.EnvVar{
+	envvars := []corev1.EnvVar{
 		{Name: "POLICY_MAPPING", Value: mapping.Name},
 		{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
 	}
-	fnContainerHandler := func(container *core.Container) {
+	fnContainerHandler := func(container *corev1.Container) {
 		container.Command = []string{"bash"}
 		container.Args = []string{
 			"-c",
@@ -279,38 +278,38 @@ func areCronJobsSame(lhs, rhs *batch.CronJob) bool {
 	return true
 }
 
-func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelector map[string]string, tolerations []core.Toleration, envvars []core.EnvVar, fnContainerHander func(*core.Container)) *batch.CronJob {
-	container := core.Container{
+func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar, fnContainerHander func(*corev1.Container)) *batch.CronJob {
+	container := corev1.Container{
 		Name:            "indexmanagement",
 		Image:           image,
-		ImagePullPolicy: core.PullIfNotPresent,
-		Resources: v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceMemory: defaultMemoryRequest,
-				v1.ResourceCPU:    defaultCPURequest,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceMemory: defaultMemoryRequest,
+				corev1.ResourceCPU:    defaultCPURequest,
 			},
 		},
-		Env: []core.EnvVar{
+		Env: []corev1.EnvVar{
 			{Name: "ES_SERVICE", Value: fmt.Sprintf("https://%s:9200", clusterName)},
 		},
 	}
 	container.Env = append(container.Env, envvars...)
 	fnContainerHander(&container)
 
-	container.VolumeMounts = []v1.VolumeMount{
+	container.VolumeMounts = []corev1.VolumeMount{
 		{Name: "certs", ReadOnly: true, MountPath: "/etc/indexmanagement/keys"},
 		{Name: "scripts", ReadOnly: false, MountPath: "/tmp/scripts"},
 	}
-	podSpec := core.PodSpec{
+	podSpec := corev1.PodSpec{
 		ServiceAccountName: clusterName,
-		Containers:         []v1.Container{container},
-		Volumes: []v1.Volume{
-			{Name: "certs", VolumeSource: v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: clusterName}}},
-			{Name: "scripts", VolumeSource: v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: &fullExecMode}}},
+		Containers:         []corev1.Container{container},
+		Volumes: []corev1.Volume{
+			{Name: "certs", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: clusterName}}},
+			{Name: "scripts", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: &fullExecMode}}},
 		},
 		NodeSelector:                  utils.EnsureLinuxNodeSelector(nodeSelector),
 		Tolerations:                   tolerations,
-		RestartPolicy:                 v1.RestartPolicyNever,
+		RestartPolicy:                 corev1.RestartPolicyNever,
 		TerminationGracePeriodSeconds: utils.GetInt64(300),
 	}
 
@@ -333,7 +332,7 @@ func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelect
 				Spec: batchv1.JobSpec{
 					BackoffLimit: utils.GetInt32(0),
 					Parallelism:  utils.GetInt32(1),
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      name,
 							Namespace: namespace,
