@@ -626,6 +626,11 @@ func isPodImagePullBackOff(conditions []api.ClusterCondition) bool {
 	return condition != nil && condition.Status == v1.ConditionTrue
 }
 
+func isPodCrashLoopBackOff(conditions []api.ClusterCondition) bool {
+	condition := getESNodeConditionWithReason(conditions, api.ESContainerWaiting, "CrashLoopBackOff")
+	return condition != nil && condition.Status == v1.ConditionTrue
+}
+
 func getESNodeCondition(conditions []api.ClusterCondition, conditionType api.ClusterConditionType) (int, *api.ClusterCondition) {
 	if conditions == nil {
 		return -1, nil

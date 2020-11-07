@@ -257,7 +257,8 @@ func progressUnshedulableNodes(cluster *api.Elasticsearch) {
 
 	for _, nodeStatus := range cluster.Status.Nodes {
 		if isPodUnschedulableConditionTrue(nodeStatus.Conditions) ||
-			isPodImagePullBackOff(nodeStatus.Conditions) {
+			isPodImagePullBackOff(nodeStatus.Conditions) ||
+			isPodCrashLoopBackOff(nodeStatus.Conditions) {
 
 			for _, node := range clusterNodes {
 				if nodeStatus.DeploymentName == node.name() || nodeStatus.StatefulSetName == node.name() {
