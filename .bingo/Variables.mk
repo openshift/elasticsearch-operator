@@ -22,6 +22,12 @@ $(BINGO): .bingo/bingo.mod
 	@echo "(re)installing $(GOBIN)/bingo-v0.2.3"
 	@cd .bingo && $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.2.3 "github.com/bwplotka/bingo"
 
+GO_JUNIT_REPORT := $(GOBIN)/go-junit-report-v0.9.1
+$(GO_JUNIT_REPORT): .bingo/go-junit-report.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/go-junit-report-v0.9.1"
+	@cd .bingo && $(GO) build -mod=mod -modfile=go-junit-report.mod -o=$(GOBIN)/go-junit-report-v0.9.1 "github.com/jstemmer/go-junit-report"
+
 GOFUMPORTS := $(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6
 $(GOFUMPORTS): .bingo/gofumports.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
@@ -34,11 +40,17 @@ $(GOLANGCI_LINT): .bingo/golangci-lint.mod
 	@echo "(re)installing $(GOBIN)/golangci-lint-v1.27.0"
 	@cd .bingo && $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.27.0 "github.com/golangci/golangci-lint/cmd/golangci-lint"
 
-JUNITREPORT := $(GOBIN)/junitreport
+JUNITMERGE := $(GOBIN)/junitmerge-v0.0.0-20201103150245-a5287ef1495b
+$(JUNITMERGE): .bingo/junitmerge.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/junitmerge-v0.0.0-20201103150245-a5287ef1495b"
+	@cd .bingo && $(GO) build -mod=mod -modfile=junitmerge.mod -o=$(GOBIN)/junitmerge-v0.0.0-20201103150245-a5287ef1495b "github.com/openshift/release/tools/junitmerge"
+
+JUNITREPORT := $(GOBIN)/junitreport-v0.0.0-20201103082000-d8009dcf7503
 $(JUNITREPORT): .bingo/junitreport.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/junitreport"
-	@cd .bingo && $(GO) build -mod=mod -modfile=junitreport.mod -o=$(GOBIN)/junitreport "github.com/openshift/origin/tools/junitreport"
+	@echo "(re)installing $(GOBIN)/junitreport-v0.0.0-20201103082000-d8009dcf7503"
+	@cd .bingo && $(GO) build -mod=mod -modfile=junitreport.mod -o=$(GOBIN)/junitreport-v0.0.0-20201103082000-d8009dcf7503 "github.com/openshift/release/tools/junitreport"
 
 OPERATOR_SDK := $(GOBIN)/operator-sdk-v0.18.2
 $(OPERATOR_SDK): .bingo/operator-sdk.mod
