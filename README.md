@@ -1,5 +1,7 @@
 # elasticsearch-operator
 
+
+
 [![Build Status](https://travis-ci.org/openshift/elasticsearch-operator.svg?branch=master)](https://travis-ci.org/openshift/elasticsearch-operator)
 
 *WORK IN PROGRESS*
