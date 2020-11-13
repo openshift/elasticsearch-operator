@@ -248,6 +248,8 @@ items:
 EOL
 
 fi
+
+  log::info "Waiting for deployment $name to be ready in $ns"
   wait_for_deployment_to_be_ready "$ns" "$name" $((2 * "$minute"))
 }
 
@@ -257,6 +259,133 @@ wait_for_deployment_to_be_ready(){
   local timeout=$3
   try_until_text "oc -n $namespace get deployment $name -o jsonpath={.status.availableReplicas} --ignore-not-found" "1" $timeout
 } 
+
+get_latest_catalog_version(){
+
+  versions="$(oc run --generator=run-pod/v1 grpcurl-query \
+     -n openshift-marketplace \
+     --rm=true \
+     --restart=Never \
+     --attach=true \
+     --image=docker.io/fullstorydev/grpcurl \
+     -- -plaintext redhat-operators.openshift-marketplace.svc:50051 api.Registry/ListBundles \
+     | jq '. | select(.packageName == "elasticsearch-operator") | .channelName')"
+  
+  oc delete pod grpcurl-query -n openshift-marketplace --ignore-not-found=true
+
+  echo $versions
+}
+
+fail_out(){
+    log::info "Unable to determine the previous_version of $version from [$versions]"
+    exit 1
+}
+
+get_major_version(){
+
+    local major_version=$1
+    previous_major=$major_version
+
+    while true; do
+
+        for ver in $(echo $versions); do
+
+            maj_ver="$(echo $ver | cut -d'.' -f1)"
+            if [ "$maj_ver" == "$previous_major" ]; then
+                echo $previous_major
+                return 0
+            fi
+
+        done
+
+        if [[ $previous_major -eq 0 ]]; then
+            fail_out
+        fi
+
+        previous_major="$((previous_major - 1))"
+    done
+}
+
+get_minor_count_down(){
+
+    local minor_version=$1
+    previous_minor=$minor_version
+
+    while true; do
+        
+        previous_minor="$(($previous_minor - 1))"
+        version="$(echo $major_version.$previous_minor)"
+
+        for ver in ${versions[@]}; do
+
+            if [ "$ver" == "$version" ]; then
+                echo $previous_minor
+                return 0
+            fi
+        done
+
+        if [[ $previous_minor -eq 0 ]]; then
+            fail_out
+        fi
+    done
+}
+
+get_minor_count_up(){
+
+    previous_minor=0
+
+    for ver in ${versions[@]}; do
+
+        min_ver="$(echo $ver | cut -d'.' -f2)"
+        if [[ $min_ver =~ [0-9]+ ]]; then
+          if [[ $min_ver -gt $previous_minor ]]; then
+            previous_minor=$min_ver
+          fi
+        fi
+    done
+
+    echo $previous_minor
+}
+
+subset_versions_for_major(){
+    local major_version=$1
+
+    relevant_versions=()
+
+    for ver in $(echo $versions); do
+
+        maj_ver="$(echo $ver | cut -d'.' -f1)"
+        if [ "$maj_ver" == "$major_version" ]; then
+            relevant_versions+=($ver)
+        fi
+    done
+
+    echo ${relevant_versions[@]}
+}
+
+get_latest_previous_version(){
+  local current_version=$1
+
+  major_version="$(echo $current_version | cut -d'.' -f1)"
+  minor_version="$(echo $current_version | cut -d'.' -f2)"
+
+  # figure out which version is available in operatorhub for previous version
+  versions=$(get_latest_catalog_version)
+  export versions="$(echo $versions | sed 's/"//g')"
+
+  previous_major="$(get_major_version $major_version)"
+
+  # get subset of versions where the major version matches
+  export versions=$(subset_versions_for_major $previous_major)
+
+  if [[ $major_version -eq $previous_major ]]; then
+    previous_minor=$(get_minor_count_down $minor_version)
+  else
+    previous_minor=$(get_minor_count_up)
+  fi
+
+  export previous_version="$(echo $previous_major.$previous_minor)"
+}
 
 discover_versions(){
   #TODO: move this to an image?
@@ -276,7 +405,7 @@ discover_versions(){
   fi
 
   export version="$(echo $major_version.$minor_version)"
-  export previous_version="$(echo $major_version.$((minor_version - 1)))"
+  get_latest_previous_version $version
 }
 
 get_es_pods_count() {
