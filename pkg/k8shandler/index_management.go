@@ -102,7 +102,7 @@ func (er *ElasticsearchRequest) initializeIndexIfNeeded(mapping logging.IndexMan
 	}
 	if len(indices) < 1 {
 		indexName := fmt.Sprintf("%s-000001", mapping.Name)
-		primaryShards := getDataCount(cluster)
+		primaryShards := int32(calculatePrimaryCount(cluster))
 		replicas := int32(calculateReplicaCount(cluster))
 		index := esapi.NewIndex(indexName, primaryShards, replicas)
 		index.AddAlias(mapping.Name, false)
@@ -129,7 +129,7 @@ func (er *ElasticsearchRequest) createOrUpdateIndexTemplate(mapping logging.Inde
 
 	name := formatTemplateName(mapping.Name)
 	pattern := fmt.Sprintf("%s*", mapping.Name)
-	primaryShards := getDataCount(cluster)
+	primaryShards := int32(calculatePrimaryCount(cluster))
 	replicas := int32(calculateReplicaCount(cluster))
 	aliases := append(mapping.Aliases, mapping.Name)
 	template := esapi.NewIndexTemplate(pattern, aliases, primaryShards, replicas)
