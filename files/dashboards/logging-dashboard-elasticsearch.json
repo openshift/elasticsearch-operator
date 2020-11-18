@@ -20,12 +20,6 @@
             {
                "aliasColors": { },
                "bars": false,
-               "colorBackground": true,
-               "colors": [
-                  "rgba(50, 172, 45, 0.97)",
-                  "rgba(255, 166, 0, 0.89)",
-                  "rgba(245, 54, 54, 0.9)"
-               ],
                "dashLength": 10,
                "dashes": false,
                "datasource": "$datasource",
@@ -59,14 +53,28 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "max(es_cluster_status{cluster=\"$cluster\"})",
+                     "expr": "max(es_cluster_status{cluster=\"$cluster\"}) == bool 0",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "Green",
                      "refId": "A"
+                  },
+                  {
+                     "expr": "max(es_cluster_status{cluster=\"$cluster\"}) == bool 1",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Yellow",
+                     "refId": "B"
+                  },
+                  {
+                     "expr": "max(es_cluster_status{cluster=\"$cluster\"}) == bool 2",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Red",
+                     "refId": "C"
                   }
                ],
-               "thresholds": "1,2",
+               "thresholds": [ ],
                "timeFrom": null,
                "timeShift": null,
                "title": "Cluster status",
@@ -76,23 +84,6 @@
                   "value_type": "individual"
                },
                "type": "graph",
-               "valueMaps": [
-                  {
-                     "op": "=",
-                     "text": "GREEN",
-                     "value": "0"
-                  },
-                  {
-                     "op": "=",
-                     "text": "YELLOW",
-                     "value": "1"
-                  },
-                  {
-                     "op": "=",
-                     "text": "RED",
-                     "value": "2"
-                  }
-               ],
                "xaxis": {
                   "buckets": null,
                   "mode": "time",
@@ -155,10 +146,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "max(es_cluster_nodes_number{cluster=\"$cluster\"})",
+                     "expr": "min(es_cluster_nodes_number{cluster=\"$cluster\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "# of all nodes",
                      "refId": "A"
                   }
                ],
@@ -234,10 +225,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "max(es_cluster_datanodes_number{cluster=\"$cluster\"})",
+                     "expr": "min(es_cluster_datanodes_number{cluster=\"$cluster\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "# of data nodes",
                      "refId": "A"
                   }
                ],
@@ -316,7 +307,7 @@
                      "expr": "max(es_cluster_pending_tasks_number{cluster=\"$cluster\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "# of tasks",
                      "refId": "A"
                   }
                ],
@@ -400,7 +391,7 @@
                "repeat": null,
                "seriesOverrides": [ ],
                "spaceLength": 10,
-               "span": 3,
+               "span": 6,
                "stack": false,
                "steppedLine": false,
                "targets": [
@@ -486,22 +477,36 @@
                "repeat": null,
                "seriesOverrides": [ ],
                "spaceLength": 10,
-               "span": 3,
-               "stack": false,
+               "span": 6,
+               "stack": true,
                "steppedLine": false,
                "targets": [
                   {
                      "expr": "max(es_cluster_shards_number{cluster=\"$cluster\",type=\"initializing\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "Initializing",
                      "refId": "A"
+                  },
+                  {
+                     "expr": "max(es_cluster_shards_number{cluster=\"$cluster\",type=\"relocating\"})",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Relocating",
+                     "refId": "B"
+                  },
+                  {
+                     "expr": "max(es_cluster_shards_number{cluster=\"$cluster\",type=\"unassigned\"})",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Unassigned",
+                     "refId": "C"
                   }
                ],
                "thresholds": [ ],
                "timeFrom": null,
                "timeShift": null,
-               "title": "Cluster initializing shards",
+               "title": "Cluster non-active shards",
                "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -533,7 +538,21 @@
                      "show": true
                   }
                ]
-            },
+            }
+         ],
+         "repeat": null,
+         "repeatIteration": null,
+         "repeatRowId": null,
+         "showTitle": true,
+         "title": "Shards",
+         "titleSize": "h6",
+         "type": "row"
+      },
+      {
+         "collapse": false,
+         "collapsed": false,
+         "height": "200",
+         "panels": [
             {
                "aliasColors": { },
                "bars": false,
@@ -565,22 +584,22 @@
                "repeat": null,
                "seriesOverrides": [ ],
                "spaceLength": 10,
-               "span": 3,
+               "span": 6,
                "stack": false,
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "max(es_cluster_shards_number{cluster=\"$cluster\",type=\"relocating\"})",
+                     "expr": "avg by (node) (es_indices_segments_number{cluster=\"$cluster\", node=~\"$node\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "Node: {{node}}",
                      "refId": "A"
                   }
                ],
                "thresholds": [ ],
                "timeFrom": null,
                "timeShift": null,
-               "title": "Cluster relocating shards",
+               "title": "Number of segments",
                "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -644,22 +663,22 @@
                "repeat": null,
                "seriesOverrides": [ ],
                "spaceLength": 10,
-               "span": 3,
-               "stack": false,
+               "span": 6,
+               "stack": true,
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "max(es_cluster_shards_number{cluster=\"$cluster\",type=\"unassigned\"})",
+                     "expr": "sum by (type) (es_indices_segments_memory_bytes{cluster=\"$cluster\", node=~\"$node\", type!=\"all\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "",
+                     "legendFormat": "{{type}}",
                      "refId": "A"
                   }
                ],
                "thresholds": [ ],
                "timeFrom": null,
                "timeShift": null,
-               "title": "Cluster unassigned shards",
+               "title": "Memory used by segments",
                "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -697,7 +716,7 @@
          "repeatIteration": null,
          "repeatRowId": null,
          "showTitle": true,
-         "title": "Shards",
+         "title": "Segments",
          "titleSize": "h6",
          "type": "row"
       },
@@ -945,14 +964,14 @@
                      "expr": "es_os_cpu_percent{cluster=\"$cluster\", node=~\"$node\"}",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
                "thresholds": [ ],
                "timeFrom": null,
                "timeShift": null,
-               "title": "CPU usage",
+               "title": "CPU % usage",
                "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -1026,7 +1045,7 @@
                      "expr": "es_os_mem_used_bytes{cluster=\"$cluster\", node=~\"$node\"}",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1053,7 +1072,7 @@
                      "label": null,
                      "logBase": 1,
                      "max": null,
-                     "min": 0,
+                     "min": null,
                      "show": true
                   },
                   {
@@ -1061,7 +1080,7 @@
                      "label": null,
                      "logBase": 1,
                      "max": null,
-                     "min": 0,
+                     "min": null,
                      "show": true
                   }
                ]
@@ -1104,32 +1123,38 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "1 - es_fs_path_available_bytes{cluster=\"$cluster\",node=~\"$node\"} / es_fs_path_total_bytes{cluster=\"$cluster\",node=~\"$node\"}",
+                     "expr": "100 * (1 - es_fs_path_available_bytes{cluster=\"$cluster\",node=~\"$node\"} / es_fs_path_total_bytes{cluster=\"$cluster\",node=~\"$node\"})",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}} - {{path}}",
+                     "legendFormat": "Pod: {{pod}} - {{path}}",
                      "refId": "A"
-                  }
-               ],
-               "thresholds": [
-                  {
-                     "colorMode": "custom",
-                     "fill": true,
-                     "fillColor": "rgba(216, 200, 27, 0.27)",
-                     "op": "gt",
-                     "value": 0.80000000000000004
                   },
                   {
-                     "colorMode": "custom",
-                     "fill": true,
-                     "fillColor": "rgba(234, 112, 112, 0.22)",
-                     "op": "gt",
-                     "value": 0.90000000000000002
+                     "expr": "avg by (cluster) (es_cluster_routing_allocation_disk_watermark_low_pct{cluster=\"$cluster\", pod=~\"$node.*\"})",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Cluster low watermark",
+                     "refId": "B"
+                  },
+                  {
+                     "expr": "avg by (cluster) (es_cluster_routing_allocation_disk_watermark_high_pct{cluster=\"$cluster\", pod=~\"$node.*\"})",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Cluster high watermark",
+                     "refId": "C"
+                  },
+                  {
+                     "expr": "avg by (cluster) (es_cluster_routing_allocation_disk_watermark_flood_stage_pct{cluster=\"$cluster\", pod=~\"$node.*\"})",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "Cluster flood stage watermark",
+                     "refId": "D"
                   }
                ],
+               "thresholds": [ ],
                "timeFrom": null,
                "timeShift": null,
-               "title": "Disk usage",
+               "title": "Disk space % used",
                "tooltip": {
                   "shared": true,
                   "sort": 0,
@@ -1145,7 +1170,7 @@
                },
                "yaxes": [
                   {
-                     "format": "percentunit",
+                     "format": "percent",
                      "label": null,
                      "logBase": 1,
                      "max": 1,
@@ -1153,7 +1178,7 @@
                      "show": true
                   },
                   {
-                     "format": "percentunit",
+                     "format": "percent",
                      "label": null,
                      "logBase": 1,
                      "max": 1,
@@ -1214,10 +1239,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_indexing_index_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_indexing_index_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1295,10 +1320,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_indexing_index_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution]) / rate(es_indices_indexing_index_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_indexing_index_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$resolution]) / rate(es_indices_indexing_index_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1376,10 +1401,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_search_query_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_search_query_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1457,10 +1482,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_search_query_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution]) / rate(es_indices_search_query_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_search_query_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$resolution]) / rate(es_indices_search_query_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1541,7 +1566,7 @@
                      "expr": "es_indices_doc_number{cluster=\"$cluster\", node=~\"$node\"}",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1619,10 +1644,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_doc_deleted_number{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_doc_deleted_number{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1700,10 +1725,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_merges_total_docs_count{cluster=\"$cluster\",node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_merges_total_docs_count{cluster=\"$cluster\",node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1798,7 +1823,7 @@
                      "expr": "es_indices_fielddata_memory_size_bytes{cluster=\"$cluster\", node=~\"$node\"}",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1876,10 +1901,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_fielddata_evictions_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_fielddata_evictions_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -1960,7 +1985,7 @@
                      "expr": "es_indices_querycache_cache_size_bytes{cluster=\"$cluster\", node=~\"$node\"}",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -2038,10 +2063,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_querycache_evictions_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_querycache_evictions_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -2119,10 +2144,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_querycache_hit_count{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_querycache_hit_count{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -2200,10 +2225,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_querycache_miss_number{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_querycache_miss_number{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -2295,10 +2320,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_indexing_throttle_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_indexing_throttle_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -2376,10 +2401,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_indices_merges_total_throttled_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_indices_merges_total_throttled_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}}",
+                     "legendFormat": "Pod: {{pod}}",
                      "refId": "A"
                   }
                ],
@@ -2474,7 +2499,7 @@
                      "expr": "es_jvm_mem_heap_used_bytes{cluster=\"$cluster\", node=~\"$node\"}",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}} - heap used",
+                     "legendFormat": "Pod: {{pod}} - heap used",
                      "refId": "A"
                   }
                ],
@@ -2552,10 +2577,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_jvm_gc_collection_count{cluster=\"$cluster\",node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_jvm_gc_collection_count{cluster=\"$cluster\",node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}} - {{gc}}",
+                     "legendFormat": "Pod: {{pod}} - {{gc}}",
                      "refId": "A"
                   }
                ],
@@ -2633,10 +2658,10 @@
                "steppedLine": false,
                "targets": [
                   {
-                     "expr": "rate(es_jvm_gc_collection_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$interval:$resolution])",
+                     "expr": "rate(es_jvm_gc_collection_time_seconds{cluster=\"$cluster\", node=~\"$node\"}[$resolution])",
                      "format": "time_series",
                      "intervalFactor": 2,
-                     "legendFormat": "{{node}} - {{gc}}",
+                     "legendFormat": "Pod: {{pod}} - {{gc}}",
                      "refId": "A"
                   }
                ],
@@ -2861,6 +2886,6 @@
       ]
    },
    "timezone": "browser",
-   "title": "Logging / Elasticsearch Nodes",
+   "title": "Logging / Elasticsearch",
    "version": 0
 }
