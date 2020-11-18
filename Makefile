@@ -154,6 +154,10 @@ generate-bundle: regenerate $(OPM)
 	$(OPERATOR_SDK) bundle validate --verbose bundle
 .PHONY: generate-bundle
 
+test-e2e-upgrade: 
+	hack/testing-olm-upgrade/test-030-olm-upgrade-n-1-n.sh
+.PHONY: test-e2e-upgrade
+
 # to use these targets, ensure the following env vars are set:
 # either each IMAGE env var:
 # IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY
