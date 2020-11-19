@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	consolev1 "github.com/openshift/api/console/v1"
-	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
@@ -80,13 +78,6 @@ func KibanaDeployment(t *testing.T) {
 	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, kibanaCRName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Errorf("timed out waiting for Deployment kibana: %v", err)
-	}
-
-	consoleLink := &consolev1.ConsoleLink{}
-	key := types.NamespacedName{Name: kibana.KibanaConsoleLinkName}
-	err = waitForObject(t, f.Client, key, consoleLink, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("Kibana console link missing: %v", err)
 	}
 
 	ctx.Cleanup()

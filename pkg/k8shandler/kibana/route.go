@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -199,15 +200,34 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 
 	utils.AddOwnerRefToObject(consoleExternalLogLink, getOwnerRef(cluster))
 
-	// In case the object already exists we delete it first
-	if err = clusterRequest.RemoveConsoleExternalLogLink("kibana"); err != nil {
-		return
+	var current = &consolev1.ConsoleExternalLogLink{}
+	if err = clusterRequest.Get("kibana", current); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return
+		}
+
+		err = clusterRequest.Create(consoleExternalLogLink)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return
+		}
+
+		return nil
 	}
 
-	err = clusterRequest.Create(consoleExternalLogLink)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("Failure creating Kibana console external log link for %q: %v", cluster.Name, err)
+	// do a comparison to see if these are the same spec -- if not, delete and recreate
+	if current.Spec.HrefTemplate != consoleExternalLogLink.Spec.HrefTemplate &&
+		current.Spec.Text != consoleExternalLogLink.Spec.Text {
+
+		if err = clusterRequest.RemoveConsoleExternalLogLink("kibana"); err != nil {
+			return
+		}
+
+		err = clusterRequest.Create(consoleExternalLogLink)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return
+		}
 	}
+
 	return nil
 }
 
