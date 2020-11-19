@@ -736,6 +736,17 @@ func TestNewVolumeSource(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "persistent storage without storage size",
+			node: api.ElasticsearchNode{
+				Storage: api.ElasticsearchStorageSpec{
+					StorageClassName: &gp2SCName,
+				},
+			},
+			vs: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		},
 	}
 	for _, test := range tests {
 		test := test

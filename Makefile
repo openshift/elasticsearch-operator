@@ -82,13 +82,14 @@ image:
 	fi
 
 test-unit: $(GO_JUNIT_REPORT) coveragedir junitreportdir test-unit-prom
-	@go test -v -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./pkg/... ./cmd/... 2>&1 | $(GO_JUNIT_REPORT) > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
+	@go test -v -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./pkg/... ./cmd/... 2>&1 | tee /dev/stderr | $(GO_JUNIT_REPORT) > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 	@grep -v 'zz_generated\.' $(COVERAGE_DIR)/test-unit.cov > $(COVERAGE_DIR)/nogen.cov
 	@go tool cover -html=$(COVERAGE_DIR)/nogen.cov -o $(COVERAGE_DIR)/test-unit-coverage.html
 	@go tool cover -func=$(COVERAGE_DIR)/nogen.cov | tail -n 1
 
 test-unit-prom: $(PROMTOOL)
 	@$(PROMTOOL) test rules ./test/files/prometheus-unit-tests/test.yml
+
 
 deploy: deploy-image
 	LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=127.0.0.1:5000/openshift/elasticsearch-operator-registry \
