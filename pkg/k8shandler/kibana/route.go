@@ -235,15 +235,34 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 
 	utils.AddOwnerRefToObject(consoleExternalLogLink, getOwnerRef(cluster))
 
-	// In case the object already exists we delete it first
-	if err = clusterRequest.RemoveConsoleExternalLogLink("kibana"); err != nil {
-		return
+	var current = &consolev1.ConsoleExternalLogLink{}
+	if err = clusterRequest.Get("kibana", current); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return kverrors.Wrap(err, "failed to get consoleexternalloglink", errCtx...)
+		}
+
+		err = clusterRequest.Create(consoleExternalLogLink)
+		if err != nil && !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failure creating Kibana console external log link", errCtx...)
+		}
+
+		return nil
 	}
 
-	err = clusterRequest.Create(consoleExternalLogLink)
-	if err != nil && !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failure creating Kibana console external log link", errCtx...)
+	// do a comparison to see if these are the same spec -- if not, delete and recreate
+	if current.Spec.HrefTemplate != consoleExternalLogLink.Spec.HrefTemplate &&
+		current.Spec.Text != consoleExternalLogLink.Spec.Text {
+
+		if err = clusterRequest.RemoveConsoleExternalLogLink("kibana"); err != nil {
+			return
+		}
+
+		err = clusterRequest.Create(consoleExternalLogLink)
+		if err != nil && !apierrors.IsAlreadyExists(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failure creating Kibana console external log link", errCtx...)
+		}
 	}
+
 	return nil
 }
 
