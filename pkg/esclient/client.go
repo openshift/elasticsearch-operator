@@ -1,8 +1,6 @@
-package elasticsearchop
+package elasticsearch
 
 import (
-	"encoding/json"
-
 	"github.com/ViaQ/logerr/kverrors"
 	elasticsearch6 "github.com/elastic/go-elasticsearch/v6"
 )
@@ -44,18 +42,4 @@ func (ec *esClient) errorCtx() kverrors.Context {
 		"namespace", ec.namespace,
 		"cluster", ec.ClusterName(),
 	)
-}
-
-func getMapFromBody(rawBody string) (map[string]interface{}, error) {
-	if rawBody == "" {
-		return make(map[string]interface{}), nil
-	}
-	var results map[string]interface{}
-	err := json.Unmarshal([]byte(rawBody), &results)
-	if err != nil {
-		results = make(map[string]interface{})
-		results["results"] = rawBody
-	}
-
-	return results, nil
 }

@@ -1,6 +1,7 @@
 package elasticsearchop
 
 import (
+	"encoding/json"
 	"strings"
 )
 
@@ -56,4 +57,18 @@ func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interfac
 	}
 
 	return nil
+}
+
+func getMapFromBody(rawBody string) (map[string]interface{}, error) {
+	if rawBody == "" {
+		return make(map[string]interface{}), nil
+	}
+	var results map[string]interface{}
+	err := json.Unmarshal([]byte(rawBody), &results)
+	if err != nil {
+		results = make(map[string]interface{})
+		results["results"] = rawBody
+	}
+
+	return results, nil
 }

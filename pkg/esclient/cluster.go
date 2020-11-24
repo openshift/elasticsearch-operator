@@ -1,4 +1,4 @@
-package elasticsearchop
+package elasticsearch
 
 import (
 	"io/ioutil"
