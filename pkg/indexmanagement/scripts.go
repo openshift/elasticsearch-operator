@@ -35,7 +35,13 @@ fi
 CMD=$(cat <<END
 from __future__ import print_function
 import json,sys
-r=json.load(sys.stdin)
+from io import StringIO
+indexStr = sys.stdin.readline().rstrip()
+try:
+  r=json.load(StringIO(indexStr))
+except ValueError as e:
+  sys.stderr.write("Invalid JSON: %r" % indexStr)
+  sys.exit(1)
 alias="${POLICY_MAPPING}-write"
 try:
   indices = [index for index in r if r[index]['aliases'][alias].get('is_write_index')]
@@ -65,7 +71,13 @@ minAgeFromEpoc=$(($nowInMillis - $MIN_AGE))
 CMD=$(cat <<END
 from __future__ import print_function
 import json,sys
-r=json.load(sys.stdin)
+from io import StringIO
+indexStr = sys.stdin.readline().rstrip()
+try:
+  r=json.load(StringIO(indexStr))
+except ValueError as e:
+  sys.stderr.write("Invalid JSON: %r" % indexStr)
+  sys.exit(1)
 indices = []
 for index in r:
   try:
