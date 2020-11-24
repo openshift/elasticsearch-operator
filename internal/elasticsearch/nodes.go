@@ -9,9 +9,13 @@ import (
 )
 
 func (ec *esClient) GetNodeDiskUsage(nodeName string) (string, float64, error) {
-	payload := &EsRequest{
-		Method: http.MethodGet,
-		URI:    "_nodes/stats/fs",
+	es := ec.client
+	res, err := es.Nodes.Stats(es.Nodes.Stats.WithPretty())
+	usage := ""
+	percentUsage := float64(-1)
+
+	if err != nil {
+		return usage, percentUsage, err
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)

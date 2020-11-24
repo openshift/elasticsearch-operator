@@ -71,8 +71,13 @@ type Controller struct {
 
 	// TODO(community): Consider initializing a logger with the Controller Name as the tag
 
+<<<<<<< HEAD
 	// startWatches maintains a list of sources, handlers, and predicates to start when the controller is started.
 	startWatches []watchDescription
+=======
+	// watches maintains a list of sources, handlers, and predicates to start when the controller is started.
+	watches []watchDescription
+>>>>>>> 4af93e76 (LOG-792:Adding API using ES Client)
 
 	// Log is used to log messages to users during reconciliation, or for example when a watch is started.
 	Log logr.Logger
@@ -108,12 +113,19 @@ func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prc
 		}
 	}
 
+<<<<<<< HEAD
 	// Controller hasn't started yet, store the watches locally and return.
 	//
 	// These watches are going to be held on the controller struct until the manager or user calls Start(...).
 	if !c.Started {
 		c.startWatches = append(c.startWatches, watchDescription{src: src, handler: evthdler, predicates: prct})
 		return nil
+=======
+	c.watches = append(c.watches, watchDescription{src: src, handler: evthdler, predicates: prct})
+	if c.Started {
+		c.Log.Info("Starting EventSource", "source", src)
+		return src.Start(evthdler, c.Queue, prct...)
+>>>>>>> 4af93e76 (LOG-792:Adding API using ES Client)
 	}
 
 	c.Log.Info("Starting EventSource", "source", src)
@@ -138,7 +150,11 @@ func (c *Controller) Start(stop <-chan struct{}) error {
 		// NB(directxman12): launch the sources *before* trying to wait for the
 		// caches to sync so that they have a chance to register their intendeded
 		// caches.
+<<<<<<< HEAD
 		for _, watch := range c.startWatches {
+=======
+		for _, watch := range c.watches {
+>>>>>>> 4af93e76 (LOG-792:Adding API using ES Client)
 			c.Log.Info("Starting EventSource", "source", watch.src)
 			if err := watch.src.Start(watch.handler, c.Queue, watch.predicates...); err != nil {
 				return err
@@ -148,7 +164,11 @@ func (c *Controller) Start(stop <-chan struct{}) error {
 		// Start the SharedIndexInformer factories to begin populating the SharedIndexInformer caches
 		c.Log.Info("Starting Controller")
 
+<<<<<<< HEAD
 		for _, watch := range c.startWatches {
+=======
+		for _, watch := range c.watches {
+>>>>>>> 4af93e76 (LOG-792:Adding API using ES Client)
 			syncingSource, ok := watch.src.(source.SyncingSource)
 			if !ok {
 				continue

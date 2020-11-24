@@ -8,10 +8,22 @@ import (
 )
 
 func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
-	payload := &EsRequest{
-		Method:      http.MethodPut,
-		URI:         "_cluster/settings",
-		RequestBody: fmt.Sprintf("{%q:{%q:null}}", "transient", "cluster.routing.allocation.enable"),
+
+	es := ec.client
+	settings := fmt.Sprintf("{%q:{%q:null}}", "transient", "cluster.routing.allocation.enable")
+	body := ioutil.NopCloser(bytes.NewBufferString(settings))
+	res, err := es.Cluster.PutSettings(body, es.Cluster.PutSettings.WithPretty())
+
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		return false, ec.errorCtx().New("failed to set shard allocation",
+			"response_error", res.String,
+			"response_status", res.StatusCode,
+			"response_body", res.Body)
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
@@ -25,10 +37,21 @@ func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
 }
 
 func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, error) {
-	payload := &EsRequest{
-		Method:      http.MethodPut,
-		URI:         "_cluster/settings",
-		RequestBody: fmt.Sprintf("{%q:{%q:%q}}", "persistent", "cluster.routing.allocation.enable", state),
+	es := ec.client
+	settings := fmt.Sprintf("{%q:{%q:%q}}", "persistent", "cluster.routing.allocation.enable", state)
+	body := ioutil.NopCloser(bytes.NewBufferString(settings))
+	res, err := es.Cluster.PutSettings(body, es.Cluster.PutSettings.WithPretty())
+
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		return false, ec.errorCtx().New("failed to set shard allocation",
+			"response_error", res.String,
+			"response_status", res.StatusCode,
+			"response_body", res.Body)
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
@@ -41,9 +64,21 @@ func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, er
 }
 
 func (ec *esClient) GetShardAllocation() (string, error) {
-	payload := &EsRequest{
-		Method: http.MethodGet,
-		URI:    "_cluster/settings?include_defaults=true",
+
+	es := ec.client
+	res, err := es.Cluster.GetSettings(es.Cluster.GetSettings.WithIncludeDefaults(true), es.Cluster.GetSettings.WithPretty())
+	allocationString := ""
+
+	if err != nil {
+		return allocationString, err
+	}
+	defer res.Body.Close()
+
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		return allocationString, ec.errorCtx().New("failed to get shard allocation",
+			"response_error", res.String,
+			"response_status", res.StatusCode,
+			"response_body", res.Body)
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)

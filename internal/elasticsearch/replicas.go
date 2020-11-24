@@ -48,28 +48,58 @@ func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
 }
 
 func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
-	payload := &EsRequest{
-		Method: http.MethodGet,
-		URI:    "app-*,infra-*,audit-*/_settings/index.number_of_replicas",
+
+	es := ec.client
+	res, err := es.Indices.GetSettings(es.Indices.GetSettings.WithName("index.number_of_replicas"), es.Indices.GetSettings.WithPretty())
+
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		return nil, ec.errorCtx().New("failed to get replicas",
+			"response_error", res.String,
+			"response_status", res.StatusCode,
+			"response_body", res.Body)
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	body, _ := ioutil.ReadAll(res.Body)
+	jsonStr := string(body)
+	m := make(map[string]interface{})
+
+	if jsonStr == "" {
+		return m, nil
+	}
+
+	err = json.Unmarshal(body, &m)
 
 	return payload.ResponseBody, payload.Error
 }
 
 func (ec *esClient) updateIndexReplicas(index string, replicaCount int32) (bool, error) {
-	payload := &EsRequest{
-		Method:      http.MethodPut,
-		URI:         fmt.Sprintf("%s/_settings", index),
-		RequestBody: fmt.Sprintf("{%q:\"%d\"}}", "index.number_of_replicas", replicaCount),
+
+	es := ec.client
+	settings := fmt.Sprintf("{%q:\"%d\"}}", "index.number_of_replicas", replicaCount)
+	body := ioutil.NopCloser(bytes.NewBufferString(settings))
+	res, err := es.Indices.PutSettings(body, es.Indices.PutSettings.WithIndex(index), es.Indices.PutSettings.WithPretty())
+
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+	acknowledged := false
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		return false, ec.errorCtx().New("failed to update Index replicas",
+			"response_error", res.String,
+			"response_status", res.StatusCode,
+			"response_body", res.Body)
+	} else {
+		acknowledged = true
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-
-	acknowledged := false
-	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
-		acknowledged = acknowledgedBool
+	if !acknowledged {
+		return false, fmt.Errorf("failed to update Index replicas %s  cluster in %s namespace", ec.cluster, ec.namespace)
 	}
 	return payload.StatusCode == 200 && acknowledged, payload.Error
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
@@ -13,7 +14,12 @@ import (
 )
 
 func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemplate) error {
-	body, err := utils.ToJSON(template)
+
+	es := ec.client
+	indexBody, err := utils.ToJSON(template)
+	body := ioutil.NopCloser(bytes.NewBufferString(indexBody))
+	res, err := es.Indices.PutTemplate(name, body, es.Indices.PutTemplate.WithPretty())
+
 	if err != nil {
 		return err
 	}
@@ -36,9 +42,11 @@ func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemp
 }
 
 func (ec *esClient) DeleteIndexTemplate(name string) error {
-	payload := &EsRequest{
-		Method: http.MethodDelete,
-		URI:    fmt.Sprintf("_template/%s", name),
+	es := ec.client
+	res, err := es.Indices.DeleteTemplate(name, es.Indices.DeleteTemplate.WithPretty())
+
+	if err != nil {
+		return err
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
@@ -55,9 +63,11 @@ func (ec *esClient) DeleteIndexTemplate(name string) error {
 
 // ListTemplates returns a list of templates
 func (ec *esClient) ListTemplates() (sets.String, error) {
-	payload := &EsRequest{
-		Method: http.MethodGet,
-		URI:    "_template",
+	es := ec.client
+	res, err := es.Indices.GetTemplate(es.Indices.GetTemplate.WithPretty())
+	response := sets.NewString()
+	if err != nil {
+		return response, err
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
@@ -67,8 +77,16 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 			"response_body", payload.ResponseBody,
 			"response_error", payload.Error)
 	}
-	response := sets.NewString()
-	for name := range payload.ResponseBody {
+
+	body, _ := ioutil.ReadAll(res.Body)
+	m := make(map[string]interface{})
+	err = json.Unmarshal(body, &m)
+	//log.Error(err, "error")
+
+	if err != nil {
+		return response, err
+	}
+	for name := range m {
 		response.Insert(name)
 	}
 	return response, nil
@@ -80,7 +98,19 @@ func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, er
 		URI:    fmt.Sprintf("_template/common.*,%s-*", constants.OcpTemplatePrefix),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	defer res.Body.Close()
+
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return templates, ec.errorCtx().New("Failed to Get Index Template",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+	}
+
+	body, _ := ioutil.ReadAll(res.Body)
+	err = json.Unmarshal(body, &templates)
 
 	// unmarshal response body and return that
 	templates := map[string]estypes.GetIndexTemplate{}
@@ -93,7 +123,7 @@ func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, er
 }
 
 func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, error) {
-	// get the index template and then update the replica and put it
+	es := ec.client
 	indexTemplates, err := ec.GetIndexTemplates()
 	if err != nil {
 		return false, err
@@ -112,21 +142,24 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 				return false, err
 			}
 
-			payload := &EsRequest{
-				Method:      http.MethodPut,
-				URI:         fmt.Sprintf("_template/%s", templateName),
-				RequestBody: string(templateJSON),
+			if err != nil {
+				return false, err
 			}
-
-			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-
+			defer res.Body.Close()
 			acknowledged := false
-			if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
-				acknowledged = acknowledgedBool
+			if res.IsError() || res.StatusCode != http.StatusOK {
+				resBody, _ := ioutil.ReadAll(res.Body)
+				errorMsg := string(resBody)
+				return false, ec.errorCtx().New("Failed to Update Template Replicas",
+					"response_error", res.String(),
+					"response_status", res.StatusCode,
+					"response_body", errorMsg)
+			} else {
+				acknowledged = true
 			}
 
-			if !(payload.StatusCode == 200 && acknowledged) {
-				log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+			if !acknowledged {
+				return false, fmt.Errorf("Unable to update template for cluster: %s  namespace: %s template: %s", ec.cluster, ec.namespace, templateName)
 			}
 		}
 	}
@@ -136,7 +169,10 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 
 func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 	// get the index template and then update the shards and put it
+
+	es := ec.client
 	indexTemplates, err := ec.GetIndexTemplates()
+
 	if err != nil {
 		return err
 	}
@@ -150,25 +186,35 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 			template.Settings.Index.NumberOfShards = shardString
 
 			templateJSON, err := json.Marshal(template)
+			jsonStr := string(templateJSON)
+
 			if err != nil {
 				return err
 			}
 
-			payload := &EsRequest{
-				Method:      http.MethodPut,
-				URI:         fmt.Sprintf("_template/%s", templateName),
-				RequestBody: string(templateJSON),
+			//body := bytes.NewReader(templateJSON)
+			body := strings.NewReader(jsonStr)
+			res, err := es.Indices.PutTemplate(templateName, body, es.Indices.PutTemplate.WithPretty())
+
+			if err != nil {
+				return err
 			}
-
-			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
-
 			acknowledged := false
-			if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
-				acknowledged = acknowledgedBool
+			defer res.Body.Close()
+
+			if res.IsError() || res.StatusCode != http.StatusOK {
+				resBody, _ := ioutil.ReadAll(res.Body)
+				errorMsg := string(resBody)
+				return ec.errorCtx().New("Failed to Update Template Shards",
+					"response_error", res.String(),
+					"response_status", res.StatusCode,
+					"response_body", errorMsg)
+			} else {
+				acknowledged = true
 			}
 
-			if !(payload.StatusCode == 200 && acknowledged) {
-				log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+			if !acknowledged {
+				return fmt.Errorf("Failed to Update Template Shards for cluster: %s  namespace: %s template: %s", ec.cluster, ec.namespace, templateName)
 			}
 		}
 	}

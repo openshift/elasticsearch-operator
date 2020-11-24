@@ -33,17 +33,6 @@ func (er *ElasticsearchRequest) L() logr.Logger {
 func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
 	var secretChanged bool
 
-	elasticsearchRequest := ElasticsearchRequest{
-		client:  requestClient,
-		cluster: requestCluster,
-		ll:      log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
-	}
-
-	// evaluate if we are missing the required secret/certs
-	if ok, missing := elasticsearchRequest.hasRequiredSecrets(); !ok {
-		elasticsearchRequest.UpdateDegradedCondition(true, "Missing Required Secrets", missing)
-	}
-
 	newSecretHash := getSecretDataHash(requestCluster.Name, requestCluster.Namespace, requestClient)
 
 	nretries := -1
@@ -95,8 +84,6 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		ll:       log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
-	degradedCondition := false
-
 	// Ensure existence of servicesaccount
 	if err := elasticsearchRequest.CreateOrUpdateServiceAccount(); err != nil {
 		return kverrors.Wrap(err, "Failed to reconcile ServiceAccount for Elasticsearch cluster")
@@ -130,35 +117,19 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		return kverrors.Wrap(err, "Failed to reconcile Service Monitors for Elasticsearch cluster")
 	}
 
-	/* Priority for evaluating degraded state
-	   To properly denote priority of degraded states, we check them in the reverse
-	   order of what this list shows (so that the higher priority message can replace
-	   lower priorty ones).
-
-	1. missing certs
-	2. missing prom rules/alerts
-	*/
-
 	// Ensure existence of prometheus rules
 	if err := elasticsearchRequest.CreateOrUpdatePrometheusRules(); err != nil {
 		// no need to error out here, we can just mark ourselves as degraded and report why
 		elasticsearchRequest.UpdateDegradedCondition(true, "Missing Prometheus Rules", err.Error())
-		degradedCondition = true
-	}
-
-	// evaluate if we are missing the required secret/certs
-	if ok, missing := elasticsearchRequest.hasRequiredSecrets(); !ok {
-		elasticsearchRequest.UpdateDegradedCondition(true, "Missing Required Secrets", missing)
-		degradedCondition = true
+	} else {
+		// TODO: when we eventually add additional cases to be degraded we will need to adjust this
+		// so we don't inadvertently remove other degraded status messages
+		elasticsearchRequest.UpdateDegradedCondition(false, "", "")
 	}
 
 	// Ensure index management is in place
 	if err := elasticsearchRequest.CreateOrUpdateIndexManagement(); err != nil {
 		return kverrors.Wrap(err, "Failed to reconcile IndexMangement for Elasticsearch cluster")
-	}
-
-	if !degradedCondition {
-		elasticsearchRequest.UpdateDegradedCondition(false, "", "")
 	}
 
 	return nil

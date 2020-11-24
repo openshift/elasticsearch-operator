@@ -3,7 +3,12 @@ module sigs.k8s.io/controller-runtime
 go 1.13
 
 require (
+<<<<<<< HEAD
 	github.com/evanphx/json-patch v4.9.0+incompatible
+=======
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/evanphx/json-patch v4.5.0+incompatible
+>>>>>>> 4af93e76 (LOG-792:Adding API using ES Client)
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-logr/logr v0.1.0
 	github.com/go-logr/zapr v0.1.0
