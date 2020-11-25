@@ -4,7 +4,7 @@
   "rules":
   - "alert": "ElasticsearchClusterNotHealthy"
     "annotations":
-      "message": "Cluster {{ $labels.cluster }} health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
+      "message": "Cluster health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
       "summary": "Cluster health status is RED"
     "expr": |
       (count((sum by (cluster) (es_cluster_status) == 2)) and count(csv_succeeded{name=~"elasticsearch-operator.*"} == 1)) == 1

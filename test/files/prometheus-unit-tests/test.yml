@@ -15,6 +15,9 @@ tests:
       - series: 'es_process_cpu_percent{cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
         values: '10+10x8 95+0x100' # 10 20 30 40 50 60 70 80 90 -- 95 (100x)
 
+      - series: 'csv_succeeded{name="elasticsearch-operator.currentversion-builddate"}'
+        values: '1+0x99' # flag as successful for the whole run
+
       # Rejected indexing requests simulation (note: this simulation also verifies all recording rules)
         # Number of rejected write requests grows at constant pace for 10 minutes
         # and then we repeat this patterns again. This gives us two 10m segments of the series to test on.
@@ -64,11 +67,10 @@ tests:
         alertname: ElasticsearchClusterNotHealthy
         exp_alerts:
           - exp_labels:
-              cluster: elasticsearch
               severity: critical
             exp_annotations:
               summary: "Cluster health status is RED"
-              message: "Cluster elasticsearch health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
+              message: "Cluster health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
 
       # --------- ElasticsearchWriteRequestsRejectionJumps ---------
       # Within the first 10m the percent of rejected requests is = 5% (the alert require > 5%)
