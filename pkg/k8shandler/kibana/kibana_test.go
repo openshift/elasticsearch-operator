@@ -35,6 +35,12 @@ var _ = Describe("Reconciling", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kibana",
 				Namespace: "test-namespace",
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						Kind: expectedCLOKind,
+						Name: expectedCLOName,
+					},
+				},
 			},
 			Spec: loggingv1.KibanaSpec{
 				ManagementState: loggingv1.ManagementStateManaged,
