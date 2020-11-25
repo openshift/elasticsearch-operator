@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
 	"github.com/openshift/elasticsearch-operator/test/utils"
@@ -83,13 +82,6 @@ func KibanaDeployment(t *testing.T) {
 		t.Errorf("timed out waiting for Deployment kibana: %v", err)
 	}
 
-	consoleLink := &consolev1.ConsoleLink{}
-	key := types.NamespacedName{Name: kibana.KibanaConsoleLinkName}
-	err = waitForObject(t, f.Client, key, consoleLink, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("Kibana console link missing: %v", err)
-	}
-
 	// Test recovering route after deletion
 	name := "kibana"
 	routeInst := kibana.NewRoute(name, namespace, name)
@@ -99,7 +91,7 @@ func KibanaDeployment(t *testing.T) {
 	}
 
 	route := &routev1.Route{}
-	key = types.NamespacedName{Name: name, Namespace: namespace}
+	key := types.NamespacedName{Name: name, Namespace: namespace}
 	err = waitForObject(t, f.Client, key, route, retryInterval, timeout)
 	if err != nil {
 		t.Errorf("Kibana route not recovered: %v", err)

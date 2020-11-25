@@ -28,6 +28,10 @@ import (
 const (
 	kibanaServiceAccountName     = "kibana"
 	kibanaOAuthRedirectReference = "{\"kind\":\"OAuthRedirectReference\",\"apiVersion\":\"v1\",\"reference\":{\"kind\":\"Route\",\"name\":\"kibana\"}}"
+	expectedCLOKind              = "ClusterLogging"
+	expectedCLOName              = "instance"
+	expectedCLOKibana            = "kibana"
+	expectedCLONamespace         = "openshift-logging"
 )
 
 var kibanaServiceAccountAnnotations = map[string]string{
@@ -64,12 +68,17 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 		return err
 	}
 
-	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleExternalLogLink(); err != nil {
-		return err
-	}
+	// we only want to create these if the use case is the CLO one
+	// make sure our namespace is "openshift-logging" and our cr name is "kibana"
+	// or do we just check that our owner ref is from a cluster logging object?
+	if clusterKibanaRequest.isCLOUseCase() {
+		if err := clusterKibanaRequest.createOrUpdateKibanaConsoleExternalLogLink(); err != nil {
+			return err
+		}
 
-	if err := clusterKibanaRequest.createOrUpdateKibanaConsoleLink(); err != nil {
-		return err
+		if err := clusterKibanaRequest.createOrUpdateKibanaConsoleLink(); err != nil {
+			return err
+		}
 	}
 
 	if err := clusterKibanaRequest.deleteKibana5Deployment(); err != nil {
@@ -179,6 +188,27 @@ func (clusterRequest *KibanaRequest) deleteKibana5Deployment() error {
 		return kverrors.Wrap(err, "failed to delete kibana 5 deployment")
 	}
 	return nil
+}
+
+func (clusterRequest *KibanaRequest) isCLOUseCase() bool {
+
+	kibanaCR := clusterRequest.cluster
+
+	if kibanaCR.OwnerReferences != nil {
+		// also check for the owner ref being clusterlogging/instance
+		for _, ref := range kibanaCR.OwnerReferences {
+			if ref.Kind == expectedCLOKind && ref.Name == expectedCLOName {
+				return true
+			}
+		}
+	}
+
+	// this is a secondary check to allow for stand-alone EO testing to work
+	if kibanaCR.Name == expectedCLOKibana && kibanaCR.Namespace == expectedCLONamespace {
+		return true
+	}
+
+	return false
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy, clusterName string) (err error) {
