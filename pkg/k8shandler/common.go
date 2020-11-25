@@ -584,6 +584,14 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 		return volSource
 	}
 
+	// in the case where we do not have a size provided we need to
+	// fall back to using ephemeral storage since a pvc requires a size
+	if specVol.Size == nil {
+		log.Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
+		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
+		return volSource
+	}
+
 	// Persistent storage
 	claimName := fmt.Sprintf("%s-%s", clusterName, nodeName)
 	volSource.PersistentVolumeClaim = &v1.PersistentVolumeClaimVolumeSource{
