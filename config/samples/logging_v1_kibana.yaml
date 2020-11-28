@@ -1,0 +1,13 @@
+apiVersion: logging.openshift.io/v1
+kind: Kibana
+metadata:
+  name: kibana
+spec:
+  managementState: "Managed"
+  replicas: 1
+  nodeSelector: {}
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      memory: 512Mi

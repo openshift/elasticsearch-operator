@@ -7,7 +7,7 @@ import (
 	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
+	"github.com/openshift/elasticsearch-operator/internal/k8shandler/kibana"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
