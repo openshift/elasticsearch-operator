@@ -18,18 +18,6 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	oauth "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
-<<<<<<< HEAD
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-=======
->>>>>>> 49564eef... Enable metrics with controller-runtime
 
 	"github.com/ViaQ/logerr/log"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
