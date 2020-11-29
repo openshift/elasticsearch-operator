@@ -168,6 +168,8 @@ bundle: regenerate $(KUSTOMIZE)
 	cp bundle/manifests/elasticsearch-operator.clusterserviceversion.yaml  manifests/${OCP_VERSION}/elasticsearch-operator.v${BUNDLE_VERSION}.clusterserviceversion.yaml
 	cp bundle/manifests/logging.openshift.io_elasticsearches.yaml  manifests/${OCP_VERSION}/logging.openshift.io_elasticsearches_crd.yaml
 	cp bundle/manifests/logging.openshift.io_kibanas.yaml  manifests/${OCP_VERSION}/logging.openshift.io_kibanas_crd.yaml
+	cp bundle/manifests/elasticsearch-operator-metrics-monitor_monitoring.coreos.com_v1_servicemonitor.yaml  manifests/${OCP_VERSION}/
+	cp bundle/manifests/elasticsearch-operator-metrics-service_v1_service.yaml  manifests/${OCP_VERSION}/
 .PHONY: bundle
 
 test-e2e-upgrade: 

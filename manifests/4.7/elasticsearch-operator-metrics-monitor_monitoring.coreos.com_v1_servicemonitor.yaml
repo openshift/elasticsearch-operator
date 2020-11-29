@@ -1,5 +1,3 @@
-
-# Prometheus Monitor Service (Metrics)
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -8,10 +6,10 @@ metadata:
   name: elasticsearch-operator-metrics-monitor
 spec:
   endpoints:
-    - path: /metrics
-      port: http
-      scheme: http
-      interval: 1s
+  - interval: 1s
+    path: /metrics
+    port: http
+    scheme: http
   selector:
     matchLabels:
       name: elasticsearch-operator
