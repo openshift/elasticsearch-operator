@@ -7,7 +7,7 @@ require (
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/operator-framework/operator-sdk v1.1.0 // cmd/operator-sdk
+	github.com/operator-framework/operator-sdk v1.2.0 // cmd/operator-sdk
 	github.com/rogpeppe/go-internal v1.5.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.14.1 // indirect
@@ -16,7 +16,7 @@ require (
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-state-metrics v1.7.2 // indirect
-	sigs.k8s.io/controller-runtime v0.6.2
+	sigs.k8s.io/controller-runtime v0.6.3
 )
 
 replace (
