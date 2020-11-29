@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: elasticsearch-operator
+  name: elasticsearch-operator-metrics-service
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    name: elasticsearch-operator
+  type: ClusterIP
