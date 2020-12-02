@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,15 +15,16 @@ import (
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 
-	"github.com/operator-framework/operator-sdk/pkg/test"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
@@ -35,27 +37,46 @@ const (
 	exampleSecretsPath   = "/tmp/example-secrets"
 )
 
+func setupK8sClient(t *testing.T) {
+	operatorNamespace = os.Getenv(TestOperatorNamespaceEnv)
+	if operatorNamespace == "" {
+		t.Fatal("TEST_OPERATOR_NAMESPACE is unset")
+	}
+	t.Logf("Found namespace: %q", operatorNamespace)
+
+	projectRootDir = getProjectRootPath("elasticsearch-operator")
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		t.Fatalf("Error get config: %s", err)
+	}
+	if cfg == nil {
+		t.Fatal("config is nil")
+	}
+
+	registerSchemes(t)
+
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		t.Fatalf("Error get k8sClient: %s", err)
+	}
+	if k8sClient == nil {
+		t.Fatal("k8sClient is nil")
+	}
+}
+
 func registerSchemes(t *testing.T) {
-	elasticsearchList := &loggingv1.ElasticsearchList{}
-	err := test.AddToFrameworkScheme(loggingv1.SchemeBuilder.AddToScheme, elasticsearchList)
+	err := loggingv1.AddToScheme(scheme.Scheme)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
-	kibanaList := &loggingv1.KibanaList{}
-	err = test.AddToFrameworkScheme(loggingv1.SchemeBuilder.AddToScheme, kibanaList)
+	err = consolev1.AddToScheme(scheme.Scheme)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
 
-	consoleLinkList := &consolev1.ConsoleLinkList{}
-	err = test.AddToFrameworkScheme(consolev1.Install, consoleLinkList)
-	if err != nil {
-		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
-	}
-
-	routeList := &routev1.RouteList{}
-	err = test.AddToFrameworkScheme(routev1.Install, routeList)
+	err = routev1.AddToScheme(scheme.Scheme)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}
@@ -65,11 +86,8 @@ func elasticsearchNameFor(uuid string) string {
 	return fmt.Sprintf("%s-%s", elasticsearchCRName, uuid)
 }
 
-func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, esUUID, dataUUID string, replicas int) (*loggingv1.Elasticsearch, error) {
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		return nil, kverrors.Wrap(err, "failed to get namespace")
-	}
+func createElasticsearchCR(t *testing.T, f client.Client, esUUID, dataUUID string, replicas int) (*loggingv1.Elasticsearch, error) {
+	namespace := operatorNamespace
 
 	cpuValue := resource.MustParse("256m")
 	memValue := resource.MustParse("1Gi")
@@ -126,13 +144,7 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 
 	t.Logf("Creating Elasticsearch CR: %v", cr)
 
-	cleanupOpts := &test.CleanupOptions{
-		TestContext:   ctx,
-		Timeout:       cleanupTimeout,
-		RetryInterval: cleanupRetryInterval,
-	}
-
-	err = f.Client.Create(context.TODO(), cr, cleanupOpts)
+	err := f.Create(context.TODO(), cr)
 	if err != nil {
 		return nil, kverrors.Wrap(err, "failed to create elasticsearch CR",
 			"name", cr.Name,
@@ -142,12 +154,12 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 	return cr, nil
 }
 
-func updateElasticsearchSpec(t *testing.T, f *test.Framework, desired *loggingv1.Elasticsearch) error {
+func updateElasticsearchSpec(t *testing.T, f client.Client, desired *loggingv1.Elasticsearch) error {
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		current := &loggingv1.Elasticsearch{}
 		key := client.ObjectKey{Name: desired.GetName(), Namespace: desired.GetNamespace()}
 
-		if err := f.Client.Get(context.TODO(), key, current); err != nil {
+		if err := f.Get(context.TODO(), key, current); err != nil {
 			if apierrors.IsNotFound(kverrors.Root(err)) {
 				// Stop retry because CR not found
 				return false, err
@@ -161,7 +173,7 @@ func updateElasticsearchSpec(t *testing.T, f *test.Framework, desired *loggingv1
 
 		t.Logf("Update Spec: %#v", current.Spec)
 
-		if err := f.Client.Update(context.TODO(), current); err != nil {
+		if err := f.Update(context.TODO(), current); err != nil {
 			if apierrors.IsConflict(kverrors.Root(err)) {
 				// Retry update because resource needs to get updated
 				return false, nil
@@ -176,12 +188,9 @@ func updateElasticsearchSpec(t *testing.T, f *test.Framework, desired *loggingv1
 }
 
 // Create the secret that would be generated by CLO normally
-func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Context, uuid string) error {
+func createElasticsearchSecret(t *testing.T, f client.Client, uuid string) error {
 	t.Log("Creating required secret")
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get watch namespace")
-	}
+	namespace := operatorNamespace
 
 	if err := generateCertificates(t, namespace, uuid); err != nil {
 		return err
@@ -203,13 +212,7 @@ func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 
 	t.Logf("Creating secret %s/%s", elasticsearchSecret.Namespace, elasticsearchSecret.Name)
 
-	cleanupOpts := &test.CleanupOptions{
-		TestContext:   ctx,
-		Timeout:       cleanupTimeout,
-		RetryInterval: cleanupRetryInterval,
-	}
-
-	err = f.Client.Create(context.TODO(), elasticsearchSecret, cleanupOpts)
+	err := f.Create(context.TODO(), elasticsearchSecret)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create elasticsearch secret",
 			"name", elasticsearchSecret.Name,
@@ -219,18 +222,15 @@ func createElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 	return nil
 }
 
-func updateElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Context, uuid string) error {
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get watch namespace")
-	}
+func updateElasticsearchSecret(t *testing.T, f client.Client, uuid string) error {
+	namespace := operatorNamespace
 
 	elasticsearchSecret := &corev1.Secret{}
 
 	name := elasticsearchNameFor(uuid)
 	secretName := types.NamespacedName{Name: name, Namespace: namespace}
 
-	if err = f.Client.Get(context.TODO(), secretName, elasticsearchSecret); err != nil {
+	if err := f.Get(context.TODO(), secretName, elasticsearchSecret); err != nil {
 		return kverrors.Wrap(err, "failed to get secret",
 			"name", secretName,
 			"namespace", namespace)
@@ -248,7 +248,7 @@ func updateElasticsearchSecret(t *testing.T, f *test.Framework, ctx *test.Contex
 	}
 
 	t.Log("Updating required secret...")
-	err = f.Client.Update(context.TODO(), elasticsearchSecret)
+	err := f.Update(context.TODO(), elasticsearchSecret)
 	if err != nil {
 		return err
 	}
@@ -281,11 +281,8 @@ func createKibanaCR(namespace string) *loggingv1.Kibana {
 	}
 }
 
-func createKibanaSecret(f *test.Framework, ctx *test.Context, esUUID string) error {
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get namespace")
-	}
+func createKibanaSecret(f client.Client, esUUID string) error {
+	namespace := operatorNamespace
 
 	kibanaSecret := utils.Secret(
 		kibanaCRName,
@@ -297,13 +294,7 @@ func createKibanaSecret(f *test.Framework, ctx *test.Context, esUUID string) err
 		},
 	)
 
-	cleanupOpts := &test.CleanupOptions{
-		TestContext:   ctx,
-		Timeout:       cleanupTimeout,
-		RetryInterval: cleanupRetryInterval,
-	}
-
-	err = f.Client.Create(context.TODO(), kibanaSecret, cleanupOpts)
+	err := f.Create(context.TODO(), kibanaSecret)
 	if err != nil {
 		return err
 	}
@@ -311,11 +302,8 @@ func createKibanaSecret(f *test.Framework, ctx *test.Context, esUUID string) err
 	return nil
 }
 
-func createKibanaProxySecret(f *test.Framework, ctx *test.Context, esUUID string) error {
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get namespace")
-	}
+func createKibanaProxySecret(f client.Client, esUUID string) error {
+	namespace := operatorNamespace
 
 	kibanaProxySecret := utils.Secret(
 		fmt.Sprintf("%s-proxy", kibanaCRName),
@@ -327,13 +315,7 @@ func createKibanaProxySecret(f *test.Framework, ctx *test.Context, esUUID string
 		},
 	)
 
-	cleanupOpts := &test.CleanupOptions{
-		TestContext:   ctx,
-		Timeout:       cleanupTimeout,
-		RetryInterval: cleanupRetryInterval,
-	}
-
-	err = f.Client.Create(context.TODO(), kibanaProxySecret, cleanupOpts)
+	err := f.Create(context.TODO(), kibanaProxySecret)
 	if err != nil {
 		return err
 	}
@@ -351,7 +333,7 @@ func generateCertificates(t *testing.T, namespace, uuid string) error {
 			"dir", workDir)
 	}
 
-	cmd := exec.Command("./hack/cert_generation.sh", workDir, namespace, storeName)
+	cmd := exec.Command(projectRootDir+"/hack/cert_generation.sh", workDir, namespace, storeName)
 	out, err := cmd.Output()
 	if err != nil {
 		return kverrors.Wrap(err, "failed to generate certificate",
@@ -365,4 +347,43 @@ func generateCertificates(t *testing.T, namespace, uuid string) error {
 func getCertificateContents(name, uuid string) []byte {
 	filename := fmt.Sprintf("%s/%s/%s", exampleSecretsPath, uuid, name)
 	return utils.GetFileContents(filename)
+}
+
+func getProjectRootPath(projectRootDir string) string {
+	fmt.Println("### getProjectRootPath is running")
+	cwd, err := os.Getwd()
+	cwdOrig := cwd
+	if err != nil {
+		panic(err)
+	}
+	for {
+		if strings.HasSuffix(cwd, "/"+projectRootDir) {
+			return cwd
+		}
+		lastSlashIndex := strings.LastIndex(cwd, "/")
+		if lastSlashIndex == -1 {
+			panic(cwdOrig + " did not contain /" + projectRootDir)
+		}
+		cwd = cwd[0:lastSlashIndex]
+		fmt.Printf("cwd %v\n", cwd)
+	}
+}
+
+func waitForDeleteObject(t *testing.T, client client.Client, key types.NamespacedName, obj runtime.Object, retryInterval, timout time.Duration) error {
+	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		err = client.Get(context.Background(), key, obj)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Object not found %s", key.String())
+				return true, nil
+			}
+			return false, nil
+		}
+		err = client.Delete(context.Background(), obj)
+		if err != nil {
+			return false, nil
+		}
+		t.Logf("Deleting object %s", key.String())
+		return true, nil
+	})
 }
