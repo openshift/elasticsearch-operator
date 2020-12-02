@@ -12,8 +12,10 @@ import (
 
 	"github.com/ViaQ/logerr/log"
 
+	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -24,8 +26,6 @@ import (
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
-
-	"github.com/operator-framework/operator-sdk/pkg/test"
 )
 
 func GetFileContents(filePath string) []byte {
@@ -64,7 +64,35 @@ func Secret(secretName string, namespace string, data map[string][]byte) *corev1
 	}
 }
 
-func WaitForPods(t *testing.T, f *test.Framework, namespace string, labels map[string]string, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
+func WaitForDeployment(t *testing.T, f client.Client, namespace, name string, replicas int,
+	retryInterval, timeout time.Duration) error {
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
+		lookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+		deployment := &apps.Deployment{}
+		err = f.Get(context.Background(), lookupKey, deployment)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("Waiting for availability of Deployment: %s in Namespace: %s \n", name, namespace)
+				return false, nil
+			}
+			return false, err
+		}
+
+		if int(deployment.Status.AvailableReplicas) >= replicas {
+			return true, nil
+		}
+		t.Logf("Waiting for full availability of %s deployment (%d/%d)\n", name,
+			deployment.Status.AvailableReplicas, replicas)
+		return false, nil
+	})
+	if err != nil {
+		return err
+	}
+	t.Logf("Deployment %s available (%d/%d)\n", name, replicas, replicas)
+	return nil
+}
+
+func WaitForPods(t *testing.T, f client.Client, namespace string, labels map[string]string, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 
 	err := wait.Poll(retryInterval, timeout, func() (bool, error) {
@@ -72,7 +100,7 @@ func WaitForPods(t *testing.T, f *test.Framework, namespace string, labels map[s
 			client.InNamespace(namespace),
 			client.MatchingLabels(labels),
 		}
-		err := f.Client.Client.List(context.TODO(), pods, opts...)
+		err := f.List(context.TODO(), pods, opts...)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return false, err
@@ -88,7 +116,7 @@ func WaitForPods(t *testing.T, f *test.Framework, namespace string, labels map[s
 	return pods, nil
 }
 
-func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, labels map[string]string, excludePods []string, expectedPodCount int, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
+func WaitForRolloutComplete(t *testing.T, f client.Client, namespace string, labels map[string]string, excludePods []string, expectedPodCount int, retryInterval, timeout time.Duration) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
@@ -96,7 +124,7 @@ func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, l
 	}
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = f.Client.List(context.TODO(), pods, opts...)
+		err = f.List(context.TODO(), pods, opts...)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for availability of pods with labels: %v in Namespace: %s \n", labels, namespace)
@@ -138,12 +166,12 @@ func WaitForRolloutComplete(t *testing.T, f *test.Framework, namespace string, l
 	return pods, nil
 }
 
-func WaitForNodeStatusCondition(t *testing.T, f *test.Framework, namespace, name string, condition loggingv1.ElasticsearchNodeUpgradeStatus, retryInterval, timeout time.Duration) error {
+func WaitForNodeStatusCondition(t *testing.T, f client.Client, namespace, name string, condition loggingv1.ElasticsearchNodeUpgradeStatus, retryInterval, timeout time.Duration) error {
 	elasticsearchCR := &loggingv1.Elasticsearch{}
 	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = f.Client.Get(context.TODO(), elasticsearchName, elasticsearchCR)
+		err = f.Get(context.TODO(), elasticsearchName, elasticsearchCR)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for availability of %s elasticsearch\n", name)
@@ -178,12 +206,12 @@ func WaitForNodeStatusCondition(t *testing.T, f *test.Framework, namespace, name
 	return nil
 }
 
-func WaitForClusterStatusCondition(t *testing.T, f *test.Framework, namespace, name string, condition loggingv1.ClusterCondition, retryInterval, timeout time.Duration) error {
+func WaitForClusterStatusCondition(t *testing.T, f client.Client, namespace, name string, condition loggingv1.ClusterCondition, retryInterval, timeout time.Duration) error {
 	elasticsearchCR := &loggingv1.Elasticsearch{}
 	elasticsearchName := types.NamespacedName{Name: name, Namespace: namespace}
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = f.Client.Get(context.TODO(), elasticsearchName, elasticsearchCR)
+		err = f.Get(context.TODO(), elasticsearchName, elasticsearchCR)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for availability of %s elasticsearch\n", name)
@@ -214,10 +242,12 @@ func WaitForClusterStatusCondition(t *testing.T, f *test.Framework, namespace, n
 	return nil
 }
 
-func WaitForReadyDeployment(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, replicas int,
+func WaitForReadyDeployment(t *testing.T, kubeclient client.Client, namespace, name string, replicas int,
 	retryInterval, timeout time.Duration) error {
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		deployment, err := kubeclient.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		lookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+		deployment := &apps.Deployment{}
+		err = kubeclient.Get(context.Background(), lookupKey, deployment)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for availability of Deployment: %s in Namespace: %s \n", name, namespace)
@@ -236,13 +266,15 @@ func WaitForReadyDeployment(t *testing.T, kubeclient kubernetes.Interface, names
 	if err != nil {
 		return err
 	}
-	t.Logf("Deployment ready (%d/%d)\n", replicas, replicas)
+	t.Logf("Deployment %s ready (%d/%d)\n", name, replicas, replicas)
 	return nil
 }
 
-func WaitForStatefulset(t *testing.T, kubeclient kubernetes.Interface, namespace, name string, replicas int, retryInterval, timeout time.Duration) error {
+func WaitForStatefulset(t *testing.T, kubeclient client.Client, namespace, name string, replicas int, retryInterval, timeout time.Duration) error {
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		statefulset, err := kubeclient.AppsV1().StatefulSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		lookupKey := types.NamespacedName{Name: name, Namespace: namespace}
+		statefulset := &apps.StatefulSet{}
+		err = kubeclient.Get(context.Background(), lookupKey, statefulset)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				t.Logf("Waiting for availability of %s statefulset\n", name)
@@ -260,7 +292,7 @@ func WaitForStatefulset(t *testing.T, kubeclient kubernetes.Interface, namespace
 	if err != nil {
 		return err
 	}
-	t.Logf("Statefulset available (%d/%d)\n", replicas, replicas)
+	t.Logf("Statefulset %s available (%d/%d)\n", name, replicas, replicas)
 	return nil
 }
 
