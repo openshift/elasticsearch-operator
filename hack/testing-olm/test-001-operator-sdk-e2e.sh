@@ -53,6 +53,6 @@ deploy_elasticsearch_operator
 
 TEST_OPERATOR_NAMESPACE=${TEST_NAMESPACE} \
 TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} \
-  go test -v ./test/e2e-olm/... -root=$(pwd) -kubeconfig=${KUBECONFIG} -globalMan test/files/dummycrd.yaml -parallel=1 -timeout 1500s 2>&1 | \
+  go test -v ./test/e2e-olm/... -kubeconfig=${KUBECONFIG} -parallel=1 -timeout 1500s 2>&1 | \
   $GO_JUNIT_REPORT | awk '/<properties>/,/<\/properties>/ {next} {print}' > "$JUNIT_REPORT_OUTPUT_DIR/$test_name.xml"
 
