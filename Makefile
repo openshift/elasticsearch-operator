@@ -194,7 +194,8 @@ TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
 test-e2e-olm: DEPLOYMENT_NAMESPACE="${TEST_NAMESPACE}"
 test-e2e-olm: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
 	TEST_NAMESPACE=${TEST_NAMESPACE} hack/test-e2e-olm.sh
-	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname *.xml) > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
+	echo "Complete e2e olm test"
+	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 .PHONY: test-e2e-olm
 
 elasticsearch-catalog: elasticsearch-catalog-build elasticsearch-catalog-deploy
