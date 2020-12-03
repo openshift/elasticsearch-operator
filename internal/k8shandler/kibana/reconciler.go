@@ -191,7 +191,6 @@ func (clusterRequest *KibanaRequest) deleteKibana5Deployment() error {
 }
 
 func (clusterRequest *KibanaRequest) isCLOUseCase() bool {
-
 	kibanaCR := clusterRequest.cluster
 
 	if kibanaCR.OwnerReferences != nil {

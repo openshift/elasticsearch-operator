@@ -9,7 +9,7 @@ export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
 
-export OCP_VERSION=4.7
+export OCP_VERSION=5.0
 
 export APP_NAME=elasticsearch-operator
 
