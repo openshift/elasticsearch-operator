@@ -103,14 +103,17 @@ try_func_until_text() {
   local timeout=$3
   local now=$(date +%s%3N)
   local expire=$(($now + $timeout))
+  local f_result=""
   while [ $now -lt $expire ]; do
-	if [[ $($func) == "${expected}" ]] ; then
+	f_result=$($func)
+	if [[ "${f_result}" == "${expected}" ]] ; then
       		echo "Passed"
       		return 0
     	fi
     	now=$(date +%s%3N)
   done
   echo "Fail"
+  echo "Expected: ${expected}\r\nGot: ${f_result}"
   return 1
 }
 
@@ -121,18 +124,20 @@ try_func_until_text_alt() {
   local timeout=$4
   local now=$(date +%s%3N)
   local expire=$(($now + $timeout))
+  local f_result=""
   while [ $now -lt $expire ]; do
     f_result=$($func)
-	  if [[ "${f_result}" == "${expected}" ]] ; then
-      		echo "Passed"
-      		return 0
+    if [[ "${f_result}" == "${expected}" ]] ; then
+	    echo "Passed"
+	    return 0
     elif [[ "${f_result}" == "${alt_expected}" ]]; then
-          echo "Passed"
-          return 0
+	    echo "Passed"
+	    return 0
     fi
     now=$(date +%s%3N)
   done
   echo "Fail"
+  echo "Expected: ${expected}\r\nGot: ${f_result}\r\n"
   return 1
 }
 
