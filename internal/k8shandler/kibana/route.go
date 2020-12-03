@@ -235,7 +235,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 
 	utils.AddOwnerRefToObject(consoleExternalLogLink, getOwnerRef(cluster))
 
-	var current = &consolev1.ConsoleExternalLogLink{}
+	current := &consolev1.ConsoleExternalLogLink{}
 	if err = clusterRequest.Get("kibana", current); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return kverrors.Wrap(err, "failed to get consoleexternalloglink", errCtx...)
