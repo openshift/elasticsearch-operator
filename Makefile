@@ -77,10 +77,12 @@ lint-prom: $(PROMTOOL)
 	@$(PROMTOOL) check rules ./files/prometheus_rules.yml
 	@$(PROMTOOL) check rules ./files/prometheus_alerts.yml
 
-image:
-	@if [ $${SKIP_BUILD:-false} = false ] ; then \
-		podman build -t $(IMAGE_TAG) . ; \
-	fi
+.INTERMEDIATE: Dockerfile.dev
+Dockerfile.dev: Dockerfile Dockerfile.centos.patch
+	patch -o Dockerfile.dev Dockerfile Dockerfile.centos.patch
+
+image: Dockerfile.dev
+	echo podman build -f $^ -t $(IMAGE_TAG) .
 
 test-unit: $(GO_JUNIT_REPORT) coveragedir junitreportdir test-unit-prom
 	@set -o pipefail && \
