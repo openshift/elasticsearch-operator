@@ -357,7 +357,7 @@ func getRootCA(clusterName, namespace string) *x509.CertPool {
 	certPool := x509.NewCertPool()
 
 	// load cert into []byte
-	f := path.Join(certLocalPath, clusterName, "admin-ca")
+	f := path.Join(certLocalPath, namespace, clusterName, "admin-ca")
 	caPem, err := ioutil.ReadFile(f)
 	if err != nil {
 		log.Error(err, "Unable to read file to get contents", "file", f)
@@ -371,8 +371,8 @@ func getRootCA(clusterName, namespace string) *x509.CertPool {
 
 func getClientCertificates(clusterName, namespace string) []tls.Certificate {
 	certificate, err := tls.LoadX509KeyPair(
-		path.Join(certLocalPath, clusterName, "admin-cert"),
-		path.Join(certLocalPath, clusterName, "admin-key"),
+		path.Join(certLocalPath, namespace, clusterName, "admin-cert"),
+		path.Join(certLocalPath, namespace, clusterName, "admin-key"),
 	)
 	if err != nil {
 		return []tls.Certificate{}
@@ -421,7 +421,7 @@ func extractSecret(secretName, namespace string, client client.Client) {
 	}
 
 	// make sure that the dir === secretName exists
-	secretDir := path.Join(certLocalPath, secretName)
+	secretDir := path.Join(certLocalPath, namespace, secretName)
 	if _, err := os.Stat(secretDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(secretDir, 0o755); err != nil {
 			log.Error(err, "Error creating dir", "dir", secretDir)
@@ -437,7 +437,7 @@ func extractSecret(secretName, namespace string, client client.Client) {
 			log.Error(nil, "secret key not found", "key", key)
 		}
 
-		secretFile := path.Join(certLocalPath, secretName, key)
+		secretFile := path.Join(certLocalPath, namespace, secretName, key)
 		if err := ioutil.WriteFile(secretFile, value, 0o644); err != nil {
 			log.Error(err, "failed to write value to file", "value", value, "file", secretFile)
 		}
