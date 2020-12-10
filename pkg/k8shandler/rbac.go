@@ -17,10 +17,6 @@ import (
 
 func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 
-	dpl := elasticsearchRequest.cluster
-
-	owner := getOwnerRef(dpl)
-
 	// elasticsearch RBAC
 	elasticsearchRole := newClusterRole(
 		"elasticsearch-metrics",
@@ -42,8 +38,6 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		),
 	)
 
-	addOwnerRefToObject(elasticsearchRole, owner)
-
 	if err := createOrUpdateClusterRole(elasticsearchRole, elasticsearchRequest.client); err != nil {
 		return err
 	}
@@ -62,8 +56,6 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 			subject,
 		),
 	)
-
-	addOwnerRefToObject(elasticsearchRoleBinding, owner)
 
 	if err := createOrUpdateClusterRoleBinding(elasticsearchRoleBinding, elasticsearchRequest.client); err != nil {
 		return err
@@ -89,8 +81,6 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 			),
 		),
 	)
-
-	addOwnerRefToObject(proxyRole, owner)
 
 	if err := createOrUpdateClusterRole(proxyRole, elasticsearchRequest.client); err != nil {
 		return err
@@ -119,8 +109,6 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		"elasticsearch-proxy",
 		subjects,
 	)
-
-	addOwnerRefToObject(proxyRoleBinding, owner)
 
 	return createOrUpdateClusterRoleBinding(proxyRoleBinding, elasticsearchRequest.client)
 }
