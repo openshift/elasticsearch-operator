@@ -90,6 +90,8 @@ spec:
     and cluster logging as well as a Kibana instance to connect to it.
     This operator only supports OCP Cluster Logging and Jaeger.  It is tightly coupled to each and is not currently capable of
     being used as a general purpose manager of Elasticsearch clusters running on OCP.
+    
+    Please note: For a general purpose Elasticsearch operator, please use Elastic's Elasticsearch (ECK) Operator [here](https://catalog.redhat.com/software/containers/elastic/eck-operator/5fabf6d1ecb52450895164be?container-tabs=gti)
 
     It is recommended that this operator be installed in the `openshift-operators-redhat` namespace to 
     properly support the Cluster Logging and Jaeger use cases.
