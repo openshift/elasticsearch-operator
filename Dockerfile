@@ -6,7 +6,7 @@ RUN make build
 FROM registry.svc.ci.openshift.org/ocp/4.7:base
 
 ENV ALERTS_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_alerts.yml"
-ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_rules.yml"
+ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_recording_rules.yml"
 ENV ES_DASHBOARD_FILE="/etc/elasticsearch-operator/files/dashboards/logging-dashboard-elasticsearch.json"
 
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/bin/elasticsearch-operator /usr/bin/

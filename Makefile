@@ -74,7 +74,7 @@ lint: $(GOLANGCI_LINT) fmt lint-prom
 	@$(GOLANGCI_LINT) run -c golangci.yaml
 
 lint-prom: $(PROMTOOL)
-	@$(PROMTOOL) check rules ./files/prometheus_rules.yml
+	@$(PROMTOOL) check rules ./files/prometheus_recording_rules.yml
 	@$(PROMTOOL) check rules ./files/prometheus_alerts.yml
 
 image:
@@ -126,14 +126,14 @@ gen-example-certs:
 
 run: deploy deploy-example
 	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \
-	RULES_FILE_PATH=files/prometheus_rules.yml \
+	RULES_FILE_PATH=files/prometheus_recording_rules.yml \
 	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=$(DEPLOYMENT_NAMESPACE) \
 	KUBERNETES_CONFIG=/etc/origin/master/admin.kubeconfig \
 	go run ${MAIN_PKG} > $(RUN_LOG) 2>&1 & echo $$! > $(RUN_PID)
 
 run-local:
 	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \
-	RULES_FILE_PATH=files/prometheus_rules.yml \
+	RULES_FILE_PATH=files/prometheus_recording_rules.yml \
 	OPERATOR_NAME=elasticsearch-operator WATCH_NAMESPACE=$(DEPLOYMENT_NAMESPACE) \
 	KUBERNETES_CONFIG=$(KUBECONFIG) \
 	go run ${MAIN_PKG} LOG_LEVEL=debug
