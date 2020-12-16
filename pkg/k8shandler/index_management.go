@@ -8,6 +8,7 @@ import (
 
 	logging "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/indexmanagement"
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/logger"
 	esapi "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
 )
@@ -47,12 +48,9 @@ func (elasticsearchRequest *ElasticsearchRequest) CreateOrUpdateIndexManagement(
 	primaryShards := getDataCount(elasticsearchRequest.cluster)
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
-		if err := indexmanagement.ReconcileRolloverCronjob(elasticsearchRequest.client, elasticsearchRequest.cluster, policy, mapping, primaryShards); err != nil {
-			logger.Errorf("There was an error reconciling the rollover cronjob for policy %q: %v", policy.Name, err)
-			return err
-		}
-		if err := indexmanagement.ReconcileCurationCronjob(elasticsearchRequest.client, elasticsearchRequest.cluster, policy, mapping, primaryShards); err != nil {
-			logger.Errorf("There was an error reconciling the curation cronjob for policy %q: %v", policy.Name, err)
+		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
+		if err := indexmanagement.ReconcileIndexManagementCronjob(elasticsearchRequest.client, elasticsearchRequest.cluster, policy, mapping, primaryShards); err != nil {
+			ll.Error(err, "could not reconcile indexmanagement cronjob")
 			return err
 		}
 	}
