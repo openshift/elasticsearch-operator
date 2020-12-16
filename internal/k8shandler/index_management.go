@@ -49,12 +49,8 @@ func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
 		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
-		if err := indexmanagement.ReconcileRolloverCronjob(er.client, er.cluster, policy, mapping, primaryShards); err != nil {
-			ll.Error(err, "could not reconcile rollover cronjob")
-			return err
-		}
-		if err := indexmanagement.ReconcileCurationCronjob(er.client, er.cluster, policy, mapping, primaryShards); err != nil {
-			ll.Error(err, "could not reconcile curation cronjob")
+		if err := indexmanagement.ReconcileIndexManagementCronjob(er.client, er.cluster, policy, mapping, primaryShards); err != nil {
+			ll.Error(err, "could not reconcile indexmanagement cronjob")
 			return err
 		}
 	}
