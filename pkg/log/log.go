@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -54,9 +55,29 @@ func Init(component string, keyValuePairs ...interface{}) {
 	})
 }
 
+//proxyLogger is a minimal adapter to Logger to
+//facilitate backports to 4.6 due to the difference in
+//log libraries.  It does not provide equivalent log
+// capabilities
+type proxyLogger struct {
+	level int
+}
+
+func V(verbosity int) proxyLogger {
+	return proxyLogger{level: verbosity}
+}
+func (p proxyLogger) Info(msg string, keysAndValues ...interface{}) {
+	if p.level == 0 {
+		Info(msg, keysAndValues)
+	}
+}
+
 // Logger returns the singleton logger that was created via Init
 func Logger() logr.Logger {
 	return logger
+}
+func Wrap(err error, msg string) error {
+	return fmt.Errorf("%s: %v", msg, err)
 }
 
 // Info logs a non-error message with the given key/value pairs as context.

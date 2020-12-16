@@ -3,13 +3,16 @@ package indexmanagement
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	batch "k8s.io/api/batch/v1beta1"
 	core "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,6 +26,7 @@ import (
 	apis "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/log"
+	kverrors "github.com/openshift/elasticsearch-operator/pkg/log"
 	k8s "github.com/openshift/elasticsearch-operator/pkg/types/k8s"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	"github.com/openshift/elasticsearch-operator/pkg/utils/comparators"
@@ -31,6 +35,7 @@ import (
 const (
 	indexManagementConfigmap = "indexmanagement-scripts"
 	defaultShardSize         = int32(40)
+	workingDir               = "/tmp/scripts"
 )
 
 var (
@@ -64,13 +69,7 @@ type rolloverConditions struct {
 func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsearch, mappings []apis.IndexManagementPolicyMappingSpec, policies apis.PolicyMap) error {
 	expected := sets.NewString()
 	for _, mapping := range mappings {
-		policy := policies[mapping.PolicyRef]
-		if policy.Phases.Hot != nil {
-			expected.Insert(fmt.Sprintf("%s-rollover-%s", cluster.Name, mapping.Name))
-		}
-		if policy.Phases.Delete != nil {
-			expected.Insert(fmt.Sprintf("%s-delete-%s", cluster.Name, mapping.Name))
-		}
+		expected.Insert(fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name))
 	}
 
 	cronList := &batch.CronJobList{}
@@ -130,68 +129,68 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 	}
 	return err
 }
-
-func ReconcileRolloverCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
-	if policy.Phases.Hot == nil {
-		log.Info("Skipping rollover cronjob for policymapping; hot phase not defined", "policymapping", mapping.Name)
+func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
+	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
+		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
+	}
+	envvars := []corev1.EnvVar{}
+	if policy.Phases.Delete != nil {
+		minAgeMillis, err := calculateMillisForTimeUnit(policy.Phases.Delete.MinAge)
+		if err != nil {
+			return err
+		}
+		envvars = append(envvars,
+			corev1.EnvVar{Name: "POLICY_MAPPING", Value: mapping.Name},
+			corev1.EnvVar{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
+		)
+	} else {
+		log.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
+	}
+
+	if policy.Phases.Hot != nil {
+		conditions := calculateConditions(policy, primaryShards)
+		payload, err := json.Marshal(map[string]rolloverConditions{"conditions": conditions})
+		if err != nil {
+			return kverrors.Wrap(err, "failed to serialize the rollover conditions to JSON")
+		}
+		envvars = append(envvars,
+			corev1.EnvVar{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString(payload)},
+			corev1.EnvVar{Name: "POLICY_MAPPING", Value: mapping.Name},
+		)
+
+	} else {
+		log.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
 	}
 	schedule, err := crontabScheduleFor(policy.PollInterval)
 	if err != nil {
 		return err
 	}
-	conditions := calculateConditions(policy, primaryShards)
-	name := fmt.Sprintf("%s-rollover-%s", cluster.Name, mapping.Name)
-	payload, err := utils.ToJson(map[string]rolloverConditions{"conditions": conditions})
-	if err != nil {
-		return fmt.Errorf("There was an error serializing the rollover conditions to JSON: %v", err)
-	}
-	envvars := []core.EnvVar{
-		{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString([]byte(payload))},
-		{Name: "POLICY_MAPPING", Value: mapping.Name},
-	}
-	fnContainerHandler := func(container *core.Container) {
-		container.Command = []string{"bash"}
-		container.Args = []string{
-			"-c",
-			"/tmp/scripts/rollover",
-		}
-	}
-	desired := newCronJob(cluster.Name, constants.PackagedElasticsearchImage(), cluster.Namespace, name, schedule, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, fnContainerHandler)
+	name := fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name)
+	script := formatCmd(policy)
+	desired := newCronJob(cluster.Name, cluster.Namespace, name, schedule, script, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars)
 
 	cluster.AddOwnerRefTo(desired)
 	return reconcileCronJob(apiclient, cluster, desired, areCronJobsSame)
 }
 
-func ReconcileCurationCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
-	if policy.Phases.Delete == nil {
-		log.Info("Skipping curation cronjob for policymapping; delete phase not defined", "policymapping", mapping.Name)
-		return nil
+func formatCmd(policy apis.IndexManagementPolicySpec) string {
+	cmd := []string{}
+	result := []string{}
+	if policy.Phases.Delete != nil {
+		cmd = append(cmd, "./delete", "delete_rc=$?")
+		result = append(result, "exit $delete_rc")
 	}
-	schedule, err := crontabScheduleFor(policy.PollInterval)
-	if err != nil {
-		return err
+	if policy.Phases.Hot != nil {
+		cmd = append(cmd, "./rollover", "rollover_rc=$?")
+		result = append(result, "exit $rollover_rc")
 	}
-	minAgeMillis, err := calculateMillisForTimeUnit(policy.Phases.Delete.MinAge)
-	if err != nil {
-		return err
+	if len(cmd) == 0 {
+		return ""
 	}
-	name := fmt.Sprintf("%s-delete-%s", cluster.Name, mapping.Name)
-	envvars := []core.EnvVar{
-		{Name: "POLICY_MAPPING", Value: mapping.Name},
-		{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
-	}
-	fnContainerHandler := func(container *core.Container) {
-		container.Command = []string{"bash"}
-		container.Args = []string{
-			"-c",
-			"/tmp/scripts/delete",
-		}
-	}
-	desired := newCronJob(cluster.Name, constants.PackagedElasticsearchImage(), cluster.Namespace, name, schedule, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, fnContainerHandler)
-
-	cluster.AddOwnerRefTo(desired)
-	return reconcileCronJob(apiclient, cluster, desired, areCronJobsSame)
+	cmd = append(cmd, fmt.Sprintf("$(%s)", strings.Join(result, "&&")))
+	script := strings.Join(cmd, ";")
+	return script
 }
 
 func reconcileCronJob(apiclient client.Client, cluster *apis.Elasticsearch, desired *batch.CronJob, fnAreCronJobsSame func(lhs, rhs *batch.CronJob) bool) error {
@@ -234,38 +233,44 @@ func areCronJobsSame(lhs, rhs *batch.CronJob) bool {
 	if lhs.Spec.Suspend != nil && rhs.Spec.Suspend != nil && *lhs.Spec.Suspend != *rhs.Spec.Suspend {
 		return false
 	}
-
 	for i, container := range lhs.Spec.JobTemplate.Spec.Template.Spec.Containers {
 		other := rhs.Spec.JobTemplate.Spec.Template.Spec.Containers[i]
-		if container.Name != other.Name {
+		if !areContainersSame(container, other) {
 			return false
 		}
-		if container.Image != other.Image {
-			return false
-		}
-
-		if !reflect.DeepEqual(container.Command, other.Command) {
-			return false
-		}
-		if !reflect.DeepEqual(container.Args, other.Args) {
-			return false
-		}
-
-		if !comparators.AreResourceRequementsSame(container.Resources, other.Resources) {
-			return false
-		}
-
-		if !comparators.EnvValueEqual(container.Env, other.Env) {
-			return false
-		}
-
 	}
 	return true
 }
 
-func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelector map[string]string, tolerations []core.Toleration, envvars []core.EnvVar, fnContainerHander func(*core.Container)) *batch.CronJob {
-	container := core.Container{
-		Name:            "indexmanagement",
+func areContainersSame(container, other corev1.Container) bool {
+	if container.Name != other.Name {
+		return false
+	}
+	if container.Image != other.Image {
+		return false
+	}
+
+	if !reflect.DeepEqual(container.Command, other.Command) {
+		return false
+	}
+	if !reflect.DeepEqual(container.Args, other.Args) {
+		return false
+	}
+
+	if !comparators.AreResourceRequementsSame(container.Resources, other.Resources) {
+		return false
+	}
+
+	if !comparators.EnvValueEqual(container.Env, other.Env) {
+		return false
+	}
+	return true
+}
+
+func newContainer(clusterName, name, image, scriptPath string, envvars []corev1.EnvVar) corev1.Container {
+	envvars = append(envvars, corev1.EnvVar{Name: "ES_SERVICE", Value: fmt.Sprintf("https://%s:9200", clusterName)})
+	container := corev1.Container{
+		Name:            name,
 		Image:           image,
 		ImagePullPolicy: core.PullIfNotPresent,
 		Resources: v1.ResourceRequirements{
@@ -274,30 +279,36 @@ func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelect
 				v1.ResourceCPU:    defaultCPURequest,
 			},
 		},
-		Env: []core.EnvVar{
-			{Name: "ES_SERVICE", Value: fmt.Sprintf("https://%s:9200", clusterName)},
+		WorkingDir: workingDir,
+		Env:        envvars,
+		Command:    []string{"bash"},
+		Args: []string{
+			"-c",
+			scriptPath,
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "certs", ReadOnly: true, MountPath: "/etc/indexmanagement/keys"},
+			{Name: "scripts", ReadOnly: false, MountPath: workingDir},
 		},
 	}
-	container.Env = append(container.Env, envvars...)
-	fnContainerHander(&container)
 
-	container.VolumeMounts = []v1.VolumeMount{
-		{Name: "certs", ReadOnly: true, MountPath: "/etc/indexmanagement/keys"},
-		{Name: "scripts", ReadOnly: false, MountPath: "/tmp/scripts"},
-	}
-	podSpec := core.PodSpec{
+	return container
+}
+
+func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar) *batch.CronJob {
+	containerName := "indexmanagement"
+	podSpec := corev1.PodSpec{
 		ServiceAccountName: clusterName,
-		Containers:         []v1.Container{container},
-		Volumes: []v1.Volume{
-			{Name: "certs", VolumeSource: v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: clusterName}}},
-			{Name: "scripts", VolumeSource: v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: fullExecMode}}},
+		Containers:         []corev1.Container{newContainer(clusterName, containerName, constants.PackagedElasticsearchImage(), script, envvars)},
+		Volumes: []corev1.Volume{
+			{Name: "certs", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: clusterName}}},
+			{Name: "scripts", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: fullExecMode}}},
 		},
 		NodeSelector:                  utils.EnsureLinuxNodeSelector(nodeSelector),
 		Tolerations:                   tolerations,
 		RestartPolicy:                 v1.RestartPolicyNever,
 		TerminationGracePeriodSeconds: utils.GetInt64(300),
 	}
-
 	cronJob := &batch.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "CronJob",
@@ -319,7 +330,7 @@ func newCronJob(clusterName, image, namespace, name, schedule string, nodeSelect
 					Parallelism:  utils.GetInt32(1),
 					Template: v1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
+							Name:      containerName,
 							Namespace: namespace,
 							Labels:    imLabels,
 						},
