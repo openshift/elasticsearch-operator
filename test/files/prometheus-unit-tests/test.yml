@@ -60,7 +60,7 @@ tests:
               message: "Cluster elasticsearch health status has been YELLOW for at least 20m. Some shard replicas are not allocated. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Healthy-is-Yellow"
 
       # --------- ElasticsearchClusterNotHealthy (red) ---------
-      - eval_time: 33m
+      - eval_time: 38m
         alertname: ElasticsearchClusterNotHealthy
         exp_alerts:
           - exp_labels:
@@ -68,7 +68,7 @@ tests:
               severity: critical
             exp_annotations:
               summary: "Cluster health status is RED"
-              message: "Cluster elasticsearch health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Health-is-Red"
+              message: "Cluster elasticsearch health status has been RED for at least 7m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Health-is-Red"
 
       # --------- ElasticsearchWriteRequestsRejectionJumps ---------
       # Within the first 10m the percent of rejected requests is = 5% (the alert require > 5%)
