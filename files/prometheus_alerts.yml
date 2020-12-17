@@ -4,11 +4,11 @@
   "rules":
   - "alert": "ElasticsearchClusterNotHealthy"
     "annotations":
-      "message": "Cluster {{ $labels.cluster }} health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
+      "message": "Cluster {{ $labels.cluster }} health status has been RED for at least 7m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Health-is-Red"
       "summary": "Cluster health status is RED"
     "expr": |
       sum by (cluster) (es_cluster_status == 2)
-    "for": "2m"
+    "for": "7m"
     "labels":
       "severity": "critical"
 
