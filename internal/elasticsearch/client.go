@@ -186,6 +186,7 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 		// TODO: eventually remove after all ES images have been updated to use SA token auth for EO?
 		if resp.StatusCode == http.StatusForbidden ||
 			resp.StatusCode == http.StatusUnauthorized {
+			log.Info("failed sending payload using bearer token", "method", payload.Method, "url", payload.URI)
 			// if we get a 401 that means that we couldn't read from the token and provided
 			// no header.
 			// if we get a 403 that means the ES cluster doesn't allow us to use
@@ -257,6 +258,10 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 	resp, err := httpClient.Do(request)
 
 	if resp != nil {
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
+			log.Info("failed sending payload using mTLS PKI", "method", payload.Method, "url", payload.URI)
+		}
+
 		payload.StatusCode = resp.StatusCode
 		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
 			log.Error(err, "failed to get raw response body")
