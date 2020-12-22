@@ -156,6 +156,8 @@ opendistro_security:
   authcz.admin_dn:
   - CN=system.admin,OU=OpenShift,O=Logging
   config_index_name: ".security"
+  restapi:
+    roles_enabled: ["kibana_server"]
   ssl:
     transport:
       enabled: true
