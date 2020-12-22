@@ -55,7 +55,7 @@ func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
 func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
-		URI:    "*/_settings/index.number_of_replicas",
+		URI:    "app-*,infra-*,audit-*/_settings/index.number_of_replicas",
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
