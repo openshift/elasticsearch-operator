@@ -15,6 +15,9 @@ tests:
       - series: 'es_process_cpu_percent{cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
         values: '10+10x8 95+0x100' # 10 20 30 40 50 60 70 80 90 -- 95 (100x)
 
+      - series: 'csv_succeeded{name="elasticsearch-operator.currentversion-builddate"}'
+        values: '0+0x10 1+0x90' # flag as unsuccessful for 10 tics and then flag as successful for the rest
+
       # Rejected indexing requests simulation (note: this simulation also verifies all recording rules)
         # Number of rejected write requests grows at constant pace for 10 minutes
         # and then we repeat this patterns again. This gives us two 10m segments of the series to test on.
@@ -141,4 +144,15 @@ tests:
       - eval_time: 5m
         alertname: ElasticsearchProcessCPUHigh
         exp_alerts:
+
+      # --------- ElasticsearchCSVNotSuccessful ---------
+      - eval_time: 10m
+        alertname: ElasticsearchOperatorCSVNotSuccessful
+        exp_alerts:
+          - exp_labels:
+              name: elasticsearch-operator.currentversion-builddate
+              severity: warning
+            exp_annotations:
+              summary: "Elasticsearch Operator CSV Not Successful"
+              message: "Elasticsearch Operator CSV has not reconciled succesfully."
 

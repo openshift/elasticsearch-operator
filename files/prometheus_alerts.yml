@@ -134,3 +134,13 @@
     for: 10m
     labels:
       severity: warning
+
+  - "alert": "ElasticsearchOperatorCSVNotSuccessful"
+    "annotations":
+      "message": "Elasticsearch Operator CSV has not reconciled succesfully."
+      "summary": "Elasticsearch Operator CSV Not Successful"
+    "expr": |
+      csv_succeeded{name =~ "elasticsearch-operator.*"} == 0
+    "for": "10m"
+    "labels":
+      "severity": "warning"
