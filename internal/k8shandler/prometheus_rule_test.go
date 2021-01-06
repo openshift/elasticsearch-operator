@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	rulePath  = "../../files/prometheus_rules.yml"
+	rulePath  = "../../files/prometheus_recording_rules.yml"
 	alertPath = "../../files/prometheus_alerts.yml"
 )
 

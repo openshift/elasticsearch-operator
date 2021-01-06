@@ -18,7 +18,7 @@ import (
 
 const (
 	alertsFilePath = "/etc/elasticsearch-operator/files/prometheus_alerts.yml"
-	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_rules.yml"
+	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_recording_rules.yml"
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
