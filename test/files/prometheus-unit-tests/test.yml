@@ -57,7 +57,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: "Cluster health status is YELLOW"
-              message: "Cluster elasticsearch health status has been YELLOW for at least 20m. Some shard replicas are not allocated."
+              message: "Cluster elasticsearch health status has been YELLOW for at least 20m. Some shard replicas are not allocated. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Healthy-is-Yellow"
 
       # --------- ElasticsearchClusterNotHealthy (red) ---------
       - eval_time: 33m
@@ -68,7 +68,7 @@ tests:
               severity: critical
             exp_annotations:
               summary: "Cluster health status is RED"
-              message: "Cluster elasticsearch health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet."
+              message: "Cluster elasticsearch health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Health-is-Red"
 
       # --------- ElasticsearchWriteRequestsRejectionJumps ---------
       # Within the first 10m the percent of rejected requests is = 5% (the alert require > 5%)
@@ -86,7 +86,7 @@ tests:
               severity: warning
             exp_annotations:
               summary: "High Write Rejection Ratio - 10%"
-              message: "High Write Rejection Ratio at elasticsearch-cdm-1 node in elasticsearch cluster. This node may not be keeping up with the indexing speed."
+              message: "High Write Rejection Ratio at elasticsearch-cdm-1 node in elasticsearch cluster. This node may not be keeping up with the indexing speed. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Write-Requests-Rejection-Jumps"
 
       # --------- ElasticsearchNodeDiskWatermarkReached ---------
       # By the end of 10th minute we do not expect the low watermark has been active for more than 5 minutes.
@@ -104,7 +104,7 @@ tests:
               severity: info
             exp_annotations:
               summary: "Disk Low Watermark Reached - disk saturation is 90%"
-              message: "Disk Low Watermark Reached at pod-1 pod. Shards can not be allocated to this node anymore. You should consider adding more disk to the node."
+              message: "Disk Low Watermark Reached at pod-1 pod. Shards can not be allocated to this node anymore. You should consider adding more disk to the node. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Node-Disk-Low-Watermark-Reached"
 
       # --------- AggregatedLoggingSystemCPUHigh ---------
       - eval_time: 15m
@@ -117,7 +117,7 @@ tests:
               severity: alert
             exp_annotations:
               summary: "System CPU usage is high"
-              message: "System CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%"
+              message: "System CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Aggregated-Logging-System-CPU-is-High"
 
       # Critical value not reached - no alert is fired
       - eval_time: 5m
@@ -135,7 +135,7 @@ tests:
               severity: alert
             exp_annotations:
               summary: "ES process CPU usage is high"
-              message: "ES process CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%"
+              message: "ES process CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Process-CPU-is-High"
 
       # Critical value not reached - no alert is fired
       - eval_time: 5m
