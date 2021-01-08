@@ -41,6 +41,7 @@ func (r *ElasticsearchReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 		if apierrors.IsNotFound(err) {
 			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
 			k8shandler.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
+			k8shandler.RemoveDashboardConfigMap(r.Client)
 			return ctrl.Result{}, nil
 		}
 
