@@ -1,0 +1,575 @@
+#!/bin/bash
+# Given an OLM manifest, verify a green field deployment
+# of cluster logging by asserting CLO creates the resources
+# that begets the operands that make up logging.
+
+set -euo pipefail
+
+repo_dir="$( cd "$(dirname "$0")/../.." ; pwd -P )"
+source "$repo_dir/hack/testing-olm/utils"
+source "$repo_dir/hack/testing-olm/assertions"
+
+start_seconds=$(date +%s)
+
+ARTIFACT_DIR=${ARTIFACT_DIR:-"$repo_dir/_output/"}
+ARTIFACT_DIR="${ARTIFACT_DIR}/$(basename ${BASH_SOURCE[0]})"
+if [ ! -d $ARTIFACT_DIR ] ; then
+  mkdir -p $ARTIFACT_DIR
+fi
+
+KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+TIMEOUT_MIN=$((2 * $minute))
+ES_POD_TIMEOUT=$((5 * $minute))
+export CLUSTER_LOGGING_OPERATOR_NAMESPACE="openshift-logging"
+manifest_dir=${repo_dir}/manifests
+
+log::info() {
+	echo "[INFO] ${*}"
+}
+
+cleanup(){
+  local return_code="$?"
+  set +e
+  log::info "Running cleanup"
+  end_seconds=$(date +%s)
+  runtime="$(($end_seconds - $start_seconds))s"
+  oc -n openshift-operators-redhat -o yaml get subscription elasticsearch-operator > $ARTIFACT_DIR/subscription-eo.yml 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator-deployment.yml 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get pods > $ARTIFACT_DIR/openshift-operators-redhat-pods.yml 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get configmaps > $ARTIFACT_DIR/openshift-operators-redhat-configmaps.yml 2>&1 ||:
+  oc -n openshift-operators-redhat describe deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.describe 2>&1 ||:
+
+  oc logs -n "openshift-operators-redhat" deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.log 2>&1 ||:
+  oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/catalog-operator > $ARTIFACT_DIR/catalog-operator.logs 2>&1 ||:
+  oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/olm-operator > $ARTIFACT_DIR/olm-operator.logs 2>&1 ||:
+
+  ${repo_dir}/olm_deploy/scripts/operator-uninstall.sh
+  ${repo_dir}/olm_deploy/scripts/catalog-uninstall.sh
+
+  set -e
+  exit ${return_code}
+}
+trap cleanup exit
+
+expect_success(){
+  local cmd=$1
+  echo "Running '$cmd'"
+  if $cmd ; then
+    return 0
+  fi  
+  return 1
+}
+
+expect_success_and_text(){
+  local cmd=$1
+  local expected=$2
+  log::info "Running '$cmd'"
+  response=$($cmd)
+  result=$?
+  log::info "Response '${response}'" 
+  if [ $result == 0 ] && [[ ${response} =~ ${expected} ]] ; then
+    log::info "Passed"
+    return 0
+  fi  
+  log::info "Fail: Expected response to match $expected"
+  return 1
+}
+
+try_until_failure() {
+  local cmd=$1
+  local timeout=$2
+  local interval=${3:-0.2}
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if ! $cmd ; then
+      log::info "Passed"
+      return 0
+    fi  
+    sleep $interval
+    now=$(date +%s%3N)
+  done
+  log::info "Fail"
+  return 1
+}
+try_until_success() {
+  local cmd=$1
+  local timeout=$2
+  local interval=${3:-0.2}
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if $cmd ; then
+      log::info "Passed"
+      return 0
+    fi  
+    sleep $interval
+    now=$(date +%s%3N)
+  done
+  log::info "Fail"
+  return 1
+}
+
+try_until_text() {
+  local cmd=$1
+  local expected=$2
+  local timeout=$3
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    if [[ "$($cmd)" == "${expected}" ]] ; then
+      log::info "Passed"
+      return 0
+    fi  
+    now=$(date +%s%3N)
+  done
+  log::info "Fail"
+  return 1
+}
+
+try_func_until_text() {
+  local func=$1
+  local expected=$2
+  local timeout=$3
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+	if [[ $($func) == "${expected}" ]] ; then
+      		echo "Passed"
+      		return 0
+    	fi
+    	now=$(date +%s%3N)
+  done
+  echo "Fail"
+  return 1
+}
+
+try_func_until_text_alt() {
+  local func=$1
+  local expected=$2
+  local alt_expected=$3
+  local timeout=$4
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+    f_result=$($func)
+	  if [[ "${f_result}" == "${expected}" ]] ; then
+      		echo "Passed"
+      		return 0
+    elif [[ "${f_result}" == "${alt_expected}" ]]; then
+          echo "Passed"
+          return 0
+    fi
+    now=$(date +%s%3N)
+  done
+  echo "Fail"
+  return 1
+}
+
+try_func_until_result_is_not_empty() {
+  local func=$1
+  local timeout=$2
+  local now=$(date +%s%3N)
+  local expire=$(($now + $timeout))
+  while [ $now -lt $expire ]; do
+	if [[ $($func) != "" ]] ; then
+      		echo "Passed"
+      		return 0
+    	fi
+    	now=$(date +%s%3N)
+  done
+  echo "Fail"
+  return 1
+}
+
+deploy_marketplace_operator(){
+  local ns=$1
+  local name=$2
+  local channel=$3
+  local package=${4:-$name}
+  local global=${5:-false}
+  if [ "${global}" = "false" ] ; then
+    cat <<EOL | oc create -f -
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: "$ns"
+- apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: "$ns"
+    namespace: "$ns"
+  spec:
+    targetNamespaces:
+    - "$ns"
+    packages: "$name"
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    channel: "$channel"
+    installPlanApproval: Automatic
+    name: "$package"
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+EOL
+  else
+    cat <<EOL | oc create -f -
+apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: "$ns"
+- apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    packages: "$name"
+- apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: "$name"
+    namespace: "$ns"
+  spec:
+    channel: "$channel"
+    installPlanApproval: Automatic
+    name: "$package"
+    source: redhat-operators
+    sourceNamespace: openshift-marketplace
+EOL
+
+fi
+
+  log::info "Waiting for deployment $name to be ready in $ns"
+  wait_for_deployment_to_be_ready "$ns" "$name" $((2 * "$minute"))
+}
+
+wait_for_deployment_to_be_ready(){
+  local namespace=$1
+  local name=$2
+  local timeout=$3
+  try_until_text "oc -n $namespace get deployment $name -o jsonpath={.status.availableReplicas} --ignore-not-found" "1" $timeout
+} 
+
+get_latest_catalog_version(){
+
+  versions="$(oc run --generator=run-pod/v1 grpcurl-query \
+     -n openshift-marketplace \
+     --rm=true \
+     --restart=Never \
+     --attach=true \
+     --image=docker.io/fullstorydev/grpcurl \
+     -- -plaintext redhat-operators.openshift-marketplace.svc:50051 api.Registry/ListBundles \
+     | jq '. | select(.packageName == "elasticsearch-operator") | .channelName')"
+  
+  oc delete pod grpcurl-query -n openshift-marketplace --ignore-not-found=true
+
+  echo $versions
+}
+
+fail_out(){
+    log::info "Unable to determine the previous_version of $version from [$versions]"
+    exit 1
+}
+
+get_major_version(){
+
+    local major_version=$1
+    previous_major=$major_version
+
+    while true; do
+
+        for ver in $(echo $versions); do
+
+            maj_ver="$(echo $ver | cut -d'.' -f1)"
+            if [ "$maj_ver" == "$previous_major" ]; then
+                echo $previous_major
+                return 0
+            fi
+
+        done
+
+        if [[ $previous_major -eq 0 ]]; then
+            fail_out
+        fi
+
+        previous_major="$((previous_major - 1))"
+    done
+}
+
+get_minor_count_down(){
+
+    local minor_version=$1
+    previous_minor=$minor_version
+
+    while true; do
+        
+        previous_minor="$(($previous_minor - 1))"
+        version="$(echo $major_version.$previous_minor)"
+
+        for ver in ${versions[@]}; do
+
+            if [ "$ver" == "$version" ]; then
+                echo $previous_minor
+                return 0
+            fi
+        done
+
+        if [[ $previous_minor -eq 0 ]]; then
+            fail_out
+        fi
+    done
+}
+
+get_minor_count_up(){
+
+    previous_minor=0
+
+    for ver in ${versions[@]}; do
+
+        min_ver="$(echo $ver | cut -d'.' -f2)"
+        if [[ $min_ver =~ [0-9]+ ]]; then
+          if [[ $min_ver -gt $previous_minor ]]; then
+            previous_minor=$min_ver
+          fi
+        fi
+    done
+
+    echo $previous_minor
+}
+
+subset_versions_for_major(){
+    local major_version=$1
+
+    relevant_versions=()
+
+    for ver in $(echo $versions); do
+
+        maj_ver="$(echo $ver | cut -d'.' -f1)"
+        if [ "$maj_ver" == "$major_version" ]; then
+            relevant_versions+=($ver)
+        fi
+    done
+
+    echo ${relevant_versions[@]}
+}
+
+get_latest_previous_version(){
+  local current_version=$1
+
+  major_version="$(echo $current_version | cut -d'.' -f1)"
+  minor_version="$(echo $current_version | cut -d'.' -f2)"
+
+  # figure out which version is available in operatorhub for previous version
+  versions=$(get_latest_catalog_version)
+  export versions="$(echo $versions | sed 's/"//g')"
+
+  previous_major="$(get_major_version $major_version)"
+
+  # get subset of versions where the major version matches
+  export versions=$(subset_versions_for_major $previous_major)
+
+  if [[ $major_version -eq $previous_major ]]; then
+    previous_minor=$(get_minor_count_down $minor_version)
+  else
+    previous_minor=$(get_minor_count_up)
+  fi
+
+  export previous_version="$(echo $previous_major.$previous_minor)"
+}
+
+discover_versions(){
+  #TODO: move this to an image?
+  if [ ! -f /tmp/yq ]; then
+    curl -L https://github.com/mikefarah/yq/releases/download/3.3.0/yq_linux_amd64 -o /tmp/yq && chmod +x /tmp/yq
+  fi
+
+  full_version="$(/tmp/yq r ${manifest_dir}/*/elasticsearch-operator.*.yaml spec.version)"
+  major_version="$(echo $full_version | cut -d'.' -f1)"
+  minor_version="$(echo $full_version | cut -d'.' -f2)"
+
+  # we shouldn't run into this yet... maybe for 6.0 but we should like
+  # add the 'Replaces' spec field and use that for the previous_version
+  if [[ $minor_version -eq 0 ]]; then
+    log::info "Will be unable to calculate the previous_version since our minor version is 0"
+    exit 0
+  fi
+
+  export version="$(echo $major_version.$minor_version)"
+  get_latest_previous_version $version
+}
+
+get_es_pods_count() {
+  	oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found | wc -l
+}
+
+get_es_cluster_status() {
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+   | awk 'NR==1{print $1}' \
+   | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cluster/health \
+   | jq .status
+}
+
+get_es_indices() {
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices
+}
+
+get_es_indices_names() {
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/indices \
+    | awk '{print $3}'
+}
+
+get_es_aliases_names() {
+  oc -n openshift-operators-redhat get pods -l component=elasticsearch --no-headers=true --ignore-not-found \
+    | awk 'NR==1{print $1}' \
+    | xargs -I '{}' oc -n openshift-operators-redhat exec '{}' -c elasticsearch -- es_util --query=_cat/aliases \
+    | awk '{print $1} ' \
+    | uniq
+}
+
+read_es_indices() {
+	local -n map=$1
+	while IFS= read -r line; do
+		id="$(echo "$line" | awk '{print $3}')"
+		echo "Index: '$id' stored"
+		map[$id]=$line
+	done <<< "$(get_es_indices)"
+}
+
+compare_indices_names(){
+	local failed=false
+	local -n old_m=$1
+	local -n new_m=$2
+	for k in "${!old_m[@]}"; do
+		echo "Checking index $k..."
+		if [ ! ${new_m[$k]+_} ]; then
+			failed=true
+			printf "\t'%s' is missing in the set of indices\n" "$k"
+		else
+			printf "\t'%s' found\n" "$k"
+		fi
+	done
+	if [ "$failed" = true ]; then
+		echo "Compare indices names failed!!!"
+		return 1
+	fi
+	echo "Indices names are fully matched"
+}
+
+es_cluster_ready() {
+	oc -n openshift-operators-redhat get pods -l component=elasticsearch \
+		--no-headers=true --ignore-not-found \
+		| awk '{print $2}' | grep '2/2'
+}
+
+get_expected_aliases() {
+  temp_cr=$(mktemp)
+  
+  oc get elasticsearch elasticsearch -o yaml -n openshift-operators-redhat > $temp_cr
+  
+  aliases="$(/tmp/yq r $temp_cr spec.indexManagement.mappings.*.aliases | cut -d' ' -f2)"
+  
+  rm $temp_cr
+  echo $aliases
+}
+
+deploy_previous_version() {
+    local previous_version=$1
+
+    # deploy elasticsearch-operator
+    log::info "Deploying elasticsearch-operator ${previous_version} from marketplace..."
+    deploy_marketplace_operator "openshift-operators-redhat" "elasticsearch-operator" "$previous_version" "elasticsearch-operator"
+
+    # check if the operator is running
+    log::info "Verifying if elasticsearch-operator deployment is ready..."
+    try_until_text "oc -n openshift-operators-redhat get deployment elasticsearch-operator -o jsonpath={.status.updatedReplicas} --ignore-not-found" "1" ${TIMEOUT_MIN}
+}
+
+deploy_es_secret() {
+    log::info "Deploying ES secrets..."
+    rm -rf /tmp/example-secrets ||: \
+        mkdir /tmp/example-secrets && \
+        "$repo_dir"/hack/cert_generation.sh /tmp/example-secrets "openshift-operators-redhat" elasticsearch
+    "$repo_dir"/hack/deploy-example-secrets.sh "openshift-operators-redhat"
+}
+
+check_for_es_pods() {
+  # check if there are elasticsearch pod
+  log::info "Checking if ES pod is ready in the namespace openshift-operators-redhat..."
+  try_until_text "oc -n openshift-operators-redhat get pods -l component=elasticsearch -o jsonpath={.items[0].status.phase} --ignore-not-found" "Running" ${ES_POD_TIMEOUT}
+
+  # check if ES cluster has 3 running pods
+  log::info "Checking if the ES has 3 nodes"
+  try_func_until_text get_es_pods_count "3" ${ES_POD_TIMEOUT}
+
+  log::info "Check if at least 1 node is ready (2/2 containers running)"
+  try_until_success es_cluster_ready ${ES_POD_TIMEOUT}
+
+  # check if ES cluster is in green state
+  log::info "Checking if the ES cluster is all yellow/green"
+  try_func_until_text_alt get_es_cluster_status "\"green\"" "\"yellow\"" ${ES_POD_TIMEOUT}
+}
+
+get_current_pvcs() {
+  log::info "Getting list of current pvcs..."
+  oc get pvc -n openshift-operators-redhat -o name | cut -d'/' -f2
+}
+
+check_list_contained_in() {
+  local lhs=$1
+  local rhs=$2
+
+  for l in $lhs; do
+  found=0
+  for r in $rhs; do
+    if [[ "$l" == "$r" ]]; then
+      found=1
+      break
+    fi
+  done
+
+  if [[ $found -eq 0 ]]; then
+    log::info "Did not find $l in $rhs -- Test failed"
+    exit 1
+  fi
+done
+}
+
+patch_minkube_version() {
+  # patch the minkube version
+  log::info "Patching minKubeVersion to 1.16.1..."
+  pl="{\"op\":\"replace\",\"path\":\"/spec/minKubeVersion\",\"value\":\"1.16.1\"}"
+  try_until_success "oc -n openshift-operators-redhat patch clusterserviceversion elasticsearch-operator.v${version}.0 --type json -p [$pl]" ${TIMEOUT_MIN}
+}
+
+patch_subscription() {
+  log::info "Patching subscription..."
+  # patch subscription
+  payload="{\"op\":\"replace\",\"path\":\"/spec/source\",\"value\":\"elasticsearch-catalog\"}"
+  payload="$payload,{\"op\":\"replace\",\"path\":\"/spec/sourceNamespace\",\"value\":\"openshift-operators-redhat\"}"
+  payload="$payload,{\"op\":\"replace\",\"path\":\"/spec/channel\",\"value\":\"$version\"}"
+  oc -n "openshift-operators-redhat" patch subscription elasticsearch-operator --type json -p "[$payload]"
+}
+
+check_deployment_rolled_out() {
+  log::info "Checking if deployment successfully updated..."
+  IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/ocp/${version}:elasticsearch-operator}
+  if [ -n "${IMAGE_FORMAT:-}" ] ; then
+    IMAGE_ELASTICSEARCH_OPERATOR=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator,")
+  fi
+  log::info "Checking if deployment version is ${IMAGE_ELASTICSEARCH_OPERATOR}..."
+  try_until_text "oc -n openshift-operators-redhat get deployment elasticsearch-operator -o jsonpath={.spec.template.spec.containers[0].image}" "${IMAGE_ELASTICSEARCH_OPERATOR}" ${TIMEOUT_MIN}
+}

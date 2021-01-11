@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eou pipefail
 
 export ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}

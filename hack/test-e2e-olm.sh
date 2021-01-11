@@ -1,13 +1,15 @@
 #!/bin/bash
 
-if [ "${DEBUG:-}" = "true" ]; then
-  set -x
-fi
 set -euo pipefail
 
 current_dir=$(dirname "${BASH_SOURCE[0]}" )
 source "${current_dir}/lib/init.sh"
-source "${current_dir}/lib/util/logs.sh"
+
+source "${current_dir}/../.bingo/variables.env"
+
+export GO_JUNIT_REPORT="${GO_JUNIT_REPORT:-go-junit-report}"
+export JUNITREPORT="${JUNITREPORT:-junitreport}"
+export JUNIT_REPORT_OUTPUT="${JUNIT_REPORT_OUTPUT_DIR:-/tmp/artifacts/junit}/junit.out"
 
 EXCLUDES=" "
 for test in $( find "${current_dir}/testing-olm" -type f -name 'test-*.sh' | sort); do
@@ -34,6 +36,8 @@ for test in $( find "${current_dir}/testing-olm" -type f -name 'test-*.sh' | sor
 done
 
 get_logging_pod_logs
+
+ARTIFACT_DIR="$JUNIT_REPORT_OUTPUT_DIR" os::test::junit::generate_report
 
 if [[ -n "${failed:-}" ]]; then
     exit 1

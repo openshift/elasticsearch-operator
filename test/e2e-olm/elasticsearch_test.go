@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 
 	"github.com/operator-framework/operator-sdk/pkg/test"
@@ -62,7 +62,7 @@ func singleNodeTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -105,7 +105,7 @@ func multipleNodesTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -161,7 +161,7 @@ func scaleUpNodesTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -206,7 +206,6 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	nonDataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for non data nodes: %v", nonDataUUID)
 
-	storageClassName := "gp2"
 	storageClassSize := resource.MustParse("2G")
 
 	esNonDataNode := loggingv1.ElasticsearchNode{
@@ -216,8 +215,7 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 		},
 		NodeCount: int32(1),
 		Storage: loggingv1.ElasticsearchStorageSpec{
-			StorageClassName: &storageClassName,
-			Size:             &storageClassSize,
+			Size: &storageClassSize,
 		},
 		GenUUID: &nonDataUUID,
 	}
@@ -237,7 +235,7 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	t.Log("Created non-data statefulset")
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -343,7 +341,7 @@ func fullClusterRedeployTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -464,7 +462,7 @@ func rollingRestartTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }
 
@@ -509,6 +507,6 @@ func invalidMasterCountTest(t *testing.T) {
 	}
 
 	ctx.Cleanup()
-	e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
+	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
 	t.Log("Finished successfully")
 }

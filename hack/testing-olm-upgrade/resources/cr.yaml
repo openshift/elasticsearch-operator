@@ -32,9 +32,9 @@ spec:
         hot:
           actions:
             rollover:
-              maxAge: 2m
+              maxAge: 10m
         delete:
-          minAge: 5m
+          minAge: 20m
     mappings:
     - name:  infra
       policyRef: infra-policy

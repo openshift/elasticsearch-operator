@@ -2,11 +2,13 @@ linters:
   disable:
     - megacheck
   enable:
+    - bodyclose
+    - gomodguard
+    - gosec
     - gosimple
     - staticcheck
+    - stylecheck
     - unused
-    - gosec
-    - gomodguard
 linters-settings:
   depguard:
     list-type: blacklist
@@ -16,3 +18,20 @@ linters-settings:
       - github.com/sirupsen/logrus: "Only the internal package pkg/log is allowed"
       - sigs.k8s.io/controller-runtime/pkg/log: "Only the internal package pkg/log is allowed"
       - sigs.k8s.io/controller-runtime/pkg/log/zap: "Only the internal package pkg/log is allowed"
+
+issues:
+  exclude:
+    - "weak cryptographic primitive"
+    - "Blacklisted import `crypto/md5`"
+    - "G101: Potential hardcoded credentials"
+    - "G306: Expect WriteFile permissions to be 0600 or less"
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    # since we are using ginkgo we must use dot imports
+    - linters: ["stylecheck"]
+      text: "ST1001: should not use dot imports"
+      path: test/
+    - text: ".*"
+      path: pkg/elasticsearch/client.go
+    - text: ".*"
+      path: pkg/elasticsearch/client_test.go
