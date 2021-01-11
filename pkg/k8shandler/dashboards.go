@@ -1,13 +1,20 @@
 package k8shandler
 
 import (
+	"context"
+
+	"github.com/openshift/elasticsearch-operator/pkg/log"
 	"github.com/openshift/elasticsearch-operator/pkg/utils"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	defaultElasticDashboardFile = "/etc/elasticsearch-operator/files/dashboards/logging-dashboard-elasticsearch.json"
+	grafanaCMName               = "grafana-dashboard-elasticsearch"
+	grafanaCMNameSpace          = "openshift-config-managed"
 )
 
 // CreateOrUpdateDashboards creates/updates the cluster logging dashboard ConfigMap
@@ -19,8 +26,8 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 			APIVersion: v1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "grafana-dashboard-elasticsearch",
-			Namespace: "openshift-config-managed",
+			Name:      grafanaCMName,
+			Namespace: grafanaCMNameSpace,
 			Labels: map[string]string{
 				"console.openshift.io/dashboard": "true",
 			},
@@ -30,7 +37,20 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 		},
 	}
 
-	er.cluster.AddOwnerRefTo(cm)
-
 	return er.CreateOrUpdateConfigMap(cm)
+}
+
+// RemoveDashboardConfigMap removes the config map in the grafana dashboard
+func RemoveDashboardConfigMap(client client.Client) {
+	cm := getConfigmap(grafanaCMName, grafanaCMNameSpace, client)
+	if cm == nil {
+		return
+	}
+	err := client.Delete(context.TODO(), cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return
+		}
+		log.Error(err, "error deleting grafana configmap")
+	}
 }
