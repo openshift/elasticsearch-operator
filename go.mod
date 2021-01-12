@@ -18,6 +18,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.6.0 // indirect
+	github.com/tidwall/gjson v1.6.3
 	go.uber.org/zap v1.16.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.18.8

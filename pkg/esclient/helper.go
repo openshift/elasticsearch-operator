@@ -10,9 +10,8 @@ func parseBool(path string, interfaceMap map[string]interface{}) bool {
 
 	if parsedBool, ok := value.(bool); ok {
 		return parsedBool
-	} else {
-		return false
 	}
+	return false
 }
 
 func parseString(path string, interfaceMap map[string]interface{}) string {
@@ -20,9 +19,8 @@ func parseString(path string, interfaceMap map[string]interface{}) string {
 
 	if parsedString, ok := value.(string); ok {
 		return parsedString
-	} else {
-		return ""
 	}
+	return ""
 }
 
 func parseInt32(path string, interfaceMap map[string]interface{}) int32 {
@@ -34,9 +32,8 @@ func parseFloat64(path string, interfaceMap map[string]interface{}) float64 {
 
 	if parsedFloat, ok := value.(float64); ok {
 		return parsedFloat
-	} else {
-		return float64(-1)
 	}
+	return float64(-1)
 }
 
 func walkInterfaceMap(path string, interfaceMap map[string]interface{}) interface{} {

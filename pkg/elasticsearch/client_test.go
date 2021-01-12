@@ -1,6 +1,7 @@
 package elasticsearch
 
 import (
+	"log"
 	"testing"
 )
 
@@ -38,4 +39,19 @@ func TestHeaderGenWithNoToken(t *testing.T) {
 	if ok {
 		t.Errorf("Expected to be unable to read file [%s]", tokenFile)
 	}
+}
+
+func NTestGetIndexSettings_actual(t *testing.T) {
+	esAddr := "http://localhost:9200"
+
+	elasticsearchClient, err := getESClient(esAddr)
+
+	esClient := NewClient("default", "default", elasticsearchClient)
+
+	res, err := esClient.GetIndexSettings("my-index-000001")
+	if err != nil {
+		t.Errorf("got err: %s", err)
+	}
+
+	log.Println(res)
 }

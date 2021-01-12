@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
@@ -35,7 +36,6 @@ const (
 
 type Client interface {
 	ClusterName() string
-
 	// Cluster Settings API
 	GetClusterNodeVersions() ([]string, error)
 	GetThresholdEnabled() (bool, error)
@@ -442,4 +442,25 @@ func extractSecret(secretName, namespace string, client client.Client) {
 			log.Error(err, "failed to write value to file", "value", value, "file", secretFile)
 		}
 	}
+}
+
+func getESClient(esAddr string) (client.Client, error) {
+	//es := &elasticsearch6.Client{}
+
+	if esAddr == "" {
+		log.Error(nil, "es address is empty")
+	}
+	log.Info("es address: %s\n", esAddr)
+
+	// Setup es client
+	//es, err := elasticsearch6.NewClient(elasticsearch6.Config{
+	//	Addresses: []string{esAddr},
+	//})
+
+	es, err := k8sclient.New(config.GetConfigOrDie(), client.Options{})
+	if err != nil {
+		log.Error(nil, "Error creating the client: %s\n", err)
+	}
+
+	return es, nil
 }
