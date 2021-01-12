@@ -29,6 +29,10 @@ DEPLOYMENT_NAMESPACE?=openshift-logging
 REPLICAS?=0
 OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
+GO_FILES       := $(shell find . -type f -name '*.go')
+MANIFEST_FILES := $(shell find manifests/ -type f)
+OTHER_FILES    := $(shell find files/ -type f)
+
 .PHONY: all build clean fmt generate gobindir run test-e2e test-unit
 
 all: build
@@ -81,8 +85,10 @@ lint-prom: $(PROMTOOL)
 Dockerfile.dev: Dockerfile Dockerfile.centos.patch
 	patch -o Dockerfile.dev Dockerfile Dockerfile.centos.patch
 
-image: Dockerfile.dev
-	podman build -f $^ -t $(IMAGE_TAG) .
+image: .output/image
+.output/image: Dockerfile.dev $(GO_FILES) $(MANIFEST_FILES) $(OTHER_FILES)
+	podman build -f Dockerfile.dev -t $(IMAGE_TAG) .
+	@touch $@
 
 test-unit: $(GO_JUNIT_REPORT) coveragedir junitreportdir test-unit-prom
 	@set -o pipefail && \
