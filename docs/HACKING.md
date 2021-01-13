@@ -133,13 +133,15 @@ You'll need `podman` in addition to `docker`.
 If you used the new `openshift-installer`, it creates a user named `kubeadmin`
 with the password in the file `installer/auth/kubeadmin_password`.
 
-If you already built the image with `make image`, use `SKIP_BUILD=true` to do a push
-only. You need `oc login` to the cluster before pushing the image to the register.
+If you already built the image with `make image`, then it will not be built
+again until a change is detected in a prerequisite file (defined in the
+Makefile) You need `oc login` to the cluster before pushing the image to the
+register.
 
 ```bash
 oc login --token=<token> --server=https://api.<cluster>:6443
 # Or oc login -u kubeadmin -p <password>, if using openshift installer
-SKIP_BUILD=true make deploy-image
+make deploy-image
 ```
 
 ## Upgrading operator-sdk
