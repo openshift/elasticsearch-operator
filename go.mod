@@ -13,15 +13,12 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200602204738-768b7001fe69
-	github.com/operator-framework/operator-sdk v0.19.4
-	github.com/sergi/go-diff v1.1.0 // indirect
-	github.com/sirupsen/logrus v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.6.2
+	sigs.k8s.io/controller-runtime v0.6.3
 )
 
 replace (

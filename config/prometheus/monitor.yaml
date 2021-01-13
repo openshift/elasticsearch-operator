@@ -4,13 +4,14 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   labels:
-    control-plane: controller-manager
-  name: controller-manager-metrics-monitor
-  namespace: system
+    name: elasticsearch-operator
+  name: elasticsearch-operator-metrics-monitor
 spec:
   endpoints:
     - path: /metrics
-      port: https
+      port: http
+      scheme: http
+      interval: 1s
   selector:
     matchLabels:
-      control-plane: controller-manager
+      name: elasticsearch-operator

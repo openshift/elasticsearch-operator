@@ -9,17 +9,15 @@ import (
 	"github.com/google/go-cmp/cmp"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
-
-	"github.com/operator-framework/operator-sdk/pkg/test"
-	"github.com/operator-framework/operator-sdk/pkg/test/e2eutil"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestElasticsearchCluster(t *testing.T) {
-	registerSchemes(t)
+	setupK8sClient(t)
 	t.Run("Single node", singleNodeTest)
 	t.Run("Multiple nodes", multipleNodesTest)
 	t.Run("Scale up nodes", scaleUpNodesTest)
@@ -30,19 +28,13 @@ func TestElasticsearchCluster(t *testing.T) {
 }
 
 func singleNodeTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
+	namespace := operatorNamespace
 	t.Logf("Found namespace: %v", namespace)
 
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -50,36 +42,41 @@ func singleNodeTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with a single node with client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 1)
+	_, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 1)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, namespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, namespace, esUUID)
+	t.Log("SingleNodeTest finished successfully")
+}
+
+func cleanupEsTest(t *testing.T, cli client.Client, namespace string, esUUID string) {
+	esSecret := &corev1.Secret{}
+	key := types.NamespacedName{Name: elasticsearchNameFor(esUUID), Namespace: namespace}
+	err := waitForDeleteObject(t, cli, key, esSecret, retryInterval, timeout)
+	if err != nil {
+		t.Errorf("cannot remove es secret: %v", err)
+	}
+
+	es := &loggingv1.Elasticsearch{}
+	err = waitForDeleteObject(t, cli, key, es, retryInterval, timeout)
+	if err != nil {
+		t.Errorf("cannot remove elasticsearch CR: %v", err)
+	}
 }
 
 func multipleNodesTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Found namespace: %v", namespace)
-
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -87,42 +84,32 @@ func multipleNodesTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with two nodes sharing client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 2)
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 2)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("MultipleNodesTest finished successfully")
 }
 
 func scaleUpNodesTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Found namespace: %v", namespace)
-
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -130,13 +117,13 @@ func scaleUpNodesTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with one node sharing client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 1)
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 1)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
@@ -144,41 +131,31 @@ func scaleUpNodesTest(t *testing.T) {
 	t.Log("Adding a new data node")
 	cr.Spec.Nodes[0].NodeCount = int32(2)
 
-	if err := updateElasticsearchSpec(t, f, cr); err != nil {
+	if err := updateElasticsearchSpec(t, k8sClient, cr); err != nil {
 		t.Fatalf("could not update elasticsearch CR with an additional data node: %v", err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("ScaleUpNodesTest finished successfully")
 }
 
 func multipleNodesWithNonDataNodeTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Found namespace: %v", namespace)
-
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -186,19 +163,19 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with two nodes sharing client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 2)
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 2)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
@@ -223,36 +200,26 @@ func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	t.Log("Adding non-data node")
 	cr.Spec.Nodes = append(cr.Spec.Nodes, esNonDataNode)
 
-	if err := updateElasticsearchSpec(t, f, cr); err != nil {
+	if err := updateElasticsearchSpec(t, k8sClient, cr); err != nil {
 		t.Fatalf("could not update elasticsearch CR with an additional non-data node: %v", err)
 	}
 
 	statefulSetName := fmt.Sprintf("elasticsearch-%v-cm-%v", esUUID, nonDataUUID)
-	err = utils.WaitForStatefulset(t, f.KubeClient, namespace, statefulSetName, 1, retryInterval, timeout)
+	err = utils.WaitForStatefulset(t, k8sClient, operatorNamespace, statefulSetName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for non-data node %v: %v", statefulSetName, err)
 	}
 	t.Log("Created non-data statefulset")
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("MultipleNodesWithNonDataNode test finished successfully")
 }
 
 func fullClusterRedeployTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Found namespace: %v", namespace)
-
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -260,19 +227,19 @@ func fullClusterRedeployTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with two nodes sharing client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 2)
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 2)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
@@ -282,7 +249,7 @@ func fullClusterRedeployTest(t *testing.T) {
 		"component":    "elasticsearch",
 	}
 
-	initialPods, err := utils.WaitForPods(t, f, namespace, matchingLabels, retryInterval, timeout)
+	initialPods, err := utils.WaitForPods(t, k8sClient, operatorNamespace, matchingLabels, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("failed to wait for pods: %v", err)
 	}
@@ -297,12 +264,12 @@ func fullClusterRedeployTest(t *testing.T) {
 	cr.Spec.RedundancyPolicy = loggingv1.SingleRedundancy
 
 	t.Logf("Updating redundancy policy to %v", cr.Spec.RedundancyPolicy)
-	if err := updateElasticsearchSpec(t, f, cr); err != nil {
+	if err := updateElasticsearchSpec(t, k8sClient, cr); err != nil {
 		t.Fatalf("could not update elasticsearch CR to be SingleRedundancy: %v", err)
 	}
 
 	// Update the secret to force a full cluster redeploy
-	err = updateElasticsearchSecret(t, f, ctx, esUUID)
+	err = updateElasticsearchSecret(t, k8sClient, esUUID)
 	if err != nil {
 		t.Fatalf("Unable to update secret")
 	}
@@ -314,18 +281,18 @@ func fullClusterRedeployTest(t *testing.T) {
 	redeployTimeout := time.Second * 600
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, redeployTimeout)
+	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, redeployTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, redeployTimeout)
+	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, redeployTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
 
-	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, 2, retryInterval, redeployTimeout)
+	pods, err := utils.WaitForRolloutComplete(t, k8sClient, operatorNamespace, matchingLabels, initPodNames, 2, retryInterval, redeployTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,25 +307,15 @@ func fullClusterRedeployTest(t *testing.T) {
 		t.Fatalf("No matching pods found for labels: %#v", matchingLabels)
 	}
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("fullClusterRedeploy test finished successfully")
 }
 
 func rollingRestartTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Found namespace: %v", namespace)
-
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -366,19 +323,19 @@ func rollingRestartTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with two nodes sharing client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 2)
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 2)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = e2eutil.WaitForDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, timeout)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
 	}
@@ -388,7 +345,7 @@ func rollingRestartTest(t *testing.T) {
 		"component":    "elasticsearch",
 	}
 
-	initialPods, err := utils.WaitForPods(t, f, namespace, matchingLabels, retryInterval, timeout)
+	initialPods, err := utils.WaitForPods(t, k8sClient, operatorNamespace, matchingLabels, retryInterval, timeout)
 	if err != nil {
 		t.Fatalf("failed to wait for pods: %v", err)
 	}
@@ -419,7 +376,7 @@ func rollingRestartTest(t *testing.T) {
 	t.Logf("Updating from %s to %s", oldMemValue.String(), memValue.String())
 
 	cr.Spec.Spec.Resources = desiredResources
-	if err := updateElasticsearchSpec(t, f, cr); err != nil {
+	if err := updateElasticsearchSpec(t, k8sClient, cr); err != nil {
 		t.Fatalf("could not update elasticsearch CR to be SingleRedundancy: %v", err)
 	}
 
@@ -429,18 +386,18 @@ func rollingRestartTest(t *testing.T) {
 	restartTimeout := time.Second * 600
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
-	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, restartTimeout)
+	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, restartTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for first ready node deployment  %v: %v", dplName, err)
 	}
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
-	err = utils.WaitForReadyDeployment(t, f.KubeClient, namespace, dplName, 1, retryInterval, restartTimeout)
+	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, restartTimeout)
 	if err != nil {
 		t.Fatalf("timed out waiting for second ready node deployment %v: %v", dplName, err)
 	}
 
-	pods, err := utils.WaitForRolloutComplete(t, f, namespace, matchingLabels, initPodNames, 2, retryInterval, restartTimeout)
+	pods, err := utils.WaitForRolloutComplete(t, k8sClient, operatorNamespace, matchingLabels, initPodNames, 2, retryInterval, restartTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,25 +418,15 @@ func rollingRestartTest(t *testing.T) {
 		}
 	}
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("RollingRestart test finished successfully")
 }
 
 func invalidMasterCountTest(t *testing.T) {
-	f := test.Global
-
-	ctx := test.NewContext(t)
-	namespace, err := ctx.GetWatchNamespace()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Found namespace: %v", namespace)
-
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err = createElasticsearchSecret(t, f, ctx, esUUID); err != nil {
+	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -487,13 +434,13 @@ func invalidMasterCountTest(t *testing.T) {
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
 	// Create CR with invalid case: four nodes all sharing client, data and master roles
-	cr, err := createElasticsearchCR(t, f, ctx, esUUID, dataUUID, 4)
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 4)
 	if err != nil {
 		t.Fatalf("could not create exampleElasticsearch: %v", err)
 	}
 
 	key := client.ObjectKey{Name: cr.GetName(), Namespace: cr.GetNamespace()}
-	if err := f.Client.Get(context.TODO(), key, cr); err != nil {
+	if err := k8sClient.Get(context.TODO(), key, cr); err != nil {
 		t.Fatalf("failed to get updated CR: %s", key)
 	}
 
@@ -506,7 +453,6 @@ func invalidMasterCountTest(t *testing.T) {
 		}
 	}
 
-	ctx.Cleanup()
-	_ = e2eutil.WaitForDeletion(t, f.Client.Client, cr, cleanupRetryInterval, cleanupTimeout)
-	t.Log("Finished successfully")
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("invalidMasterCount test finished successfully")
 }
