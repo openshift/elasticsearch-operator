@@ -26,35 +26,6 @@ type migrationRequest struct {
 }
 
 func (mr *migrationRequest) RunKibanaMigrations() error {
-	if index, _ := mr.esClient.GetIndex(kibanaIndex); index == nil {
-		return nil
-	}
-
-	indices, err := mr.esClient.GetAllIndices(kibanaIndex)
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get indices before running migrations",
-			"alias", kibanaIndex,
-		)
-	}
-
-	health, err := getIndexHealth(indices, kibanaIndex)
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get index health before running migrations",
-			"index", kibanaIndex)
-	}
-
-	if health != "green" && health != "yellow" {
-		return kverrors.New("waiting for index recovery before running migrations",
-			"current_status", health,
-			"desired_status", "green/yellow",
-			"index", kibanaIndex)
-	}
-
-	if err := mr.reIndexKibana5to6(); err != nil {
-		return kverrors.Wrap(err, "failed to reindex",
-			"from", kibanaIndex,
-			"to", kibana6Index)
-	}
 	return nil
 }
 
