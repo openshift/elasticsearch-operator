@@ -15,6 +15,9 @@ tests:
       - series: 'es_process_cpu_percent{cluster="elasticsearch", instance="localhost:9090", node="elasticsearch-cdm-1"}'
         values: '10+10x8 95+0x100' # 10 20 30 40 50 60 70 80 90 -- 95 (100x)
 
+      - series: 'csv_succeeded{name="elasticsearch-operator.currentversion-builddate"}'
+        values: '0+0x10 1+0x90' # flag as unsuccessful for 10 tics and then flag as successful for the rest
+
       # Rejected indexing requests simulation (note: this simulation also verifies all recording rules)
         # Number of rejected write requests grows at constant pace for 10 minutes
         # and then we repeat this patterns again. This gives us two 10m segments of the series to test on.
@@ -60,7 +63,7 @@ tests:
               message: "Cluster elasticsearch health status has been YELLOW for at least 20m. Some shard replicas are not allocated. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Healthy-is-Yellow"
 
       # --------- ElasticsearchClusterNotHealthy (red) ---------
-      - eval_time: 33m
+      - eval_time: 38m
         alertname: ElasticsearchClusterNotHealthy
         exp_alerts:
           - exp_labels:
@@ -68,7 +71,7 @@ tests:
               severity: critical
             exp_annotations:
               summary: "Cluster health status is RED"
-              message: "Cluster elasticsearch health status has been RED for at least 2m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Health-is-Red"
+              message: "Cluster elasticsearch health status has been RED for at least 7m. Cluster does not accept writes, shards may be missing or master node hasn't been elected yet. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md.md#Elasticsearch-Cluster-Health-is-Red"
 
       # --------- ElasticsearchWriteRequestsRejectionJumps ---------
       # Within the first 10m the percent of rejected requests is = 5% (the alert require > 5%)
@@ -141,4 +144,15 @@ tests:
       - eval_time: 5m
         alertname: ElasticsearchProcessCPUHigh
         exp_alerts:
+
+      # --------- ElasticsearchCSVNotSuccessful ---------
+      - eval_time: 10m
+        alertname: ElasticsearchOperatorCSVNotSuccessful
+        exp_alerts:
+          - exp_labels:
+              name: elasticsearch-operator.currentversion-builddate
+              severity: warning
+            exp_annotations:
+              summary: "Elasticsearch Operator CSV Not Successful"
+              message: "Elasticsearch Operator CSV has not reconciled succesfully."
 
