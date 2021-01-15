@@ -27,6 +27,11 @@ $(GO_JUNIT_REPORT): .bingo/go-junit-report.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/go-junit-report-v0.9.1"
 	@cd .bingo && $(GO) build -mod=mod -modfile=go-junit-report.mod -o=$(GOBIN)/go-junit-report-v0.9.1 "github.com/jstemmer/go-junit-report"
+CONTROLLER_GEN := $(GOBIN)/controller-gen-v0.3.0
+$(CONTROLLER_GEN): .bingo/controller-gen.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/controller-gen-v0.3.0"
+	@cd .bingo && $(GO) build -mod=mod -modfile=controller-gen.mod -o=$(GOBIN)/controller-gen-v0.3.0 "sigs.k8s.io/controller-tools/cmd/controller-gen"
 
 GOFUMPORTS := $(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6
 $(GOFUMPORTS): .bingo/gofumports.mod
@@ -52,11 +57,17 @@ $(JUNITREPORT): .bingo/junitreport.mod
 	@echo "(re)installing $(GOBIN)/junitreport-v0.0.0-20201103082000-d8009dcf7503"
 	@cd .bingo && $(GO) build -mod=mod -modfile=junitreport.mod -o=$(GOBIN)/junitreport-v0.0.0-20201103082000-d8009dcf7503 "github.com/openshift/release/tools/junitreport"
 
-OPERATOR_SDK := $(GOBIN)/operator-sdk-v0.18.2
+KUSTOMIZE := $(GOBIN)/kustomize-v3.5.4
+$(KUSTOMIZE): .bingo/kustomize.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/kustomize-v3.5.4"
+	@cd .bingo && $(GO) build -mod=mod -modfile=kustomize.mod -o=$(GOBIN)/kustomize-v3.5.4 "sigs.k8s.io/kustomize/kustomize/v3"
+
+OPERATOR_SDK := $(GOBIN)/operator-sdk-v1.1.0
 $(OPERATOR_SDK): .bingo/operator-sdk.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/operator-sdk-v0.18.2"
-	@cd .bingo && $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v0.18.2 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
+	@echo "(re)installing $(GOBIN)/operator-sdk-v1.1.0"
+	@cd .bingo && $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v1.1.0 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
 
 OPM := $(GOBIN)/opm-v1.13.6
 $(OPM): .bingo/opm.mod

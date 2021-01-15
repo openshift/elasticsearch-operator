@@ -11,7 +11,7 @@ import (
 	"github.com/ViaQ/logerr/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	loggingv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 
 	"github.com/operator-framework/operator-sdk/pkg/test"
@@ -93,7 +93,7 @@ func createElasticsearchCR(t *testing.T, f *test.Framework, ctx *test.Context, e
 	cr := &loggingv1.Elasticsearch{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Elasticsearch",
-			APIVersion: loggingv1.SchemeGroupVersion.String(),
+			APIVersion: loggingv1.GroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      elasticsearchNameFor(esUUID),

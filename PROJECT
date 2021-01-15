@@ -1,0 +1,15 @@
+domain: openshift.io
+layout: go.kubebuilder.io/v2
+repo: github.com/openshift/elasticsearch-operator
+resources:
+- group: logging
+  kind: Elasticsearch
+  version: v1
+- group: logging
+  kind: Kibana
+  version: v1
+multigroup: true
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}
+projectName: elasticsearch-operator

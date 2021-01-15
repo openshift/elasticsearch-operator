@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
