@@ -45,7 +45,7 @@ func TestCreateIndexTemplate(t *testing.T) {
 				Body:       ioutil.NopCloser(bytes.NewBufferString(`{}`)),
 			},
 			want: kverrors.NewContext(
-				"namespace", "namespace", "cluster", "testcluster").New("failed to create Index Template", "response_status", 500, "response_body", "{}", "response_error", "[500 Internal Server Error] "),
+				"namespace", "namespace", "cluster", "testcluster").New("Failed to create Index Template", "response_status", 500, "response_body", "{}", "response_error", "[500 Internal Server Error] "),
 		},
 	}
 
@@ -156,7 +156,12 @@ func TestListTemplates(t *testing.T) {
 }
 
 func TestGetIndexTemplates(t *testing.T) {
+	emptyTemplate := make(map[string]estypes.GetIndexTemplate)
 	template := make(map[string]estypes.GetIndexTemplate)
+	var indexTemplate estypes.GetIndexTemplate
+	indexTemplate.Order = 0
+	indexTemplate.IndexPatterns = append(indexTemplate.IndexPatterns, ".ml-notifications")
+	template[".ml-notifications"] = indexTemplate
 	tests := []struct {
 		desc         string
 		clusterName  string
@@ -165,16 +170,16 @@ func TestGetIndexTemplates(t *testing.T) {
 		fakeError    error
 		want         map[string]estypes.GetIndexTemplate
 	}{
-		/*{
+		{
 			desc:        "Get Index Templates",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
 				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(`{".ml-notifications":{"order":0,"version":6081299,"index_patterns":[".ml-notifications"],"settings":{"index":{"number_of_shards":"1","auto_expand_replicas":"0-1","unassigned":{"node_left":{"delayed_timeout":"1m"}}}},"mappings":{},"aliases":{}}}`)),
+				Body:       ioutil.NopCloser(bytes.NewBufferString(`{".ml-notifications":{"order":0,"version":6081299,"index_patterns":[".ml-notifications"],"settings":{"index":{"number_of_shards":"","unassigned":{"node_left":{"delayed_timeout":""}}}}}}`)),
 			},
-			want: "{\"order\":0,\"index_patterns\":[\".ml-notifications\"],\"settings\":{\"index\":{\"number_of_shards\":\"1\",\"refresh_interval\":\"\",\"auto_expand_replicas\":\"0-1\",\"unassigned\":{\"node_left\":{\"delayed_timeout\":\"1m\"}}}, \"translog\" : {\"FlushThresholdSize\" : \"\"},\"mappings\":{},\"aliases\":{}}",
-		},*/
+			want: template,
+		},
 
 		{
 			desc:        "Get Index Template 500 error",
@@ -184,7 +189,7 @@ func TestGetIndexTemplates(t *testing.T) {
 				StatusCode: 500,
 				Body:       ioutil.NopCloser(bytes.NewBufferString(`{}`)),
 			},
-			want: template,
+			want: emptyTemplate,
 		},
 	}
 
@@ -209,7 +214,7 @@ func TestUpdateTemplatePrimaryShards(t *testing.T) {
 		namespace    string
 		fakeResponse *http.Response
 		fakeError    error
-		want         string
+		want         error
 	}{
 		{
 			desc:        "Update Template PrimaryShards test",
@@ -217,29 +222,9 @@ func TestUpdateTemplatePrimaryShards(t *testing.T) {
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
 				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(`{"defaults":  {"cluster" : {"routing" : {"allocation" : {"enable": "all"}}}}}`)),
+				Body:       ioutil.NopCloser(bytes.NewBufferString(`{".ml-notifications":{"order":0,"version":6081299,"index_patterns":[".ml-notifications"],"settings":{"index":{"number_of_shards":"1","auto_expand_replicas":"0-1","unassigned":{"node_left":{"delayed_timeout":"1m"}}}},"mappings":{},"aliases":{}}}`)),
 			},
-			want: "all",
-		},
-		{
-			desc:        "persistent none",
-			clusterName: "testcluster",
-			namespace:   "namespace",
-			fakeResponse: &http.Response{
-				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(`{"persistent":  {"cluster" : {"routing" : {"allocation" : {"enable": "none"}}}}}`)),
-			},
-			want: "none",
-		},
-		{
-			desc:        "transient empty",
-			clusterName: "testcluster",
-			namespace:   "namespace",
-			fakeResponse: &http.Response{
-				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(`{}`)),
-			},
-			want: "",
+			want: nil,
 		},
 	}
 
@@ -248,10 +233,8 @@ func TestUpdateTemplatePrimaryShards(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 			esClient := getFakeESClient(test.clusterName, test.namespace, test.fakeResponse, test.fakeError)
-			got, err := esClient.GetShardAllocation()
-			if err != nil {
-				t.Errorf("got err: %s", err)
-			}
+			got := esClient.UpdateTemplatePrimaryShards(5)
+
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("got %#v, want %#v", got, test.want)
 			}

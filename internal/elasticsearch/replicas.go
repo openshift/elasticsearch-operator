@@ -7,9 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-
-	"github.com/ViaQ/logerr/log"
-	"github.com/tidwall/gjson"
 )
 
 // This will idempotently update the index templates and update indices' replica count
@@ -60,7 +57,7 @@ func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
 func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 
 	es := ec.eoclient
-	res, err := es.Indices.GetSettings(es.Indices.GetSettings.WithFilterPath("index.number_of_replicas"), es.Indices.GetSettings.WithPretty())
+	res, err := es.Indices.GetSettings(es.Indices.GetSettings.WithName("index.number_of_replicas"), es.Indices.GetSettings.WithPretty())
 
 	if err != nil {
 		return nil, err
@@ -75,7 +72,13 @@ func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 	}
 
 	body, _ := ioutil.ReadAll(res.Body)
+	jsonStr := string(body)
 	m := make(map[string]interface{})
+
+	if jsonStr == "" {
+		return m, nil
+	}
+
 	err = json.Unmarshal(body, &m)
 
 	if err != nil {
@@ -95,21 +98,18 @@ func (ec *esClient) updateIndexReplicas(index string, replicaCount int32) (bool,
 		return false, err
 	}
 	defer res.Body.Close()
-
+	acknowledged := false
 	if res.IsError() || res.StatusCode != http.StatusOK {
 		return false, ec.errorCtx().New("failed to update Index replicas",
 			"response_error", res.String,
 			"response_status", res.StatusCode,
 			"response_body", res.Body)
+	} else {
+		acknowledged = true
 	}
-	acknowledged := false
-
-	resBody, _ := ioutil.ReadAll(res.Body)
-	jsonStr := string(resBody)
-	acknowledged = gjson.Get(jsonStr, "acknowledged").Bool()
 
 	if !acknowledged {
-		log.Error(nil, "failed to update Index replicas", "cluster", ec.cluster, "namespace", ec.namespace)
+		return false, fmt.Errorf("failed to update Index replicas %s  cluster in %s namespace", ec.cluster, ec.namespace)
 	}
 	return true, nil
 }

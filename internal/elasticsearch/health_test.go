@@ -32,7 +32,7 @@ func TestGetClusterHealth(t *testing.T) {
 		want         api.ClusterHealth
 	}{
 		{
-			desc:        "Cluster Health",
+			desc:        "Get cluster health",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
@@ -70,7 +70,7 @@ func TestGetClusterHealthStatus(t *testing.T) {
 		want         string
 	}{
 		{
-			desc:        "Cluster Health Status",
+			desc:        "Get cluster health status yellow",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
@@ -80,7 +80,7 @@ func TestGetClusterHealthStatus(t *testing.T) {
 			want: "yellow",
 		},
 		{
-			desc:        "Cluster Health",
+			desc:        "Get cluster health status empty",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
@@ -118,7 +118,7 @@ func TestGetClusterHealthNodes(t *testing.T) {
 		want         int32
 	}{
 		{
-			desc:        "Cluster Health Nodes",
+			desc:        "Get cluster health 5 nodes",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
@@ -128,7 +128,7 @@ func TestGetClusterHealthNodes(t *testing.T) {
 			want: 5,
 		},
 		{
-			desc:        "Cluster Health Nodes",
+			desc:        "Get cluster health 0 nodes",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{

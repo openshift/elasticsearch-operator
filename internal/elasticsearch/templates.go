@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
-	"github.com/ViaQ/logerr/log"
+	//"github.com/ViaQ/logerr/log"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
-	"github.com/tidwall/gjson"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -83,7 +83,7 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 	body, _ := ioutil.ReadAll(res.Body)
 	m := make(map[string]interface{})
 	err = json.Unmarshal(body, &m)
-	log.Error(err, "error")
+	//log.Error(err, "error")
 
 	if err != nil {
 		return response, err
@@ -95,10 +95,11 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 }
 
 func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, error) {
-	pattern := "*"
+	pattern := "common.*"
 	es := ec.eoclient
 	res, err := es.Indices.GetTemplate(es.Indices.GetTemplate.WithName(pattern))
 	templates := map[string]estypes.GetIndexTemplate{}
+
 	if err != nil {
 		return templates, err
 	}
@@ -113,6 +114,7 @@ func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, er
 			"response_status", res.StatusCode,
 			"response_body", errorMsg)
 	}
+
 	body, _ := ioutil.ReadAll(res.Body)
 	err = json.Unmarshal(body, &templates)
 
@@ -149,7 +151,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 				return false, err
 			}
 			defer res.Body.Close()
-
+			acknowledged := false
 			if res.IsError() || res.StatusCode != http.StatusOK {
 				resBody, _ := ioutil.ReadAll(res.Body)
 				errorMsg := string(resBody)
@@ -157,17 +159,12 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 					"response_error", res.String(),
 					"response_status", res.StatusCode,
 					"response_body", errorMsg)
+			} else {
+				acknowledged = true
 			}
 
-			acknowledged := false
-
-			resBody, _ := ioutil.ReadAll(res.Body)
-			jsonStr := string(resBody)
-			acknowledged = gjson.Get(jsonStr, "acknowledged").Bool()
-
 			if !acknowledged {
-				log.Error(nil, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
-				return false, nil
+				return false, fmt.Errorf("Unable to update template for cluster: %s  namespace: %s template: %s", ec.cluster, ec.namespace, templateName)
 			}
 		}
 	}
@@ -180,6 +177,7 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 
 	es := ec.eoclient
 	indexTemplates, err := ec.GetIndexTemplates()
+
 	if err != nil {
 		return err
 	}
@@ -193,19 +191,20 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 			template.Settings.Index.NumberOfShards = shardString
 
 			templateJSON, err := json.Marshal(template)
-			//resBody, _ := ioutil.ReadAll(templateJSON)
-			//jsonStr := string(resBody)
-			log.Info("converting", templateJSON)
+			jsonStr := string(templateJSON)
+
 			if err != nil {
 				return err
 			}
 
-			body := bytes.NewReader(templateJSON)
+			//body := bytes.NewReader(templateJSON)
+			body := strings.NewReader(jsonStr)
 			res, err := es.Indices.PutTemplate(templateName, body, es.Indices.PutTemplate.WithPretty())
 
 			if err != nil {
 				return err
 			}
+			acknowledged := false
 			defer res.Body.Close()
 
 			if res.IsError() || res.StatusCode != http.StatusOK {
@@ -215,13 +214,9 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 					"response_error", res.String(),
 					"response_status", res.StatusCode,
 					"response_body", errorMsg)
+			} else {
+				acknowledged = true
 			}
-
-			acknowledged := false
-
-			resBody, _ := ioutil.ReadAll(res.Body)
-			jsonStr := string(resBody)
-			acknowledged = gjson.Get(jsonStr, "acknowledged").Bool()
 
 			if !acknowledged {
 				return fmt.Errorf("Failed to Update Template Shards for cluster: %s  namespace: %s template: %s", ec.cluster, ec.namespace, templateName)

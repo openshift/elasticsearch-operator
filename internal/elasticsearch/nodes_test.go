@@ -19,7 +19,7 @@ func TestGetNodeDiskUsage(t *testing.T) {
 		want         float64
 	}{
 		{
-			desc:        "Get Details of Index",
+			desc:        "Get Node Disk Usuage",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{

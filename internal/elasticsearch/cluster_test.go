@@ -180,7 +180,6 @@ func TestGetDiskWatermarks(t *testing.T) {
 				StatusCode: 200,
 				Body:       ioutil.NopCloser(bytes.NewBufferString(`{"defaults":  {"cluster" : {"routing" : {"allocation" : {"disk": {"watermark": {"low": "35.5b"}}}}}}}`)),
 			},
-			//want: []string{"35.5", ""},
 			wantLow: "35.5",
 		},
 		{
@@ -266,7 +265,7 @@ func TestGetMinMasterNodes(t *testing.T) {
 	}{
 
 		{
-			desc:        "multiple version",
+			desc:        "Get min master nodes",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
@@ -305,7 +304,7 @@ func TestSetMinMasterNodes(t *testing.T) {
 	}{
 
 		{
-			desc:        "multiple version",
+			desc:        "Set min master nodes true",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
@@ -315,7 +314,7 @@ func TestSetMinMasterNodes(t *testing.T) {
 			want: true,
 		},
 		{
-			desc:        "multiple version",
+			desc:        "Set min master nodes false",
 			clusterName: "testcluster",
 			namespace:   "namespace",
 			fakeResponse: &http.Response{

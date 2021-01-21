@@ -29,12 +29,9 @@ func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
 	}
 	body, _ := ioutil.ReadAll(res.Body)
 	jsonStr := string(body)
-	//log.Info(jsonStr)
 	result := gjson.Get(jsonStr, name).Raw
 	index := &estypes.Index{}
 	err = json.Unmarshal([]byte(result), index)
-	//out, err := json.Marshal(index)
-	//log.Info(string(out))
 
 	if err != nil {
 		return nil, kverrors.Wrap(err, "failed decoding raw response body into `estypes.Index`",
@@ -280,15 +277,9 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error
 		return nil, fmt.Errorf("ERROR: %s: %s", res.Status(), res)
 	}
 	body, _ := ioutil.ReadAll(res.Body)
-	jsonStr := string(body)
-	log.Info(jsonStr)
-	//result := gjson.Get(jsonStr, name).Raw
+
 	settings := &estypes.IndexSettings{}
 	err = json.Unmarshal(body, settings)
-
-	/*body, _ := ioutil.ReadAll(res.Body)
-	settings := &estypes.IndexSettings{}
-	err = json.Unmarshal(body, settings)*/
 	if err != nil {
 		return nil, kverrors.Wrap(err, "failed to decode response body",
 			"destination_type", "estypes.IndexSettings",

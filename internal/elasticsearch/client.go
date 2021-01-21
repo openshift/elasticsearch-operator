@@ -16,6 +16,7 @@ import (
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"k8s.io/apimachinery/pkg/util/sets"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -83,6 +84,7 @@ type esClient struct {
 	cluster   string
 	namespace string
 	eoclient  elasticsearch6.Client
+	k8client  k8sclient.Client
 }
 
 // NewClient Getting new client
@@ -91,6 +93,18 @@ func NewClient(cluster, namespace string, client elasticsearch6.Client) Client {
 		cluster:   cluster,
 		namespace: namespace,
 		eoclient:  client,
+	}
+}
+
+// NewClient Getting new client
+func NewK8Client(cluster, namespace string, client k8sclient.Client) Client {
+	esclient6 := elasticsearch6.Client{}
+
+	return &esClient{
+		cluster:   cluster,
+		namespace: namespace,
+		k8client:  client,
+		eoclient:  esclient6,
 	}
 }
 

@@ -3,6 +3,7 @@ package elasticsearch
 import (
 	"io/ioutil"
 	"log"
+	"net/http"
 
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/tidwall/gjson"
@@ -20,8 +21,14 @@ func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {
 
 	}
 	defer res.Body.Close()
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return clusterHealth, ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)
@@ -50,8 +57,14 @@ func (ec *esClient) GetClusterHealthStatus() (string, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return status, ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)
@@ -71,8 +84,14 @@ func (ec *esClient) GetClusterNodeCount() (int32, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return nodeCount, ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)

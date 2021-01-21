@@ -49,44 +49,6 @@ func TestGetIndex(t *testing.T) {
 		})
 	}
 }
-func TestGetAllIndices(t *testing.T) {
-
-	tests := []struct {
-		desc         string
-		clusterName  string
-		namespace    string
-		fakeResponse *http.Response
-		fakeError    error
-		want         int
-	}{
-		{
-			desc:        "Get Details of All Indices",
-			clusterName: "testcluster",
-			namespace:   "namespace",
-			fakeResponse: &http.Response{
-				StatusCode: 200,
-				Body: ioutil.NopCloser(bytes.NewBufferString(`[{"health" : "yellow","status" : "open","index" : "test","uuid" : "4aCsuyn6SbGTDWwd7Ypwrw","pri" : "5","rep" : "1","docs.count" : "1","docs.deleted" : "0","store.size" : "4.4kb","pri.store.size" : "4.4kb"}]
-				`)),
-			},
-			want: 1,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.desc, func(t *testing.T) {
-			t.Parallel()
-			esClient := getFakeESClient(test.clusterName, test.namespace, test.fakeResponse, test.fakeError)
-			got, err := esClient.GetAllIndices("test")
-			if err != nil {
-				t.Errorf("got err: %s", err)
-			}
-			if !reflect.DeepEqual(len(got), test.want) {
-				t.Errorf("got %#v, want %#v", len(got), test.want)
-			}
-		})
-	}
-}
 
 func TestCreateIndex(t *testing.T) {
 
@@ -162,6 +124,46 @@ func TestReIndex(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAllIndices(t *testing.T) {
+
+	tests := []struct {
+		desc         string
+		clusterName  string
+		namespace    string
+		fakeResponse *http.Response
+		fakeError    error
+		want         int
+	}{
+		{
+			desc:        "Get Details of All Indices",
+			clusterName: "testcluster",
+			namespace:   "namespace",
+			fakeResponse: &http.Response{
+				StatusCode: 200,
+				Body: ioutil.NopCloser(bytes.NewBufferString(`[{"health" : "yellow","status" : "open","index" : "test","uuid" : "4aCsuyn6SbGTDWwd7Ypwrw","pri" : "5","rep" : "1","docs.count" : "1","docs.deleted" : "0","store.size" : "4.4kb","pri.store.size" : "4.4kb"}]
+				`)),
+			},
+			want: 1,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.desc, func(t *testing.T) {
+			t.Parallel()
+			esClient := getFakeESClient(test.clusterName, test.namespace, test.fakeResponse, test.fakeError)
+			got, err := esClient.GetAllIndices("test")
+			if err != nil {
+				t.Errorf("got err: %s", err)
+			}
+			if !reflect.DeepEqual(len(got), test.want) {
+				t.Errorf("got %#v, want %#v", len(got), test.want)
+			}
+		})
+	}
+}
+
 func TestListAllAliases(t *testing.T) {
 
 	tests := []struct {
@@ -273,6 +275,82 @@ func TestGetIndexSettings(t *testing.T) {
 			if err != nil {
 				t.Errorf("got err: %s", err)
 			}
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("got %#v, want %#v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestUpdateIndexSettings(t *testing.T) {
+
+	var setting estypes.IndexSettings
+	setting.NumberOfReplicas = 10
+	setting.NumberOfShards = 5
+
+	tests := []struct {
+		desc         string
+		clusterName  string
+		namespace    string
+		fakeResponse *http.Response
+		fakeError    error
+		want         error
+	}{
+		{
+			desc:        "Update Index Setting",
+			clusterName: "testcluster",
+			namespace:   "namespace",
+			fakeResponse: &http.Response{
+				StatusCode: 200,
+				Body:       ioutil.NopCloser(bytes.NewBufferString(`{}`)),
+			},
+			want: nil,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.desc, func(t *testing.T) {
+			t.Parallel()
+			esClient := getFakeESClient(test.clusterName, test.namespace, test.fakeResponse, test.fakeError)
+			got := esClient.UpdateIndexSettings("test", &setting)
+
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("got %#v, want %#v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAddAliasForOldIndices(t *testing.T) {
+
+	tests := []struct {
+		desc         string
+		clusterName  string
+		namespace    string
+		fakeResponse *http.Response
+		fakeError    error
+		want         bool
+	}{
+		{
+			desc:        "Add Alias for old Indices",
+			clusterName: "testcluster",
+			namespace:   "namespace",
+			fakeResponse: &http.Response{
+				StatusCode: 200,
+				Body:       ioutil.NopCloser(bytes.NewBufferString(`{"aliases":{},"mappings":{},"settings":{"index":{"number_of_shards":"3","number_of_replicas":"2"}}}`)),
+			},
+			want: false,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.desc, func(t *testing.T) {
+			t.Parallel()
+			esClient := getFakeESClient(test.clusterName, test.namespace, test.fakeResponse, test.fakeError)
+			got := esClient.AddAliasForOldIndices()
+
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("got %#v, want %#v", got, test.want)
 			}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -19,13 +20,18 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 
 	if err != nil {
 		return nil, err
-		//log.Fatalf("Error getting the cluster response: %s\n", err)
 	}
 	defer res.Body.Close()
 	var nodeVersions []string
 
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return nil, ec.errorCtx().New("Failed to Get Cluster Node Version",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)
@@ -36,7 +42,7 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 		}
 
 		if err != nil {
-			log.Fatalf("Error getting the cluster response: %s\n", err)
+			return nil, fmt.Errorf("ERROR: %s", err)
 		}
 	}
 	return nodeVersions, nil
@@ -52,9 +58,14 @@ func (ec *esClient) GetThresholdEnabled() (bool, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
-		return false, fmt.Errorf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return false, ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	}
 
 	var enabled gjson.Result
@@ -72,13 +83,11 @@ func (ec *esClient) GetThresholdEnabled() (bool, error) {
 	if value := gjson.Get(jsonStr, "transient.cluster.routing.allocation.disk.threshold_enabled"); value.Type != gjson.Null {
 		enabled = value
 	}
-
-	//enabledBool := false
 	if enabled.Type == gjson.Null || enabled.Type == gjson.False {
 		return false, nil
 	}
 
-	return true, nil
+	return enabled.Bool(), nil
 }
 
 func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
@@ -93,8 +102,14 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return low, high, ec.errorCtx().New("Failed to Get Disk Water Marks",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)
@@ -164,13 +179,18 @@ func (ec *esClient) GetMinMasterNodes() (int32, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		return masterCount, fmt.Errorf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return masterCount, ec.errorCtx().New("Failed to Get Min Master Nodes",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	}
 
 	body, _ := ioutil.ReadAll(res.Body)
 	jsonStr := string(body)
-	log.Println(jsonStr)
 
 	if value := gjson.Get(jsonStr,
 		"persistent.discovery.zen.minimum_master_nodes"); value.Type != gjson.Null {
@@ -194,14 +214,19 @@ func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		return false, fmt.Errorf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return false, ec.errorCtx().New("Failed to Set Min Master Nodes",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	}
 
 	acknowledged := false
 	resBody, _ := ioutil.ReadAll(res.Body)
 	jsonStr := string(resBody)
-	log.Println(jsonStr)
 
 	if value := gjson.Get(jsonStr,
 		"acknowledged"); value.Type != gjson.Null {
@@ -221,9 +246,14 @@ func (ec *esClient) GetLowestClusterVersion() (string, error) {
 		return "", err
 	}
 	defer res.Body.Close()
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
-		return "", nil
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return "", ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	}
 	body, _ := ioutil.ReadAll(res.Body)
 	jsonStr := string(body)
@@ -253,9 +283,14 @@ func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {
 		return false, err
 	}
 	defer res.Body.Close()
-	if res.IsError() {
-		log.Printf("ERROR: %s: %s", res.Status(), res)
-		return false, nil
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return false, ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	}
 	body, _ := ioutil.ReadAll(res.Body)
 	jsonStr := string(body)
@@ -281,8 +316,14 @@ func (ec *esClient) DoSynchronizedFlush() (bool, error) {
 	}
 	defer res.Body.Close()
 
-	if res.IsError() {
-		return false, fmt.Errorf("ERROR: %s: %s", res.Status(), res)
+	if res.IsError() || res.StatusCode != http.StatusOK {
+		resBody, _ := ioutil.ReadAll(res.Body)
+		errorMsg := string(resBody)
+		return false, ec.errorCtx().New("Failed to Get Threshold Enabled",
+			"response_error", res.String(),
+			"response_status", res.StatusCode,
+			"response_body", errorMsg)
+
 	}
 
 	body, _ := ioutil.ReadAll(res.Body)
