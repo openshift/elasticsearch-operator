@@ -335,4 +335,5 @@ const (
 	Unschedulable            ClusterConditionType = "Unschedulable"
 	NodeStorage              ClusterConditionType = "NodeStorage"
 	CustomImage              ClusterConditionType = "CustomImageIgnored"
+	DegradedState            ClusterConditionType = "Degraded"
 )
