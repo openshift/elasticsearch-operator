@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ViaQ/logerr/log"
+	"github.com/openshift/elasticsearch-operator/internal/constants"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -76,7 +77,7 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
-		URI:    "_template/common.*",
+		URI:    fmt.Sprintf("_template/common.*,%s-*", constants.OcpTemplatePrefix),
 	}
 
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
