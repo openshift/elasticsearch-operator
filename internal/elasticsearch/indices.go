@@ -16,7 +16,7 @@ import (
 )
 
 func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
-	es := ec.eoclient
+	es := ec.client
 	indexName := []string{name}
 	res, err := es.Indices.Get(indexName, es.Indices.Get.WithPretty())
 	if err != nil {
@@ -43,7 +43,7 @@ func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
 }
 
 func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, error) {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Cat.Indices(es.Cat.Indices.WithIndex(name), es.Cat.Indices.WithFormat("json"), es.Cat.Indices.WithPretty())
 
 	if err != nil {
@@ -68,7 +68,7 @@ func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, err
 }
 
 func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
-	es := ec.eoclient
+	es := ec.client
 	indexBody, err := utils.ToJSON(index)
 	body := ioutil.NopCloser(bytes.NewBufferString(indexBody))
 	res, err := es.Indices.Create(name, es.Indices.Create.WithBody(body))
@@ -99,7 +99,7 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 	indexBody, err := utils.ToJSON(reIndex)
 	body := ioutil.NopCloser(bytes.NewBufferString(indexBody))
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Reindex(body, es.Reindex.WithPretty())
 
 	if err != nil {
@@ -120,7 +120,7 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 
 // ListIndicesForAlias returns a list of indices and the alias for the given pattern (e.g. foo-*, *-write)
 func (ec *esClient) ListIndicesForAlias(aliasPattern string) ([]string, error) {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.GetAlias(es.Indices.GetAlias.WithIndex(aliasPattern), es.Indices.GetAlias.WithPretty())
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func (ec *esClient) ListIndicesForAlias(aliasPattern string) ([]string, error) {
 
 func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
 
-	es := ec.eoclient
+	es := ec.client
 	actionBody, err := utils.ToJSON(actions)
 	body := ioutil.NopCloser(bytes.NewBufferString(actionBody))
 	res, err := es.Indices.UpdateAliases(body, es.Indices.UpdateAliases.WithPretty())
@@ -166,7 +166,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 	successful := true
 
 	aliasPattern := "project.*,.operations.*/_alias"
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.GetAlias(es.Indices.GetAlias.WithIndex(aliasPattern), es.Indices.GetAlias.WithPretty())
 	if err != nil {
 		return false
@@ -266,7 +266,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 
 func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.GetSettings(es.Indices.GetSettings.WithName(name), es.Indices.GetSettings.WithPretty())
 	if err != nil {
 		return nil, err
@@ -277,6 +277,8 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error
 		return nil, fmt.Errorf("ERROR: %s: %s", res.Status(), res)
 	}
 	body, _ := ioutil.ReadAll(res.Body)
+	jsonStr := string(body)
+	log.Info(jsonStr)
 
 	settings := &estypes.IndexSettings{}
 	err = json.Unmarshal(body, settings)
@@ -297,7 +299,7 @@ func (ec *esClient) UpdateIndexSettings(name string, settings *estypes.IndexSett
 		return err
 	}
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.PutSettings(body, es.Indices.PutSettings.WithPretty())
 
 	if err != nil {
