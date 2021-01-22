@@ -104,6 +104,10 @@ func (n *statefulSetNode) scaleUp() error {
 	return n.setReplicaCount(n.replicas)
 }
 
+func (node *statefulSetNode) getSecretHash() string {
+	return node.secretHash
+}
+
 func (n *statefulSetNode) state() api.ElasticsearchNodeStatus {
 	var rolloutForUpdate v1.ConditionStatus
 	var rolloutForCertReload v1.ConditionStatus

@@ -93,6 +93,10 @@ func (node *deploymentNode) name() string {
 	return node.self.Name
 }
 
+func (node *deploymentNode) getSecretHash() string {
+	return node.secretHash
+}
+
 func (node *deploymentNode) state() api.ElasticsearchNodeStatus {
 	// var rolloutForReload v1.ConditionStatus
 	var rolloutForUpdate v1.ConditionStatus
