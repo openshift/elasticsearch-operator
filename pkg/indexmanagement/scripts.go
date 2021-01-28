@@ -64,6 +64,7 @@ except:
 
 const rolloverScript = `
 set -euo pipefail
+CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
 decoded=$(echo $PAYLOAD | base64 -d)
 
 # get current write index
@@ -89,6 +90,7 @@ echo "Current write index for ${POLICY_MAPPING}-write: $writeIndex"
 # try to rollover
 code=$(curl -s "$ES_SERVICE/${POLICY_MAPPING}-write/_rollover?pretty" \
   -w "%{response_code}" \
+  --connect-timeout ${CONNECT_TIMEOUT} \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -HContent-Type:application/json \
   -XPOST \
@@ -180,10 +182,12 @@ exit 1
 const deleteScript = `
 set -uo pipefail
 ERRORS=/tmp/errors.txt
+CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
 echo "" > $ERRORS
 
 writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
   --cacert /etc/indexmanagement/keys/admin-ca \
+  --connect-timeout ${CONNECT_TIMEOUT} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
@@ -216,6 +220,7 @@ fi
 
 indices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}/_settings/index.creation_date \
   --cacert /etc/indexmanagement/keys/admin-ca \
+  --connect-timeout ${CONNECT_TIMEOUT} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -HContent-Type:application/json)
 
@@ -270,6 +275,7 @@ fi
 for sets in ${indices}; do
 code=$(curl -s $ES_SERVICE/${sets}?pretty \
   -w "%{response_code}" \
+  --connect-timeout ${CONNECT_TIMEOUT} \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -HContent-Type:application/json \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
