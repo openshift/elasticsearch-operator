@@ -853,6 +853,30 @@ func updateInvalidReplicationCondition(status *api.ElasticsearchStatus, value v1
 	})
 }
 
+func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, message string) {
+	cluster := er.cluster
+
+	statusValue := v1.ConditionFalse
+
+	if value {
+		statusValue = v1.ConditionTrue
+	}
+
+	updateConditionWithRetry(
+		cluster,
+		statusValue,
+		func(status *api.ElasticsearchStatus, statusValue v1.ConditionStatus) bool {
+			return updateESNodeCondition(&cluster.Status, &api.ClusterCondition{
+				Type:    api.DegradedState,
+				Status:  statusValue,
+				Reason:  reason,
+				Message: message,
+			})
+		},
+		er.client,
+	)
+}
+
 func updateUpdatingSettingsCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
 	return updateESNodeCondition(status, &api.ClusterCondition{
 		Type:   api.UpdatingSettings,
