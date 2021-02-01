@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	elasticsearch "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -97,8 +98,18 @@ var _ = Describe("Index Management", func() {
 	})
 	Describe("#createOrUpdateIndexTemplate", func() {
 		BeforeEach(func() {
+
+			templateURI := fmt.Sprintf("_template/common.*,%s-*", constants.OcpTemplatePrefix)
+
 			chatter = helpers.NewFakeElasticsearchChatter(
 				map[string]helpers.FakeElasticsearchResponses{
+					templateURI: {
+						{
+							Error:      nil,
+							StatusCode: 200,
+							Body:       `{}`,
+						},
+					},
 					"_template/ocp-gen-node.infra": {
 						{
 							Error:      nil,
@@ -108,7 +119,7 @@ var _ = Describe("Index Management", func() {
 					},
 				},
 			)
-			request.esClient = helpers.NewFakeElasticsearchClient("elastichsearch", "openshift-logging", request.client, chatter)
+			request.esClient = helpers.NewFakeElasticsearchClient("elasticsearch", "openshift-logging", request.client, chatter)
 		})
 		It("should create an elasticsearch index template to support the index", func() {
 			Expect(request.createOrUpdateIndexTemplate(mapping)).To(BeNil())
