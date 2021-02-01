@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	//"github.com/ViaQ/logerr/log"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
