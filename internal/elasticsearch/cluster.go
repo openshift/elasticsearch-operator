@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,7 +34,6 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)
-		log.Printf(jsonStr)
 		results := gjson.Get(jsonStr, "nodes.versions")
 		for _, name := range results.Array() {
 			nodeVersions = append(nodeVersions, name.String())

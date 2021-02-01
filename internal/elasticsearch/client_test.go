@@ -22,7 +22,7 @@ func getFakeESClient(clusterName, namespace string, res *http.Response, err erro
 	elasticsearchClient := elasticsearch6.Client{Transport: mocktransport, API: esapi.New(mocktransport)}
 
 	esClient := NewClient(clusterName, namespace, nil)
-	esClient.SetESClient(elasticsearchClient)
+	esClient.setESClient(elasticsearchClient)
 
 	return esClient
 }
