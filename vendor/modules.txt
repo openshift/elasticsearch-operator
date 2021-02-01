@@ -32,7 +32,6 @@ github.com/coreos/prometheus-operator/pkg/client/versioned/typed/monitoring/v1
 github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
-<<<<<<< HEAD
 # github.com/elastic/go-elasticsearch/v6 v6.8.10
 ## explicit
 github.com/elastic/go-elasticsearch/v6
@@ -42,8 +41,6 @@ github.com/elastic/go-elasticsearch/v6/internal/version
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
-=======
->>>>>>> upstream/master
 # github.com/evanphx/json-patch v4.5.0+incompatible
 github.com/evanphx/json-patch
 # github.com/fsnotify/fsnotify v1.4.9
@@ -222,7 +219,6 @@ github.com/spf13/afero/mem
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-<<<<<<< HEAD
 # github.com/tidwall/gjson v1.6.3
 ## explicit
 github.com/tidwall/gjson
@@ -230,12 +226,10 @@ github.com/tidwall/gjson
 github.com/tidwall/match
 # github.com/tidwall/pretty v1.0.2
 github.com/tidwall/pretty
-=======
 # go.uber.org/atomic v1.6.0
 go.uber.org/atomic
 # go.uber.org/multierr v1.5.0
 go.uber.org/multierr
->>>>>>> upstream/master
 # go.uber.org/zap v1.16.0
 ## explicit
 go.uber.org/zap
