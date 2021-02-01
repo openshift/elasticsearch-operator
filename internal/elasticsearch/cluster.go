@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,7 +13,7 @@ import (
 )
 
 func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
-	es := ec.eoclient
+	es := ec.client
 
 	res, err := es.Cluster.Stats(es.Cluster.Stats.WithPretty())
 
@@ -35,7 +34,6 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 	} else {
 		body, _ := ioutil.ReadAll(res.Body)
 		jsonStr := string(body)
-		log.Printf(jsonStr)
 		results := gjson.Get(jsonStr, "nodes.versions")
 		for _, name := range results.Array() {
 			nodeVersions = append(nodeVersions, name.String())
@@ -50,7 +48,7 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 
 func (ec *esClient) GetThresholdEnabled() (bool, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Cluster.GetSettings(es.Cluster.GetSettings.WithPretty())
 
 	if err != nil {
@@ -94,7 +92,7 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 
 	var low interface{}
 	var high interface{}
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Cluster.GetSettings(es.Cluster.GetSettings.WithPretty())
 
 	if err != nil {
@@ -170,7 +168,7 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 }
 
 func (ec *esClient) GetMinMasterNodes() (int32, error) {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Cluster.GetSettings(es.Cluster.GetSettings.WithPretty())
 	masterCount := int32(0)
 
@@ -203,7 +201,7 @@ func (ec *esClient) GetMinMasterNodes() (int32, error) {
 
 func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	requestBody := fmt.Sprintf("{%q:{%q:%d}}", "persistent", "discovery.zen.minimum_master_nodes", numberMasters)
 
 	body := ioutil.NopCloser(bytes.NewReader([]byte(requestBody)))
@@ -239,7 +237,7 @@ func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {
 
 func (ec *esClient) GetLowestClusterVersion() (string, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Cluster.Stats(es.Cluster.Stats.WithPretty())
 
 	if err != nil {
@@ -276,7 +274,7 @@ func (ec *esClient) GetLowestClusterVersion() (string, error) {
 }
 
 func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Nodes.Info(es.Nodes.Info.WithPretty())
 
 	if err != nil {
@@ -308,7 +306,7 @@ func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {
 
 func (ec *esClient) DoSynchronizedFlush() (bool, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.FlushSynced(es.Indices.FlushSynced.WithPretty())
 
 	if err != nil {

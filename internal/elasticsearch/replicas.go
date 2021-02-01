@@ -56,7 +56,7 @@ func (ec *esClient) updateAllIndexReplicas(replicaCount int32) (bool, error) {
 
 func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.GetSettings(es.Indices.GetSettings.WithName("index.number_of_replicas"), es.Indices.GetSettings.WithPretty())
 
 	if err != nil {
@@ -89,7 +89,7 @@ func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 
 func (ec *esClient) updateIndexReplicas(index string, replicaCount int32) (bool, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	settings := fmt.Sprintf("{%q:\"%d\"}}", "index.number_of_replicas", replicaCount)
 	body := ioutil.NopCloser(bytes.NewBufferString(settings))
 	res, err := es.Indices.PutSettings(body, es.Indices.PutSettings.WithIndex(index), es.Indices.PutSettings.WithPretty())

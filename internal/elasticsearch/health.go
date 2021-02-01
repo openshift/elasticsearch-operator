@@ -12,7 +12,7 @@ import (
 func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {
 	clusterHealth := api.ClusterHealth{}
 
-	es := ec.eoclient
+	es := ec.client
 
 	res, err := es.Cluster.Health(es.Cluster.Health.WithPretty())
 
@@ -47,7 +47,7 @@ func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {
 }
 
 func (ec *esClient) GetClusterHealthStatus() (string, error) {
-	es := ec.eoclient
+	es := ec.client
 
 	res, err := es.Cluster.Health(es.Cluster.Health.WithPretty())
 	status := ""
@@ -74,7 +74,7 @@ func (ec *esClient) GetClusterHealthStatus() (string, error) {
 }
 
 func (ec *esClient) GetClusterNodeCount() (int32, error) {
-	es := ec.eoclient
+	es := ec.client
 
 	res, err := es.Cluster.Health(es.Cluster.Health.WithPretty())
 	nodeCount := int32(0)

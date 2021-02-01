@@ -2,7 +2,6 @@ package elasticsearch
 
 import (
 	"net/http"
-	"testing"
 
 	elasticsearch6 "github.com/elastic/go-elasticsearch/v6"
 	"github.com/elastic/go-elasticsearch/v6/esapi"
@@ -21,20 +20,24 @@ func getFakeESClient(clusterName, namespace string, res *http.Response, err erro
 
 	mocktransport := &mockTransp{res, err}
 	elasticsearchClient := elasticsearch6.Client{Transport: mocktransport, API: esapi.New(mocktransport)}
-	esClient := NewClient(clusterName, namespace, elasticsearchClient)
+
+	esClient := NewClient(clusterName, namespace, nil)
+	esClient.setESClient(elasticsearchClient)
 
 	return esClient
 }
 
+/*
 func TestGetIndexTemplates_actual(t *testing.T) {
 	esAddr := "http://localhost:9200"
 
 	elasticsearchClient, err := getESClient(esAddr)
 
-	esClient := NewClient("default", "default", *elasticsearchClient)
+	esClient := NewClient("default", "default", nil)
+	esClient.SetESClient(*elasticsearchClient)
 
 	err = esClient.UpdateTemplatePrimaryShards(5)
 	if err != nil {
 		t.Errorf("got err: %s", err)
 	}
-}
+}*/

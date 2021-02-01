@@ -243,7 +243,6 @@ func TestUpdateAliases(t *testing.T) {
 	}
 }
 
-//TODO fix this
 func TestGetIndexSettings(t *testing.T) {
 
 	tests := []struct {
@@ -260,7 +259,7 @@ func TestGetIndexSettings(t *testing.T) {
 			namespace:   "namespace",
 			fakeResponse: &http.Response{
 				StatusCode: 200,
-				Body:       ioutil.NopCloser(bytes.NewBufferString(`{"aliases":{},"mappings":{},"settings":{"index":{"number_of_shards":"3","number_of_replicas":"2"}}}`)),
+				Body:       ioutil.NopCloser(bytes.NewBufferString(`{"number_of_shards":3,"number_of_replicas":2, "index": {}}`)),
 			},
 			want: 3,
 		},
@@ -275,7 +274,7 @@ func TestGetIndexSettings(t *testing.T) {
 			if err != nil {
 				t.Errorf("got err: %s", err)
 			}
-			if !reflect.DeepEqual(got, test.want) {
+			if !reflect.DeepEqual(got.NumberOfShards, test.want) {
 				t.Errorf("got %#v, want %#v", got, test.want)
 			}
 		})

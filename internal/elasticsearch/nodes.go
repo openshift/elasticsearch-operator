@@ -10,7 +10,7 @@ import (
 )
 
 func (ec *esClient) GetNodeDiskUsage(nodeName string) (string, float64, error) {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Nodes.Stats(es.Nodes.Stats.WithPretty())
 	usage := ""
 	percentUsage := float64(-1)

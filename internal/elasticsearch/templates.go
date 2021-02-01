@@ -15,7 +15,7 @@ import (
 
 func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemplate) error {
 
-	es := ec.eoclient
+	es := ec.client
 	indexBody, err := utils.ToJSON(template)
 	body := ioutil.NopCloser(bytes.NewBufferString(indexBody))
 	res, err := es.Indices.PutTemplate(name, body, es.Indices.PutTemplate.WithPretty())
@@ -37,7 +37,7 @@ func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemp
 }
 
 func (ec *esClient) DeleteIndexTemplate(name string) error {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.DeleteTemplate(name, es.Indices.DeleteTemplate.WithPretty())
 
 	if err != nil {
@@ -58,7 +58,7 @@ func (ec *esClient) DeleteIndexTemplate(name string) error {
 
 // ListTemplates returns a list of templates
 func (ec *esClient) ListTemplates() (sets.String, error) {
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.GetTemplate(es.Indices.GetTemplate.WithPretty())
 	response := sets.NewString()
 	if err != nil {
@@ -95,7 +95,7 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 
 func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, error) {
 	pattern := "common.*"
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Indices.GetTemplate(es.Indices.GetTemplate.WithName(pattern))
 	templates := map[string]estypes.GetIndexTemplate{}
 
@@ -125,7 +125,7 @@ func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, er
 }
 
 func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, error) {
-	es := ec.eoclient
+	es := ec.client
 	indexTemplates, err := ec.GetIndexTemplates()
 	if err != nil {
 		return false, err
@@ -174,7 +174,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 	// get the index template and then update the shards and put it
 
-	es := ec.eoclient
+	es := ec.client
 	indexTemplates, err := ec.GetIndexTemplates()
 
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 
 func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	settings := fmt.Sprintf("{%q:{%q:null}}", "transient", "cluster.routing.allocation.enable")
 	body := ioutil.NopCloser(bytes.NewBufferString(settings))
 	res, err := es.Cluster.PutSettings(body, es.Cluster.PutSettings.WithPretty())
@@ -42,7 +42,7 @@ func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
 }
 
 func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, error) {
-	es := ec.eoclient
+	es := ec.client
 	settings := fmt.Sprintf("{%q:{%q:%q}}", "persistent", "cluster.routing.allocation.enable", state)
 	body := ioutil.NopCloser(bytes.NewBufferString(settings))
 	res, err := es.Cluster.PutSettings(body, es.Cluster.PutSettings.WithPretty())
@@ -72,7 +72,7 @@ func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, er
 
 func (ec *esClient) GetShardAllocation() (string, error) {
 
-	es := ec.eoclient
+	es := ec.client
 	res, err := es.Cluster.GetSettings(es.Cluster.GetSettings.WithIncludeDefaults(true), es.Cluster.GetSettings.WithPretty())
 	allocationString := ""
 
