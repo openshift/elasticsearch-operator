@@ -14,6 +14,9 @@ const (
 	ElasticsearchDefaultImage   = "quay.io/openshift/origin-logging-elasticsearch6"
 	ProxyDefaultImage           = "quay.io/openshift/origin-elasticsearch-proxy:latest"
 	TheoreticalShardMaxSizeInMB = 40960
+
+	// OcpTemplatePrefix is the prefix all operator generated templates
+	OcpTemplatePrefix = "ocp-gen"
 )
 
 var (

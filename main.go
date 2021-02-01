@@ -25,6 +25,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -168,7 +169,7 @@ func addMetrics(ctx context.Context, cfg *rest.Config) {
 
 	// The ServiceMonitor is created in the same namespace where the operator is deployed
 	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
-	if err != nil {
+	if err != nil && !apierrors.IsAlreadyExists(err) {
 		log.Info("Could not create ServiceMonitor object", "error", err)
 		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
 		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
