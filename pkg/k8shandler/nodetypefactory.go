@@ -19,6 +19,7 @@ type NodeTypeInterface interface {
 	isMissing() bool
 	name() string
 	delete() error
+	getSecretHash() string
 
 	refreshHashes()
 	scaleDown() error
