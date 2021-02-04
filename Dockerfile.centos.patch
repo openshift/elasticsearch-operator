@@ -1,13 +1,13 @@
 --- Dockerfile	2020-10-29 16:22:29.934746321 -0500
 +++ Dockerfile.dev	2020-12-08 09:27:06.209552623 -0600
 @@ -1,9 +1,9 @@
--FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
-+FROM registry.svc.ci.openshift.org/openshift/release:golang-1.14 AS builder
+-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
++FROM registry.ci.openshift.org/openshift/release:golang-1.14 AS builder
  WORKDIR /go/src/github.com/openshift/elasticsearch-operator
  COPY . .
  RUN make build
  
--FROM registry.svc.ci.openshift.org/ocp/4.7:base
+-FROM registry.ci.openshift.org/ocp/4.7:base
 +FROM docker.io/centos:8 AS centos
  
  ENV ALERTS_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_alerts.yml"
