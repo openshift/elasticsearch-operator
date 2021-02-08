@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler"
 	"github.com/openshift/elasticsearch-operator/pkg/k8shandler/kibana"
@@ -108,6 +109,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 	if err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &namespacedMapHandler, podPred); err != nil {
+		return err
+	}
+
+	// Watch for updates to the route
+	routePred := predicate.Funcs{
+		UpdateFunc:  func(e event.UpdateEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+	if err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &loggingv1.Kibana{},
+		IsController: true,
+	}, routePred); err != nil {
 		return err
 	}
 
