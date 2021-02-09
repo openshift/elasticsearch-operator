@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	// "testing"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -12,5 +12,6 @@ const (
 var (
 	operatorNamespace string
 	k8sClient         client.Client
+	k8sConfig         *rest.Config
 	projectRootDir    string
 )

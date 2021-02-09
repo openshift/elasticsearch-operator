@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -22,7 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -38,25 +42,27 @@ const (
 )
 
 func setupK8sClient(t *testing.T) {
+	var err error
+
 	operatorNamespace = os.Getenv(TestOperatorNamespaceEnv)
 	if operatorNamespace == "" {
 		t.Fatal("TEST_OPERATOR_NAMESPACE is unset")
 	}
-	t.Logf("Found namespace: %q", operatorNamespace)
+	t.Logf("Test namespace: %q", operatorNamespace)
 
 	projectRootDir = getProjectRootPath("elasticsearch-operator")
 
-	cfg, err := config.GetConfig()
+	k8sConfig, err = config.GetConfig()
 	if err != nil {
 		t.Fatalf("Error get config: %s", err)
 	}
-	if cfg == nil {
+	if k8sConfig == nil {
 		t.Fatal("config is nil")
 	}
 
 	registerSchemes(t)
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	k8sClient, err = client.New(k8sConfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		t.Fatalf("Error get k8sClient: %s", err)
 	}
@@ -386,4 +392,46 @@ func waitForDeleteObject(t *testing.T, client client.Client, key types.Namespace
 		t.Logf("Deleting object %s", key.String())
 		return true, nil
 	})
+}
+
+func ExecInPod(config *rest.Config, namespace, podName, command, containerName string) (string, string, error) {
+	k8sCli, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return "", "", err
+	}
+	cmd := []string{
+		"sh",
+		"-c",
+		command,
+	}
+	const tty = false
+	req := k8sCli.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).SubResource("exec").Param("container", containerName)
+	req.VersionedParams(
+		&corev1.PodExecOptions{
+			Command: cmd,
+			Stdin:   false,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     tty,
+		},
+		scheme.ParameterCodec,
+	)
+
+	var stdout, stderr bytes.Buffer
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		return "", "", err
+	}
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  nil,
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
 }

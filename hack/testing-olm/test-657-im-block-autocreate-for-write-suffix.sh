@@ -8,6 +8,8 @@ repo_dir="$(dirname $0)/../.."
 source "${repo_dir}/hack/lib/init.sh"
 source "${repo_dir}/hack/testing-olm/utils"
 
+test_name="test-657-im-block-autocreate-for-write-suffix"
+
 test_artifact_dir=$ARTIFACT_DIR/$(basename ${BASH_SOURCE[0]})
 if [ ! -d $test_artifact_dir ] ; then
   mkdir -p $test_artifact_dir
@@ -53,40 +55,8 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
 
   export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
   deploy_elasticsearch_operator
-  #deploy elasticsearch cluster
-  os::cmd::expect_success "${repo_dir}/hack/cert_generation.sh /tmp/example-secrets ${TEST_NAMESPACE} elasticsearch"
-  os::cmd::expect_success "${repo_dir}/hack/deploy-example-secrets.sh  ${TEST_NAMESPACE}"
-  os::cmd::expect_success "oc -n ${TEST_NAMESPACE} create -f ${repo_dir}/hack/cr.yaml"
-
-  os::log::info "---------------------------------------------------------------"
-  os::log::info "Waiting for elasticsearch-operator to deploy the cluster..."
-  os::log::info "---------------------------------------------------------------"
-  os::cmd::try_until_success "oc -n ${TEST_NAMESPACE} get deployment -l component=elasticsearch -o jsonpath='{.items[0].metadata.name}'" $((2 * $minute))
-
 fi
-#wait for pod
-os::log::info "---------------------------------------------------------------"
-os::log::info "Waiting for elasticsearch deployment to be ready..."
-os::log::info "---------------------------------------------------------------"
-wait_for_deployment_to_be_ready ${TEST_NAMESPACE} $(oc -n ${TEST_NAMESPACE} get deployment -l component=elasticsearch -o jsonpath={.items[0].metadata.name}) $((2 * $minute))
 
-pod=$(oc -n $TEST_NAMESPACE get pod -l component=elasticsearch -o jsonpath={.items[0].metadata.name})
-os::log::info "---------------------------------------------------------------"
-os::log::info Attempt to autocreate an index without a '-write' suffix...
-os::log::info "---------------------------------------------------------------"
-os::cmd::expect_success_and_text "oc -n $TEST_NAMESPACE exec $pod -c elasticsearch -- es_util --query=foo/_doc/1 -d '{\"key\":\"value\"}' -XPUT -w %{http_code}" ".*201"
-
-os::log::info "---------------------------------------------------------------"
-os::log::info Attempt to autocreate an index with a '-write' suffix...
-os::log::info "---------------------------------------------------------------"
-os::cmd::expect_success_and_text "oc -n $TEST_NAMESPACE exec $pod -c elasticsearch -- es_util --query=foo-write/_doc/1 -d '{\"key\":\"value\"}' -XPUT -w %{http_code}" ".*404"
-
-os::log::info "---------------------------------------------------------------"
-os::log::info Explicitly creating an index with a '-write' suffix...
-os::log::info "---------------------------------------------------------------"
-os::cmd::expect_success_and_text "oc -n $TEST_NAMESPACE exec $pod -c elasticsearch -- es_util --query=foo-write -XPUT -w %{http_code}" ".*200"
-
-os::log::info "---------------------------------------------------------------"
-os::log::info Verifying can write to index with a '-write' suffix...
-os::log::info "---------------------------------------------------------------"
-os::cmd::expect_success_and_text "oc -n $TEST_NAMESPACE exec $pod -c elasticsearch -- es_util --query=foo-write/_doc/1 -d '{\"key\":\"value\"}' -XPUT  -w %{http_code}" ".*201"
+TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} TEST_OPERATOR_NAMESPACE=${TEST_NAMESPACE} \
+  go test -v ./test/e2e-olm/... -kubeconfig=${KUBECONFIG} -parallel=1 -timeout 1500s -run TestElasticsearchWrite  | \
+  $GO_JUNIT_REPORT | awk '/<properties>/,/<\/properties>/ {next} {print}' > "$JUNIT_REPORT_OUTPUT_DIR/$test_name.xml"
