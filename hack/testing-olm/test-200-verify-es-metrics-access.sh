@@ -41,6 +41,7 @@ cleanup(){
     oc delete clusterrole ${CLUSTERROLE} >> $test_artifact_dir/cleanup.log 2>&1 ||:
     oc delete clusterrolebinding ${CLUSTERROLE} >> $test_artifact_dir/cleanup.log 2>&1 ||:
     oc delete clusterrolebinding view-${CLUSTERROLE} >> $test_artifact_dir/cleanup.log 2>&1 ||:
+    oc delete clusterrolebinding view-${CLUSTERROLE}-unauth >> $test_artifact_dir/cleanup.log 2>&1 ||:
   fi
   
   set -e
@@ -72,45 +73,44 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
 
 fi
 
-os::log::info "------------------------------------------"
-os::log::info "Creating serviceaccounts to verify metrics"
-os::log::info "------------------------------------------"
-oc -n ${TEST_NAMESPACE} create serviceaccount ${UNAUTHORIZED_SA}
-oc -n ${TEST_NAMESPACE} create serviceaccount ${AUTHORIZED_SA}
-
-os::log::info "-------------------------------------------------------------"
-os::log::info "Creating RBAC for authorised serviceaccount to verify metrics"
-os::log::info "-------------------------------------------------------------"
-result=$(oc get clusterrole ${CLUSTERROLE} --ignore-not-found ||:)
-if [ "$result" == "" ] ; then
-  echo "{\"apiVersion\":\"rbac.authorization.k8s.io/v1\", \"kind\":\"ClusterRole\",\"metadata\":{\"name\":\"${CLUSTERROLE}\"},\"rules\":[{\"nonResourceURLs\":[\"/metrics\"],\"verbs\":[\"get\"]}]}" | oc create -f -
-fi
-result=$(oc get clusterrolebinding ${CLUSTERROLE} --ignore-not-found ||:)
-if [ "$result" == "" ] ; then
-  os::log::info Binding ${AUTHORIZED_SA} to be cable of reading metrics
-  oc create clusterrolebinding --clusterrole=${CLUSTERROLE} ${CLUSTERROLE} --serviceaccount=${TEST_NAMESPACE}:${AUTHORIZED_SA}
-fi
-result=$(oc get clusterrolebinding view-${CLUSTERROLE} --ignore-not-found ||:)
-if [ "$result" == "" ] ; then
-  os::log::info Binding ${AUTHORIZED_SA} to be cable of getting namespaces
-  oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE} --serviceaccount=${TEST_NAMESPACE}:${AUTHORIZED_SA}
-fi
-
-os::log::info "---------------------------------------------------------------"
-os::log::info "Creating RBAC for unauthorised serviceaccount to verify metrics"
-os::log::info "---------------------------------------------------------------"
-result=$(oc get clusterrolebinding view-${CLUSTERROLE}-unauth --ignore-not-found ||:)
-if [ "$result" == "" ] ; then
-  os::log::info Binding ${UNAUTHORIZED_SA} to be cable of getting namespaces
-  oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE}-unauth --serviceaccount=${TEST_NAMESPACE}:${UNAUTHORIZED_SA}
-fi
-
-es_pod=$(oc -n ${TEST_NAMESPACE} get pod -l component=elasticsearch -o jsonpath={.items[0].metadata.name})
-
-os::log::info "---------------------------------------------------------------"
-os::log::info "Waiting until elasticsearch cluster initialization is completed"
-os::log::info "---------------------------------------------------------------"
-os::cmd::expect_success "oc -n ${TEST_NAMESPACE} wait --for=condition=Ready pod/${es_pod} --timeout=120s"
+# TODO: to be deleted
+move_to_go(){
+  os::log::info "------------------------------------------"
+  os::log::info "Creating serviceaccounts to verify metrics"
+  os::log::info "------------------------------------------"
+  oc -n ${TEST_NAMESPACE} create serviceaccount ${UNAUTHORIZED_SA}
+  oc -n ${TEST_NAMESPACE} create serviceaccount ${AUTHORIZED_SA}
+  os::log::info "-------------------------------------------------------------"
+  os::log::info "Creating RBAC for authorised serviceaccount to verify metrics"
+  os::log::info "-------------------------------------------------------------"
+  result=$(oc get clusterrole ${CLUSTERROLE} --ignore-not-found ||:)
+  if [ "$result" == "" ] ; then
+    echo "{\"apiVersion\":\"rbac.authorization.k8s.io/v1\", \"kind\":\"ClusterRole\",\"metadata\":{\"name\":\"${CLUSTERROLE}\"},\"rules\":[{\"nonResourceURLs\":[\"/metrics\"],\"verbs\":[\"get\"]}]}" | oc create -f -
+  fi
+  result=$(oc get clusterrolebinding ${CLUSTERROLE} --ignore-not-found ||:)
+  if [ "$result" == "" ] ; then
+    os::log::info Binding ${AUTHORIZED_SA} to be cable of reading metrics
+    oc create clusterrolebinding --clusterrole=${CLUSTERROLE} ${CLUSTERROLE} --serviceaccount=${TEST_NAMESPACE}:${AUTHORIZED_SA}
+  fi
+  result=$(oc get clusterrolebinding view-${CLUSTERROLE} --ignore-not-found ||:)
+  if [ "$result" == "" ] ; then
+    os::log::info Binding ${AUTHORIZED_SA} to be cable of getting namespaces
+    oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE} --serviceaccount=${TEST_NAMESPACE}:${AUTHORIZED_SA}
+  fi
+  os::log::info "---------------------------------------------------------------"
+  os::log::info "Creating RBAC for unauthorised serviceaccount to verify metrics"
+  os::log::info "---------------------------------------------------------------"
+  result=$(oc get clusterrolebinding view-${CLUSTERROLE}-unauth --ignore-not-found ||:)
+  if [ "$result" == "" ] ; then
+    os::log::info Binding ${UNAUTHORIZED_SA} to be cable of getting namespaces
+    oc create clusterrolebinding --clusterrole=basic-user view-${CLUSTERROLE}-unauth --serviceaccount=${TEST_NAMESPACE}:${UNAUTHORIZED_SA}
+  fi
+  es_pod=$(oc -n ${TEST_NAMESPACE} get pod -l component=elasticsearch -o jsonpath={.items[0].metadata.name})
+  os::log::info "---------------------------------------------------------------"
+  os::log::info "Waiting until elasticsearch cluster initialization is completed"
+  os::log::info "---------------------------------------------------------------"
+  os::cmd::expect_success "oc -n ${TEST_NAMESPACE} wait --for=condition=Ready pod/${es_pod} --timeout=120s"
+}
 
 push_test_script_to_es(){
   es_pod=$1
