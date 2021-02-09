@@ -22,6 +22,14 @@ const (
 var (
 	ReconcileForGlobalProxyList = []string{KibanaTrustedCAName}
 	packagedElasticsearchImage  = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", ElasticsearchDefaultImage)
+	ExpectedSecretKeys          = []string{
+		"admin-ca",
+		"admin-cert",
+		"admin-key",
+		"elasticsearch.crt",
+		"elasticsearch.key",
+		"logging-es.crt",
+		"logging-es.key"}
 )
 
 func PackagedElasticsearchImage() string {
