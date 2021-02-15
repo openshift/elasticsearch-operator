@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    name: elasticsearch-operator
+  name: elasticsearch-operator-metrics-monitor
+spec:
+  endpoints:
+  - interval: 1s
+    path: /metrics
+    port: http
+    scheme: http
+  selector:
+    matchLabels:
+      name: elasticsearch-operator
