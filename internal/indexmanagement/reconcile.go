@@ -136,6 +136,7 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 	})
 	return errCtx.Wrap(err, "failed to update configmap")
 }
+
 func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
 	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
 		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)

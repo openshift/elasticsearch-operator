@@ -96,7 +96,6 @@ var _ = Describe("Index Management", func() {
 	})
 	Describe("#createOrUpdateIndexTemplate", func() {
 		BeforeEach(func() {
-
 			templateURI := fmt.Sprintf("_template/common.*,%s-*", constants.OcpTemplatePrefix)
 
 			chatter = helpers.NewFakeElasticsearchChatter(
