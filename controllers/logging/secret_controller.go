@@ -70,6 +70,7 @@ func esSecretUpdatePredicate(r client.Client) predicate.Predicate {
 		},
 	}
 }
+
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
