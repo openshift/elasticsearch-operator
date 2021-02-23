@@ -13,13 +13,13 @@ spec:
         cpu: 100m
         memory: 1Gi
   nodes:
-  - nodeCount: 3
+  - nodeCount: 1
     roles:
     - client
     - data
     - master
     storage: {}
-  redundancyPolicy: SingleRedundancy
+  redundancyPolicy: ZeroRedundancy
   indexManagement:
     policies:
     - name: infra-policy
