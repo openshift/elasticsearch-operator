@@ -6,7 +6,7 @@ go 1.14
 require (
 	github.com/ViaQ/logerr v1.0.8
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
-	github.com/elastic/go-elasticsearch/v6 v6.8.10
+	github.com/elastic/go-elasticsearch/v6 v6.8.10 // indirect
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/google/go-cmp v0.5.0
@@ -17,7 +17,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.19.4
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/sirupsen/logrus v1.6.0 // indirect
-	github.com/tidwall/gjson v1.6.3
+	github.com/tidwall/gjson v1.6.3 // indirect
 	go.uber.org/zap v1.16.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.8
