@@ -5,7 +5,7 @@ FROM registry.ci.openshift.org/ocp/4.7:base
 WORKDIR /
 COPY manifests/ /manifests
 
-RUN chmod -R g+w /manifests && rm /manifests/art.yaml /manifests/*/image-references
+RUN chmod -R g+w /manifests && rm /manifests/art.yaml
 
 COPY olm_deploy/scripts/registry-init.sh /scripts/
 
