@@ -20,7 +20,7 @@ sed -i "s,quay.io/openshift/origin-oauth-proxy:latest,${IMAGE_OAUTH_PROXY}," /ma
 sed -i "s,quay.io/openshift/origin-logging-kibana6:latest,${IMAGE_LOGGING_KIBANA6}," /manifests/*/*clusterserviceversion.yaml
 
 # update the manifest to pull always the operator image for non-CI environments
-if [ -z "${IMAGE_FORMAT:-}" ] ; then
+if [ "${OPENSHIFT_CI:-false}" == "false" ] ; then
     echo -e "Set operator deployment's imagePullPolicy to 'Always'\n\n"
     sed -i 's,imagePullPolicy:\ IfNotPresent,imagePullPolicy:\ Always,' /manifests/*/*clusterserviceversion.yaml
 fi
