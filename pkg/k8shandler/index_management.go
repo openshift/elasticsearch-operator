@@ -7,14 +7,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	logging "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/pkg/constants"
 	"github.com/openshift/elasticsearch-operator/pkg/indexmanagement"
 	"github.com/openshift/elasticsearch-operator/pkg/log"
 	esapi "github.com/openshift/elasticsearch-operator/pkg/types/elasticsearch"
-)
-
-const (
-	//ocpTemplatePrefix is the prefix all operator generated templates
-	ocpTemplatePrefix = "ocp-gen"
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
@@ -80,7 +76,7 @@ func (er *ElasticsearchRequest) cullIndexManagement(mappings []logging.IndexMana
 	difference := existing.Difference(mappingNames)
 
 	for _, template := range difference.List() {
-		if strings.HasPrefix(template, ocpTemplatePrefix) {
+		if strings.HasPrefix(template, constants.OcpTemplatePrefix) {
 			if err := esClient.DeleteIndexTemplate(template); err != nil {
 				log.Error(err, "Unable to delete stale template in order to reconcile", "template", template)
 			}
@@ -112,7 +108,7 @@ func (er *ElasticsearchRequest) initializeIndexIfNeeded(mapping logging.IndexMan
 }
 
 func formatTemplateName(name string) string {
-	return fmt.Sprintf("%s-%s", ocpTemplatePrefix, name)
+	return fmt.Sprintf("%s-%s", constants.OcpTemplatePrefix, name)
 }
 
 func formatWriteAlias(mapping logging.IndexManagementPolicyMappingSpec) string {
@@ -129,6 +125,18 @@ func (er *ElasticsearchRequest) createOrUpdateIndexTemplate(mapping logging.Inde
 	replicas := int32(calculateReplicaCount(cluster))
 	aliases := append(mapping.Aliases, mapping.Name)
 	template := esapi.NewIndexTemplate(pattern, aliases, primaryShards, replicas)
+
+	// check to compare the current index templates vs what we just generated
+	templates, err := esClient.GetIndexTemplates()
+	if err != nil {
+		return err
+	}
+
+	for templateName := range templates {
+		if templateName == name {
+			return nil
+		}
+	}
 
 	return esClient.CreateIndexTemplate(name, template)
 }
