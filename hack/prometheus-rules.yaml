@@ -54,7 +54,7 @@ spec:
         ) > 85
       for: 5m
       labels:
-        severity: critical
+        severity: warning
     - alert: ElasticsearchNodeDiskWatermarkReached
       annotations:
         message: Disk High Watermark Reached at {{ $labels.node }} node in {{
@@ -73,7 +73,7 @@ spec:
         ) > 90
       for: 5m
       labels:
-        severity: warning
+        severity: critical
     - alert: ElasticsearchNodeDiskLowForSegmentMerges
       annotations:
         message: Free disk at {{ $labels.node }} node in {{ $labels.cluster }}
