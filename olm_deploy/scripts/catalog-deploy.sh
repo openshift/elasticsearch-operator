@@ -1,22 +1,14 @@
 #!/bin/bash
 set -eou pipefail
-OPENSHIFT_VERSION=${OPENSHIFT_VERSION:-4.7}
-export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:elasticsearch-operator-registry}
-export IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:elasticsearch-operator}
-export IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:logging-elasticsearch6}
-export IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:elasticsearch-proxy}
-export IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:logging-kibana6}
-export IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:oauth-proxy}
+OPENSHIFT_VERSION=${OPENSHIFT_VERSION:-tech-preview}
+LOGGING_IS=${LOGGING_IS:-logging}
+export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-registry.ci.openshift.org/${LOGGING_IS}/${OPENSHIFT_VERSION}:elasticsearch-operator-registry}
+export IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/${LOGGING_IS}/${OPENSHIFT_VERSION}:elasticsearch-operator}
+export IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-registry.ci.openshift.org/${LOGGING_IS}/${OPENSHIFT_VERSION}:logging-elasticsearch6}
+export IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-registry.ci.openshift.org/${LOGGING_IS}/${OPENSHIFT_VERSION}:elasticsearch-proxy}
+export IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-registry.ci.openshift.org/${LOGGING_IS}/${OPENSHIFT_VERSION}:logging-kibana6}
+export IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-registry.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:oauth-proxy}
 ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}
-
-if [ -n "${IMAGE_FORMAT:-}" ] ; then
-  export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator-registry,")
-  export IMAGE_ELASTICSEARCH_OPERATOR=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator,")
-  export IMAGE_ELASTICSEARCH6=$(echo $IMAGE_FORMAT | sed -e "s,\${component},logging-elasticsearch6,")
-  export IMAGE_ELASTICSEARCH_PROXY=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-proxy,")
-  export IMAGE_LOGGING_KIBANA6=$(echo $IMAGE_FORMAT | sed -e "s,\${component},logging-kibana6,")
-  export IMAGE_OAUTH_PROXY=$(echo $IMAGE_FORMAT | sed -e "s,\${component},oauth-proxy,")
-fi
 
 echo "Using images: "
 echo "elastic operator registry: ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"

@@ -566,10 +566,7 @@ patch_subscription() {
 
 check_deployment_rolled_out() {
   log::info "Checking if deployment successfully updated..."
-  IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/ocp/${version}:elasticsearch-operator}
-  if [ -n "${IMAGE_FORMAT:-}" ] ; then
-    IMAGE_ELASTICSEARCH_OPERATOR=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator,")
-  fi
+  IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/logging/${version}:elasticsearch-operator}
   log::info "Checking if deployment version is ${IMAGE_ELASTICSEARCH_OPERATOR}..."
   try_until_text "oc -n openshift-operators-redhat get deployment elasticsearch-operator -o jsonpath={.spec.template.spec.containers[0].image}" "${IMAGE_ELASTICSEARCH_OPERATOR}" ${TIMEOUT_MIN}
 }
