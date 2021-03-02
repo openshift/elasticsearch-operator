@@ -9,7 +9,7 @@ export GOROOT=$(shell go env GOROOT)
 export GOFLAGS=-mod=vendor
 export GO111MODULE=on
 
-export OCP_VERSION=5.0
+export LOGGING_VERSION=5.1
 
 export APP_NAME=elasticsearch-operator
 
@@ -160,22 +160,22 @@ uninstall:
 .PHONY: uninstall
 
 # Generate bundle manifests and metadata, then validate generated files.
-# - the bundle manifests are copied to ./manifests/${OCP_VERSION}/, e.g., ./manifests/4.7/
-BUNDLE_VERSION?=$(OCP_VERSION).0
+# - the bundle manifests are copied to ./manifests/${LOGGING_VERSION}/, e.g., ./manifests/4.7/
+BUNDLE_VERSION?=$(LOGGING_VERSION).0
 # Options for 'bundle-build'
-BUNDLE_CHANNELS := --channels=${OCP_VERSION}
-BUNDLE_DEFAULT_CHANNEL := --default-channel=${OCP_VERSION}
+BUNDLE_CHANNELS := --channels=${LOGGING_VERSION}
+BUNDLE_DEFAULT_CHANNEL := --default-channel=${LOGGING_VERSION}
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 bundle: regenerate $(KUSTOMIZE)
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
 	$(OPERATOR_SDK) bundle validate ./bundle
-	cp bundle/manifests/elasticsearch-operator.clusterserviceversion.yaml  manifests/${OCP_VERSION}/elasticsearch-operator.v${BUNDLE_VERSION}.clusterserviceversion.yaml
-	cp bundle/manifests/logging.openshift.io_elasticsearches.yaml  manifests/${OCP_VERSION}/logging.openshift.io_elasticsearches_crd.yaml
-	cp bundle/manifests/logging.openshift.io_kibanas.yaml  manifests/${OCP_VERSION}/logging.openshift.io_kibanas_crd.yaml
-	cp bundle/manifests/elasticsearch-operator-metrics-monitor_monitoring.coreos.com_v1_servicemonitor.yaml  manifests/${OCP_VERSION}/
-	cp bundle/manifests/elasticsearch-operator-metrics-service_v1_service.yaml  manifests/${OCP_VERSION}/
+	cp bundle/manifests/elasticsearch-operator.clusterserviceversion.yaml  manifests/${LOGGING_VERSION}/elasticsearch-operator.v${BUNDLE_VERSION}.clusterserviceversion.yaml
+	cp bundle/manifests/logging.openshift.io_elasticsearches.yaml  manifests/${LOGGING_VERSION}/logging.openshift.io_elasticsearches_crd.yaml
+	cp bundle/manifests/logging.openshift.io_kibanas.yaml  manifests/${LOGGING_VERSION}/logging.openshift.io_kibanas_crd.yaml
+	cp bundle/manifests/elasticsearch-operator-metrics-monitor_monitoring.coreos.com_v1_servicemonitor.yaml  manifests/${LOGGING_VERSION}/
+	cp bundle/manifests/elasticsearch-operator-metrics-service_v1_service.yaml  manifests/${LOGGING_VERSION}/
 .PHONY: bundle
 
 test-e2e-upgrade: 
