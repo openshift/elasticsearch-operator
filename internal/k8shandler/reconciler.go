@@ -102,11 +102,6 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		return kverrors.Wrap(err, "Failed to reconcile ServiceAccount for Elasticsearch cluster")
 	}
 
-	// Ensure existence of clusterroles and clusterrolebindings
-	if err := elasticsearchRequest.CreateOrUpdateRBAC(); err != nil {
-		return kverrors.Wrap(err, "Failed to reconcile Roles and RoleBindings for Elasticsearch cluster")
-	}
-
 	// Ensure existence of config maps
 	if err := elasticsearchRequest.CreateOrUpdateConfigMaps(); err != nil {
 		return kverrors.Wrap(err, "Failed to reconcile ConfigMaps for Elasticsearch cluster")
