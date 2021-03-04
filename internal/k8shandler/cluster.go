@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/elasticsearch-operator/internal/metrics"
+
 	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
@@ -78,6 +80,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			return er.UpdateClusterStatus()
 		}
 
+		metrics.IncrementRestartCounterCert()
 		_ = er.UpdateClusterStatus()
 	}
 
@@ -131,6 +134,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 				log.Error(err, "failed to perform rolling update")
 				return er.UpdateClusterStatus()
 			}
+			metrics.IncrementRestartCounterRolling()
 		}
 
 		_ = er.UpdateClusterStatus()
@@ -148,6 +152,12 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			}
 
 			addNodeState(node, nodeStatus)
+
+			if nodeStatus.UpgradeStatus.ScheduledForCertRedeploy == v1.ConditionTrue ||
+				nodeStatus.UpgradeStatus.ScheduledForUpgrade == v1.ConditionTrue {
+				metrics.IncrementRestartCounterScheduled()
+			}
+
 			if err := er.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
 				log.Error(err, "unable to set status for node", "node", node.name())
 			}

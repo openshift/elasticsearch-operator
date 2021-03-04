@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/internal/metrics"
+
 	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
@@ -49,8 +51,12 @@ func (r *ElasticsearchReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 	}
 
 	if cluster.Spec.ManagementState == loggingv1.ManagementStateUnmanaged {
+		// Cluster state changes from Managed -> Unmanaged, so set "unmanaged" as 1 and set "managed" as 0.
+		metrics.SetEsClusterManagementStateUnmanaged()
 		return ctrl.Result{}, nil
 	}
+	// Cluster state changes from Unmanaged -> Managed, so set "managed" as 1 and set "unmanaged" as 0.
+	metrics.SetEsClusterManagementStateManaged()
 
 	if cluster.Spec.Spec.Image != "" {
 		if cluster.Status.Conditions == nil {
