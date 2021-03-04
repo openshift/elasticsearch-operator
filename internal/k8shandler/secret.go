@@ -49,7 +49,6 @@ func getSecretDataHash(secretName, namespace string, client client.Client) strin
 // It will return true if all required secrets/keys exist.
 // Otherwise, it will return false and the message will be populated with what is missing.
 func (er ElasticsearchRequest) hasRequiredSecrets() (bool, string) {
-
 	message := ""
 	hasRequired := true
 

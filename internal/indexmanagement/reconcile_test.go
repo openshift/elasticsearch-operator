@@ -51,37 +51,32 @@ var _ = Describe("Index Management", func() {
 		selector := map[string]string{}
 		tolerations := []core.Toleration{}
 		name := fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name)
-		cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "",selector, tolerations, []core.EnvVar{})
+		cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{})
 	})
-	Describe("#formatCmd", func(){
-		Context("with no policies", func(){
-			It("should return an empty command", func(){
+	Describe("#formatCmd", func() {
+		Context("with no policies", func() {
+			It("should return an empty command", func() {
 				Expect(formatCmd(apis.IndexManagementPolicySpec{})).To(BeEmpty())
 			})
-
 		})
-		Context("with delete phase", func(){
-			It("should format the command for delete", func(){
+		Context("with delete phase", func() {
+			It("should format the command for delete", func() {
 				policy.Phases.Delete = &apis.IndexManagementDeletePhaseSpec{}
 				Expect(formatCmd(policy)).To(Equal("./delete;delete_rc=$?;$(exit $delete_rc)"))
 			})
-
 		})
-		Context("with rollover phase", func(){
-			It("should format the command for rollover", func(){
+		Context("with rollover phase", func() {
+			It("should format the command for rollover", func() {
 				policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{}
 				Expect(formatCmd(policy)).To(Equal("./rollover;rollover_rc=$?;$(exit $rollover_rc)"))
-
 			})
-
 		})
-		Context("with delete and rollover phases", func(){
-			It("should format the command for all phases", func(){
+		Context("with delete and rollover phases", func() {
+			It("should format the command for all phases", func() {
 				policy.Phases.Delete = &apis.IndexManagementDeletePhaseSpec{}
 				policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{}
 				Expect(formatCmd(policy)).To(Equal("./delete;delete_rc=$?;./rollover;rollover_rc=$?;$(exit $delete_rc&&exit $rollover_rc)"))
 			})
-
 		})
 	})
 	Describe("#reconcileCronJob", func() {
@@ -131,10 +126,10 @@ var _ = Describe("Index Management", func() {
 	})
 	Describe("#ReconcileIndexManagementCronjob", func() {
 		BeforeEach(func() {
-		 	selector := map[string]string{}
+			selector := map[string]string{}
 			tolerations := []core.Toleration{}
 			name := fmt.Sprintf("%s-rollover-%s", cluster.Name, policy.Name)
-			cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "",selector, tolerations,[]core.EnvVar{})
+			cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{})
 			policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{
 				Actions: apis.IndexManagementActionsSpec{
 					Rollover: &apis.IndexManagementActionSpec{
@@ -205,5 +200,4 @@ var _ = Describe("Index Management", func() {
 			})
 		})
 	})
-
 })
