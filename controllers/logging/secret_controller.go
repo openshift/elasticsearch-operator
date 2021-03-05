@@ -41,7 +41,10 @@ func (r *SecretReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	err = k8shandler.SecretReconcile(cluster, r.Client)
+	ok, err := k8shandler.SecretReconcile(cluster, r.Client)
+	if !ok {
+		return reconcileResult, err
+	}
 	return ctrl.Result{}, err
 }
 
