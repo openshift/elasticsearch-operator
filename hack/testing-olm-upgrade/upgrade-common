@@ -250,7 +250,7 @@ EOL
 fi
 
   log::info "Waiting for deployment $name to be ready in $ns"
-  wait_for_deployment_to_be_ready "$ns" "$name" $((2 * "$minute"))
+  wait_for_deployment_to_be_ready "$ns" "$name" $((2 * $minute))
 }
 
 wait_for_deployment_to_be_ready(){
@@ -397,15 +397,18 @@ discover_versions(){
   major_version="$(echo $full_version | cut -d'.' -f1)"
   minor_version="$(echo $full_version | cut -d'.' -f2)"
 
-  # we shouldn't run into this yet... maybe for 6.0 but we should like
-  # add the 'Replaces' spec field and use that for the previous_version
-  if [[ $minor_version -eq 0 ]]; then
-    log::info "Will be unable to calculate the previous_version since our minor version is 0"
-    exit 0
+  export version="$(echo $major_version.$minor_version)"
+
+  # Hard rewrite of 5.0.0 to superficial 4.7.0, as replacement for
+  # the breaking point when OpenShift Logging shifted release schema.
+  if [[ $major_version -eq 5 ]] && [[ $minor_version -eq 0 ]]; then
+    # Set this to 4.7 because we need to calculate the latest previous
+    # version prior to 5.0, which is 4.6 for OpenShift Logging.
+    major_version=4
+    minor_version=7
   fi
 
-  export version="$(echo $major_version.$minor_version)"
-  get_latest_previous_version $version
+  get_latest_previous_version "$(echo $major_version.$minor_version)"
 }
 
 get_es_pods_count() {
@@ -491,7 +494,7 @@ deploy_previous_version() {
 
     # deploy elasticsearch-operator
     log::info "Deploying elasticsearch-operator ${previous_version} from marketplace..."
-    deploy_marketplace_operator "openshift-operators-redhat" "elasticsearch-operator" "$previous_version" "elasticsearch-operator"
+    deploy_marketplace_operator "openshift-operators-redhat" "elasticsearch-operator" "$previous_version" "elasticsearch-operator" true
 
     # check if the operator is running
     log::info "Verifying if elasticsearch-operator deployment is ready..."
