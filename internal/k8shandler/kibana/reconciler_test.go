@@ -25,7 +25,7 @@ func TestNewKibanaPodSpecSetsProxyToUseServiceAccountAsOAuthClient(t *testing.T)
 			},
 		},
 	}
-	spec := newKibanaPodSpec(cluster, "kibana", nil, nil)
+	spec := newKibanaPodSpec(cluster, "kibana", nil, nil, "")
 	for _, arg := range spec.Containers[1].Args {
 		keyValue := strings.Split(arg, "=")
 		if len(keyValue) >= 2 && keyValue[0] == "-client-id" {
@@ -49,7 +49,7 @@ func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 			},
 		},
 	}
-	podSpec := newKibanaPodSpec(cluster, "test-app-name", nil, nil)
+	podSpec := newKibanaPodSpec(cluster, "test-app-name", nil, nil, "")
 
 	if len(podSpec.Containers) != 2 {
 		t.Error("Exp. there to be 2 container")
@@ -99,7 +99,7 @@ func TestNewKibanaPodSpecWhenResourcesAreDefined(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 
 	limitMemory := resource.MustParse("100Gi")
 	requestMemory := resource.MustParse("120Gi")
@@ -154,7 +154,7 @@ func TestNewKibanaPodSpecWhenNodeSelectorIsDefined(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 
 	// check kibana
 	if !reflect.DeepEqual(podSpec.NodeSelector, expSelector) {
@@ -175,7 +175,7 @@ func TestNewKibanaPodNoTolerations(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 	tolerations := podSpec.Tolerations
 
 	if !utils.AreTolerationsSame(tolerations, expTolerations) {
@@ -204,7 +204,7 @@ func TestNewKibanaPodWithTolerations(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 	tolerations := podSpec.Tolerations
 
 	if !utils.AreTolerationsSame(tolerations, expTolerations) {
@@ -253,6 +253,7 @@ func TestNewKibanaPodSpecWhenProxyConfigExists(t *testing.T) {
 				constants.TrustedCABundleKey: caBundle,
 			},
 		},
+		"",
 	)
 
 	if len(podSpec.Containers) != 2 {
@@ -277,7 +278,7 @@ func TestDeploymentDifferentWithKibanaEnvVar(t *testing.T) {
 		},
 	}
 
-	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 
 	lhsDeployment := NewDeployment(
 		"kibana",
@@ -287,7 +288,7 @@ func TestDeploymentDifferentWithKibanaEnvVar(t *testing.T) {
 		lhsPodSpec,
 	)
 
-	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 
 	index := -1
 	for k, v := range rhsPodSpec.Containers {
@@ -336,7 +337,7 @@ func TestDeploymentDifferentWithKibanaReplicas(t *testing.T) {
 			},
 		},
 	}
-	lhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil)
+	lhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil, "")
 	lhsDeployment := NewDeployment(
 		"kibana",
 		ClusterRequest.cluster.Namespace,
@@ -345,7 +346,7 @@ func TestDeploymentDifferentWithKibanaReplicas(t *testing.T) {
 		lhsPodSpec,
 	)
 
-	rhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil)
+	rhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil, "")
 	rhsDeployment := NewDeployment(
 		"kibana",
 		ClusterRequest.cluster.Namespace,
@@ -374,7 +375,7 @@ func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 		},
 	}
 
-	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 
 	lhsDeployment := NewDeployment(
 		"kibana",
@@ -384,7 +385,7 @@ func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 		lhsPodSpec,
 	)
 
-	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil)
+	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
 
 	index := -1
 	for k, v := range rhsPodSpec.Containers {

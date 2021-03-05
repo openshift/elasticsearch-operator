@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/ViaQ/logerr/log"
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -89,8 +91,17 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 		return err
 	}
 
+	clusterUUID, err := genStateUUID(requestCluster.Namespace, requestCluster.Name)
+	if err != nil {
+		return err
+	}
+
+	if err := clusterKibanaRequest.createOrUpdateKibanaStateConfigMap(clusterUUID.String()); err != nil {
+		return err
+	}
+
 	clusterName := esClient.ClusterName()
-	if err := clusterKibanaRequest.createOrUpdateKibanaDeployment(proxyConfig, clusterName); err != nil {
+	if err := clusterKibanaRequest.createOrUpdateKibanaDeployment(proxyConfig, clusterName, clusterUUID.String()); err != nil {
 		return err
 	}
 
@@ -210,7 +221,7 @@ func (clusterRequest *KibanaRequest) isCLOUseCase() bool {
 	return false
 }
 
-func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy, clusterName string) (err error) {
+func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig *configv1.Proxy, clusterName, clusterUUID string) (err error) {
 	kibanaTrustBundle := &v1.ConfigMap{}
 
 	// Create cluster proxy trusted CA bundle.
@@ -226,6 +237,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 		fmt.Sprintf("%s.%s.svc.cluster.local", clusterName, clusterRequest.cluster.Namespace),
 		proxyConfig,
 		kibanaTrustBundle,
+		clusterUUID,
 	)
 
 	kibanaDeployment := NewDeployment(
@@ -470,6 +482,45 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 	return nil
 }
 
+func (clusterRequest *KibanaRequest) createOrUpdateKibanaStateConfigMap(clusterUUID string) error {
+	cm := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kibana-state",
+			Namespace: clusterRequest.cluster.Namespace,
+		},
+		Data: map[string]string{
+			"uuid": clusterUUID,
+		},
+	}
+
+	utils.AddOwnerRefToObject(cm, getOwnerRef(clusterRequest.cluster))
+
+	if err := clusterRequest.CreateOrUpdateConfigMap(cm); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func genStateUUID(namespace, name string) (uuid.UUID, error) {
+	const maxSeedLen = 16
+
+	key := fmt.Sprintf("%s-%s", namespace, name)
+
+	// Inflate the key with trailing zeros till 16 bytes long
+	bl := len(key)
+	if bl < maxSeedLen {
+		key = key + strings.Repeat("0", maxSeedLen-bl)
+	}
+
+	// Cut the key to 16 bytes long
+	if bl > maxSeedLen {
+		key = key[:maxSeedLen]
+	}
+
+	return uuid.FromBytes([]byte(key))
+}
+
 func getImage() string {
 	return utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
 }
@@ -479,7 +530,7 @@ func getProxyImage() string {
 }
 
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
-	trustedCABundleCM *v1.ConfigMap) v1.PodSpec {
+	trustedCABundleCM *v1.ConfigMap, clusterUUID string) v1.PodSpec {
 	visSpec := kibana.KibanaSpec{}
 	if cluster.cluster != nil {
 		visSpec = cluster.cluster.Spec
@@ -499,7 +550,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	kibanaContainer := NewContainer(
 		"kibana",
 		kibanaImage,
-		v1.PullIfNotPresent,
+		v1.PullAlways,
 		*kibanaResources,
 	)
 
@@ -519,10 +570,19 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 				},
 			},
 		},
+		{
+			Name:  "SERVER_UUID",
+			Value: clusterUUID,
+		},
+		{
+			Name:  "PATH_DATA",
+			Value: "/data",
+		},
 	}
 
 	kibanaContainer.VolumeMounts = []v1.VolumeMount{
 		{Name: "kibana", ReadOnly: true, MountPath: "/etc/kibana/keys"},
+		{Name: "kibana-state", ReadOnly: false, MountPath: "/data"},
 	}
 
 	kibanaContainer.ReadinessProbe = &v1.Probe{
@@ -623,6 +683,15 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 				Name: "kibana-proxy", VolumeSource: v1.VolumeSource{
 					Secret: &v1.SecretVolumeSource{
 						SecretName: "kibana-proxy",
+					},
+				},
+			},
+			{
+				Name: "kibana-state", VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: v1.LocalObjectReference{
+							Name: "kibana-state",
+						},
 					},
 				},
 			},
