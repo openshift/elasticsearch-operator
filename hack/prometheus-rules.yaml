@@ -54,7 +54,7 @@ spec:
         ) > 85
       for: 5m
       labels:
-        severity: alert
+        severity: warning
     - alert: ElasticsearchNodeDiskWatermarkReached
       annotations:
         message: Disk High Watermark Reached at {{ $labels.node }} node in {{
@@ -73,7 +73,7 @@ spec:
         ) > 90
       for: 5m
       labels:
-        severity: high
+        severity: critical
     - alert: ElasticsearchNodeDiskLowForSegmentMerges
       annotations:
         message: Free disk at {{ $labels.node }} node in {{ $labels.cluster }}
@@ -95,7 +95,7 @@ spec:
         sum by (cluster, instance, node) (es_jvm_mem_heap_used_percent) > 75
       for: 10m
       labels:
-        severity: alert
+        severity: info
     - alert: AggregatedLoggingSystemCPUHigh
       annotations:
         message: System CPU usage on the node {{ $labels.node }} in {{ $labels.cluster
@@ -105,7 +105,7 @@ spec:
         sum by (cluster, instance, node) (es_os_cpu_percent) > 90
       for: 1m
       labels:
-        severity: alert
+        severity: info
     - alert: ElasticsearchProcessCPUHigh
       annotations:
         message: ES process CPU usage on the node {{ $labels.node }} in {{ $labels.cluster
@@ -115,7 +115,7 @@ spec:
         sum by (cluster, instance, node) (es_process_cpu_percent) > 90
       for: 1m
       labels:
-        severity: alert
+        severity: info
   - name: logging_elasticsearch.rules
     rules:
     - expr: |
