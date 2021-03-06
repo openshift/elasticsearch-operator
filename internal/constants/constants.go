@@ -29,7 +29,8 @@ var (
 		"elasticsearch.crt",
 		"elasticsearch.key",
 		"logging-es.crt",
-		"logging-es.key"}
+		"logging-es.key",
+	}
 )
 
 func PackagedElasticsearchImage() string {
