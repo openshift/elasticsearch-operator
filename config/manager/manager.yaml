@@ -18,8 +18,8 @@ spec:
       - command:
         - elasticsearch-operator
         ports:
-        - containerPort: 60000
-          name: metrics
+        - containerPort: 8080
+          name: http
         image: quay.io/openshift/origin-elasticsearch-operator:latest
         name: elasticsearch-operator
         imagePullPolicy: IfNotPresent

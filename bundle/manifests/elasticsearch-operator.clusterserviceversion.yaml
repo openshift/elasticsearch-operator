@@ -413,6 +413,22 @@ spec:
                 name: elasticsearch-operator
             spec:
               containers:
+              - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --tls-cert-file=/var/run/secrets/serving-cert/tls.crt
+                - --tls-private-key-file=/var/run/secrets/serving-cert/tls.key
+                - --v=2
+                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                resources: {}
+                volumeMounts:
+                - mountPath: /var/run/secrets/serving-cert
+                  name: elasticsearch-operator-metrics-cert
               - command:
                 - elasticsearch-operator
                 env:
@@ -438,8 +454,8 @@ spec:
                 imagePullPolicy: IfNotPresent
                 name: elasticsearch-operator
                 ports:
-                - containerPort: 60000
-                  name: metrics
+                - containerPort: 8080
+                  name: http
                 resources:
                   limits:
                     cpu: 200m
@@ -450,6 +466,12 @@ spec:
               nodeSelector:
                 kubernetes.io/os: linux
               serviceAccountName: elasticsearch-operator
+              volumes:
+              - name: elasticsearch-operator-metrics-cert
+                secret:
+                  defaultMode: 420
+                  optional: true
+                  secretName: elasticsearch-operator-metrics
     strategy: deployment
   installModes:
   - supported: true
