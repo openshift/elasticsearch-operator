@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	"os"
 	"runtime"
 
@@ -108,6 +109,9 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	log.Info("Registering custom metrics for Elasticsearch Operator.")
+	metrics.RegisterCustomMetrics()
 
 	ll.Info("This operator no longer honors the image specified by the custom resources so that it is able to properly coordinate the configuration with the image.")
 	ll.Info("Starting the manager.")
