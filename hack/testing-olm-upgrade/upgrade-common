@@ -39,7 +39,8 @@ cleanup(){
   oc -n openshift-operators-redhat -o yaml get configmaps > $ARTIFACT_DIR/openshift-operators-redhat-configmaps.yml 2>&1 ||:
   oc -n openshift-operators-redhat describe deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.describe 2>&1 ||:
 
-  oc logs -n "openshift-operators-redhat" deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.log 2>&1 ||:
+  oc logs -n "openshift-operators-redhat" -c elasticsearch-operator deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.log 2>&1 ||:
+  oc logs -n "openshift-operators-redhat" -c kube-rbac-proxy deployment/elasticsearch-operator > $ARTIFACT_DIR/kube-rbac-proxy.log 2>&1 ||:
   oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/catalog-operator > $ARTIFACT_DIR/catalog-operator.logs 2>&1 ||:
   oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/olm-operator > $ARTIFACT_DIR/olm-operator.logs 2>&1 ||:
 
@@ -568,5 +569,5 @@ check_deployment_rolled_out() {
   log::info "Checking if deployment successfully updated..."
   IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/logging/${version}:elasticsearch-operator}
   log::info "Checking if deployment version is ${IMAGE_ELASTICSEARCH_OPERATOR}..."
-  try_until_text "oc -n openshift-operators-redhat get deployment elasticsearch-operator -o jsonpath={.spec.template.spec.containers[0].image}" "${IMAGE_ELASTICSEARCH_OPERATOR}" ${TIMEOUT_MIN}
+  try_until_text "oc -n openshift-operators-redhat get deployment elasticsearch-operator -o jsonpath={.spec.template.spec.containers[1].image}" "${IMAGE_ELASTICSEARCH_OPERATOR}" ${TIMEOUT_MIN}
 }
