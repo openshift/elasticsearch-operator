@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	CertRestart 		string = "cert_restart"
-	RollingRestart 		string = "rolling_restart"
-	ScheduledRestart 	string = "scheduled_restart"
-	ManagedState		string = "managed"
-	UnmanagedState		string = "unmanaged"
+	CertRestart      string = "cert_restart"
+	RollingRestart   string = "rolling_restart"
+	ScheduledRestart string = "scheduled_restart"
+	ManagedState     string = "managed"
+	UnmanagedState   string = "unmanaged"
 )
 
 var (
@@ -32,35 +32,35 @@ var (
 	}
 )
 
-//This function registers the custom metrics to the kubernetes controller-runtime default metrics.
+// This function registers the custom metrics to the kubernetes controller-runtime default metrics.
 func RegisterCustomMetrics() {
 	for _, metric := range metricList {
 		metrics.Registry.MustRegister(metric)
 	}
 }
 
-//Increment the metric value by "1" when the node restarts due to cert.
+// Increment the metric value by "1" when the node restarts due to cert.
 func IncrementRestartCounterCert() {
 	restartCounter.With(prometheus.Labels{
 		"reason": CertRestart,
 	}).Inc()
 }
 
-//Increment the metric value by "1" when the node restarts due to rolling.
+// Increment the metric value by "1" when the node restarts due to rolling.
 func IncrementRestartCounterRolling() {
 	restartCounter.With(prometheus.Labels{
 		"reason": RollingRestart,
 	}).Inc()
 }
 
-//Increment the metric value by "1" when the node is scheduled for cert restart or rolling restart.
+// Increment the metric value by "1" when the node is scheduled for cert restart or rolling restart.
 func IncrementRestartCounterScheduled() {
 	restartCounter.With(prometheus.Labels{
 		"reason": ScheduledRestart,
 	}).Inc()
 }
 
-//Sets the metric value to "n" when the ES Cluster Management State is Managed.
+// Sets the metric value to "n" when the ES Cluster Management State is Managed.
 func SetEsClusterManagementStateManaged() {
 	esClusterManagementState.With(prometheus.Labels{
 		"state": ManagedState,
@@ -71,7 +71,7 @@ func SetEsClusterManagementStateManaged() {
 	}).Set(0)
 }
 
-//Sets the metric value to "n" when the ES Cluster Management State is Unmanaged.
+// Sets the metric value to "n" when the ES Cluster Management State is Unmanaged.
 func SetEsClusterManagementStateUnmanaged() {
 	esClusterManagementState.With(prometheus.Labels{
 		"state": ManagedState,

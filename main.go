@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	"os"
 	"runtime"
+
+	"github.com/openshift/elasticsearch-operator/internal/metrics"
 
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
