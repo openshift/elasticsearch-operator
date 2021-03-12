@@ -9,7 +9,7 @@ try:
   fileToRead = sys.argv[1]
   currentIndex = sys.argv[2]
 except IndexError:
-    raise SystemExit(f"Usage: {sys.argv[0]} <file_to_read> <current_index>")
+  raise SystemExit(f"Usage: {sys.argv[0]} <file_to_read> <current_index>")
 
 try:
   with open(fileToRead) as f:
@@ -24,14 +24,14 @@ try:
         if data['conditions'][condition]:
           print(f"Index was not rolled over despite meeting conditions to do so: {data['conditions']}")
           sys.exit(1)
-      
+
       print(data['old_index'])
       sys.exit(0)
-    
+
   if data['old_index'] != currentIndex:
     print(f"old index {data['old_index']} does not match expected index {currentIndex}")
     sys.exit(1)
-      
+
   print(data['new_index'])
 except KeyError as e:
   raise SystemExit(f"Unable to check rollover for {data}: missing key {e}")
@@ -44,14 +44,22 @@ import json,sys
 
 try:
   alias = sys.argv[1]
-  indices = sys.argv[2]
+  output = sys.argv[2]
 except IndexError:
-  raise SystemExit(f"Usage: {sys.argv[0]} <write_alias> <write_indices>")
+  raise SystemExit(f"Usage: {sys.argv[0]} <write_alias> <json_response>")
 
 try:
-  data = json.loads(indices)
+  response = json.loads(output)
 except ValueError:
-  raise SystemExit(f"Invalid JSON: {indices}")
+  raise SystemExit(f"Invalid JSON: {output}")
+
+lastIndex = len(response) - 1
+
+if 'error' in response[lastIndex]:
+  print(f"Error while attemping to determine the active write alias: {response[lastIndex]}")
+  sys.exit(1)
+
+data = response[lastIndex]
 
 try:
   writeIndex = [index for index in data if data[index]['aliases'][alias].get('is_write_index')]
@@ -62,25 +70,83 @@ except:
   raise SystemExit(f"Error trying to determine the 'write' index from {data}: {e}")
 `
 
+const getNext25Indices = `
+#!/bin/python
+
+from __future__ import print_function
+import json,sys
+
+try:
+  minAgeFromEpoc = sys.argv[1]
+  writeIndex = sys.argv[2]
+  output = sys.argv[3]
+except IndexError:
+  raise SystemExit(f"Usage: {sys.argv[0]} <minAgeFromEpoc> <writeIndex> <json_response>")
+
+try:
+  response = json.loads(output)
+except ValueError:
+  raise SystemExit(f"Invalid JSON: {output}")
+
+lastIndex = len(response) - 1
+
+if 'error' in response[lastIndex]:
+  print(f"Error while attemping to determine index creation dates: {response[lastIndex]}")
+  sys.exit(1)
+
+r = response[lastIndex]
+
+indices = []
+for index in r:
+  try:
+    if 'settings' in r[index]:
+      settings = r[index]['settings']
+      if 'index' in settings:
+        meta = settings['index']
+        if 'creation_date' in meta:
+          creation_date = meta['creation_date']
+          if int(creation_date) < int(minAgeFromEpoc):
+            indices.append(index)
+        else:
+          sys.stderr.write("'creation_date' missing from index settings: %r" % (meta))
+      else:
+        sys.stderr.write("'index' missing from setting: %r" % (settings))
+    else:
+      sys.stderr.write("'settings' missing for %r" % (index))
+  except:
+    e = sys.exc_info()[0]
+    sys.stderr.write("Error trying to evaluate index from '%r': %r" % (r,e))
+if writeIndex in indices:
+  indices.remove(writeIndex)
+for i in range(0, len(indices), 25):
+  print(','.join(indices[i:i+25]))
+`
+
 const rolloverScript = `
 set -euo pipefail
 CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
 decoded=$(echo $PAYLOAD | base64 -d)
 
+echo "Index management rollover process starting"
+
 # get current write index
 # find out the current write index for ${POLICY_MAPPING}-write and check if there is the next generation of it
-writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
+writeIndices=$(curl -s $ES_SERVICE/_alias/${POLICY_MAPPING}-write \
   --cacert /etc/indexmanagement/keys/admin-ca \
   --connect-timeout ${CONNECT_TIMEOUT} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json)
+  -HContent-Type:application/json \
+  --retry 5 \
+  --retry-delay 5)
 
-if echo "$writeIndices" | grep "\"error\"" ; then
-  echo "Error while attemping to determine the active write alias: $writeIndices"
+if [ -z "$writeIndices" ]; then
+  echo "Received an empty response from elasticsearch -- server may not be ready"
   exit 1
 fi
 
-if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$writeIndices")" ; then
+jsonResponse="$(echo [$writeIndices] | sed 's/}{/},{/g')"
+
+if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$jsonResponse")" ; then
   echo $writeIndex
   exit 1
 fi
@@ -96,7 +162,9 @@ code=$(curl -s "$ES_SERVICE/${POLICY_MAPPING}-write/_rollover?pretty" \
   -XPOST \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
-  -d $decoded)
+  -d $decoded \
+  --retry 5 \
+  --retry-delay 5)
 
 echo "Checking results from _rollover call"
 
@@ -129,7 +197,9 @@ code=$(curl -s "$ES_SERVICE/$nextIndex/" \
   --connect-timeout ${CONNECT_TIMEOUT} \
   --cacert /etc/indexmanagement/keys/admin-ca \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -o /dev/null)
+  -o /dev/null \
+  --retry 5 \
+  --retry-delay 5)
 if [ "$code" == "404" ] ; then
   cat /tmp/response.txt
   exit 1
@@ -142,14 +212,13 @@ writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-
   --cacert /etc/indexmanagement/keys/admin-ca \
   --connect-timeout ${CONNECT_TIMEOUT} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json)
+  -HContent-Type:application/json \
+  --retry 5 \
+  --retry-delay 5)
 
-if echo "$writeIndices" | grep "\"error\"" ; then
-  echo "Error while attemping to determine the active write alias: $writeIndices"
-  exit 1
-fi
+jsonResponse="$(echo [$writeIndices] | sed 's/}{/},{/g')"
 
-if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$writeIndices")" ; then
+if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$jsonResponse")" ; then
   echo $writeIndex
   exit 1
 fi
@@ -170,7 +239,9 @@ code=$(curl -s "$ES_SERVICE/_aliases" \
   -XPOST \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
-  -d '{"actions":[{"add":{"index": "'$writeIndex'", "alias": "'${POLICY_MAPPING}-write'", "is_write_index": false}},{"add":{"index": "'$nextIndex'", "alias": "'${POLICY_MAPPING}-write'", "is_write_index": true}}]}')
+  -d '{"actions":[{"add":{"index": "'$writeIndex'", "alias": "'${POLICY_MAPPING}-write'", "is_write_index": false}},{"add":{"index": "'$nextIndex'", "alias": "'${POLICY_MAPPING}-write'", "is_write_index": true}}]}' \
+  --retry 5 \
+  --retry-delay 5)
 
 if [ "$code" == 200 ] ; then
   echo "Done!"
@@ -186,98 +257,56 @@ ERRORS=/tmp/errors.txt
 CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
 echo "" > $ERRORS
 
-writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
+echo "Index management delete process starting"
+
+writeIndices=$(curl -s $ES_SERVICE/_alias/${POLICY_MAPPING}-write \
   --cacert /etc/indexmanagement/keys/admin-ca \
   --connect-timeout ${CONNECT_TIMEOUT} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json)
+  -HContent-Type:application/json \
+  --retry 5 \
+  --retry-delay 5)
 
-if echo "$writeIndices" | grep "\"error\"" ; then
-  echo "Error while attemping to determine the active write alias: $writeIndices"
+if [ -z "$writeIndices" ]; then
+  echo "Received an empty response from elasticsearch -- server may not be ready"
   exit 1
 fi
 
-CMD=$(cat <<END
-from __future__ import print_function
-import json,sys
-from io import StringIO
-indexStr = sys.stdin.readline().rstrip()
-try:
-  r=json.load(StringIO(indexStr))
-except ValueError as e:
-  sys.stderr.write("Invalid JSON: %r" % indexStr)
-  sys.exit(1)
-alias="${POLICY_MAPPING}-write"
-try:
-  indices = [index for index in r if r[index]['aliases'][alias].get('is_write_index')]
-  if len(indices) > 0:
-    print(indices[0])
-except:
-  e = sys.exc_info()[0]
-  sys.stderr.write("Error trying to determine the 'write' index from '%r': %r" % (r,e))
-  sys.exit(1)
-END
-)
-writeIndex=$(echo "${writeIndices}" | python -c "$CMD" 2>>$ERRORS)
-if [ "$?" != "0" ] ; then
-  cat $ERRORS
+jsonResponse="$(echo [$writeIndices] | sed 's/}{/},{/g')"
+
+if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$jsonResponse")" ; then
+  echo $writeIndex
   exit 1
 fi
-
 
 indices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}/_settings/index.creation_date \
   --cacert /etc/indexmanagement/keys/admin-ca \
   --connect-timeout ${CONNECT_TIMEOUT} \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json)
+  -HContent-Type:application/json \
+  --retry 5 \
+  --retry-delay 5)
+
+if [ -z "$indices" ]; then
+  echo "Received an empty response from elasticsearch -- server may not be ready"
+  exit 1
+fi
+
+jsonResponse="$(echo [$indices] | sed 's/}{/},{/g')"
 
 # Delete in batches of 25 for cases where there are a large number of indices to remove
 nowInMillis=$(date +%s%3N)
 minAgeFromEpoc=$(($nowInMillis - $MIN_AGE))
-CMD=$(cat <<END
-from __future__ import print_function
-import json,sys
-from io import StringIO
-indexStr = sys.stdin.readline().rstrip()
-try:
-  r=json.load(StringIO(indexStr))
-except ValueError as e:
-  sys.stderr.write("Invalid JSON: %r" % indexStr)
-  sys.exit(1)
-indices = []
-for index in r:
-  try:
-    if 'settings' in r[index]:
-      settings = r[index]['settings']
-      if 'index' in settings:
-        meta = settings['index']
-        if 'creation_date' in meta:
-          creation_date = meta['creation_date']
-          if int(creation_date) < $minAgeFromEpoc:
-            indices.append(index)
-        else:
-          sys.stderr.write("'creation_date' missing from index settings: %r" % (meta))
-      else:
-        sys.stderr.write("'index' missing from setting: %r" % (settings))
-    else:
-      sys.stderr.write("'settings' missing for %r" % (index))
-  except:
-    e = sys.exc_info()[0]
-    sys.stderr.write("Error trying to evaluate index from '%r': %r" % (r,e))
-if "$writeIndex" in indices:
-  indices.remove("$writeIndex")
-for i in range(0, len(indices), 25):
-  print(','.join(indices[i:i+25]))
-END
-)
-indices=$(echo "${indices}"  | python -c "$CMD" 2>>$ERRORS)
-if [ "$?" != "0" ] ; then
+
+if ! indices=$(python /tmp/scripts/getNext25Indices.py "$minAgeFromEpoc" "$writeIndex" "$jsonResponse" 2>>$ERRORS) ; then
   cat $ERRORS
   exit 1
 fi
 # Dump any findings to stdout but don't error
-cat $ERRORS
-  
+if [ -s $ERRORS ]; then
+  cat $ERRORS
+fi
+
 if [ "${indices}" == "" ] ; then
     echo No indices to delete
     exit 0
@@ -293,18 +322,23 @@ code=$(curl -s $ES_SERVICE/${sets}?pretty \
   -HContent-Type:application/json \
   -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
   -o /tmp/response.txt \
-  -XDELETE )
+  -XDELETE \
+  --retry 5 \
+  --retry-delay 5)
 
 if [ $code -ne 200 ] ; then
   cat /tmp/response.txt
   exit 1
 fi
 done
+
+echo "Done!"
 `
 
 var scriptMap = map[string]string{
-	"delete":           deleteScript,
-	"rollover":         rolloverScript,
-	"getWriteIndex.py": getWriteIndex,
-	"checkRollover.py": checkRollover,
+	"delete":              deleteScript,
+	"rollover":            rolloverScript,
+	"getWriteIndex.py":    getWriteIndex,
+	"checkRollover.py":    checkRollover,
+	"getNext25Indices.py": getNext25Indices,
 }
