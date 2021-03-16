@@ -64,7 +64,8 @@ data = response[lastIndex]
 try:
   writeIndex = [index for index in data if data[index]['aliases'][alias].get('is_write_index')]
   if len(writeIndex) > 0:
-    print(writeIndex[0])
+    writeIndex.sort(reverse=True)
+    print(" ".join(writeIndex))
 except:
   e = sys.exc_info()[0]
   raise SystemExit(f"Error trying to determine the 'write' index from {data}: {e}")
@@ -122,31 +123,79 @@ for i in range(0, len(indices), 25):
   print(','.join(indices[i:i+25]))
 `
 
+const indexManagement = `
+
+CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
+
+function getWriteIndex() {
+
+  local policy="$1"
+
+  # find out the current write index for ${POLICY_MAPPING}-write and check if there is the next generation of it
+  aliasResponse=$(curl -s $ES_SERVICE/_alias/${policy} \
+    --cacert /etc/indexmanagement/keys/admin-ca \
+    --connect-timeout ${CONNECT_TIMEOUT} \
+    -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+    -HContent-Type:application/json \
+    --retry 5 \
+    --retry-delay 5)
+
+  if [ -z "$aliasResponse" ]; then
+    echo "Received an empty response from elasticsearch -- server may not be ready"
+    exit 1
+  fi
+
+  jsonResponse="$(echo [$aliasResponse] | sed 's/}{/},{/g')"
+
+  if ! writeIndices="$(python /tmp/scripts/getWriteIndex.py "${policy}" "$jsonResponse")" ; then
+    echo $writeIndices
+    exit 1
+  fi
+
+  writeIndex="$(ensureOneWriteIndex "$policy" "$writeIndices")"
+
+  echo $writeIndex
+}
+
+function ensureOneWriteIndex() {
+
+  local policy="$1"
+  local writeIndices="$2"
+
+  # first index received is the latest one
+  writeIndex=""
+  for index in $writeIndices; do
+    if [ -z "$writeIndex" ]; then
+      writeIndex="$index"
+    else
+      # extra write index -- mark it as not a write index
+      curl -s "$ES_SERVICE/_aliases" \
+        --connect-timeout ${CONNECT_TIMEOUT} \
+        --cacert /etc/indexmanagement/keys/admin-ca \
+        -HContent-Type:application/json \
+        -XPOST \
+        -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+        -o /dev/null \
+        -d '{"actions":[{"add":{"index": "'$index'", "alias": "'${POLICY_MAPPING}-write'", "is_write_index": false}}]}' \
+        --retry 5 \
+        --retry-delay 5
+    fi
+  done
+
+  echo $writeIndex
+}
+`
+
 const rolloverScript = `
 set -euo pipefail
-CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
+source /tmp/scripts/indexManagement
+
 decoded=$(echo $PAYLOAD | base64 -d)
 
 echo "Index management rollover process starting"
 
 # get current write index
-# find out the current write index for ${POLICY_MAPPING}-write and check if there is the next generation of it
-writeIndices=$(curl -s $ES_SERVICE/_alias/${POLICY_MAPPING}-write \
-  --cacert /etc/indexmanagement/keys/admin-ca \
-  --connect-timeout ${CONNECT_TIMEOUT} \
-  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json \
-  --retry 5 \
-  --retry-delay 5)
-
-if [ -z "$writeIndices" ]; then
-  echo "Received an empty response from elasticsearch -- server may not be ready"
-  exit 1
-fi
-
-jsonResponse="$(echo [$writeIndices] | sed 's/}{/},{/g')"
-
-if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$jsonResponse")" ; then
+if ! writeIndex="$(getWriteIndex "${POLICY_MAPPING}-write")" ; then
   echo $writeIndex
   exit 1
 fi
@@ -207,18 +256,8 @@ fi
 
 echo "Checking if $nextIndex is the write index for ${POLICY_MAPPING}-write"
 
-# if true, ensure write-alias points to next index
-writeIndices=$(curl -s $ES_SERVICE/${POLICY_MAPPING}-*/_alias/${POLICY_MAPPING}-write \
-  --cacert /etc/indexmanagement/keys/admin-ca \
-  --connect-timeout ${CONNECT_TIMEOUT} \
-  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json \
-  --retry 5 \
-  --retry-delay 5)
-
-jsonResponse="$(echo [$writeIndices] | sed 's/}{/},{/g')"
-
-if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$jsonResponse")" ; then
+## if true, ensure write-alias points to next index
+if ! writeIndex="$(getWriteIndex "${POLICY_MAPPING}-write")" ; then
   echo $writeIndex
   exit 1
 fi
@@ -254,27 +293,14 @@ exit 1
 const deleteScript = `
 set -uo pipefail
 ERRORS=/tmp/errors.txt
-CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-30}
+
+source /tmp/scripts/indexManagement
+
 echo "" > $ERRORS
 
 echo "Index management delete process starting"
 
-writeIndices=$(curl -s $ES_SERVICE/_alias/${POLICY_MAPPING}-write \
-  --cacert /etc/indexmanagement/keys/admin-ca \
-  --connect-timeout ${CONNECT_TIMEOUT} \
-  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -HContent-Type:application/json \
-  --retry 5 \
-  --retry-delay 5)
-
-if [ -z "$writeIndices" ]; then
-  echo "Received an empty response from elasticsearch -- server may not be ready"
-  exit 1
-fi
-
-jsonResponse="$(echo [$writeIndices] | sed 's/}{/},{/g')"
-
-if ! writeIndex="$(python /tmp/scripts/getWriteIndex.py "${POLICY_MAPPING}-write" "$jsonResponse")" ; then
+if ! writeIndex="$(getWriteIndex "${POLICY_MAPPING}-write")" ; then
   echo $writeIndex
   exit 1
 fi
@@ -315,21 +341,21 @@ else
 fi
 
 for sets in ${indices}; do
-code=$(curl -s $ES_SERVICE/${sets}?pretty \
-  -w "%{response_code}" \
-  --connect-timeout ${CONNECT_TIMEOUT} \
-  --cacert /etc/indexmanagement/keys/admin-ca \
-  -HContent-Type:application/json \
-  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  -o /tmp/response.txt \
-  -XDELETE \
-  --retry 5 \
-  --retry-delay 5)
+  code=$(curl -s $ES_SERVICE/${sets}?pretty \
+    -w "%{response_code}" \
+    --connect-timeout ${CONNECT_TIMEOUT} \
+    --cacert /etc/indexmanagement/keys/admin-ca \
+    -HContent-Type:application/json \
+    -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+    -o /tmp/response.txt \
+    -XDELETE \
+    --retry 5 \
+    --retry-delay 5)
 
-if [ $code -ne 200 ] ; then
-  cat /tmp/response.txt
-  exit 1
-fi
+  if [ "$code" != 200 ] ; then
+    cat /tmp/response.txt
+    exit 1
+  fi
 done
 
 echo "Done!"
@@ -338,6 +364,7 @@ echo "Done!"
 var scriptMap = map[string]string{
 	"delete":              deleteScript,
 	"rollover":            rolloverScript,
+	"indexManagement":     indexManagement,
 	"getWriteIndex.py":    getWriteIndex,
 	"checkRollover.py":    checkRollover,
 	"getNext25Indices.py": getNext25Indices,
