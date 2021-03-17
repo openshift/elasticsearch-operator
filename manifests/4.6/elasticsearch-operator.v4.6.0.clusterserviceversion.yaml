@@ -287,8 +287,10 @@ spec:
                   command:
                   - elasticsearch-operator
                   ports:
-                  - containerPort: 60000
-                    name: metrics
+                  - containerPort: 8383
+                    name: http-metrics
+                  - containerPort: 8686
+                    name: cr-metrics
                   env:
                     - name: WATCH_NAMESPACE
                       valueFrom:
