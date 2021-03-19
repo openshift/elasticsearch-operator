@@ -117,7 +117,7 @@ tests:
               cluster: elasticsearch
               instance: localhost:9090
               node: elasticsearch-cdm-1
-              severity: alert
+              severity: info
             exp_annotations:
               summary: "System CPU usage is high"
               message: "System CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md#Aggregated-Logging-System-CPU-is-High"
@@ -135,7 +135,7 @@ tests:
               cluster: elasticsearch
               instance: localhost:9090
               node: elasticsearch-cdm-1
-              severity: alert
+              severity: info
             exp_annotations:
               summary: "ES process CPU usage is high"
               message: "ES process CPU usage on the node elasticsearch-cdm-1 in elasticsearch cluster is 95%. For more information refer to https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md#Elasticsearch-Process-CPU-is-High"
