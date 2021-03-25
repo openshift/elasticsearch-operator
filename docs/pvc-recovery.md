@@ -77,12 +77,12 @@ To begin, this guide assumes you have a currently running cluster in the `opensh
       ssl:
         verification_mode: certificate
         truststore:
-          path: /etc/elasticsearch/secret/truststore
+          path: /etc/elasticsearch/secret/truststore.p12
           password: tspass
-          type: jks
+          type: p12
         keystore:
-          path: /etc/elasticsearch/secret/key
-          type: jks
+          path: /etc/elasticsearch/secret/key.p12
+          type: p12
           password: kspass
     ```
     - e.g.
@@ -101,12 +101,12 @@ To begin, this guide assumes you have a currently running cluster in the `opensh
       ssl:
         verification_mode: certificate
         truststore:
-          path: /etc/elasticsearch/secret/truststore
+          path: /etc/elasticsearch/secret/truststore.p12
           password: tspass
-          type: jks
+          type: p12
         keystore:
-          path: /etc/elasticsearch/secret/key
-          type: jks
+          path: /etc/elasticsearch/secret/key.p12
+          type: p12
           password: kspass
     ```
 
