@@ -440,13 +440,7 @@ spec:
                 ports:
                 - containerPort: 60000
                   name: metrics
-                resources:
-                  limits:
-                    cpu: 200m
-                    memory: 128Mi
-                  requests:
-                    cpu: 100m
-                    memory: 64Mi
+                resources: {}
               nodeSelector:
                 kubernetes.io/os: linux
               serviceAccountName: elasticsearch-operator

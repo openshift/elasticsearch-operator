@@ -23,13 +23,7 @@ spec:
         image: quay.io/openshift/origin-elasticsearch-operator:latest
         name: elasticsearch-operator
         imagePullPolicy: IfNotPresent
-        resources:
-          limits:
-            cpu: 200m
-            memory: 128Mi
-          requests:
-            cpu: 100m
-            memory: 64Mi
+        resources: {}
         env:
           - name: WATCH_NAMESPACE
             valueFrom:
