@@ -114,7 +114,6 @@ func main() {
 	log.Info("Registering custom metrics for Elasticsearch Operator.")
 	metrics.RegisterCustomMetrics()
 
-	ll.Info("This operator no longer honors the image specified by the custom resources so that it is able to properly coordinate the configuration with the image.")
 	ll.Info("Starting the manager.")
 
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
