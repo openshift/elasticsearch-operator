@@ -629,6 +629,7 @@ spec:
                           type: string
                       type: object
                   type: object
+                nullable: true
                 type: array
               pods:
                 additionalProperties:
@@ -637,6 +638,7 @@ spec:
                       type: string
                     type: array
                   type: object
+                nullable: true
                 type: object
               shardAllocationEnabled:
                 type: string
