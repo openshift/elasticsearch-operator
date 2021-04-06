@@ -1,7 +1,14 @@
 FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
 WORKDIR /go/src/github.com/openshift/elasticsearch-operator
-COPY . .
-RUN make build
+COPY apis apis
+COPY controllers controllers
+COPY files files
+COPY internal internal
+COPY manifests manifests
+COPY vendor vendor
+COPY version version
+ADD Makefile main.go ./
+RUN go build -o bin/elasticsearch-operator main.go
 
 FROM registry.ci.openshift.org/ocp/4.7:base
 
