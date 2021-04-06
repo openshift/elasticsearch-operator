@@ -92,6 +92,7 @@ type ElasticsearchSpec struct {
 // ElasticsearchStatus defines the observed state of Elasticsearch
 // +k8s:openapi-gen=true
 type ElasticsearchStatus struct {
+	// +nullable
 	// +optional
 	Nodes []ElasticsearchNodeStatus `json:"nodes,omitempty"`
 	// +optional
@@ -100,6 +101,7 @@ type ElasticsearchStatus struct {
 	Cluster ClusterHealth `json:"cluster,omitempty"`
 	// +optional
 	ShardAllocationEnabled ShardAllocationState `json:"shardAllocationEnabled,omitempty"`
+	// +nullable
 	// +optional
 	Pods map[ElasticsearchNodeRole]PodStateMap `json:"pods,omitempty"`
 	// +optional
