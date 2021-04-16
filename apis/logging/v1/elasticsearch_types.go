@@ -338,4 +338,7 @@ const (
 	NodeStorage              ClusterConditionType = "NodeStorage"
 	CustomImage              ClusterConditionType = "CustomImageIgnored"
 	DegradedState            ClusterConditionType = "Degraded"
+	StorageClassName	 ClusterConditionType = "StorageClassNameChangeIgnored"
+	StorageSize		 ClusterConditionType = "StorageSizeChangeIgnored"
+	StorageStructure	 ClusterConditionType = "StorageStructureChangeIgnored"
 )

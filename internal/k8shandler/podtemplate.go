@@ -94,6 +94,18 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 	return changed
 }
 
+// Copies the original template and overwrites the volume in the spec
+// if the overwriting template contains an actively used storage
+func CopyPodTemplateSpec(original, overwrite v1.PodTemplateSpec, overwriteVolume bool) v1.PodTemplateSpec {
+	templateCopy := original
+
+	if overwriteVolume && containsUsedVolumeStorage(overwrite) {
+		templateCopy.Spec.Volumes = overwrite.Spec.Volumes
+	}
+
+	return templateCopy
+}
+
 // check that all of rhs (desired) are contained within lhs (current)
 func containsSameVolumeMounts(lhs, rhs []v1.VolumeMount) bool {
 	for _, rVolumeMount := range rhs {
@@ -115,6 +127,17 @@ func containsSameVolumeMounts(lhs, rhs []v1.VolumeMount) bool {
 	}
 
 	return true
+}
+
+// checks that the current spec does not have storage already
+func containsUsedVolumeStorage(podSpec v1.PodTemplateSpec) bool {
+	for _, volume := range podSpec.Spec.Volumes {
+		if volume.EmptyDir != nil || volume.PersistentVolumeClaim != nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 // if we use reflect.DeepEqual we will keep recognizing a difference due to defaultModes

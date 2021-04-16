@@ -318,8 +318,7 @@ func (n *statefulSetNode) executeUpdate() error {
 		}
 
 		if ArePodTemplateSpecDifferent(currentStatefulSet.Spec.Template, n.self.Spec.Template) {
-
-			currentStatefulSet.Spec.Template = n.self.Spec.Template
+			currentStatefulSet.Spec.Template = CopyPodTemplateSpec(n.self.Spec.Template, currentStatefulSet.Spec.Template, true)
 
 			if updateErr := n.client.Update(context.TODO(), &currentStatefulSet); updateErr != nil {
 				n.L().Error(err, "Failed to update node resource")

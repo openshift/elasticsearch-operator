@@ -357,7 +357,8 @@ func (node *deploymentNode) executeUpdate() error {
 		}
 
 		if ArePodTemplateSpecDifferent(currentDeployment.Spec.Template, node.self.Spec.Template) {
-			currentDeployment.Spec.Template = node.self.Spec.Template
+			currentDeployment.Spec.Template = CopyPodTemplateSpec(node.self.Spec.Template, currentDeployment.Spec.Template, true)
+
 			if err := node.client.Update(context.TODO(), &currentDeployment); err != nil {
 				log.Info("Failed to update node resource", "error", err)
 				return err
