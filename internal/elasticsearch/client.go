@@ -65,7 +65,7 @@ type Client interface {
 	AddAliasForOldIndices() bool
 
 	// Index Settings API
-	GetIndexSettings(name string) (*estypes.IndexSettings, error)
+	GetIndexSettings(name string) (*estypes.Index, error)
 	UpdateIndexSettings(name string, settings *estypes.IndexSettings) error
 
 	// Nodes API

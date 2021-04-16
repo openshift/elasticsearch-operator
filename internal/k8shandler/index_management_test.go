@@ -128,8 +128,10 @@ var _ = Describe("Index Management", func() {
 						"node.infra" : {}
 					},
 					"settings": {
-						"number_of_replicas": 1,
-						"number_of_shards": 3
+						"index": {
+							"number_of_replicas": 1,
+							"number_of_shards": 3
+						}
 					},
 					"template": "node.infra*"
 				}`)
@@ -169,8 +171,10 @@ var _ = Describe("Index Management", func() {
 							}
 						},
 						"settings": {
-							"number_of_replicas": 1,
-							"number_of_shards": 3
+							"index": {
+								"number_of_replicas": 1,
+								"number_of_shards": 3
+							}
 						}
 					}`)
 			})
