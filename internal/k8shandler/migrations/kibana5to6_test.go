@@ -68,7 +68,7 @@ var _ = Describe("Migrating", func() {
 					".kibana/_settings": {
 						{
 							StatusCode: 200,
-							Body:       `{"index": {"blocks": {"write": true}}}`,
+							Body:       `{".kibana": {"settings": {"index": {"blocks": {"write": true}}}}}`,
 						},
 					},
 				})
@@ -354,8 +354,8 @@ const (
 	expectedKibana6Payload = `
 {
   "settings" : {
-    "number_of_shards" : 1,
     "index": {
+	  "number_of_shards" : 1,
       "format": 6,
       "mapper": {
         "dynamic": false

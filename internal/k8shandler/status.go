@@ -302,7 +302,7 @@ func (er *ElasticsearchRequest) updateStorageConditions(status *api.Elasticsearc
 				if apierrors.IsNotFound(err) {
 					didMakePVCClaim = false
 				} else {
-					return kverrors.Wrap(err, "failed to get PVC", "claim", cluster.Name,)
+					return kverrors.Wrap(err, "failed to get PVC", "claim", cluster.Name)
 				}
 			}
 
@@ -344,7 +344,7 @@ func (er *ElasticsearchRequest) updateStorageConditions(status *api.Elasticsearc
 				LastTransitionTime: metav1.Now(),
 				Reason:             "StorageClassNameChangeIgnored",
 				Message:            "Changing the storage class name for a custom resource is not supported",
-                        })
+			})
 
 			updateESNodeCondition(status, &api.ClusterCondition{
 				Type:               api.StorageSize,

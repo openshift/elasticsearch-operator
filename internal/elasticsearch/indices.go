@@ -93,7 +93,7 @@ func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
 	return nil
 }
 
-func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error) {
+func (ec *esClient) GetIndexSettings(name string) (*estypes.Index, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    fmt.Sprintf("%s/_settings", name),
@@ -109,8 +109,14 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.IndexSettings, error
 			"response_body", payload.ResponseBody)
 	}
 
-	settings := &estypes.IndexSettings{}
-	err := json.Unmarshal([]byte(payload.RawResponseBody), settings)
+	settings := &estypes.Index{}
+	indexSettings, err := json.Marshal(payload.ResponseBody[name])
+	if err != nil {
+		return nil, kverrors.Wrap(err, "failed to decode response body",
+			"destination_type", "estypes.IndexSettings",
+			"index", name)
+	}
+	err = json.Unmarshal(indexSettings, settings)
 	if err != nil {
 		return nil, kverrors.Wrap(err, "failed to decode response body",
 			"destination_type", "estypes.IndexSettings",

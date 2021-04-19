@@ -66,10 +66,12 @@ func (mr *migrationRequest) setKibanaIndexReadOnly() error {
 	}
 
 	if curSett != nil {
-		if curSett.Index != nil {
-			if curSett.Index.Blocks.Write {
-				log.Info("skipping setting index to read-only because already completed", "index", kibanaIndex)
-				return nil
+		if curSett.Settings != nil {
+			if curSett.Settings.Index != nil {
+				if curSett.Settings.Index.Blocks.Write {
+					log.Info("skipping setting index to read-only because already completed", "index", kibanaIndex)
+					return nil
+				}
 			}
 		}
 	}
@@ -111,10 +113,10 @@ func (mr *migrationRequest) createNewKibana6Index() error {
 
 	index := &estypes.Index{
 		Name: kibana6Index,
-		Settings: estypes.IndexSettings{
-			NumberOfShards: 1,
+		Settings: &estypes.IndexSettings{
 			Index: &estypes.IndexingSettings{
-				Format: 6,
+				NumberOfShards: 1,
+				Format:         6,
 				Mapper: &estypes.IndexMapperSettings{
 					Dynamic: false,
 				},
