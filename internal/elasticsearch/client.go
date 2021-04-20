@@ -74,6 +74,7 @@ type Client interface {
 	// Replicas
 	UpdateReplicaCount(replicaCount int32) error
 	GetIndexReplicaCounts() (map[string]interface{}, error)
+	GetLowestReplicaValue() (int32, error)
 
 	// Shards API
 	ClearTransientShardAllocation() (bool, error)

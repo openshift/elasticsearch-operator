@@ -7,7 +7,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/test/helpers"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var _ = Describe("util.go", func() {
@@ -455,5 +458,480 @@ func TestTolerations(t *testing.T) {
 
 	if !areTolerationsSame(actual, expected) {
 		t.Errorf("Expected %v but got %v", expected, actual)
+	}
+}
+
+func getEmptyPod(name string, labels map[string]string) v1.Pod {
+	return v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name: "testContainer",
+				},
+			},
+		},
+		Status: v1.PodStatus{
+			Phase: v1.PodRunning,
+		},
+	}
+}
+
+func TestNoScaleDownValid(t *testing.T) {
+
+	podLabels := map[string]string{
+		"component":    "elasticsearch",
+		"cluster-name": "",
+		"es-node-data": "true",
+	}
+
+	// create initial number of pods
+	dummyPod1 := getEmptyPod("dummyPod1", podLabels)
+	dummyPod2 := getEmptyPod("dummyPod2", podLabels)
+	dummyPod3 := getEmptyPod("dummyPod3", podLabels)
+
+	pods := v1.PodList{
+		Items: []v1.Pod{
+			dummyPod1, dummyPod2, dummyPod3,
+		},
+	}
+
+	// mock out a client for k8s
+	fakeClient := fake.NewFakeClient(&pods)
+
+	// mock out a client for ES
+	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"app-*,infra-*,audit-*/_settings/index.number_of_replicas": {
+			{
+				StatusCode: 200,
+				Body: `{
+					".security" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "0"
+						}
+					  }
+					},
+					"infra-000039" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "1"
+						}
+					  }
+					}
+				}`,
+			},
+		},
+	})
+	mockESClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(3),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	er := ElasticsearchRequest{
+		cluster:  esCR,
+		esClient: mockESClient,
+		client:   fakeClient,
+	}
+
+	ok, err := er.isValidScaleDownRate()
+
+	if err != nil {
+		t.Errorf("Received unexpected exception %v", err)
+	}
+
+	if !ok {
+		t.Errorf("Expected to be valid case without scale-down")
+	}
+}
+
+func TestNoRedundancyScaleDownInvalid(t *testing.T) {
+
+	podLabels := map[string]string{
+		"component":    "elasticsearch",
+		"cluster-name": "",
+		"es-node-data": "true",
+	}
+
+	// create initial number of pods
+	dummyPod1 := getEmptyPod("dummyPod1", podLabels)
+	dummyPod2 := getEmptyPod("dummyPod2", podLabels)
+	dummyPod3 := getEmptyPod("dummyPod3", podLabels)
+
+	pods := v1.PodList{
+		Items: []v1.Pod{
+			dummyPod1, dummyPod2, dummyPod3,
+		},
+	}
+
+	// mock out a client for k8s
+	fakeClient := fake.NewFakeClient(&pods)
+
+	// mock out a client for ES
+	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"app-*,infra-*,audit-*/_settings/index.number_of_replicas": {
+			{
+				StatusCode: 200,
+				Body: `{
+					".security" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "0"
+						}
+					  }
+					},
+					"infra-000039" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "1"
+						}
+					  }
+					}
+				}`,
+			},
+		},
+	})
+	mockESClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(2),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	er := ElasticsearchRequest{
+		cluster:  esCR,
+		esClient: mockESClient,
+		client:   fakeClient,
+	}
+
+	ok, err := er.isValidScaleDownRate()
+
+	if err != nil {
+		t.Errorf("Received unexpected exception %v", err)
+	}
+
+	if ok {
+		t.Errorf("Expected to be invalid scale down case")
+	}
+}
+
+func TestSingleRedundancyScaleDownValid(t *testing.T) {
+
+	podLabels := map[string]string{
+		"component":    "elasticsearch",
+		"cluster-name": "",
+		"es-node-data": "true",
+	}
+
+	// create initial number of pods
+	dummyPod1 := getEmptyPod("dummyPod1", podLabels)
+	dummyPod2 := getEmptyPod("dummyPod2", podLabels)
+	dummyPod3 := getEmptyPod("dummyPod3", podLabels)
+
+	pods := v1.PodList{
+		Items: []v1.Pod{
+			dummyPod1, dummyPod2, dummyPod3,
+		},
+	}
+
+	// mock out a client for k8s
+	fakeClient := fake.NewFakeClient(&pods)
+
+	// mock out a client for ES
+	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"app-*,infra-*,audit-*/_settings/index.number_of_replicas": {
+			{
+				StatusCode: 200,
+				Body: `{
+					".security" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "1"
+						}
+					  }
+					},
+					"infra-000039" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "1"
+						}
+					  }
+					}
+				}`,
+			},
+		},
+	})
+	mockESClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(2),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	er := ElasticsearchRequest{
+		cluster:  esCR,
+		esClient: mockESClient,
+		client:   fakeClient,
+	}
+
+	ok, err := er.isValidScaleDownRate()
+
+	if err != nil {
+		t.Errorf("Received unexpected exception %v", err)
+	}
+
+	if !ok {
+		t.Errorf("Expected to be valid scale down case")
+	}
+}
+
+func TestSingleRedundancyScaleDownInvalid(t *testing.T) {
+
+	podLabels := map[string]string{
+		"component":    "elasticsearch",
+		"cluster-name": "",
+		"es-node-data": "true",
+	}
+
+	// create initial number of pods
+	dummyPod1 := getEmptyPod("dummyPod1", podLabels)
+	dummyPod2 := getEmptyPod("dummyPod2", podLabels)
+	dummyPod3 := getEmptyPod("dummyPod3", podLabels)
+
+	pods := v1.PodList{
+		Items: []v1.Pod{
+			dummyPod1, dummyPod2, dummyPod3,
+		},
+	}
+
+	// mock out a client for k8s
+	fakeClient := fake.NewFakeClient(&pods)
+
+	// mock out a client for ES
+	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"app-*,infra-*,audit-*/_settings/index.number_of_replicas": {
+			{
+				StatusCode: 200,
+				Body: `{
+					".security" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "1"
+						}
+					  }
+					},
+					"infra-000039" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "1"
+						}
+					  }
+					}
+				}`,
+			},
+		},
+	})
+	mockESClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(1),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	er := ElasticsearchRequest{
+		cluster:  esCR,
+		esClient: mockESClient,
+		client:   fakeClient,
+	}
+
+	ok, err := er.isValidScaleDownRate()
+
+	if err != nil {
+		t.Errorf("Received unexpected exception %v", err)
+	}
+
+	if ok {
+		t.Errorf("Expected to be invalid scale down case")
+	}
+}
+
+func TestFullRedundancyScaleDownValid(t *testing.T) {
+
+	podLabels := map[string]string{
+		"component":    "elasticsearch",
+		"cluster-name": "",
+		"es-node-data": "true",
+	}
+
+	// create initial number of pods
+	dummyPod1 := getEmptyPod("dummyPod1", podLabels)
+	dummyPod2 := getEmptyPod("dummyPod2", podLabels)
+	dummyPod3 := getEmptyPod("dummyPod3", podLabels)
+
+	pods := v1.PodList{
+		Items: []v1.Pod{
+			dummyPod1, dummyPod2, dummyPod3,
+		},
+	}
+
+	// mock out a client for k8s
+	fakeClient := fake.NewFakeClient(&pods)
+
+	// mock out a client for ES
+	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"app-*,infra-*,audit-*/_settings/index.number_of_replicas": {
+			{
+				StatusCode: 200,
+				Body: `{
+					".security" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "2"
+						}
+					  }
+					},
+					"infra-000039" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "2"
+						}
+					  }
+					}
+				}`,
+			},
+		},
+	})
+	mockESClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(1),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	er := ElasticsearchRequest{
+		cluster:  esCR,
+		esClient: mockESClient,
+		client:   fakeClient,
+	}
+
+	ok, err := er.isValidScaleDownRate()
+
+	if err != nil {
+		t.Errorf("Received unexpected exception %v", err)
+	}
+
+	if !ok {
+		t.Errorf("Expected to be valid scale down case")
+	}
+}
+
+func TestFullRedundancyScaleDownInvalid(t *testing.T) {
+
+	podLabels := map[string]string{
+		"component":    "elasticsearch",
+		"cluster-name": "",
+		"es-node-data": "true",
+	}
+
+	// create initial number of pods
+	dummyPod1 := getEmptyPod("dummyPod1", podLabels)
+	dummyPod2 := getEmptyPod("dummyPod2", podLabels)
+	dummyPod3 := getEmptyPod("dummyPod3", podLabels)
+
+	pods := v1.PodList{
+		Items: []v1.Pod{
+			dummyPod1, dummyPod2, dummyPod3,
+		},
+	}
+
+	// mock out a client for k8s
+	fakeClient := fake.NewFakeClient(&pods)
+
+	// mock out a client for ES
+	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"app-*,infra-*,audit-*/_settings/index.number_of_replicas": {
+			{
+				StatusCode: 200,
+				Body: `{
+					".security" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "2"
+						}
+					  }
+					},
+					"infra-000039" : {
+					  "settings" : {
+						"index" : {
+						  "number_of_replicas" : "2"
+						}
+					  }
+					}
+				}`,
+			},
+		},
+	})
+	mockESClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+
+	esNode := api.ElasticsearchNode{
+		Roles:     []api.ElasticsearchNodeRole{"data"},
+		NodeCount: int32(0),
+	}
+
+	esCR := &api.Elasticsearch{
+		Spec: api.ElasticsearchSpec{
+			Nodes: []api.ElasticsearchNode{esNode},
+		},
+	}
+
+	er := ElasticsearchRequest{
+		cluster:  esCR,
+		esClient: mockESClient,
+		client:   fakeClient,
+	}
+
+	ok, err := er.isValidScaleDownRate()
+
+	if err != nil {
+		t.Errorf("Received unexpected exception %v", err)
+	}
+
+	if ok {
+		t.Errorf("Expected to be invalid scale down case")
 	}
 }

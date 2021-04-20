@@ -941,6 +941,22 @@ func updateInvalidReplicationCondition(status *api.ElasticsearchStatus, value v1
 	})
 }
 
+func updateInvalidScaleDownCondition(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
+	var message string
+	var reason string
+	if value == v1.ConditionTrue {
+		message = "Data node scale down rate is too high based on minimum number of replicas for all indices"
+		reason = "Invalid Settings"
+	}
+
+	return updateESNodeCondition(status, &api.ClusterCondition{
+		Type:    api.InvalidRedundancy,
+		Status:  value,
+		Reason:  reason,
+		Message: message,
+	})
+}
+
 func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, message string) {
 	cluster := er.cluster
 
