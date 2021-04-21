@@ -318,8 +318,14 @@ func (er *ElasticsearchRequest) populateNodes() error {
 	minMasterUpdated := false
 
 	// we want to only keep nodes that were generated and purge/delete any other ones...
+	// make sure cluster is green/yellow before we delete nodes
 	for _, node := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
 		if _, ok := containsNodeTypeInterface(node, currentNodes); !ok {
+			if status, _ := er.esClient.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
+				log.Info("Unable to delete/scale down any Elasticsearch nodes because of current cluster health", "currentHealth", status, "desiredHealth", desiredClusterStates)
+				break
+			}
+
 			if !minMasterUpdated {
 				// if we're removing a node make sure we set a lower min masters to keep cluster functional
 				if er.AnyNodeReady() {
@@ -327,6 +333,7 @@ func (er *ElasticsearchRequest) populateNodes() error {
 					minMasterUpdated = true
 				}
 			}
+
 			if err := node.delete(); err != nil {
 				log.Error(err, "unable to delete node")
 			}

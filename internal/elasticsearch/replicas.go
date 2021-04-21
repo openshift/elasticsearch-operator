@@ -2,6 +2,7 @@ package elasticsearch
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 )
@@ -56,6 +57,38 @@ func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	return payload.ResponseBody, payload.Error
+}
+
+func (ec *esClient) GetLowestReplicaValue() (int32, error) {
+	lowestReplica := int32(math.MaxInt32)
+	indexHealth, err := ec.GetIndexReplicaCounts()
+
+	if err != nil {
+		return lowestReplica, err
+	}
+
+	// get list of indices and call updateIndexReplicas for each one
+	for index, health := range indexHealth {
+		if healthMap, ok := health.(map[string]interface{}); ok {
+			if numberOfReplicas := parseString("settings.index.number_of_replicas", healthMap); numberOfReplicas != "" {
+				currentReplicas, err := strconv.ParseInt(numberOfReplicas, 10, 32)
+				if err != nil {
+					return lowestReplica, err
+				}
+
+				if int32(currentReplicas) < lowestReplica {
+					lowestReplica = int32(currentReplicas)
+				}
+			}
+		} else {
+			return lowestReplica, ec.errorCtx().New("unable to evaluate the number of replicas for index",
+				"index", index,
+				"health", health,
+			)
+		}
+	}
+
+	return lowestReplica, nil
 }
 
 func (ec *esClient) updateIndexReplicas(index string, replicaCount int32) (bool, error) {

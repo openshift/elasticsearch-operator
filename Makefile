@@ -92,7 +92,7 @@ image: .output/image
 
 test-unit: $(GO_JUNIT_REPORT) coveragedir junitreportdir test-unit-prom
 	@set -o pipefail && \
-		go test -v -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./internal/... ./apis/... ./controllers/... ./. 2>&1 | \
+		go test -race -coverprofile=$(COVERAGE_DIR)/test-unit.cov ./internal/... ./apis/... ./controllers/... ./. 2>&1 | \
 		tee /dev/stderr | \
 		$(GO_JUNIT_REPORT) > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 	@grep -v 'zz_generated\.' $(COVERAGE_DIR)/test-unit.cov > $(COVERAGE_DIR)/nogen.cov

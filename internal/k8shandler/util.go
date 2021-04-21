@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -204,6 +205,48 @@ func isValidRedundancyPolicy(dpl *api.Elasticsearch) bool {
 	}
 }
 
+// ensure that if the user is wanting to scale down it is not too quickly/is allowed based on replicas
+// the rate at which we can try to scale down without data loss is based on the minimum number of replicas for any given index
+// 0 -> no scale down
+// 1 -> can scale down one data node at a time
+// etc.
+func (er *ElasticsearchRequest) isValidScaleDownRate() (bool, error) {
+	// determine current number of (data) nodes
+	podStateMap := er.GetCurrentPodStateMap()
+
+	//get total count of data nodes -- not just ready ones
+	dataNodes := podStateMap[api.ElasticsearchRoleData]
+
+	currentDataCount := int32(len(dataNodes[api.PodStateTypeReady]) + len(dataNodes[api.PodStateTypeFailed]) + len(dataNodes[api.PodStateTypeNotReady]))
+
+	if currentDataCount <= 0 {
+		return true, nil
+	}
+
+	// determine number of (data) nodes based on the CR
+	requestedDataCount := getDataCount(er.cluster)
+
+	rate := currentDataCount - requestedDataCount
+
+	// check if we are scaling down at all -- if not, just keep going
+	// if rate > 0 then that means we have more current Data nodes than requested ones, so we're scaling down
+	var lowestReplica int32
+	if rate > 0 {
+		// check the lowest replica value in the cluster
+		foundLowestReplica, err := er.esClient.GetLowestReplicaValue()
+		if err != nil {
+			log.Error(err, "Unable to determine lowest replica value for cluster")
+			return false, kverrors.Wrap(err, "Unable to determine lowest replica value for cluster")
+		}
+
+		lowestReplica = foundLowestReplica
+	}
+
+	// if we are scaling up or not changing number of data nodes this should be allowed since lowestReplica == 0 and rate <= 0
+	// check that rate is allowed -- valid if the rate <= lowestReplica
+	return (rate <= lowestReplica), nil
+}
+
 func (er *ElasticsearchRequest) isValidConf() error {
 	dpl := er.cluster
 
@@ -240,6 +283,22 @@ func (er *ElasticsearchRequest) isValidConf() error {
 		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set replication status")
 		}
+	}
+
+	isValid, err := er.isValidScaleDownRate()
+	if err != nil {
+		return err
+	}
+
+	if isValid {
+		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidScaleDownCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set scale down status")
+		}
+	} else {
+		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidScaleDownCondition, er.client); err != nil {
+			return kverrors.Wrap(err, "failed to set scale down status")
+		}
+		return kverrors.New("Data node scale down rate is too high based on minimum number of replicas for all indices")
 	}
 
 	// TODO: replace this with a validating web hook to ensure field is immutable
