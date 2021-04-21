@@ -233,6 +233,6 @@ elasticsearch-operator-install:
 elasticsearch-operator-uninstall:
 	olm_deploy/scripts/operator-uninstall.sh
 
-run-linter:
+lint:
 	@hack/run-linter
-.PHONY: run-linter
+.PHONY: lint
