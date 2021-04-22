@@ -63,7 +63,7 @@ func esSecretUpdatePredicate(r client.Client) predicate.Predicate {
 			return true
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return false
+			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
