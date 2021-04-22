@@ -56,7 +56,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			}
 			return true
 		},
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		CreateFunc:  func(e event.CreateEvent) bool { return true },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
@@ -97,7 +97,10 @@ func (r *ReconcileSecret) Reconcile(req reconcile.Request) (reconcile.Result, er
 		return reconcile.Result{}, err
 	}
 
-	err = k8shandler.SecretReconcile(cluster, r.client)
+	ok, err := k8shandler.SecretReconcile(cluster, r.client)
+	if !ok {
+		return reconcile.Result{}, err
+	}
 
 	return reconcile.Result{}, err
 }
