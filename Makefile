@@ -74,12 +74,16 @@ clean:
 fmt: $(GOFUMPORTS)
 	@$(GOFUMPORTS) -l -w $(shell find internal apis controllers test version -name '*.go') ./*.go
 
-lint: $(GOLANGCI_LINT) fmt lint-prom
+lint: $(GOLANGCI_LINT) fmt lint-prom lint-dockerfile
 	@$(GOLANGCI_LINT) run -c golangci.yaml
 
 lint-prom: $(PROMTOOL)
 	@$(PROMTOOL) check rules ./files/prometheus_recording_rules.yml
 	@$(PROMTOOL) check rules ./files/prometheus_alerts.yml
+
+lint-dockerfile:
+	@hack/lint-dockerfile
+.PHONY: lint-dockerfile
 
 .INTERMEDIATE: Dockerfile.dev
 Dockerfile.dev: Dockerfile Dockerfile.centos.patch
@@ -233,6 +237,3 @@ elasticsearch-operator-install:
 elasticsearch-operator-uninstall:
 	olm_deploy/scripts/operator-uninstall.sh
 
-lint:
-	@hack/run-linter
-.PHONY: lint
