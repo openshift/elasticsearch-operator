@@ -41,7 +41,11 @@ func (r *SecretReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	err = k8shandler.SecretReconcile(cluster, r.Client)
+	ok, err := k8shandler.SecretReconcile(cluster, r.Client)
+	if !ok {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, err
 }
 
@@ -60,7 +64,7 @@ func esSecretUpdatePredicate(r client.Client) predicate.Predicate {
 			return true
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			return false
+			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
