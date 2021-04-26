@@ -116,3 +116,4 @@ tags
 /.zz_generate_timestamp
 /tmp
 .output/
+.cache/

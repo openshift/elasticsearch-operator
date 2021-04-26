@@ -214,7 +214,7 @@ func (er *ElasticsearchRequest) isValidScaleDownRate() (bool, error) {
 	// determine current number of (data) nodes
 	podStateMap := er.GetCurrentPodStateMap()
 
-	//get total count of data nodes -- not just ready ones
+	// get total count of data nodes -- not just ready ones
 	dataNodes := podStateMap[api.ElasticsearchRoleData]
 
 	currentDataCount := int32(len(dataNodes[api.PodStateTypeReady]) + len(dataNodes[api.PodStateTypeFailed]) + len(dataNodes[api.PodStateTypeNotReady]))

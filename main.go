@@ -32,7 +32,6 @@ var (
 	scheme   = apiruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	metricsHost       = "0.0.0.0"
 	metricsPort int32 = 8080
 )
 

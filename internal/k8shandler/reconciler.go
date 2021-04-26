@@ -42,7 +42,9 @@ func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClien
 
 	// evaluate if we are missing the required secret/certs
 	if ok, missing := elasticsearchRequest.hasRequiredSecrets(); !ok {
-		elasticsearchRequest.UpdateDegradedCondition(true, "Missing Required Secrets", missing)
+		if err := elasticsearchRequest.UpdateDegradedCondition(true, "Missing Required Secrets", missing); err != nil {
+			elasticsearchRequest.ll.Error(err, "Unable to set Degraded condition")
+		}
 	}
 
 	// check if cluster is in the mid of cert redeploy
@@ -169,13 +171,17 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 	// Ensure existence of prometheus rules
 	if err := elasticsearchRequest.CreateOrUpdatePrometheusRules(); err != nil {
 		// no need to error out here, we can just mark ourselves as degraded and report why
-		elasticsearchRequest.UpdateDegradedCondition(true, "Missing Prometheus Rules", err.Error())
+		if err := elasticsearchRequest.UpdateDegradedCondition(true, "Missing Prometheus Rules", err.Error()); err != nil {
+			elasticsearchRequest.ll.Error(err, "Unable to set Degraded condition")
+		}
 		degradedCondition = true
 	}
 
 	// evaluate if we are missing the required secret/certs
 	if ok, missing := elasticsearchRequest.hasRequiredSecrets(); !ok {
-		elasticsearchRequest.UpdateDegradedCondition(true, "Missing Required Secrets", missing)
+		if err := elasticsearchRequest.UpdateDegradedCondition(true, "Missing Required Secrets", missing); err != nil {
+			elasticsearchRequest.ll.Error(err, "Unable to set Degraded condition")
+		}
 		degradedCondition = true
 	}
 
@@ -185,7 +191,9 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 	}
 
 	if !degradedCondition {
-		elasticsearchRequest.UpdateDegradedCondition(false, "", "")
+		if err := elasticsearchRequest.UpdateDegradedCondition(false, "", ""); err != nil {
+			elasticsearchRequest.ll.Error(err, "Unable to remove Degraded condition")
+		}
 	}
 
 	return nil

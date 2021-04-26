@@ -481,7 +481,6 @@ func getEmptyPod(name string, labels map[string]string) v1.Pod {
 }
 
 func TestNoScaleDownValid(t *testing.T) {
-
 	podLabels := map[string]string{
 		"component":    "elasticsearch",
 		"cluster-name": "",
@@ -546,7 +545,6 @@ func TestNoScaleDownValid(t *testing.T) {
 	}
 
 	ok, err := er.isValidScaleDownRate()
-
 	if err != nil {
 		t.Errorf("Received unexpected exception %v", err)
 	}
@@ -557,7 +555,6 @@ func TestNoScaleDownValid(t *testing.T) {
 }
 
 func TestNoRedundancyScaleDownInvalid(t *testing.T) {
-
 	podLabels := map[string]string{
 		"component":    "elasticsearch",
 		"cluster-name": "",
@@ -622,7 +619,6 @@ func TestNoRedundancyScaleDownInvalid(t *testing.T) {
 	}
 
 	ok, err := er.isValidScaleDownRate()
-
 	if err != nil {
 		t.Errorf("Received unexpected exception %v", err)
 	}
@@ -633,7 +629,6 @@ func TestNoRedundancyScaleDownInvalid(t *testing.T) {
 }
 
 func TestSingleRedundancyScaleDownValid(t *testing.T) {
-
 	podLabels := map[string]string{
 		"component":    "elasticsearch",
 		"cluster-name": "",
@@ -698,7 +693,6 @@ func TestSingleRedundancyScaleDownValid(t *testing.T) {
 	}
 
 	ok, err := er.isValidScaleDownRate()
-
 	if err != nil {
 		t.Errorf("Received unexpected exception %v", err)
 	}
@@ -709,7 +703,6 @@ func TestSingleRedundancyScaleDownValid(t *testing.T) {
 }
 
 func TestSingleRedundancyScaleDownInvalid(t *testing.T) {
-
 	podLabels := map[string]string{
 		"component":    "elasticsearch",
 		"cluster-name": "",
@@ -774,7 +767,6 @@ func TestSingleRedundancyScaleDownInvalid(t *testing.T) {
 	}
 
 	ok, err := er.isValidScaleDownRate()
-
 	if err != nil {
 		t.Errorf("Received unexpected exception %v", err)
 	}
@@ -785,7 +777,6 @@ func TestSingleRedundancyScaleDownInvalid(t *testing.T) {
 }
 
 func TestFullRedundancyScaleDownValid(t *testing.T) {
-
 	podLabels := map[string]string{
 		"component":    "elasticsearch",
 		"cluster-name": "",
@@ -850,7 +841,6 @@ func TestFullRedundancyScaleDownValid(t *testing.T) {
 	}
 
 	ok, err := er.isValidScaleDownRate()
-
 	if err != nil {
 		t.Errorf("Received unexpected exception %v", err)
 	}
@@ -861,7 +851,6 @@ func TestFullRedundancyScaleDownValid(t *testing.T) {
 }
 
 func TestFullRedundancyScaleDownInvalid(t *testing.T) {
-
 	podLabels := map[string]string{
 		"component":    "elasticsearch",
 		"cluster-name": "",
@@ -926,7 +915,6 @@ func TestFullRedundancyScaleDownInvalid(t *testing.T) {
 	}
 
 	ok, err := er.isValidScaleDownRate()
-
 	if err != nil {
 		t.Errorf("Received unexpected exception %v", err)
 	}

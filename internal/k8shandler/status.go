@@ -957,7 +957,7 @@ func updateInvalidScaleDownCondition(status *api.ElasticsearchStatus, value v1.C
 	})
 }
 
-func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, message string) {
+func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, message string) error {
 	cluster := er.cluster
 
 	statusValue := v1.ConditionFalse
@@ -966,7 +966,7 @@ func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, mess
 		statusValue = v1.ConditionTrue
 	}
 
-	updateConditionWithRetry(
+	return updateConditionWithRetry(
 		cluster,
 		statusValue,
 		func(status *api.ElasticsearchStatus, statusValue v1.ConditionStatus) bool {
