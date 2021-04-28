@@ -85,12 +85,8 @@ lint-dockerfile:
 	@hack/lint-dockerfile
 .PHONY: lint-dockerfile
 
-.INTERMEDIATE: Dockerfile.dev
-Dockerfile.dev: Dockerfile Dockerfile.centos.patch
-	patch -o Dockerfile.dev Dockerfile Dockerfile.centos.patch
-
 image: .output/image
-.output/image: Dockerfile.dev $(GO_FILES) $(MANIFEST_FILES) $(OTHER_FILES)
+.output/image: gen-dockerfiles $(GO_FILES) $(MANIFEST_FILES) $(OTHER_FILES)
 	podman build -f Dockerfile.dev -t $(IMAGE_TAG) .
 	@touch $@
 
@@ -236,4 +232,7 @@ elasticsearch-operator-install:
 # uninstalls the elasticsearch operator
 elasticsearch-operator-uninstall:
 	olm_deploy/scripts/operator-uninstall.sh
-
+gen-dockerfiles:
+	./hack/generate-dockerfile-from-midstream > Dockerfile && \
+	./hack/generate-dockerfile-from-midstream Dockerfile.in dev-meta.yaml > Dockerfile.dev
+.PHONY: gen-dockerfiles
