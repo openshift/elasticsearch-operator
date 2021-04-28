@@ -75,7 +75,7 @@ fmt: $(GOFUMPORTS)
 	@$(GOFUMPORTS) -l -w $(shell find internal apis controllers test version -name '*.go') ./*.go
 
 lint: $(GOLANGCI_LINT) fmt lint-prom lint-dockerfile
-	@$(GOLANGCI_LINT) run -c golangci.yaml
+	@GOLANGCI_LINT_CACHE="$(CURDIR)/.cache" $(GOLANGCI_LINT) run -c golangci.yaml
 
 lint-prom: $(PROMTOOL)
 	@$(PROMTOOL) check rules ./files/prometheus_recording_rules.yml

@@ -88,7 +88,7 @@ func operatorMetricsTest(t *testing.T) {
 	}
 
 	// Creating RBAC for authorised serviceaccount to verify metrics
-	_, err = newClusterRole(t, k8sClient, clusterRoleName)
+	newClusterRole(t, k8sClient, clusterRoleName)
 
 	bindClusterRoleWithSA(t, k8sClient, clusterRoleName, clusterRoleName, authorizedSA)
 	bindClusterRoleWithSA(t, k8sClient, "system:basic-user", "view-"+clusterRoleName, authorizedSA)
@@ -130,7 +130,7 @@ func operatorMetricsTest(t *testing.T) {
 	cmd := fmt.Sprintf("curl -ks -o /tmp/mymetrics.txt https://%s-metrics.%s.svc:60001/_prometheus/metrics -H Authorization:'Bearer %s' -w '%%{response_code}\\n'", cr.GetName(), operatorNamespace, token)
 	code, _, err := ExecInPod(k8sConfig, operatorNamespace, podName, cmd, "elasticsearch")
 	if code != "200" {
-		t.Errorf("Authorized service account should have access to es metrics")
+		t.Error("Authorized service account should have access to es metrics", "error", err)
 	}
 	token = getSaToken(unauthorizedSaName)
 	if token == "" {
@@ -139,7 +139,7 @@ func operatorMetricsTest(t *testing.T) {
 	cmd = fmt.Sprintf("curl -ks -o /tmp/mymetrics.txt https://%s-metrics.%s.svc:60001/_prometheus/metrics -H Authorization:'Bearer %s' -w '%%{response_code}\\n'", cr.GetName(), operatorNamespace, token)
 	code, _, err = ExecInPod(k8sConfig, operatorNamespace, podName, cmd, "elasticsearch")
 	if code != "403" {
-		t.Errorf("Unauthorized service account must not have access to es metrics")
+		t.Error("Unauthorized service account must not have access to es metrics", "error", err)
 	}
 
 	// cleanup
@@ -199,7 +199,7 @@ func newServiceAccount(t *testing.T, client client.Client, namespace, name strin
 	return sa, nil
 }
 
-func newClusterRole(t *testing.T, client client.Client, name string) (*rbac.ClusterRole, error) {
+func newClusterRole(t *testing.T, client client.Client, name string) {
 	cr := &rbac.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRole",
@@ -218,12 +218,11 @@ func newClusterRole(t *testing.T, client client.Client, name string) (*rbac.Clus
 
 	err := client.Create(context.TODO(), cr)
 	if err != nil {
-		return nil, err
+		t.Logf("Unable to create cluster role due to error: %v", err)
 	}
-	return cr, nil
 }
 
-func bindClusterRoleWithSA(t *testing.T, client client.Client, roleName, name string, sa *corev1.ServiceAccount) (*rbac.ClusterRoleBinding, error) {
+func bindClusterRoleWithSA(t *testing.T, client client.Client, roleName, name string, sa *corev1.ServiceAccount) {
 	crb := &rbac.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -241,7 +240,6 @@ func bindClusterRoleWithSA(t *testing.T, client client.Client, roleName, name st
 
 	err := client.Create(context.TODO(), crb)
 	if err != nil {
-		return nil, err
+		t.Logf("Unable to create cluster role binding due to error: %v", err)
 	}
-	return crb, nil
 }

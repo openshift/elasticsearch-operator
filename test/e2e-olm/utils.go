@@ -32,13 +32,11 @@ import (
 )
 
 const (
-	retryInterval        = time.Second * 3
-	timeout              = time.Second * 300
-	cleanupRetryInterval = time.Second * 3
-	cleanupTimeout       = time.Second * 30
-	elasticsearchCRName  = "elasticsearch"
-	kibanaCRName         = "kibana"
-	exampleSecretsPath   = "/tmp/example-secrets"
+	retryInterval       = time.Second * 3
+	timeout             = time.Second * 300
+	elasticsearchCRName = "elasticsearch"
+	kibanaCRName        = "kibana"
+	exampleSecretsPath  = "/tmp/example-secrets"
 )
 
 func setupK8sClient(t *testing.T) {

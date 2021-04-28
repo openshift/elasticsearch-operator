@@ -62,7 +62,6 @@ func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 func (ec *esClient) GetLowestReplicaValue() (int32, error) {
 	lowestReplica := int32(math.MaxInt32)
 	indexHealth, err := ec.GetIndexReplicaCounts()
-
 	if err != nil {
 		return lowestReplica, err
 	}

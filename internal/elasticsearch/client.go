@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -182,6 +181,13 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 	// we use the insecure TLS client here because we are providing the SA token.
 	httpClient := getTLSClient(cluster, namespace, client)
 	resp, err := httpClient.Do(request)
+	if err != nil {
+		if resp == nil {
+			payload.Error = err
+			return
+		}
+	}
+	defer resp.Body.Close()
 
 	if resp != nil {
 		// TODO: eventually remove after all ES images have been updated to use SA token auth for EO?
@@ -212,7 +218,7 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 	payload.Error = err
 }
 
-func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest, client client.Client) {
+func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest, client k8sclient.Client) {
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
 	if err != nil {
@@ -257,6 +263,13 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 
 	httpClient := getMTlsClient(clusterName, namespace, client)
 	resp, err := httpClient.Do(request)
+	if err != nil {
+		if resp == nil {
+			payload.Error = err
+			return
+		}
+	}
+	defer resp.Body.Close()
 
 	if resp != nil {
 		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
@@ -306,7 +319,7 @@ func readSAToken(tokenFile string) (string, bool) {
 }
 
 // this client is used with the SA token, it does not present any client certs
-func getTLSClient(clusterName, namespace string, client client.Client) *http.Client {
+func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.Client {
 	// get the contents of the secret
 	extractSecret(clusterName, namespace, client)
 
@@ -333,7 +346,7 @@ func getTLSClient(clusterName, namespace string, client client.Client) *http.Cli
 
 // this client is used in the case where the SA token is not honored. it presents client certs
 // and validates the ES cluster CA cert
-func getMTlsClient(clusterName, namespace string, client client.Client) *http.Client {
+func getMTlsClient(clusterName, namespace string, client k8sclient.Client) *http.Client {
 	// get the contents of the secret
 	extractSecret(clusterName, namespace, client)
 
@@ -411,7 +424,7 @@ func getMapFromBody(rawBody string) (map[string]interface{}, error) {
 	return results, nil
 }
 
-func extractSecret(secretName, namespace string, client client.Client) {
+func extractSecret(secretName, namespace string, client k8sclient.Client) {
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",

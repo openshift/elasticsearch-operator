@@ -104,8 +104,8 @@ func (n *statefulSetNode) scaleUp() error {
 	return n.setReplicaCount(n.replicas)
 }
 
-func (node *statefulSetNode) getSecretHash() string {
-	return node.secretHash
+func (n *statefulSetNode) getSecretHash() string {
+	return n.secretHash
 }
 
 func (n *statefulSetNode) state() api.ElasticsearchNodeStatus {
