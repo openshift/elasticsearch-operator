@@ -284,75 +284,61 @@ func (er *ElasticsearchRequest) updateNodeConditions(status *api.ElasticsearchSt
 
 func (er *ElasticsearchRequest) updateStorageConditions(status *api.ElasticsearchStatus) error {
 	ll := er.L()
-	client := er.client
-	cluster := er.cluster
 
-	for _, node := range cluster.Spec.Nodes {
+	emptySpecVol := api.ElasticsearchStorageSpec{}
+	structureStatus, nameStatus, sizeStatus := v1.ConditionFalse, v1.ConditionFalse, v1.ConditionFalse
+
+	nodeNames := []string{}
+	clusterNodes := nodes[nodeMapKey(er.cluster.GetName(), er.cluster.GetNamespace())]
+
+	for _, node := range clusterNodes {
+		nodeNames = append(nodeNames, node.name())
+	}
+
+	for _, node := range er.cluster.Spec.Nodes {
+		nodeName := nodeNameContains(node.GenUUID, nodeNames)
+
+		if nodeName == "" {
+			ll.Info("Unable to find appropriate node to compare storage spec.")
+			continue
+		}
+
 		specVol := node.Storage
 		current := &v1.PersistentVolumeClaim{}
-		emptySpecVol := api.ElasticsearchStorageSpec{}
+		claimName := fmt.Sprintf("%s-%s", er.cluster.Name, nodeName)
 
-		// When these conditions are not met, ephemeral storage
-		// is used instead of making a pvc claim.
-		didMakePVCClaim := true
-		willMakePVCClaim := !(reflect.DeepEqual(specVol, emptySpecVol) || specVol.Size == nil)
+		isUsingPVCStorageSpec := true
+		isEphemeralStorageSpec := reflect.DeepEqual(specVol, emptySpecVol) || specVol.Size == nil
 
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := client.Get(context.TODO(), types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, current); err != nil {
-				if apierrors.IsNotFound(err) {
-					didMakePVCClaim = false
-				} else {
-					return kverrors.Wrap(err, "failed to get PVC", "claim", cluster.Name)
+			if err := er.client.Get(context.TODO(), types.NamespacedName{Name: claimName, Namespace: er.cluster.Namespace}, current); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return kverrors.Wrap(err, "failed to get PVC", "claim", claimName)
 				}
+				isUsingPVCStorageSpec = false
 			}
 
-			// No changes and ephemeral storage used, means no status changes
-			if !willMakePVCClaim && !didMakePVCClaim {
+			if isEphemeralStorageSpec && !isUsingPVCStorageSpec {
 				return nil
 			}
 
-			currentSize := current.Spec.Resources.Requests.Storage()
-			structureStatus, nameStatus, sizeStatus := v1.ConditionFalse, v1.ConditionTrue, v1.ConditionTrue
-
-			if willMakePVCClaim != didMakePVCClaim {
+			if !isEphemeralStorageSpec != isUsingPVCStorageSpec {
 				structureStatus = v1.ConditionTrue
+				return nil
 			}
 
-			if reflect.DeepEqual(current.Spec.StorageClassName, specVol.StorageClassName) {
-				nameStatus = v1.ConditionFalse
+			if !reflect.DeepEqual(current.Spec.StorageClassName, specVol.StorageClassName) {
+				nameStatus = v1.ConditionTrue
 			}
 
+			currentSize := current.Spec.Resources.Requests.Storage()
 			if currentSize != nil && specVol.Size != nil {
-				if currentSize.Equal(*specVol.Size) {
-					sizeStatus = v1.ConditionFalse
+				if !currentSize.Equal(*specVol.Size) {
+					sizeStatus = v1.ConditionTrue
 				}
-			} else if currentSize == nil && specVol.Size == nil {
-				sizeStatus = v1.ConditionFalse
+			} else if currentSize != nil || specVol.Size != nil {
+				sizeStatus = v1.ConditionTrue
 			}
-
-			updateESNodeCondition(status, &api.ClusterCondition{
-				Type:               api.StorageStructure,
-				Status:             structureStatus,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "StorageStructureChangeIgnored",
-				Message:            "Changing the storage structure for a custom resource is not supported",
-			})
-
-			updateESNodeCondition(status, &api.ClusterCondition{
-				Type:               api.StorageClassName,
-				Status:             nameStatus,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "StorageClassNameChangeIgnored",
-				Message:            "Changing the storage class name for a custom resource is not supported",
-			})
-
-			updateESNodeCondition(status, &api.ClusterCondition{
-				Type:               api.StorageSize,
-				Status:             sizeStatus,
-				LastTransitionTime: metav1.Now(),
-				Reason:             "StorageSizeChangeIgnored",
-				Message:            "Resizing the storage for a custom resource is not supported",
-			})
 
 			return nil
 		})
@@ -362,7 +348,48 @@ func (er *ElasticsearchRequest) updateStorageConditions(status *api.Elasticsearc
 		}
 	}
 
+	updateESNodeCondition(status, &api.ClusterCondition{
+		Type:               api.StorageStructure,
+		Status:             structureStatus,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "StorageStructureChangeIgnored",
+		Message:            "Changing the storage structure for a custom resource is not supported",
+	})
+
+	updateESNodeCondition(status, &api.ClusterCondition{
+		Type:               api.StorageClassName,
+		Status:             nameStatus,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "StorageClassNameChangeIgnored",
+		Message:            "Changing the storage class name for a custom resource is not supported",
+	})
+
+	updateESNodeCondition(status, &api.ClusterCondition{
+		Type:               api.StorageSize,
+		Status:             sizeStatus,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "StorageSizeChangeIgnored",
+		Message:            "Resizing the storage for a custom resource is not supported",
+	})
+
 	return nil
+}
+
+func nodeNameContains(uuid *string, names []string) string {
+	nodeName := ""
+
+	if uuid == nil {
+		return nodeName
+	}
+
+	for _, name := range names {
+		if strings.Contains(name, *uuid) {
+			nodeName = name
+			break
+		}
+	}
+
+	return nodeName
 }
 
 func (er *ElasticsearchRequest) pruneMissingNodes(status *api.ElasticsearchStatus) error {
