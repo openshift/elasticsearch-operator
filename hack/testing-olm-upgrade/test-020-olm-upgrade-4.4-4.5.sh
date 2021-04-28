@@ -170,7 +170,7 @@ try_until_success "oc -n openshift-operators-redhat patch clusterserviceversion 
 #verify deployment is rolled out
 log::info "Checking if deployment successfully updated..."
 OPENSHIFT_VERSION=${OPENSHIFT_VERSION:-4.5}
-IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.svc.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:elasticsearch-operator}
+IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/ocp/${OPENSHIFT_VERSION}:elasticsearch-operator}
 if [ -n "${IMAGE_FORMAT:-}" ] ; then
   IMAGE_ELASTICSEARCH_OPERATOR=$(echo $IMAGE_FORMAT | sed -e "s,\${component},elasticsearch-operator,")
 fi
