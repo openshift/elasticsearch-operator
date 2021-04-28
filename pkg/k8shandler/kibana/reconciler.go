@@ -226,7 +226,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	kibanaPodSpec := newKibanaPodSpec(
 		clusterRequest,
-		fmt.Sprintf("%s.%s.svc.cluster.local", clusterName, clusterRequest.cluster.Namespace),
+		fmt.Sprintf("%s.%s.svc", clusterName, clusterRequest.cluster.Namespace),
 		proxyConfig,
 		kibanaTrustBundle,
 	)
