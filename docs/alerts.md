@@ -121,7 +121,47 @@ Elasticsearch will not allocate shards to nodes that [reach the low watermark](h
 
 ### Troubleshooting
 
-Check the disk space of the node.
+1. Identify the node on which elasticsearch is deployed:
+   ```
+   oc -n openshift-logging get po -o wide
+   ```
+
+2. Check if there are “unassigned shards” present:
+   ```
+   oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=_cluster/health?pretty | grep unassigned_shards
+   ```
+
+3. If unassigned shards > 0 then:
+    - Check the disk space on each node:
+      ```
+      oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=_nodes/stats/fs?pretty
+      ```
+      Check the “nodes.node_name.fs” field to determine the free disk space on that node.
+    - If used disk percentage is above 85% then:
+        - It signifies that you have crossed low watermark already and shards cannot be allocated to this particular node anymore.
+        - Increase disk space on all nodes.
+        - If increasing disk space isn’t possible, then add a new data node to the cluster.
+        - If adding a new data node is problematic, then decrease the total cluster redundancy policy.
+            - Check current redundancyPolicy:
+              ```
+              oc edit es elasticsearch -n openshift-logging
+              ```
+              Note: If using Cluster Logging Custom Resource then:
+              ```
+              oc edit cl instance -n openshift-logging
+              ```
+            - If cluster redundancy policy is higher than SingleRedundancy then
+                - Set it to SingleRedundancy and save it.
+        - If nothing above helps, then last solution is to delete old indices
+            - Check the status of all indices on elasticsearch:
+              ```
+              oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- indices
+              ```
+            - Identify the index that can be deleted.
+            - Delete the index:
+              ```
+              oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name> -X DELETE
+              ```
 
 ## Elasticsearch Node Disk High Watermark Reached
 
