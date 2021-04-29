@@ -1,12 +1,16 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	elasticsearchv1 "github.com/openshift/elasticsearch-operator/pkg/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/pkg/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/pkg/log"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -24,6 +28,81 @@ func (er *ElasticsearchRequest) L() logr.Logger {
 		er.ll = log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 	}
 	return er.ll
+}
+
+// SecretReconcile returns false if the event needs to be requeued
+func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) (bool, error) {
+	var secretChanged bool
+
+	elasticsearchRequest := ElasticsearchRequest{
+		client:  requestClient,
+		cluster: requestCluster,
+		ll:      log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+	}
+
+	// check if cluster is in the mid of cert redeploy
+	certRestartNodes := elasticsearchRequest.getScheduledCertRedeployNodes()
+	stillRecovering := containsClusterCondition(elasticsearchv1.Recovering, corev1.ConditionTrue, &elasticsearchRequest.cluster.Status)
+	if len(certRestartNodes) > 0 || stillRecovering {
+		// Requeue if there are nodes being scheduled CertRedeploy or under recovering
+		// and reset the certRedeploy status
+		for _, node := range nodes[nodeMapKey(requestCluster.Name, requestCluster.Namespace)] {
+			_, nodeStatus := getNodeStatus(node.name(), &elasticsearchRequest.cluster.Status)
+			nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = corev1.ConditionFalse
+		}
+
+		updateESNodeCondition(&elasticsearchRequest.cluster.Status, &elasticsearchv1.ClusterCondition{
+			Type:   elasticsearchv1.Recovering,
+			Status: corev1.ConditionFalse,
+		})
+		updateESNodeCondition(&elasticsearchRequest.cluster.Status, &elasticsearchv1.ClusterCondition{
+			Type:   elasticsearchv1.Restarting,
+			Status: corev1.ConditionFalse,
+		})
+
+		if err := requestClient.Status().Update(context.TODO(), elasticsearchRequest.cluster); err != nil {
+			return true, err
+		}
+		return false, nil
+	}
+
+	newSecretHash := getSecretDataHash(requestCluster.Name, requestCluster.Namespace, requestClient)
+
+	nretries := -1
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		nretries++
+
+		cluster := &elasticsearchv1.Elasticsearch{}
+		if err := requestClient.Get(context.TODO(), types.NamespacedName{Name: requestCluster.Name, Namespace: requestCluster.Namespace}, cluster); err != nil {
+			return err
+		}
+
+		// compare the new secret with current one in the nodes
+		for _, node := range nodes[nodeMapKey(requestCluster.Name, requestCluster.Namespace)] {
+			if node.getSecretHash() != "" && newSecretHash != node.getSecretHash() {
+
+				// Cluster's secret has been updated, update the cluster status to be redeployed
+				_, nodeStatus := getNodeStatus(node.name(), &cluster.Status)
+				if nodeStatus.UpgradeStatus.ScheduledForCertRedeploy != corev1.ConditionTrue {
+					secretChanged = true
+					nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = corev1.ConditionTrue
+				}
+			}
+		}
+
+		if secretChanged {
+			if err := requestClient.Status().Update(context.TODO(), cluster); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if retryErr != nil {
+		return false, fmt.Errorf("Failed to update status for cert redeploys: %v", retryErr)
+	}
+
+	return true, nil
 }
 
 func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
