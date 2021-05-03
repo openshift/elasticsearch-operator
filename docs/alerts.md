@@ -65,10 +65,18 @@ At least one primary shard and its replicas are not allocated to a node.
     - If it looks like it is still recovering
        - Just wait, this can take time depending on size of cluster, etc.
     - If it looks like recovery has stalled
+       - Check if “cluster.routing.allocation.enable” is set to “none”
+         ```
+         oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=_cluster/settings?pretty
+         ```
+       - If it is set to “none” then set it to “all”
+         ```
+         oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=_cluster/settings?pretty -X PUT -d '{"persistent": {"cluster.routing.allocation.enable":"all"}}'
+         ```
        - Check which indices are still red
-        ```
-        oc exec -n openshift-logging -c <elasticsearch_pod_name> -- es_util --query=_cat/indices?v
-        ```
+         ```
+         oc exec -n openshift-logging -c <elasticsearch_pod_name> -- es_util --query=_cat/indices?v
+         ```
        - If there are any red indices
          - Try clearing the cache:
            ```
@@ -150,17 +158,17 @@ Elasticsearch will attempt to relocate shards away from a node for [reaching the
     - To allocate shards to this particular node, free up some spaces:
         - Increase disk space on all nodes.
         - If increasing disk space isn’t possible, then add a new data node to the cluster.
-        - If adding a new data node is problematic, then reduce the number of replicas to 1 if it is higher than 1.
-            - Preferably on older indices.
-            - Get the index settings:
+        - If adding a new data node is problematic, then decrease the total cluster redundancy policy
+            - Check current redundancyPolicy
               ```
-              oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name>/_settings?pretty
+              oc edit es elasticsearch -n openshift-logging
               ```
-            - Identify the number of replicas from the output of the above command.
-            - Lower the number of replicas if possible:
+              Note: If using Cluster Logging Custom Resource then:
               ```
-              oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name>/_settings?pretty -X PUT -d '{"index.number_of_replicas":<number_of_replicas>}'
+              oc edit cl instance -n openshift-logging
               ```
+            - If cluster redundancy policy is higher than SingleRedundancy then
+                - Set it to SingleRedundancy and save it.
         - If nothing above helps, then last solution is to delete old indices
             - Check the status of all indices on elasticsearch:
               ```
@@ -188,17 +196,17 @@ Elasticsearch will attempt to relocate shards away from a node for [reaching the
     - It signifies that you have crossed flood watermark already and writing will be blocked for shards allocated on this particular node.
     - Increase disk space on all nodes.
     - If increasing disk space isn’t possible, then add a new data node to the cluster.
-    - If adding a new data node is problematic, then reduce the number of replicas to 1 if it is higher than 1.
-        - Preferably on older indices.
-        - Get the index settings:
+    - If adding a new data node is problematic, then decrease the total cluster redundancy policy
+        - Check current redundancyPolicy
           ```
-          oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name>/_settings?pretty
+          oc edit es elasticsearch -n openshift-logging
           ```
-        - Identify the number of replicas from the output of the above command.
-        - Lower the number of replicas if possible:
+          Note: If using Cluster Logging Custom Resource then:
           ```
-          oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name>/_settings?pretty -X PUT -d '{"index.number_of_replicas":<number_of_replicas>}'
+          oc edit cl instance -n openshift-logging
           ```
+        - If cluster redundancy policy is higher than SingleRedundancy then
+            - Set it to SingleRedundancy and save it.
     - If nothing above helps, then last solution is to delete old indices
         - Check the status of all indices on elasticsearch:
           ```
@@ -259,25 +267,14 @@ The elasticsearch Cluster is predicted to be out of disk space within the next 6
     - If adding a new data node is problematic,then decrease the total cluster redundancy policy
         - Check current redundancyPolicy
           ```
-          oc edit Elasticsearch -n openshift-logging
+          oc edit es elasticsearch -n openshift-logging
           ```
           Note: If using Cluster Logging Custom Resource then:
           ```
-          oc edit ClusterLogging instance -n openshift-logging
+          oc edit cl instance -n openshift-logging
           ```
         - If cluster redundancy policy is higher than SingleRedundancy then
             - Set it to SingleRedundancy and save it.
-    - If total cluster redundancy policy is SingleRedundancy, then reduce the number of replicas to 1 if it is higher than 1.
-        - Preferably on older indices.
-        - Get the index settings:
-          ```
-          oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name>/_settings?pretty
-          ```
-        - Identify the number of replicas from the output of the above command.
-        - Lower the number of replicas if possible:
-          ```
-          oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=<elasticsearch_index_name>/_settings?pretty -X PUT -d '{"index.number_of_replicas":<number_of_replicas>}'
-          ```
     - If nothing above helps, then last solution is to delete old indices
         - Check the status of all indices on elasticsearch:
           ```
