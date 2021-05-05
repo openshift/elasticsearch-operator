@@ -38,7 +38,7 @@ type Client interface {
 	// Cluster Settings API
 	GetClusterNodeVersions() ([]string, error)
 	GetThresholdEnabled() (bool, error)
-	GetDiskWatermarks() (interface{}, interface{}, error)
+	GetDiskWatermarks() (interface{}, interface{}, interface{}, error)
 	GetMinMasterNodes() (int32, error)
 	SetMinMasterNodes(numberMasters int32) (bool, error)
 	DoSynchronizedFlush() (bool, error)

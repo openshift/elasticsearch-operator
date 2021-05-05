@@ -69,7 +69,7 @@ func (ec *esClient) GetThresholdEnabled() (bool, error) {
 	return enabledBool, payload.Error
 }
 
-func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
+func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, interface{}, error) {
 	payload := &EsRequest{
 		Method: http.MethodGet,
 		URI:    "_cluster/settings?include_defaults=true",
@@ -79,6 +79,7 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 
 	var low interface{}
 	var high interface{}
+	var flood interface{}
 
 	if value := walkInterfaceMap(
 		"defaults.cluster.routing.allocation.disk.watermark.low",
@@ -90,6 +91,12 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 		"defaults.cluster.routing.allocation.disk.watermark.high",
 		payload.ResponseBody); value != nil {
 		high = value
+	}
+
+	if value := walkInterfaceMap(
+		"defaults.cluster.routing.allocation.disk.watermark.flood_stage",
+		payload.ResponseBody); value != nil {
+		flood = value
 	}
 
 	if value := walkInterfaceMap(
@@ -105,6 +112,12 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 	}
 
 	if value := walkInterfaceMap(
+		"persistent.cluster.routing.allocation.disk.watermark.flood_stage",
+		payload.ResponseBody); value != nil {
+		flood = value
+	}
+
+	if value := walkInterfaceMap(
 		"transient.cluster.routing.allocation.disk.watermark.low",
 		payload.ResponseBody); value != nil {
 		low = value
@@ -114,6 +127,12 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 		"transient.cluster.routing.allocation.disk.watermark.high",
 		payload.ResponseBody); value != nil {
 		high = value
+	}
+
+	if value := walkInterfaceMap(
+		"transient.cluster.routing.allocation.disk.watermark.flood_stage",
+		payload.ResponseBody); value != nil {
+		flood = value
 	}
 
 	if lowString, ok := low.(string); ok {
@@ -136,7 +155,17 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, error) {
 		}
 	}
 
-	return low, high, payload.Error
+	if floodString, ok := flood.(string); ok {
+		if strings.HasSuffix(floodString, "%") {
+			flood, _ = strconv.ParseFloat(strings.TrimSuffix(floodString, "%"), 64)
+		} else {
+			if strings.HasSuffix(floodString, "b") {
+				flood = strings.TrimSuffix(floodString, "b")
+			}
+		}
+	}
+
+	return low, high, flood, payload.Error
 }
 
 func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {

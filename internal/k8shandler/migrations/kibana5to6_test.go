@@ -346,7 +346,8 @@ const (
 {
   "index": {
     "blocks": {
-      "write": true
+      "write": true,
+      "read_only_allow_delete": null
     }
   }
 }
@@ -355,7 +356,7 @@ const (
 {
   "settings" : {
     "index": {
-	  "number_of_shards" : 1,
+	  "number_of_shards" : "1",
       "format": 6,
       "mapper": {
         "dynamic": false
