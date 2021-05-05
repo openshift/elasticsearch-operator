@@ -62,3 +62,21 @@ oc exec <es_pod> -c elasticsearch -- \
   es_util --query="app,infra,audit/_search?pretty" \
   -d "$QUERY"
 ```
+
+
+## Elasticsearch Indices
+
+### Why are elasticsearch indices marked as read-only-allow-delete
+If an elasticsearch node exceeds its [flood watermark threshold](https://www.elastic.co/guide/en/elasticsearch/reference/6.8/disk-allocator.html#disk-allocator), Elasticsearch enforces a read-only index block on every index that has one or more shards allocated on the node.
+### How can I unblock the indices
+Check out this [documentation](https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md#elasticsearch-node-disk-flood-watermark-reached) on what steps to take when flood watermark threshold has been reached.
+
+Once the disk utilization of that particular node drops below flood watermark threshold, Elasticsearch Operator will automatically unblock all the indices except the `.security` index since elasticsearch-operator cannot modify the `.security` index. Use below command to unblock the `.security` index:
+```
+oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=.security/_settings?pretty -X PUT -d '{"index.blocks.read_only_allow_delete": null}'
+```
+
+You can also manually unblock all indices by using this command:
+```
+oc exec -n openshift-logging -c elasticsearch <elasticsearch_pod_name> -- es_util --query=_all/_settings?pretty -X PUT -d '{"index.blocks.read_only_allow_delete": null}'
+```

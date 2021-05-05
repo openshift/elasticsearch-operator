@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/elasticsearch-operator/internal/constants"
+
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 
 	"github.com/ViaQ/logerr/log"
@@ -174,6 +176,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 
 		// we only want to update our replicas if we aren't in the middle up an update
 		er.updateReplicas()
+
+		// check if nodes are below watermark threshold and unblock indices if it's marked as read only
+		er.checkWatermarkAndUnblockIndices()
 
 		// add alias to old indices if they exist and don't have one
 		// this should be removed after one release...
@@ -399,4 +404,38 @@ func addNodeState(node NodeTypeInterface, nodeStatus *api.ElasticsearchNodeStatu
 	nodeStatus.UpgradeStatus.ScheduledForCertRedeploy = nodeState.UpgradeStatus.ScheduledForCertRedeploy
 	nodeStatus.DeploymentName = nodeState.DeploymentName
 	nodeStatus.StatefulSetName = nodeState.StatefulSetName
+}
+
+func (er *ElasticsearchRequest) checkWatermarkAndUnblockIndices() {
+	er.refreshDiskWatermarkThresholds()
+	if er.isDiskUtilizationBelowFloodWatermark() {
+		indices, err := er.esClient.GetAllIndices("")
+		if err != nil {
+			log.Error(err, "failed to fetch all indices")
+		}
+		for _, index := range indices {
+			if index.Index == constants.SecurityIndex {
+				continue
+			}
+			if er.isIndexBlocked(index.Index) {
+				if err := er.unblockIndex(index.Index); err != nil {
+					log.Error(err, "Couldn't update the index setting")
+				}
+			}
+		}
+	}
+}
+
+func (er *ElasticsearchRequest) isDiskUtilizationBelowFloodWatermark() bool {
+	for _, nodeTypeInterface := range nodes[nodeMapKey(er.cluster.Name, er.cluster.Namespace)] {
+		usage, percent, err := er.esClient.GetNodeDiskUsage(nodeTypeInterface.name())
+		if err != nil {
+			log.Info("Unable to get disk usage", "error", err)
+			continue
+		}
+		if exceedsFloodWatermark(usage, percent) {
+			return false
+		}
+	}
+	return true
 }

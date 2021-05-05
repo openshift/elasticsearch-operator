@@ -17,6 +17,8 @@ const (
 
 	// OcpTemplatePrefix is the prefix all operator generated templates
 	OcpTemplatePrefix = "ocp-gen"
+
+	SecurityIndex = ".security"
 )
 
 var (

@@ -129,8 +129,8 @@ var _ = Describe("Index Management", func() {
 					},
 					"settings": {
 						"index": {
-							"number_of_replicas": 1,
-							"number_of_shards": 3
+							"number_of_replicas": "1",
+							"number_of_shards": "3"
 						}
 					},
 					"template": "node.infra*"
@@ -172,8 +172,8 @@ var _ = Describe("Index Management", func() {
 						},
 						"settings": {
 							"index": {
-								"number_of_replicas": 1,
-								"number_of_shards": 3
+								"number_of_replicas": "1",
+								"number_of_shards": "3"
 							}
 						}
 					}`)

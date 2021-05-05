@@ -98,8 +98,8 @@ type IndexSettings struct {
 }
 
 type IndexingSettings struct {
-	NumberOfShards   int32                 `json:"number_of_shards,omitempty"`
-	NumberOfReplicas int32                 `json:"number_of_replicas,omitempty"`
+	NumberOfShards   int32                 `json:"number_of_shards,string,omitempty"`
+	NumberOfReplicas int32                 `json:"number_of_replicas,string,omitempty"`
 	Format           int32                 `json:"format,omitempty"`
 	Blocks           *IndexBlocksSettings  `json:"blocks,omitempty"`
 	Mapper           *IndexMapperSettings  `json:"mapper,omitempty"`
@@ -107,7 +107,8 @@ type IndexingSettings struct {
 }
 
 type IndexBlocksSettings struct {
-	Write bool `json:"write"`
+	Write               bool    `json:"write,omitempty"`
+	ReadOnlyAllowDelete *string `json:"read_only_allow_delete"`
 }
 
 type IndexMapperSettings struct {

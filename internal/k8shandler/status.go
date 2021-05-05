@@ -25,10 +25,12 @@ const (
 )
 
 var (
-	DiskWatermarkLowPct  *float64
-	DiskWatermarkHighPct *float64
-	DiskWatermarkLowAbs  *resource.Quantity
-	DiskWatermarkHighAbs *resource.Quantity
+	DiskWatermarkLowPct   *float64
+	DiskWatermarkHighPct  *float64
+	DiskWatermarkFloodPct *float64
+	DiskWatermarkLowAbs   *resource.Quantity
+	DiskWatermarkHighAbs  *resource.Quantity
+	DiskWatermarkFloodAbs *resource.Quantity
 )
 
 func (er *ElasticsearchRequest) UpdateClusterStatus() error {
@@ -561,11 +563,19 @@ func (er *ElasticsearchRequest) updatePodNodeConditions(status *api.Elasticsearc
 
 			if exceedsLowWatermark(usage, percent) {
 				if exceedsHighWatermark(usage, percent) {
-					updatePodNodeStorageCondition(
-						nodeStatus,
-						"Disk Watermark High",
-						fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Shards will be relocated from this node.", usage, percent),
-					)
+					if exceedsFloodWatermark(usage, percent) {
+						updatePodNodeStorageCondition(
+							nodeStatus,
+							"Disk Watermark Flood",
+							fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Every index having a shard allocated on this node is enforced a read-only block.", usage, percent),
+						)
+					} else {
+						updatePodNodeStorageCondition(
+							nodeStatus,
+							"Disk Watermark High",
+							fmt.Sprintf("Disk storage usage for node is %vb (%v%%). Shards will be relocated away from this node.", usage, percent),
+						)
+					}
 				} else {
 					updatePodNodeStorageCondition(
 						nodeStatus,
@@ -587,7 +597,7 @@ func (er *ElasticsearchRequest) updatePodNodeConditions(status *api.Elasticsearc
 
 func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	// quantity, err := resource.ParseQuantity(string)
-	low, high, err := er.esClient.GetDiskWatermarks()
+	low, high, flood, err := er.esClient.GetDiskWatermarks()
 	if err != nil {
 		er.L().Info("Unable to refresh disk watermarks from cluster, using defaults", "error", err)
 	}
@@ -624,6 +634,23 @@ func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 		// error
 		er.L().Error(err, "Unknown type for high", "type", fmt.Sprintf("%T", high))
 	}
+
+	switch flood.(type) {
+	case float64:
+		value := flood.(float64)
+		DiskWatermarkFloodPct = &value
+		DiskWatermarkFloodAbs = nil
+	case string:
+		value, err := resource.ParseQuantity(strings.ToUpper(flood.(string)))
+		if err != nil {
+			er.L().Info("Unable to parse quantity", "value", flood.(string), "error", err)
+		}
+		DiskWatermarkFloodAbs = &value
+		DiskWatermarkFloodPct = nil
+	default:
+		// error
+		er.L().Error(err, "Unknown type for flood", "type", fmt.Sprintf("%T", flood))
+	}
 }
 
 func exceedsLowWatermark(usage string, percent float64) bool {
@@ -632,6 +659,10 @@ func exceedsLowWatermark(usage string, percent float64) bool {
 
 func exceedsHighWatermark(usage string, percent float64) bool {
 	return exceedsWatermarks(usage, percent, DiskWatermarkHighAbs, DiskWatermarkHighPct)
+}
+
+func exceedsFloodWatermark(usage string, percent float64) bool {
+	return exceedsWatermarks(usage, percent, DiskWatermarkFloodAbs, DiskWatermarkFloodPct)
 }
 
 func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Quantity, watermarkPercent *float64) bool {

@@ -1,7 +1,9 @@
 package k8shandler
 
 import (
+	"github.com/ViaQ/logerr/kverrors"
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 )
 
 // this function should be called before we try doing operations to make sure all our nodes are
@@ -99,4 +101,43 @@ func (er *ElasticsearchRequest) updatePrimaryShards() {
 			er.L().Error(err, "Unable to update primary count")
 		}
 	}
+}
+
+func (er *ElasticsearchRequest) isIndexBlocked(index string) bool {
+	currSetting, err := er.esClient.GetIndexSettings(index)
+	if err != nil {
+		er.L().Error(err, "failed to get index settings",
+			"index", index)
+		return false
+	}
+
+	if currSetting != nil {
+		if currSetting.Settings.Index != nil {
+			if currSetting.Settings.Index.Blocks != nil {
+				if currSetting.Settings.Index.Blocks.ReadOnlyAllowDelete != nil {
+					if *currSetting.Settings.Index.Blocks.ReadOnlyAllowDelete == "true" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (er *ElasticsearchRequest) unblockIndex(index string) error {
+	settings := &estypes.IndexSettings{
+		Index: &estypes.IndexingSettings{
+			Blocks: &estypes.IndexBlocksSettings{
+				ReadOnlyAllowDelete: nil,
+			},
+		},
+	}
+
+	if err := er.esClient.UpdateIndexSettings(index, settings); err != nil {
+		return kverrors.Wrap(err, "failed to unblock index",
+			"index", index)
+	}
+
+	return nil
 }
