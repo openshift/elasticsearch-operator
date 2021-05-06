@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eou pipefail
 OCP_VERSION=${OCP_VERSION:-4.7}
-LOGGING_VERSION=${LOGGING_VERSION:-5.1}
+LOGGING_VERSION=${LOGGING_VERSION:-5.2}
 LOGGING_IS=${LOGGING_IS:-logging}
 export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-operator-registry}
 export IMAGE_KUBE_RBAC_PROXY=${IMAGE_KUBE_RBAC_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:kube-rbac-proxy}

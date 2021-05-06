@@ -115,7 +115,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: elasticsearch-operator.v5.1.0
+  name: elasticsearch-operator.v5.2.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -491,4 +491,4 @@ spec:
   minKubeVersion: 1.18.3
   provider:
     name: Red Hat
-  version: 5.1.0
+  version: 5.2.0
