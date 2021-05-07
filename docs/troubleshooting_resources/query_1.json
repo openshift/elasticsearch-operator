@@ -1,0 +1,28 @@
+{
+  "size": 0,
+  "query": {
+    "range": {
+      "@timestamp": {
+        "gte": "now-3h",
+        "lt": "now"
+      }
+    }
+  },
+  "aggs": {
+    "Histogram": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "interval": "hour"
+      },
+      "aggs": {
+        "top_namespaces": {
+          "terms": {
+            "size": 10,
+            "order" : { "_count" : "desc"},
+            "field": "kubernetes.namespace_name"
+          }
+        }
+      }
+    }
+  }
+}
