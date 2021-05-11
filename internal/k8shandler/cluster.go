@@ -108,6 +108,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			}
 		}
 
+		metrics.IncrementRestartCounterRolling()
 		_ = er.UpdateClusterStatus()
 	}
 
