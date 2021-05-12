@@ -94,7 +94,7 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 func CreateUpdatablePodTemplateSpec(current, desired v1.PodTemplateSpec) v1.PodTemplateSpec {
 	desiredCopy := desired
 	desiredCopy.Spec.Volumes = current.Spec.Volumes
-	
+
 	return desiredCopy
 }
 

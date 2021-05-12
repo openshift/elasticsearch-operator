@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -89,13 +90,25 @@ func (r *KibanaReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) 
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
+	// Check if es has annotation logging.openshift.io/elasticsearch-cert-management: true
+	eoCertManagement := false
+	certOwnerRef := metav1.OwnerReference{}
+	value, ok := es.Annotations[constants.EOCertManagementLabel]
+	if ok {
+		manageBool, _ := strconv.ParseBool(value)
+		if manageBool {
+			eoCertManagement = manageBool
+			certOwnerRef = es.GetOwnerRef()
+		}
+	}
+
 	esClient := elasticsearch.NewClient(es.Name, es.Namespace, r.Client)
 	proxyCfg, err := kibana.GetProxyConfig(r.Client)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := kibana.Reconcile(kibanaInstance, r.Client, esClient, proxyCfg); err != nil {
+	if err := kibana.Reconcile(kibanaInstance, r.Client, esClient, proxyCfg, eoCertManagement, certOwnerRef); err != nil {
 		return reconcile.Result{}, err
 	}
 

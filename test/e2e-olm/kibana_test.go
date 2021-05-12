@@ -10,7 +10,6 @@ import (
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/k8shandler/kibana"
 	"github.com/openshift/elasticsearch-operator/test/utils"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,10 +39,6 @@ func KibanaDeployment(t *testing.T) {
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
-	if err = createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
-
 	esDeploymentName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
 	_, err = createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 1)
 	if err != nil {
@@ -53,14 +48,6 @@ func KibanaDeployment(t *testing.T) {
 	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, esDeploymentName, 1, retryInterval, timeout)
 	if err != nil {
 		t.Errorf("timed out waiting for Deployment %q: %v", esDeploymentName, err)
-	}
-
-	if err = createKibanaSecret(k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = createKibanaProxySecret(k8sClient, esUUID); err != nil {
-		t.Fatal(err)
 	}
 
 	kibanaCR := createKibanaCR(operatorNamespace)
@@ -91,32 +78,11 @@ func KibanaDeployment(t *testing.T) {
 	}
 
 	// Delete Kibana CR, elasticsearch CR, and secrets
-	esSecret := &corev1.Secret{}
-	key = types.NamespacedName{Name: elasticsearchNameFor(esUUID), Namespace: operatorNamespace}
-	err = waitForDeleteObject(t, k8sClient, key, esSecret, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("cannot remove es secret: %v", err)
-	}
-
 	es := &loggingv1.Elasticsearch{}
 	key = types.NamespacedName{Name: elasticsearchNameFor(esUUID), Namespace: operatorNamespace}
 	err = waitForDeleteObject(t, k8sClient, key, es, retryInterval, timeout)
 	if err != nil {
 		t.Errorf("cannot remove elasticsearch CR: %v", err)
-	}
-
-	kibanaSecret := &corev1.Secret{}
-	key = types.NamespacedName{Name: kibanaCRName, Namespace: operatorNamespace}
-	err = waitForDeleteObject(t, k8sClient, key, kibanaSecret, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("cannot remove kibana secret: %v", err)
-	}
-
-	kibanaProxySecret := &corev1.Secret{}
-	key = types.NamespacedName{Name: kibanaCRName + "-proxy", Namespace: operatorNamespace}
-	err = waitForDeleteObject(t, k8sClient, key, kibanaProxySecret, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("cannot remove kibana proxy secret: %v", err)
 	}
 
 	kibana := &loggingv1.Kibana{}

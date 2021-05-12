@@ -34,10 +34,6 @@ func singleNodeTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
-
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
@@ -60,25 +56,23 @@ func singleNodeTest(t *testing.T) {
 func cleanupEsTest(t *testing.T, cli client.Client, namespace string, esUUID string) {
 	esSecret := &corev1.Secret{}
 	key := types.NamespacedName{Name: elasticsearchNameFor(esUUID), Namespace: namespace}
-	err := waitForDeleteObject(t, cli, key, esSecret, retryInterval, timeout)
+
+	es := &loggingv1.Elasticsearch{}
+	err := waitForDeleteObject(t, cli, key, es, retryInterval, timeout)
+	if err != nil {
+		t.Errorf("cannot remove elasticsearch CR: %v", err)
+	}
+
+	err = waitForDeleteObject(t, cli, key, esSecret, retryInterval, timeout)
 	if err != nil {
 		t.Errorf("cannot remove es secret: %v", err)
 	}
 
-	es := &loggingv1.Elasticsearch{}
-	err = waitForDeleteObject(t, cli, key, es, retryInterval, timeout)
-	if err != nil {
-		t.Errorf("cannot remove elasticsearch CR: %v", err)
-	}
 }
 
 func multipleNodesTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
-
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
 
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
@@ -108,10 +102,6 @@ func multipleNodesTest(t *testing.T) {
 func scaleUpNodesTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
-
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
 
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
@@ -154,10 +144,6 @@ func scaleUpNodesTest(t *testing.T) {
 func multipleNodesWithNonDataNodeTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
-
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
 
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
@@ -219,10 +205,6 @@ func fullClusterRedeployTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
-
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 
@@ -275,7 +257,7 @@ func fullClusterRedeployTest(t *testing.T) {
 	}
 
 	t.Log("Waiting for redeployment after secret update")
-	time.Sleep(time.Second * 10) // Let the operator do his thing
+	time.Sleep(time.Second * 60) // Let the operator do his thing
 
 	// Increase redeploy timeout on full cluster redeploy until min masters available
 	redeployTimeout := time.Second * 600
@@ -314,10 +296,6 @@ func fullClusterRedeployTest(t *testing.T) {
 func rollingRestartTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
-
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
 
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
@@ -425,10 +403,6 @@ func rollingRestartTest(t *testing.T) {
 func invalidMasterCountTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
-
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
 
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
