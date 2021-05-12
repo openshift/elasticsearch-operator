@@ -28,11 +28,6 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 		changed = true
 	}
 
-	// check if volumes are the same
-	if !containsSameVolumes(lhs.Volumes, rhs.Volumes) {
-		changed = true
-	}
-
 	// strictTolerations are for when we compare from the deployments or statefulsets
 	// if we are seeing if rolled out pods contain changes we don't want strictTolerations
 	//   since k8s may add additional tolerations to pods
@@ -94,16 +89,13 @@ func ArePodSpecDifferent(lhs, rhs v1.PodSpec, strictTolerations bool) bool {
 	return changed
 }
 
-// Copies the original template and overwrites the volume in the spec
-// if the overwriting template contains an actively used storage
-func CopyPodTemplateSpec(original, overwrite v1.PodTemplateSpec, overwriteVolume bool) v1.PodTemplateSpec {
-	templateCopy := original
-
-	if overwriteVolume && containsUsedVolumeStorage(overwrite) {
-		templateCopy.Spec.Volumes = overwrite.Spec.Volumes
-	}
-
-	return templateCopy
+// CreateUpdatablePodTemplateSpec creates a pod template from a copy of the update with
+// some aspects of the current
+func CreateUpdatablePodTemplateSpec(current, desired v1.PodTemplateSpec) v1.PodTemplateSpec {
+	desiredCopy := desired
+	desiredCopy.Spec.Volumes = current.Spec.Volumes
+	
+	return desiredCopy
 }
 
 // check that all of rhs (desired) are contained within lhs (current)
@@ -117,104 +109,6 @@ func containsSameVolumeMounts(lhs, rhs []v1.VolumeMount) bool {
 
 				if !reflect.DeepEqual(lVolumeMount, rVolumeMount) {
 					return false
-				}
-			}
-		}
-
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
-// checks that the current spec does not have storage already
-func containsUsedVolumeStorage(podSpec v1.PodTemplateSpec) bool {
-	for _, volume := range podSpec.Spec.Volumes {
-		if volume.EmptyDir != nil || volume.PersistentVolumeClaim != nil {
-			return true
-		}
-	}
-
-	return false
-}
-
-// if we use reflect.DeepEqual we will keep recognizing a difference due to defaultModes
-// we want to check that rhs is contained within lhs
-func containsSameVolumes(lhs, rhs []v1.Volume) bool {
-	for _, rVolume := range rhs {
-		found := false
-
-		for _, lVolume := range lhs {
-			if lVolume.Name == rVolume.Name {
-
-				found = true
-
-				if lVolume.ConfigMap != nil || rVolume.ConfigMap != nil {
-					if rVolume.ConfigMap == nil {
-						return false
-					}
-
-					if lVolume.ConfigMap == nil {
-						return false
-					}
-
-					if lVolume.ConfigMap.Name != rVolume.ConfigMap.Name {
-						return false
-					}
-				}
-
-				if lVolume.Secret != nil || rVolume.Secret != nil {
-					if rVolume.Secret == nil {
-						return false
-					}
-
-					if lVolume.Secret == nil {
-						return false
-					}
-
-					if lVolume.Secret.SecretName != rVolume.Secret.SecretName {
-						return false
-					}
-				}
-
-				if lVolume.PersistentVolumeClaim != nil || rVolume.PersistentVolumeClaim != nil {
-					if rVolume.PersistentVolumeClaim == nil {
-						return false
-					}
-
-					if lVolume.PersistentVolumeClaim == nil {
-						return false
-					}
-
-					if lVolume.PersistentVolumeClaim.ClaimName != rVolume.PersistentVolumeClaim.ClaimName {
-						return false
-					}
-				}
-
-				if lVolume.EmptyDir != nil || rVolume.EmptyDir != nil {
-					if rVolume.EmptyDir == nil {
-						return false
-					}
-
-					if lVolume.EmptyDir == nil {
-						return false
-					}
-
-					if lVolume.EmptyDir.SizeLimit != nil || rVolume.EmptyDir.SizeLimit != nil {
-						if rVolume.EmptyDir.SizeLimit == nil {
-							return false
-						}
-
-						if lVolume.EmptyDir.SizeLimit == nil {
-							return false
-						}
-
-						if *lVolume.EmptyDir.SizeLimit != *rVolume.EmptyDir.SizeLimit {
-							return false
-						}
-					}
 				}
 			}
 		}
