@@ -1,0 +1,23 @@
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "terms": {
+            "kubernetes.namespace_name": [
+              "openshift-cluster-version",
+              "openshift-kube-apiserver"
+            ]
+          }
+        }
+      ],
+      "filter": [
+        {
+          "range": {
+            "@timestamp": { "lt": "now-24h" }
+          }
+        }
+      ]
+    }
+  }
+}
