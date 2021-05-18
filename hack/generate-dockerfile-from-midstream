@@ -23,6 +23,11 @@ if froms and len(froms) > 0:
   for base in froms:
     dockerfileIn = re.sub("FROM " + base['source'],"FROM " + base['target'],dockerfileIn)
 
+envs = metaYaml['env']
+if envs and len(envs) > 0:
+  for base in envs:
+    dockerfileIn = re.sub("ENV " + base['source'],"ENV " + base['target'],dockerfileIn)
+
 #Remove aliases if only one is defined otherwise it will fail
 aliases = []
 froms = 0
