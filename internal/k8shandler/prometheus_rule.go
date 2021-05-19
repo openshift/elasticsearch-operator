@@ -1,24 +1,28 @@
 package k8shandler
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"io"
+	"text/template"
 
 	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/util/retry"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
-	alertsFilePath = "/etc/elasticsearch-operator/files/prometheus_alerts.yml"
-	rulesFilePath  = "/etc/elasticsearch-operator/files/prometheus_recording_rules.yml"
+	alertsFilePath    = "/etc/elasticsearch-operator/files/prometheus_alerts.yml"
+	rulesFilePath     = "/etc/elasticsearch-operator/files/prometheus_recording_rules.yml"
+	runbookDefaultURL = "https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md"
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
@@ -56,15 +60,19 @@ func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
 		return nil
 	})
 
+	if err == nil {
+		return nil
+	}
+
 	return kverrors.Wrap(err, "failed to update prometheus rule", "rule", rule.Name)
 }
 
 func buildPrometheusRule(ruleName string, namespace string, labels map[string]string) (*monitoringv1.PrometheusRule, error) {
-	alertsRuleSpec, err := ruleSpec(utils.LookupEnvWithDefault("ALERTS_FILE_PATH", alertsFilePath))
+	alertsRuleSpec, err := ruleSpec("prometheus_alerts.yml", utils.LookupEnvWithDefault("ALERTS_FILE_PATH", alertsFilePath))
 	if err != nil {
 		return nil, kverrors.Wrap(err, "failed to build rule spec")
 	}
-	rulesRuleSpec, err := ruleSpec(utils.LookupEnvWithDefault("RULES_FILE_PATH", rulesFilePath))
+	rulesRuleSpec, err := ruleSpec("prometheus_recording_rules.yml", utils.LookupEnvWithDefault("RULES_FILE_PATH", rulesFilePath))
 	if err != nil {
 		return nil, err
 	}
@@ -92,15 +100,34 @@ func prometheusRule(ruleName, namespace string, labels map[string]string) *monit
 	}
 }
 
-func ruleSpec(filePath string) (*monitoringv1.PrometheusRuleSpec, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, kverrors.Wrap(err, "failed to open file", "filePath", filePath)
-	}
-	defer f.Close()
+func ruleSpec(fileName, filePath string) (*monitoringv1.PrometheusRuleSpec, error) {
 	ruleSpec := monitoringv1.PrometheusRuleSpec{}
-	if err := k8sYAML.NewYAMLOrJSONDecoder(f, 1000).Decode(&ruleSpec); err != nil {
+
+	alertConfigTemplate := struct {
+		RunbookBaseURL string
+	}{
+		RunbookBaseURL: utils.LookupEnvWithDefault("RUNBOOK_BASE_URL", runbookDefaultURL),
+	}
+
+	ruleSpecTemplate, err := template.New(fileName).Delims("[[", "]]").ParseFiles(filePath)
+	if err != nil {
+		log.Error(err, "Unable to read template file")
+		return &ruleSpec, err
+	}
+
+	ruleSpecBytes := bytes.NewBuffer(nil)
+	err = ruleSpecTemplate.Execute(ruleSpecBytes, alertConfigTemplate)
+	if err != nil {
+		log.Error(err, "Unable to execute template config")
+		return &ruleSpec, err
+	}
+
+	reader := io.Reader(ruleSpecBytes)
+
+	if err := k8sYAML.NewYAMLOrJSONDecoder(reader, 1000).Decode(&ruleSpec); err != nil {
+		log.Error(err, "Unable to decode rule spec from reader")
 		return nil, kverrors.Wrap(err, "failed to decode rule spec from file", "filePath", filePath)
 	}
+
 	return &ruleSpec, nil
 }
