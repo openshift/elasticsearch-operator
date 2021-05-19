@@ -3,3 +3,6 @@ from:
   target: registry.ci.openshift.org/openshift/release:golang-1.14 AS builder
 - source: openshift-ose-base\:v(?:[\.0-9\-]*)
   target: docker.io/centos:8 AS centos
+env:
+- source: RUNBOOK_BASE_URL=.*
+  target: RUNBOOK_BASE_URL="https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md"
