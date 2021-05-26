@@ -329,7 +329,18 @@ func (er *ElasticsearchRequest) updateStorageConditions(status *api.Elasticsearc
 				return nil
 			}
 
-			if !reflect.DeepEqual(current.Spec.StorageClassName, specVol.StorageClassName) {
+			// Generally, this won't last very long with the exception of the case of
+			// moving from ephermeral storage to a persistent one. Since the volume is
+			// never created after the intial create, a PVC should never remain in the
+			// the pending state for a long period of time with the exception of this case.
+			isPVCPending := reflect.DeepEqual(current.Status.Phase, v1.ClaimPending)
+			if isUsingPVCStorageSpec && isPVCPending {
+				structureStatus = v1.ConditionTrue
+				return nil
+			}
+
+			isDefaultName := specVol.StorageClassName == nil && current.Spec.StorageClassName != nil
+			if !isDefaultName && !reflect.DeepEqual(current.Spec.StorageClassName, specVol.StorageClassName) {
 				nameStatus = v1.ConditionTrue
 			}
 
