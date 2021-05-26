@@ -178,9 +178,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		// we only want to update our replicas if we aren't in the middle up an update
 		er.updateReplicas()
 
-		// check if nodes are below watermark threshold and unblock indices if it's marked as read only
-		er.checkWatermarkAndUnblockIndices()
-
 		// add alias to old indices if they exist and don't have one
 		// this should be removed after one release...
 		if er.ClusterReady() {
@@ -194,6 +191,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 					aliasNeededMap[nodeMapKey(er.cluster.Name, er.cluster.Namespace)] = false
 				}
 			}
+
+			// check if nodes are below watermark threshold and unblock indices if it's marked as read only
+			er.checkWatermarkAndUnblockIndices()
 		}
 	}
 
