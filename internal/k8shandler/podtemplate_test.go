@@ -145,8 +145,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -173,8 +173,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -203,8 +203,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -222,8 +222,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -249,8 +249,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -268,8 +268,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -294,8 +294,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -313,8 +313,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
@@ -339,8 +339,8 @@ var _ = Describe("podtemplate", func() {
 			}
 		})
 
-		It("should recognize a volume change", func() {
-			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeTrue())
+		It("shouldn't recognize a volume change", func() {
+			Expect(ArePodTemplateSpecDifferent(lhs, rhs)).To(BeFalse())
 		})
 	})
 
