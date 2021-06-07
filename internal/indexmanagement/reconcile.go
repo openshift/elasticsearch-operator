@@ -142,14 +142,17 @@ func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elas
 		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
 	}
-	envvars := []corev1.EnvVar{}
+
+	envvars := []corev1.EnvVar{
+		{Name: "POLICY_MAPPING", Value: mapping.Name},
+	}
+
 	if policy.Phases.Delete != nil {
 		minAgeMillis, err := calculateMillisForTimeUnit(policy.Phases.Delete.MinAge)
 		if err != nil {
 			return err
 		}
 		envvars = append(envvars,
-			corev1.EnvVar{Name: "POLICY_MAPPING", Value: mapping.Name},
 			corev1.EnvVar{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
 		)
 	} else {
@@ -164,12 +167,12 @@ func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elas
 		}
 		envvars = append(envvars,
 			corev1.EnvVar{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString(payload)},
-			corev1.EnvVar{Name: "POLICY_MAPPING", Value: mapping.Name},
 		)
 
 	} else {
 		log.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
 	}
+
 	schedule, err := crontabScheduleFor(policy.PollInterval)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to reconcile rollover cronjob", "policymapping", mapping.Name)
