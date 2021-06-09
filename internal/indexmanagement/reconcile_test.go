@@ -49,7 +49,7 @@ var _ = Describe("Index Management", func() {
 		selector := map[string]string{}
 		tolerations := []core.Toleration{}
 		name := fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name)
-		cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{})
+		cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{}, false)
 	})
 	Describe("#formatCmd", func() {
 		Context("with no policies", func() {
@@ -82,7 +82,7 @@ var _ = Describe("Index Management", func() {
 			selector := map[string]string{}
 			tolerations := []core.Toleration{}
 			name := fmt.Sprintf("%s-rollover-%s", cluster.Name, policy.Name)
-			cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{})
+			cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{}, false)
 			policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{
 				Actions: apis.IndexManagementActionsSpec{
 					Rollover: &apis.IndexManagementActionSpec{
@@ -98,7 +98,7 @@ var _ = Describe("Index Management", func() {
 			It("should not create the cronjob and return the error", func() {
 				policy.PollInterval = "notavalue"
 				imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-				Expect(imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)).To(Not(Succeed()))
+				Expect(imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)).To(Not(Succeed()))
 			})
 		})
 		Describe("when trying to create the cronjob", func() {
@@ -108,7 +108,7 @@ var _ = Describe("Index Management", func() {
 					policy.Phases.Hot = nil
 					apiclient = fake.NewFakeClient(cronjob)
 					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)
+					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
 			})
@@ -117,7 +117,7 @@ var _ = Describe("Index Management", func() {
 					policy.Phases.Delete = nil
 					apiclient = fake.NewFakeClient(cronjob)
 					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)
+					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
 			})
@@ -126,7 +126,7 @@ var _ = Describe("Index Management", func() {
 					policy.Phases.Hot = nil
 					apiclient = fake.NewFakeClient(cronjob)
 					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)
+					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
 			})
@@ -134,14 +134,14 @@ var _ = Describe("Index Management", func() {
 				It("should return without error", func() {
 					apiclient = fake.NewFakeClient(cronjob)
 					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)
+					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
 			})
 			Context("and errors for reasons other then already existing", func() {
 				It("should return the error", func() {
 					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)
+					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil())
 				})
 			})
@@ -152,7 +152,7 @@ var _ = Describe("Index Management", func() {
 						cronjob.Spec.Schedule = newSchedule
 						apiclient = fake.NewFakeClient(cronjob)
 						imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
-						err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards)
+						err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 						Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 						Expect(cronjob.Spec.Schedule).To(Equal(newSchedule), "Exp. to update the cronjob")
 					})

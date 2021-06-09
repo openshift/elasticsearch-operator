@@ -94,18 +94,37 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 	spec := verifyAndNormalize(imr.cluster)
 	policies := spec.PolicyMap()
 
-	imr.cullIndexManagement(spec.Mappings, policies)
-	for _, mapping := range spec.Mappings {
-		ll := log.WithValues("mapping", mapping.Name)
-		// create or update template
-		if err := imr.createOrUpdateIndexTemplate(mapping); err != nil {
-			ll.Error(err, "failed to create index template")
-			return err
+	labels := map[string]string{
+		"cluster-name": imr.cluster.Name,
+		"component":    "elasticsearch",
+	}
+	esPods, err := pod.List(context.TODO(), imr.client, imr.cluster.Namespace, labels)
+	if err != nil {
+		return err
+	}
+
+	running := false
+	for _, pod := range esPods {
+		if pod.Status.Phase == corev1.PodRunning {
+			running = true
+			break
 		}
-		// TODO: Can we have partial success?
-		if err := imr.initializeIndexIfNeeded(mapping); err != nil {
-			ll.Error(err, "Failed to initialize index")
-			return err
+	}
+
+	if running {
+		imr.cullIndexManagement(spec.Mappings, policies)
+		for _, mapping := range spec.Mappings {
+			ll := log.WithValues("mapping", mapping.Name)
+			// create or update template
+			if err := imr.createOrUpdateIndexTemplate(mapping); err != nil {
+				ll.Error(err, "failed to create index template")
+				return err
+			}
+			// TODO: Can we have partial success?
+			if err := imr.initializeIndexIfNeeded(mapping); err != nil {
+				ll.Error(err, "Failed to initialize index")
+				return err
+			}
 		}
 	}
 
@@ -117,11 +136,12 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 		return err
 	}
 
+	suspend := len(esPods) == 0
 	primaryShards := elasticsearch.GetDataCount(imr.cluster)
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
 		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
-		if err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards); err != nil {
+		if err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, suspend); err != nil {
 			ll.Error(err, "could not reconcile indexmanagement cronjob")
 			return err
 		}
@@ -306,7 +326,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 	return nil
 }
 
-func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
+func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32, suspend bool) error {
 	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
 		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
@@ -349,7 +369,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 	name := fmt.Sprintf("%s-im-%s", imr.cluster.Name, mapping.Name)
 	script := formatCmd(policy)
-	desired := newCronJob(imr.cluster.Name, imr.cluster.Namespace, name, schedule, script, imr.cluster.Spec.Spec.NodeSelector, imr.cluster.Spec.Spec.Tolerations, envvars)
+	desired := newCronJob(imr.cluster.Name, imr.cluster.Namespace, name, schedule, script, imr.cluster.Spec.Spec.NodeSelector, imr.cluster.Spec.Spec.Tolerations, envvars, suspend)
 
 	imr.cluster.AddOwnerRefTo(desired)
 
@@ -463,7 +483,7 @@ func newContainer(clusterName, name, image, scriptPath string, envvars []corev1.
 	return container
 }
 
-func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar) *batch.CronJob {
+func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar, suspend bool) *batch.CronJob {
 	containerName := "indexmanagement"
 	containers := []corev1.Container{
 		newContainer(clusterName, containerName, constants.PackagedElasticsearchImage(), script, envvars),
@@ -499,6 +519,7 @@ func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelec
 		Build()
 
 	return cronjob.New(name, namespace, imLabels).
+		WithSuspend(suspend).
 		WithConcurrencyPolicy(batch.ForbidConcurrent).
 		WithSuccessfulJobsHistoryLimit(jobHistoryLimitSuccess).
 		WithFailedJobsHistoryLimit(jobHistoryLimitFailed).
