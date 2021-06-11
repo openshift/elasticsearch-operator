@@ -229,9 +229,11 @@ function rollover() {
   echo "Next write index for ${policy}-write: $nextIndex"
   echo "Checking if $nextIndex exists"
 
-  # if true, ensure next index was created
+  # if true, ensure next index was created and
+  # cluster permits operations on it, e.g. not in read-only
+  # state because of low disk space.
   code="$(checkIndexExists "$nextIndex")"
-  if [ "$code" == "404" ] ; then
+  if [ "$code" == "404" ] || [ "$code" == "403" ] ; then
     cat /tmp/response.txt
     return 1
   fi
