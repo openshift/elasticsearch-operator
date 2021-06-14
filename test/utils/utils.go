@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 )
 
@@ -307,7 +307,7 @@ func GenerateUUID() string {
 func WaitForIndexTemplateReplicas(t *testing.T, kubeclient kubernetes.Interface, namespace, clusterName string, replicas int32, retryInterval, timeout time.Duration) error {
 	// mock out Secret response from client
 	mockClient := fake.NewFakeClient(getMockedSecret(clusterName, namespace))
-	esClient := elasticsearch.NewClient(clusterName, namespace, mockClient)
+	esClient := esclient.NewClient(clusterName, namespace, mockClient)
 
 	stringReplicas := fmt.Sprintf("%d", replicas)
 
@@ -344,7 +344,7 @@ func WaitForIndexTemplateReplicas(t *testing.T, kubeclient kubernetes.Interface,
 func WaitForIndexReplicas(t *testing.T, kubeclient kubernetes.Interface, namespace, clusterName string, replicas int32, retryInterval, timeout time.Duration) error {
 	// mock out Secret response from client
 	mockClient := fake.NewFakeClient(getMockedSecret(clusterName, namespace))
-	esClient := elasticsearch.NewClient(clusterName, namespace, mockClient)
+	esClient := esclient.NewClient(clusterName, namespace, mockClient)
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		// get all index replica count

@@ -1,137 +1,78 @@
-package elasticsearch_test
+package elasticsearch
 
 import (
-	"reflect"
 	"testing"
 
+	elasticsearchv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestGetClusterNodeVersion(t *testing.T) {
-	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
-		"_cluster/stats": {
-			{
-				StatusCode: 200,
-				Body:       `{"nodes": {"versions": ["6.8.1"]}}`,
+func TestDiskUtilizationBelowFloodWatermark(t *testing.T) {
+	nodes = map[string][]NodeTypeInterface{}
+	var (
+		chatter   *helpers.FakeElasticsearchChatter
+		client    esclient.Client
+		k8sClient = fake.NewFakeClient()
+		cluster   = &elasticsearchv1.Elasticsearch{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "elasticsearch",
+				Namespace: "openshift-logging",
 			},
+		}
+	)
+
+	const (
+		esCluster   = "elasticsearch"
+		esNamespace = "openshift-logging"
+	)
+
+	chatter = helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
+		"_nodes/stats/fs": {
 			{
 				StatusCode: 200,
-				Body:       `{"nodes": {"versions": ["6.8.1", "5.6.16"]}}`,
+				Body:       `{"nodes": {"7EN-Wa_EQC6LoANvWcoyHQ": {"name": "elasticsearch-cdm-1-deadbeef", "fs": {"total": {"total_in_bytes": 32737570816, "free_in_bytes": 16315211776, "available_in_bytes": 16315211776}}}}}`,
 			},
 		},
 	})
-	esClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
+	client = helpers.NewFakeElasticsearchClient(esCluster, esNamespace, k8sClient, chatter)
 
-	tests := []struct {
-		desc string
-		want []string
-	}{
-		{
-			desc: "single version",
-			want: []string{"6.8.1"},
-		},
-		{
-			desc: "multiple version",
-			want: []string{"6.8.1", "5.6.16"},
-		},
+	er := ElasticsearchRequest{
+		cluster:  cluster,
+		client:   k8sClient,
+		esClient: client,
 	}
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.desc, func(t *testing.T) {
-			got, err := esClient.GetClusterNodeVersions()
-			if err != nil {
-				t.Errorf("got err: %s", err)
-			}
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("got %#v, want %#v", got, test.want)
-			}
-		})
+	// Populate nodes in operator memory
+	key := nodeMapKey(esCluster, esNamespace)
+	nodes[key] = populateSingleNode(esCluster)
+
+	if isDiskUtilizationBelow := er.isDiskUtilizationBelowFloodWatermark(); isDiskUtilizationBelow != true {
+		t.Errorf("Expected threshold value to be below 95 percent but got more.")
 	}
 }
 
-func TestGetLowestClusterVersion(t *testing.T) {
-	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
-		"_cluster/stats/nodes/_all": {
-			{
-				StatusCode: 200,
-				Body:       `{"nodes": {"versions": ["6.8.1"]}}`,
-			},
-			{
-				StatusCode: 200,
-				Body:       `{"nodes": {"versions": ["6.8.1", "5.6.16"]}}`,
+func populateSingleNode(clusterName string) []NodeTypeInterface {
+	nodes := []NodeTypeInterface{}
+	deployments := []runtime.Object{
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "elasticsearch-cdm-1-deadbeef",
+				Namespace: "openshift-logging",
 			},
 		},
-	})
-	esClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
-
-	tests := []struct {
-		desc string
-		want string
-	}{
-		{
-			desc: "single version",
-			want: "6.8.1",
-		},
-		{
-			desc: "split versions",
-			want: "5.6.16",
-		},
 	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.desc, func(t *testing.T) {
-			got, err := esClient.GetLowestClusterVersion()
-			if err != nil {
-				t.Errorf("got err: %s", err)
-			}
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("got %#v, want %#v", got, test.want)
-			}
-		})
+	for _, dpl := range deployments {
+		dpl := dpl.(*appsv1.Deployment)
+		node := &deploymentNode{
+			clusterName: clusterName,
+			self:        *dpl,
+		}
+		nodes = append(nodes, node)
 	}
-}
-
-func TestIsNodeInCluster(t *testing.T) {
-	chatter := helpers.NewFakeElasticsearchChatter(map[string]helpers.FakeElasticsearchResponses{
-		"_cluster/state/nodes": {
-			{
-				StatusCode: 200,
-				Body:       `{"nodes": {"nodeuuid1": {"name": "node1"}}}`,
-			},
-			{
-				StatusCode: 200,
-				Body:       `{"nodes": {"nodeuuid1": {"name": "node1"}, "nodeuuid2": {"name": "node2"}}}`,
-			},
-		},
-	})
-	esClient := helpers.NewFakeElasticsearchClient("elasticsearch", "test-namespace", fakeClient, chatter)
-
-	tests := []struct {
-		desc string
-		want bool
-	}{
-		{
-			desc: "node not in cluster",
-			want: false,
-		},
-		{
-			desc: "node in cluster",
-			want: true,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.desc, func(t *testing.T) {
-			got, err := esClient.IsNodeInCluster("node2")
-			if err != nil {
-				t.Errorf("got err: %s", err)
-			}
-			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("got %#v, want %#v", got, test.want)
-			}
-		})
-	}
+	return nodes
 }

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -70,7 +70,7 @@ func (chat *FakeElasticsearchChatter) GetResponse(key string) (*FakeElasticsearc
 	return &response, found
 }
 
-func (chat *FakeElasticsearchChatter) recordRequest(payload *elasticsearch.EsRequest) {
+func (chat *FakeElasticsearchChatter) recordRequest(payload *esclient.EsRequest) {
 	key := payload.URI
 	req := FakeElasticsearchRequest{
 		URI:    key,
@@ -96,15 +96,15 @@ func (response *FakeElasticsearchResponse) BodyAsResponseBody() map[string]inter
 	return body
 }
 
-func NewFakeElasticsearchClient(cluster, namespace string, k8sClient client.Client, chatter *FakeElasticsearchChatter) elasticsearch.Client {
+func NewFakeElasticsearchClient(cluster, namespace string, k8sClient client.Client, chatter *FakeElasticsearchChatter) esclient.Client {
 	sendFakeRequest := NewFakeSendRequestFn(chatter)
-	c := elasticsearch.NewClient(cluster, namespace, k8sClient)
+	c := esclient.NewClient(cluster, namespace, k8sClient)
 	c.SetSendRequestFn(sendFakeRequest)
 	return c
 }
 
-func NewFakeSendRequestFn(chatter *FakeElasticsearchChatter) elasticsearch.FnEsSendRequest {
-	return func(cluster, namespace string, payload *elasticsearch.EsRequest, client client.Client) {
+func NewFakeSendRequestFn(chatter *FakeElasticsearchChatter) esclient.FnEsSendRequest {
+	return func(cluster, namespace string, payload *esclient.EsRequest, client client.Client) {
 		chatter.recordRequest(payload)
 		if val, found := chatter.GetResponse(payload.URI); found {
 			payload.Error = val.Error

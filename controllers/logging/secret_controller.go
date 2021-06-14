@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/internal/k8shandler"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
 )
 
 // SecretReconciler reconciles a Secret object
@@ -41,7 +41,7 @@ func (r *SecretReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	ok, err := k8shandler.SecretReconcile(cluster, r.Client)
+	ok, err := elasticsearch.SecretReconcile(cluster, r.Client)
 	if !ok {
 		return reconcileResult, err
 	}

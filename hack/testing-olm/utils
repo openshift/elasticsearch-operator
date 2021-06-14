@@ -15,9 +15,12 @@ gather_logging_resources() {
   oc -n ${LOGGING_NS} get deployments -o wide > $outdir/deployments.txt 2>&1 || :
   oc -n ${LOGGING_NS} get pods -o wide > $outdir/pods.txt 2>&1 || :
   oc -n ${LOGGING_NS} get events -o wide > $outdir/events.txt 2>&1 || :
+  oc -n ${LOGGING_NS} get secrets -o wide > $outdir/secrets.txt 2>&1 || :
 
   oc -n ${LOGGING_NS} extract secret/elasticsearch --to=$outdir ||:
   oc -n ${LOGGING_NS} extract configmap/fluentd --to=$outdir ||:
+
+  oc -n ${LOGGING_NS} get elasticsearch -o yaml > $outdir/es.yaml ||:
 
   get_all_logging_pod_logs ${LOGGING_NS} $outdir
   get_all_olm_logs $outdir
