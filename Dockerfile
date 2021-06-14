@@ -1,6 +1,6 @@
 ### This is a generated file from Dockerfile.in ###
 #@follow_tag(openshift-golang-builder:1.14)
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.15-openshift-4.7 AS builder
+FROM openshift-golang-builder:v1.14.4-9 AS builder
 
 ENV BUILD_VERSION=${CI_CONTAINER_VERSION}
 ENV OS_GIT_MAJOR=${CI_X_VERSION}
@@ -25,7 +25,7 @@ ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod $
 RUN make build
 
 #@follow_tag(openshift-ose-base:ubi8)
-FROM registry.ci.openshift.org/ocp/4.7:base
+FROM openshift-ose-base:v4.0-202009120053.11408
 LABEL \
         io.k8s.display-name="OpenShift elasticsearch-operator" \
         io.k8s.description="This is the component that manages an Elasticsearch cluster on a kubernetes based platform" \
@@ -43,7 +43,7 @@ LABEL \
 ENV ALERTS_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_alerts.yml"
 ENV RULES_FILE_PATH="/etc/elasticsearch-operator/files/prometheus_recording_rules.yml"
 ENV ES_DASHBOARD_FILE="/etc/elasticsearch-operator/files/dashboards/logging-dashboard-elasticsearch.json"
-ENV RUNBOOK_BASE_URL="https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md"
+ENV RUNBOOK_BASE_URL="https://docs.openshift.com/container-platform/latest/logging/troubleshooting/cluster-logging-troubleshooting-for-critical-alerts.html"
 
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/bin/elasticsearch-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/files/ /etc/elasticsearch-operator/files/
