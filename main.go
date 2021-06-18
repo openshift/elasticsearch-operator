@@ -78,6 +78,7 @@ func main() {
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "d471c3b1.openshift.io",
+		Logger:             ll,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
