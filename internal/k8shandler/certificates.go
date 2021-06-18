@@ -745,36 +745,35 @@ func validateCASecret(secret *v1.Secret) (*certCA, error) {
 	var x509Cert *x509.Certificate
 	var err error
 	certBytes, certOK := secret.Data[esCACertName]
-	if certOK {
-		decodedCert, err := pemDecodeCert(certBytes)
-		if err != nil {
-			return nil, err
-		}
-		x509Cert = decodedCert
-	} else {
+	if !certOK {
 		return nil, fmt.Errorf("missing cert key from secret")
 	}
+	decodedCert, err := pemDecodeCert(certBytes)
+	if err != nil {
+		return nil, err
+	}
+	x509Cert = decodedCert
+
 	var rsaKey *rsa.PrivateKey
 	keyBytes, keyOK := secret.Data[esCAKeyName]
-	if keyOK {
-		decodedKey, err := pemDecodePrivateKey(keyBytes)
-		if err != nil {
-			return nil, err
-		}
-		rsaKey = decodedKey
-	} else {
+	if !keyOK {
 		return nil, fmt.Errorf("missing key key from secret")
 	}
+	decodedKey, err := pemDecodePrivateKey(keyBytes)
+	if err != nil {
+		return nil, err
+	}
+	rsaKey = decodedKey
+
 	pubKeySHA1 := sha1.Sum(x509.MarshalPKCS1PublicKey(&rsaKey.PublicKey))
 	serial := big.NewInt(0)
 	serialBytes, serialOK := secret.Data[esCASerialName]
 
-	if serialOK {
-		if err = serial.UnmarshalText(serialBytes); err != nil {
-			return nil, err
-		}
-	} else {
+	if !serialOK {
 		return nil, fmt.Errorf("missing serial key from secret")
+	}
+	if err = serial.UnmarshalText(serialBytes); err != nil {
+		return nil, err
 	}
 
 	if !isValidCA(x509Cert, rsaKey) {
