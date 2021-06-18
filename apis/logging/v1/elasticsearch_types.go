@@ -36,16 +36,19 @@ type Elasticsearch struct {
 
 // AddOwnerRefTo appends the Elasticsearch object as an OwnerReference to the passed object
 func (es *Elasticsearch) AddOwnerRefTo(o metav1.Object) {
+
+	ref := es.GetOwnerRef()
+	o.SetOwnerReferences(append(o.GetOwnerReferences(), ref))
+}
+
+func (es *Elasticsearch) GetOwnerRef() metav1.OwnerReference {
 	trueVar := true
-	ref := metav1.OwnerReference{
+	return metav1.OwnerReference{
 		APIVersion: GroupVersion.String(),
 		Kind:       "Elasticsearch",
 		Name:       es.Name,
 		UID:        es.UID,
 		Controller: &trueVar,
-	}
-	if (metav1.OwnerReference{}) != ref {
-		o.SetOwnerReferences(append(o.GetOwnerReferences(), ref))
 	}
 }
 

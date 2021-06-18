@@ -2,11 +2,14 @@ package k8shandler
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
 	elasticsearchv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -122,6 +125,27 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		cluster:  requestCluster,
 		esClient: esClient,
 		ll:       log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+	}
+
+	// check if we are doing ES cert management looking for annotation:
+	// logging.openshift.io/elasticsearch-cert-management: true
+	value, ok := requestCluster.Annotations[constants.EOCertManagementLabel]
+	if ok {
+		manageBool, _ := strconv.ParseBool(value)
+		if manageBool {
+			cr := NewCertificateRequest(requestCluster.Name, requestCluster.Namespace, requestCluster.GetOwnerRef(), requestClient)
+			cr.GenerateElasticsearchCerts(requestCluster.Name)
+
+			// for any components specified like:
+			// logging.openshift.io/elasticsearch-cert.{secret_name}: {component_name}
+			for annotationKey, componentName := range requestCluster.Annotations {
+				if strings.HasPrefix(annotationKey, constants.EOComponentCertPrefix) {
+					secretName := strings.TrimPrefix(annotationKey, constants.EOComponentCertPrefix)
+
+					cr.GenerateComponentCerts(secretName, componentName)
+				}
+			}
+		}
 	}
 
 	degradedCondition := false

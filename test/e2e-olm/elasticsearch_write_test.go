@@ -20,10 +20,6 @@ func esWriteTest(t *testing.T) {
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
-	if err := createElasticsearchSecret(t, k8sClient, esUUID); err != nil {
-		t.Fatal(err)
-	}
-
 	dataUUID := utils.GenerateUUID()
 	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
 

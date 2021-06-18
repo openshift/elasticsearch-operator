@@ -5,6 +5,8 @@ metadata:
   name: "elasticsearch"
   annotations:
       elasticsearch.openshift.io/loglevel: trace
+      logging.openshift.io/elasticsearch-cert-management: "true"
+      logging.openshift.io/elasticsearch-cert.fluentd: "system.logging.fluentd"
 spec:
   managementState: "Managed"
   nodeSpec:

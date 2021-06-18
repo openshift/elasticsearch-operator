@@ -118,19 +118,9 @@ deploy-image: image
 	IMAGE_TAG=$(IMAGE_TAG) hack/deploy-image.sh
 .PHONY: deploy-image
 
-deploy-example: deploy deploy-example-secret
+deploy-example:
 	@oc create -n $(DEPLOYMENT_NAMESPACE) -f hack/cr.yaml
 .PHONY: deploy-example
-
-deploy-example-secret: gen-example-certs
-	hack/deploy-example-secrets.sh $(DEPLOYMENT_NAMESPACE)
-.PHONY: deploy-example-secret
-
-gen-example-certs:
-	@rm -rf /tmp/example-secrets ||: \
-	mkdir /tmp/example-secrets && \
-	hack/cert_generation.sh /tmp/example-secrets $(DEPLOYMENT_NAMESPACE) elasticsearch
-.PHONY: gen-example-certs
 
 run: deploy deploy-example
 	@ALERTS_FILE_PATH=files/prometheus_alerts.yml \

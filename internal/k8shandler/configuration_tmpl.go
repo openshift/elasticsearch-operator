@@ -41,6 +41,7 @@ http.max_header_size: 128kb
 opendistro_security:
   authcz.admin_dn:
   - CN=system.admin,OU=OpenShift,O=Logging
+  - CN=system.admin,OU=Logging,O=OpenShift
   config_index_name: ".security"
   restapi:
     roles_enabled: ["kibana_server"]
@@ -72,7 +73,7 @@ logger.action.name = org.elasticsearch.action
 logger.action.level = debug
 
 logger.security.name = com.amazon.opendistroforelasticsearch.security
-logger.security.level = {{.SecurityLogLevel}}  
+logger.security.level = {{.SecurityLogLevel}}
 
 appender.console.type = Console
 appender.console.name = console

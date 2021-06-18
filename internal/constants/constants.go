@@ -19,6 +19,9 @@ const (
 	OcpTemplatePrefix = "ocp-gen"
 
 	SecurityIndex = ".security"
+
+	EOCertManagementLabel = "logging.openshift.io/elasticsearch-cert-management"
+	EOComponentCertPrefix = "logging.openshift.io/elasticsearch-cert."
 )
 
 var (
