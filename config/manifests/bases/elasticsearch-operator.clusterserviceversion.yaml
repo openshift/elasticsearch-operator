@@ -101,6 +101,7 @@ metadata:
     olm.skipRange: '>=4.6.0-0 <5.0.0'
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-operators-redhat
+    operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'
     operators.operatorframework.io/builder: operator-sdk-unknown
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
     support: AOS Cluster Logging, Jaeger
