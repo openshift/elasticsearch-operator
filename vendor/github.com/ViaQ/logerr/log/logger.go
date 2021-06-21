@@ -29,6 +29,7 @@ func (v Verbosity) String() string {
 	return strconv.Itoa(int(v))
 }
 
+// MarshalJSON marshals JSON
 func (v Verbosity) MarshalJSON() ([]byte, error) {
 	return []byte(v.String()), nil
 }
@@ -61,11 +62,29 @@ func NewLogger(name string, w io.Writer, v Verbosity, e Encoder, keysAndValues .
 	}
 }
 
+// combine creates a new map combining context and keysAndValues.
+func combine(context map[string]interface{}, keysAndValues ...interface{}) map[string]interface{} {
+	nc := make(map[string]interface{}, len(context)+len(keysAndValues)/2)
+	for k, v := range context {
+		nc[k] = v
+	}
+	for i := 0; i < len(keysAndValues); i += 2 {
+		if i+1 < len(keysAndValues) {
+			key, ok := keysAndValues[i].(string) // It should be a string.
+			if !ok {                             // But this is not the place to panic
+				key = fmt.Sprintf("%s", keysAndValues[i]) // So use this expensive conversion instead.
+			}
+			nc[key] = keysAndValues[i+1]
+		}
+	}
+	return nc
+}
+
 // withValues clones the logger and appends keysAndValues
 // but returns a struct instead of the logr.Logger interface
 func (l *Logger) withValues(keysAndValues ...interface{}) *Logger {
 	ll := NewLogger(l.name, l.output, l.verbosity, l.encoder)
-	ll.context = kv.AppendMap(kv.ToMap(keysAndValues...), l.context)
+	ll.context = combine(l.context, keysAndValues...)
 	return ll
 }
 
@@ -93,16 +112,15 @@ func (l *Logger) Enabled() bool {
 // log will log the message. It DOES NOT check Enabled() first so that should
 // be checked by it's callers
 func (l *Logger) log(msg string, context map[string]interface{}) {
-	m := kv.AppendMap(context, map[string]interface{}{
-		MessageKey:   msg,
-		TimeStampKey: TimestampFunc(),
-		ComponentKey: l.name,
-		LevelKey:     l.verbosity.String(),
-	})
+	m := combine(context,
+		MessageKey, msg,
+		TimeStampKey, TimestampFunc(),
+		ComponentKey, l.name,
+		LevelKey, l.verbosity.String())
 	err := l.encoder.Encode(l.output, m)
 	if err != nil {
 		// expand first so we can quote later
-		orig := fmt.Sprintf("%#v", context)
+		orig := fmt.Sprintf("%#v", m)
 		_, _ = fmt.Fprintf(l.output, `{"message","failed to encode message", "encoder":"%T","log":%q,"cause":%q}`, l.encoder, orig, err)
 	}
 }
@@ -117,7 +135,7 @@ func (l *Logger) Info(msg string, keysAndValues ...interface{}) {
 	if !l.Enabled() {
 		return
 	}
-	l.log(msg, kv.AppendMap(l.context, kv.ToMap(keysAndValues...)))
+	l.log(msg, combine(l.context, keysAndValues...))
 }
 
 // Error logs an error, with the given message and key/value pairs as context.

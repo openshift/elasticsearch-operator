@@ -16,11 +16,8 @@ const (
 
 // New creates a new KVError with keys and values
 func New(msg string, keysAndValues ...interface{}) error {
-	return &KVError{
-		kv: kv.AppendMap(map[string]interface{}{
-			MessageKey: msg,
-		}, kv.ToMap(keysAndValues...)),
-	}
+	keysAndValues = append([]interface{}{MessageKey, msg}, keysAndValues...)
+	return &KVError{kv: kv.ToMap(keysAndValues...)}
 }
 
 // NewCtx creates a new error with Context
