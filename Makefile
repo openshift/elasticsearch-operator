@@ -163,8 +163,8 @@ uninstall:
 # - the bundle manifests are copied to ./manifests/${LOGGING_VERSION}/, e.g., ./manifests/4.7/
 BUNDLE_VERSION?=$(LOGGING_VERSION).0
 # Options for 'bundle-build'
-BUNDLE_CHANNELS := --channels=${LOGGING_VERSION}
-BUNDLE_DEFAULT_CHANNEL := --default-channel=${LOGGING_VERSION}
+BUNDLE_CHANNELS := --channels="stable,stable-${LOGGING_VERSION}"
+BUNDLE_DEFAULT_CHANNEL := --default-channel=stable
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 bundle: regenerate $(KUSTOMIZE)
