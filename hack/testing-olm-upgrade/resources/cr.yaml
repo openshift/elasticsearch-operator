@@ -21,7 +21,7 @@ spec:
     - data
     - master
     storage:
-      storageClassName: gp2
+      storageClassName: standard
       size: 10G
   redundancyPolicy: SingleRedundancy
   indexManagement:
