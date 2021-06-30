@@ -17,5 +17,5 @@ oc get projects --token $USERTOKEN
 ### Admin user
 An admin user is able to access all collected logs(i.e. app, infra, audit) if they have an admin role as determined by:
 ```
-oc  -n default auth policy can-i get pods/logs
+oc -n default auth can-i get pods/logs
 ```
