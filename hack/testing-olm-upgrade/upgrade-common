@@ -263,7 +263,7 @@ wait_for_deployment_to_be_ready(){
 
 get_latest_catalog_version(){
 
-  versions="$(oc run --generator=run-pod/v1 grpcurl-query \
+  versions="$(oc run grpcurl-query \
      -n openshift-marketplace \
      --rm=true \
      --restart=Never \

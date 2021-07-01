@@ -8,7 +8,7 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/internal/k8shandler/kibana"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/route"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,7 +64,7 @@ func KibanaDeployment(t *testing.T) {
 
 	// Test recovering route after deletion
 	name := "kibana"
-	routeInst := kibana.NewRoute(name, operatorNamespace, name)
+	routeInst := route.New(name, operatorNamespace, name, nil).Build()
 	err = k8sClient.Delete(goctx.TODO(), routeInst)
 	if err != nil {
 		t.Errorf("could not delete Kibana route: %v", err)

@@ -30,8 +30,8 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
-	"github.com/openshift/elasticsearch-operator/internal/k8shandler"
-	"github.com/openshift/elasticsearch-operator/internal/k8shandler/kibana"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
+	"github.com/openshift/elasticsearch-operator/internal/kibana"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 )
 
@@ -84,7 +84,7 @@ func (r *KibanaReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) 
 	// keep track of the fact that we processed this kibana for future events and for mapping
 	registerKibanaNamespacedName(request)
 
-	es, err := k8shandler.GetElasticsearchCR(r.Client, request.Namespace)
+	es, err := elasticsearch.GetElasticsearchCR(r.Client, request.Namespace)
 	if err != nil {
 		log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
@@ -102,7 +102,7 @@ func (r *KibanaReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) 
 		}
 	}
 
-	esClient := elasticsearch.NewClient(es.Name, es.Namespace, r.Client)
+	esClient := esclient.NewClient(es.Name, es.Namespace, r.Client)
 	proxyCfg, err := kibana.GetProxyConfig(r.Client)
 	if err != nil {
 		return reconcile.Result{}, err

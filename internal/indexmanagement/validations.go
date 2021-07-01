@@ -16,9 +16,9 @@ const (
 	policyRefFailMessage     = "A policy mapping must reference a defined IndexManagement policy"
 )
 
-// VerifyAndNormalize validates the spec'd indexManagement and returns a spec which removes policies
+// verifyAndNormalize validates the spec'd indexManagement and returns a spec which removes policies
 // and mappings that are invalid
-func VerifyAndNormalize(cluster *esapi.Elasticsearch) *esapi.IndexManagementSpec {
+func verifyAndNormalize(cluster *esapi.Elasticsearch) *esapi.IndexManagementSpec {
 	result := &esapi.IndexManagementSpec{}
 	status := esapi.NewIndexManagementStatus()
 	cluster.Status.IndexManagementStatus = status

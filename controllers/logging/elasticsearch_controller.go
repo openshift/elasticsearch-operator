@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/openshift/elasticsearch-operator/internal/indexmanagement"
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 
 	"github.com/ViaQ/logerr/log"
@@ -16,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/internal/k8shandler"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
 )
 
 // ElasticsearchReconciler reconciles a Elasticsearch object
@@ -42,8 +43,8 @@ func (r *ElasticsearchReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
-			k8shandler.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
-			k8shandler.RemoveDashboardConfigMap(r.Client)
+			elasticsearch.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
+			elasticsearch.RemoveDashboardConfigMap(r.Client)
 			return ctrl.Result{}, nil
 		}
 
@@ -81,7 +82,11 @@ func (r *ElasticsearchReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 
 	}
 
-	if err = k8shandler.Reconcile(cluster, r.Client); err != nil {
+	if err = elasticsearch.Reconcile(cluster, r.Client); err != nil {
+		return reconcileResult, err
+	}
+
+	if err = indexmanagement.Reconcile(cluster, r.Client); err != nil {
 		return reconcileResult, err
 	}
 

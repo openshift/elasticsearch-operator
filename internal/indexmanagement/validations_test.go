@@ -17,7 +17,7 @@ var _ = Describe("Index Management", func() {
 		cluster                           *esapi.Elasticsearch
 		result                            *esapi.IndexManagementSpec
 		VerifyAndNormalizeIndexManagement = func() {
-			result = VerifyAndNormalize(cluster)
+			result = verifyAndNormalize(cluster)
 		}
 	)
 

@@ -8,25 +8,27 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ViaQ/logerr/kverrors"
-	batchv1 "k8s.io/api/batch/v1"
+	"github.com/go-logr/logr"
 	batch "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/ViaQ/logerr/log"
 	apis "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
-	"github.com/openshift/elasticsearch-operator/internal/types/k8s"
-	"github.com/openshift/elasticsearch-operator/internal/utils"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/cronjob"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/rbac"
+	esapi "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 )
 
@@ -34,13 +36,14 @@ const (
 	indexManagementConfigmap = "indexmanagement-scripts"
 	defaultShardSize         = int32(40)
 	workingDir               = "/tmp/scripts"
+
+	jobHistoryLimitFailed  int32 = 1
+	jobHistoryLimitSuccess int32 = 1
 )
 
 var (
-	defaultCPURequest      = resource.MustParse("100m")
-	defaultMemoryRequest   = resource.MustParse("32Mi")
-	jobHistoryLimitFailed  = utils.GetInt32(1)
-	jobHistoryLimitSuccess = utils.GetInt32(1)
+	defaultCPURequest    = resource.MustParse("100m")
+	defaultMemoryRequest = resource.MustParse("32Mi")
 
 	millisPerSecond = uint64(1000)
 	millisPerMinute = uint64(60 * millisPerSecond)
@@ -64,80 +67,246 @@ type rolloverConditions struct {
 	MaxSize string `json:"max_size,omitempty"`
 }
 
-func RemoveCronJobsForMappings(apiclient client.Client, cluster *apis.Elasticsearch, mappings []apis.IndexManagementPolicyMappingSpec, policies apis.PolicyMap) error {
-	expected := sets.NewString()
-	for _, mapping := range mappings {
-		expected.Insert(fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name))
+type IndexManagementRequest struct {
+	client   client.Client
+	cluster  *apis.Elasticsearch
+	esClient esclient.Client
+	ll       logr.Logger
+}
+
+func Reconcile(req *apis.Elasticsearch, reqClient client.Client) error {
+	esClient := esclient.NewClient(req.Name, req.Namespace, reqClient)
+
+	imr := IndexManagementRequest{
+		client:   reqClient,
+		esClient: esClient,
+		cluster:  req,
+		ll:       log.WithValues("cluster", req.Name, "namespace", req.Namespace, "handler", "indexmanagement"),
 	}
 
-	cronList := &batch.CronJobList{}
-	listOpts := []client.ListOption{
-		client.InNamespace(cluster.Namespace),
-		client.MatchingLabels(imLabels),
+	return imr.createOrUpdateIndexManagement()
+}
+
+func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
+	if imr.cluster.Spec.IndexManagement == nil {
+		return nil
 	}
-	if err := apiclient.List(context.TODO(), cronList, listOpts...); err != nil {
+	spec := verifyAndNormalize(imr.cluster)
+	policies := spec.PolicyMap()
+
+	imr.cullIndexManagement(spec.Mappings, policies)
+	for _, mapping := range spec.Mappings {
+		ll := log.WithValues("mapping", mapping.Name)
+		// create or update template
+		if err := imr.createOrUpdateIndexTemplate(mapping); err != nil {
+			ll.Error(err, "failed to create index template")
+			return err
+		}
+		// TODO: Can we have partial success?
+		if err := imr.initializeIndexIfNeeded(mapping); err != nil {
+			ll.Error(err, "Failed to initialize index")
+			return err
+		}
+	}
+
+	if err := createOrUpdateCurationConfigmap(imr.client, imr.cluster); err != nil {
+		return err
+	}
+
+	if err := imr.reconcileIndexManagmentRbac(); err != nil {
+		return err
+	}
+
+	primaryShards := elasticsearch.GetDataCount(imr.cluster)
+	for _, mapping := range spec.Mappings {
+		policy := policies[mapping.PolicyRef]
+		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
+		if err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards); err != nil {
+			ll.Error(err, "could not reconcile indexmanagement cronjob")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexManagementPolicyMappingSpec, policies apis.PolicyMap) {
+	if err := imr.removeCronJobsForMappings(mappings, policies); err != nil {
+		log.Error(err, "Unable to cull cronjobs")
+	}
+	mappingNames := sets.NewString()
+	for _, mapping := range mappings {
+		mappingNames.Insert(formatTemplateName(mapping.Name))
+	}
+
+	existing, err := imr.esClient.ListTemplates()
+	if err != nil {
+		log.Error(err, "Unable to list existing templates in order to reconcile stale ones")
+		return
+	}
+	difference := existing.Difference(mappingNames)
+
+	for _, template := range difference.List() {
+		if strings.HasPrefix(template, constants.OcpTemplatePrefix) {
+			if err := imr.esClient.DeleteIndexTemplate(template); err != nil {
+				log.Error(err, "Unable to delete stale template in order to reconcile", "template", template)
+			}
+		}
+	}
+}
+
+func (imr *IndexManagementRequest) initializeIndexIfNeeded(mapping apis.IndexManagementPolicyMappingSpec) error {
+	pattern := formatWriteAlias(mapping)
+	indices, err := imr.esClient.ListIndicesForAlias(pattern)
+	if err != nil {
+		return err
+	}
+	if len(indices) < 1 {
+		indexName := fmt.Sprintf("%s-000001", mapping.Name)
+		primaryShards := int32(elasticsearch.CalculatePrimaryCount(imr.cluster))
+		replicas := int32(elasticsearch.CalculateReplicaCount(imr.cluster))
+		index := esapi.NewIndex(indexName, primaryShards, replicas)
+		index.AddAlias(mapping.Name, false)
+		index.AddAlias(pattern, true)
+		for _, alias := range mapping.Aliases {
+			index.AddAlias(alias, false)
+		}
+		return imr.esClient.CreateIndex(indexName, index)
+	}
+	return nil
+}
+
+func formatTemplateName(name string) string {
+	return fmt.Sprintf("%s-%s", constants.OcpTemplatePrefix, name)
+}
+
+func formatWriteAlias(mapping apis.IndexManagementPolicyMappingSpec) string {
+	return fmt.Sprintf("%s-write", mapping.Name)
+}
+
+func (imr *IndexManagementRequest) createOrUpdateIndexTemplate(mapping apis.IndexManagementPolicyMappingSpec) error {
+	name := formatTemplateName(mapping.Name)
+	pattern := fmt.Sprintf("%s*", mapping.Name)
+	primaryShards := int32(elasticsearch.CalculatePrimaryCount(imr.cluster))
+	replicas := int32(elasticsearch.CalculateReplicaCount(imr.cluster))
+	aliases := append(mapping.Aliases, mapping.Name)
+	template := esapi.NewIndexTemplate(pattern, aliases, primaryShards, replicas)
+
+	// check to compare the current index templates vs what we just generated
+	templates, err := imr.esClient.GetIndexTemplates()
+	if err != nil {
+		return err
+	}
+
+	for templateName := range templates {
+		if templateName == name {
+			return nil
+		}
+	}
+
+	return imr.esClient.CreateIndexTemplate(name, template)
+}
+
+func (imr *IndexManagementRequest) removeCronJobsForMappings(mappings []apis.IndexManagementPolicyMappingSpec, policies apis.PolicyMap) error {
+	expected := sets.NewString()
+	for _, mapping := range mappings {
+		expected.Insert(fmt.Sprintf("%s-im-%s", imr.cluster.Name, mapping.Name))
+	}
+
+	cronList, err := cronjob.List(context.TODO(), imr.client, imr.cluster.Namespace, imLabels)
+	if err != nil {
 		return kverrors.Wrap(err, "failed to list cron jobs",
-			"namespace", cluster.Namespace,
+			"namespace", imr.cluster.Namespace,
 			"labels", imLabels,
 		)
 	}
+
 	existing := sets.NewString()
-	for _, cron := range cronList.Items {
+	for _, cron := range cronList {
 		existing.Insert(cron.Name)
 	}
+
 	difference := existing.Difference(expected)
 	for _, name := range difference.List() {
-		cronjob := &batch.CronJob{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "CronJob",
-				APIVersion: batch.SchemeGroupVersion.String(),
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: cluster.Namespace,
-			},
-		}
-		err := apiclient.Delete(context.TODO(), cronjob)
+		key := client.ObjectKey{Name: name, Namespace: imr.cluster.Namespace}
+		err := cronjob.Delete(context.TODO(), imr.client, key)
 		if err != nil && !apierrors.IsNotFound(err) {
-			log.Error(err, "failed to remove cronjob", "namespace", cluster.Namespace, "name", name)
+			log.Error(err, "failed to remove cronjob", "namespace", imr.cluster.Namespace, "name", name)
 		}
 	}
 	return nil
 }
 
-func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticsearch) error {
+func createOrUpdateCurationConfigmap(apiclient client.Client, cluster *apis.Elasticsearch) error {
 	data := scriptMap
-	desired := k8s.NewConfigMap(indexManagementConfigmap, cluster.Namespace, imLabels, data)
+	desired := configmap.New(indexManagementConfigmap, cluster.Namespace, imLabels, data)
 	cluster.AddOwnerRefTo(desired)
 
-	errCtx := kverrors.NewContext("configmap", desired.Name,
-		"cluster", cluster.Name,
-		"namespace", cluster.Namespace,
-	)
+	_, err := configmap.CreateOrUpdate(context.TODO(), apiclient, desired, configmap.DataEqual, configmap.MutateDataOnly)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update index management configmap",
+			"cluster", cluster.Name,
+			"namespace", cluster.Namespace,
+		)
+	}
 
-	err := apiclient.Create(context.TODO(), desired)
-	if err == nil {
-		return nil
-	}
-	if !apierrors.IsAlreadyExists(err) {
-		return errCtx.Wrap(err, "failed to create cluster configmap")
-	}
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current := &corev1.ConfigMap{}
-		retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
-		if retryError != nil {
-			return retryError
-		}
-		if !reflect.DeepEqual(desired.Data, current.Data) {
-			current.Data = desired.Data
-			return apiclient.Update(context.TODO(), current)
-		}
-		return nil
-	})
-	return errCtx.Wrap(err, "failed to update configmap")
+	return nil
 }
 
-func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
+func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
+	cluster := imr.cluster
+	client := imr.client
+
+	role := rbac.NewRole(
+		"elasticsearch-index-management",
+		cluster.Namespace,
+		rbac.NewPolicyRules(
+			rbac.NewPolicyRule(
+				[]string{"elasticsearch.openshift.io"},
+				[]string{"indices"},
+				[]string{},
+				[]string{"*"},
+				[]string{},
+			),
+		),
+	)
+
+	cluster.AddOwnerRefTo(role)
+
+	err := rbac.CreateOrUpdateRole(context.TODO(), client, role)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update index management role",
+			"cluster", cluster.Name,
+			"namespace", cluster.Namespace,
+		)
+	}
+
+	subject := rbac.NewSubject(
+		"ServiceAccount",
+		cluster.Name,
+		cluster.Namespace,
+	)
+	subject.APIGroup = ""
+	roleBinding := rbac.NewRoleBinding(
+		role.Name,
+		role.Namespace,
+		role.Name,
+		rbac.NewSubjects(subject),
+	)
+	cluster.AddOwnerRefTo(roleBinding)
+
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), client, roleBinding)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update index management rolebinding",
+			"cluster", cluster.Name,
+			"namespace", cluster.Namespace,
+		)
+	}
+
+	return nil
+}
+
+func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
 	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
 		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
@@ -178,12 +347,21 @@ func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elas
 		return kverrors.Wrap(err, "failed to reconcile rollover cronjob", "policymapping", mapping.Name)
 	}
 
-	name := fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name)
+	name := fmt.Sprintf("%s-im-%s", imr.cluster.Name, mapping.Name)
 	script := formatCmd(policy)
-	desired := newCronJob(cluster.Name, cluster.Namespace, name, schedule, script, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars)
+	desired := newCronJob(imr.cluster.Name, imr.cluster.Namespace, name, schedule, script, imr.cluster.Spec.Spec.NodeSelector, imr.cluster.Spec.Spec.Tolerations, envvars)
 
-	cluster.AddOwnerRefTo(desired)
-	return reconcileCronJob(apiclient, cluster, desired, areCronJobsSame)
+	imr.cluster.AddOwnerRefTo(desired)
+
+	err = cronjob.CreateOrUpdate(context.TODO(), imr.client, desired, areCronJobsSame, cronjob.Mutate)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update cronjob",
+			"cluster", desired.Name,
+			"namespace", desired.Namespace,
+		)
+	}
+
+	return nil
 }
 
 func formatCmd(policy apis.IndexManagementPolicySpec) string {
@@ -203,33 +381,6 @@ func formatCmd(policy apis.IndexManagementPolicySpec) string {
 	cmd = append(cmd, fmt.Sprintf("$(%s)", strings.Join(result, "&&")))
 	script := strings.Join(cmd, ";")
 	return script
-}
-
-func reconcileCronJob(apiclient client.Client, cluster *apis.Elasticsearch, desired *batch.CronJob, fnAreCronJobsSame func(lhs, rhs *batch.CronJob) bool) error {
-	err := apiclient.Create(context.TODO(), desired)
-	if err == nil {
-		return nil
-	}
-	if !apierrors.IsAlreadyExists(err) {
-		return kverrors.Wrap(err, "failed to create cronjob for cluster",
-			"namespace", cluster.Namespace,
-			"cluster", cluster.Name)
-	}
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		current := &batch.CronJob{}
-		retryError := apiclient.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
-		if retryError != nil {
-			return retryError
-		}
-		if !fnAreCronJobsSame(current, desired) {
-			current.Spec = desired.Spec
-			return apiclient.Update(context.TODO(), current)
-		}
-		return nil
-	})
-	return kverrors.Wrap(err, "failed to update cronjob for cluster",
-		"namespace", desired.Namespace,
-		"cluster", desired.Name)
 }
 
 func areCronJobsSame(lhs, rhs *batch.CronJob) bool {
@@ -314,49 +465,46 @@ func newContainer(clusterName, name, image, scriptPath string, envvars []corev1.
 
 func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar) *batch.CronJob {
 	containerName := "indexmanagement"
-	podSpec := corev1.PodSpec{
-		ServiceAccountName: clusterName,
-		Containers:         []corev1.Container{newContainer(clusterName, containerName, constants.PackagedElasticsearchImage(), script, envvars)},
-		Volumes: []corev1.Volume{
-			{Name: "certs", VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: clusterName}}},
-			{Name: "scripts", VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: indexManagementConfigmap}, DefaultMode: &fullExecMode}}},
-		},
-		NodeSelector:                  utils.EnsureLinuxNodeSelector(nodeSelector),
-		Tolerations:                   tolerations,
-		RestartPolicy:                 corev1.RestartPolicyNever,
-		TerminationGracePeriodSeconds: utils.GetInt64(300),
+	containers := []corev1.Container{
+		newContainer(clusterName, containerName, constants.PackagedElasticsearchImage(), script, envvars),
 	}
-	cronJob := &batch.CronJob{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "CronJob",
-			APIVersion: batch.SchemeGroupVersion.String(),
+	volumes := []corev1.Volume{
+		{
+			Name: "certs",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: clusterName,
+				},
+			},
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    imLabels,
-		},
-		Spec: batch.CronJobSpec{
-			ConcurrencyPolicy:          batch.ForbidConcurrent,
-			SuccessfulJobsHistoryLimit: jobHistoryLimitSuccess,
-			FailedJobsHistoryLimit:     jobHistoryLimitFailed,
-			Schedule:                   schedule,
-			JobTemplate: batch.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
-					BackoffLimit: utils.GetInt32(0),
-					Parallelism:  utils.GetInt32(1),
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      containerName,
-							Namespace: namespace,
-							Labels:    imLabels,
-						},
-						Spec: podSpec,
+		{
+			Name: "scripts",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: indexManagementConfigmap,
 					},
+					DefaultMode: &fullExecMode,
 				},
 			},
 		},
 	}
 
-	return cronJob
+	podSpec := pod.NewSpec(clusterName, containers, volumes).
+		WithNodeSelectors(nodeSelector).
+		WithTolerations(tolerations...).
+		WithRestartPolicy(corev1.RestartPolicyNever).
+		WithRestartPolicy(corev1.RestartPolicyNever).
+		WithTerminationGracePeriodSeconds(300 * time.Second).
+		Build()
+
+	return cronjob.New(name, namespace, imLabels).
+		WithConcurrencyPolicy(batch.ForbidConcurrent).
+		WithSuccessfulJobsHistoryLimit(jobHistoryLimitSuccess).
+		WithFailedJobsHistoryLimit(jobHistoryLimitFailed).
+		WithSchedule(schedule).
+		WithBackoffLimit(0).
+		WithParallelism(1).
+		WithPodSpec(containerName, podSpec).
+		Build()
 }
