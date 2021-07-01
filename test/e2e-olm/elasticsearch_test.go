@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ func TestElasticsearchCluster(t *testing.T) {
 	t.Run("Scale up nodes", scaleUpNodesTest)
 	t.Run("Multiple nodes with a single non-data node", multipleNodesWithNonDataNodeTest)
 	t.Run("Full cluster redeploy", fullClusterRedeployTest)
+	t.Run("Full cluster redeploy with a single non-data-node", fullClusterRedeployWithNonDataNodeTest)
 	t.Run("Rolling restart", rollingRestartTest)
 	t.Run("Invalid master count", invalidMasterCountTest)
 }
@@ -67,7 +69,6 @@ func cleanupEsTest(t *testing.T, cli client.Client, namespace string, esUUID str
 	if err != nil {
 		t.Errorf("cannot remove es secret: %v", err)
 	}
-
 }
 
 func multipleNodesTest(t *testing.T) {
@@ -286,6 +287,137 @@ func fullClusterRedeployTest(t *testing.T) {
 	t.Logf("Cluster pods after full cluster redeploy: %v", podNames)
 
 	if len(pods.Items) != 2 {
+		t.Fatalf("No matching pods found for labels: %#v", matchingLabels)
+	}
+
+	cleanupEsTest(t, k8sClient, cr.Namespace, esUUID)
+	t.Log("fullClusterRedeploy test finished successfully")
+}
+
+func fullClusterRedeployWithNonDataNodeTest(t *testing.T) {
+	esUUID := utils.GenerateUUID()
+	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
+
+	dataUUID := utils.GenerateUUID()
+	t.Logf("Using GenUUID for data nodes: %v", dataUUID)
+
+	// Create CR with two nodes sharing client, data and master roles
+	cr, err := createElasticsearchCR(t, k8sClient, esUUID, dataUUID, 2)
+	if err != nil {
+		t.Fatalf("could not create exampleElasticsearch: %v", err)
+	}
+
+	dplName := fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
+	}
+
+	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
+	err = utils.WaitForDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
+	}
+
+	nonDataUUID := utils.GenerateUUID()
+	t.Logf("Using GenUUID for non data nodes: %v", nonDataUUID)
+
+	storageClassSize := resource.MustParse("2G")
+
+	esNonDataNode := loggingv1.ElasticsearchNode{
+		Roles: []loggingv1.ElasticsearchNodeRole{
+			loggingv1.ElasticsearchRoleClient,
+			loggingv1.ElasticsearchRoleMaster,
+		},
+		NodeCount: int32(1),
+		Storage: loggingv1.ElasticsearchStorageSpec{
+			Size: &storageClassSize,
+		},
+		GenUUID: &nonDataUUID,
+	}
+
+	cr.Spec.Nodes = append(cr.Spec.Nodes, esNonDataNode)
+
+	if err = updateElasticsearchSpec(t, k8sClient, cr); err != nil {
+		t.Fatalf("could not update elasticsearch CR with an additional non-data node: %v", err)
+	}
+
+	statefulSetName := fmt.Sprintf("elasticsearch-%v-cm-%v", esUUID, nonDataUUID)
+	err = utils.WaitForStatefulset(t, k8sClient, operatorNamespace, statefulSetName, 1, retryInterval, timeout)
+	if err != nil {
+		t.Fatalf("timed out waiting for non-data node %v: %v", statefulSetName, err)
+	}
+	t.Log("Created non-data statefulset")
+
+	matchingLabels := map[string]string{
+		"cluster-name": cr.GetName(),
+		"component":    "elasticsearch",
+	}
+
+	initialPods, err := utils.WaitForPods(t, k8sClient, operatorNamespace, matchingLabels, retryInterval, timeout)
+	if err != nil {
+		t.Fatalf("failed to wait for pods: %v", err)
+	}
+
+	var initPodNames []string
+	for _, pod := range initialPods.Items {
+		isDataNode, _ := strconv.ParseBool(pod.Labels["es-node-data"])
+		if isDataNode {
+			initPodNames = append(initPodNames, pod.GetName())
+		}
+	}
+	t.Logf("Cluster pods before full cluster redeploy: %v", initPodNames)
+
+	// Scale up to SingleRedundancy
+	cr.Spec.RedundancyPolicy = loggingv1.SingleRedundancy
+
+	t.Logf("Updating redundancy policy to %v", cr.Spec.RedundancyPolicy)
+	if err = updateElasticsearchSpec(t, k8sClient, cr); err != nil {
+		t.Fatalf("could not update elasticsearch CR to be SingleRedundancy: %v", err)
+	}
+
+	// Update the secret to force a full cluster redeploy
+	err = updateElasticsearchSecret(t, k8sClient, esUUID)
+	if err != nil {
+		t.Fatalf("Unable to update secret")
+	}
+
+	t.Log("Waiting for redeployment after secret update")
+	time.Sleep(time.Second * 60) // Let the operator do his thing
+
+	// Increase redeploy timeout on full cluster redeploy until min masters available
+	redeployTimeout := time.Second * 600
+
+	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
+	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, redeployTimeout)
+	if err != nil {
+		t.Fatalf("timed out waiting for first node deployment %v: %v", dplName, err)
+	}
+
+	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-2", esUUID, dataUUID)
+	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, redeployTimeout)
+	if err != nil {
+		t.Fatalf("timed out waiting for second node deployment %v: %v", dplName, err)
+	}
+
+	statefulSetName = fmt.Sprintf("elasticsearch-%v-cm-%v", esUUID, nonDataUUID)
+	err = utils.WaitForStatefulset(t, k8sClient, operatorNamespace, statefulSetName, 1, retryInterval, redeployTimeout)
+	if err != nil {
+		t.Fatalf("timed out waiting for non-data node %v: %v", statefulSetName, err)
+	}
+
+	pods, err := utils.WaitForRolloutComplete(t, k8sClient, operatorNamespace, matchingLabels, initPodNames, 3, retryInterval, redeployTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var podNames []string
+	for _, pod := range pods.Items {
+		podNames = append(podNames, pod.GetName())
+	}
+	t.Logf("Cluster pods after full cluster redeploy: %v", podNames)
+
+	if len(pods.Items) != 3 {
 		t.Fatalf("No matching pods found for labels: %#v", matchingLabels)
 	}
 
