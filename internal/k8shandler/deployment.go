@@ -152,8 +152,7 @@ func (node *deploymentNode) create() error {
 		}
 
 		// update the hashmaps
-		node.configmapHash = getConfigmapDataHash(node.clusterName, node.self.Namespace, node.client)
-		node.secretHash = getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
+		node.refreshHashes()
 	}
 
 	return node.pause()
@@ -400,12 +399,12 @@ func (node *deploymentNode) progressNodeChanges() error {
 
 func (node *deploymentNode) refreshHashes() {
 	newConfigmapHash := getConfigmapDataHash(node.clusterName, node.self.Namespace, node.client)
-	if newConfigmapHash != node.configmapHash {
+	if newConfigmapHash != "" && newConfigmapHash != node.configmapHash {
 		node.configmapHash = newConfigmapHash
 	}
 
 	newSecretHash := getSecretDataHash(node.clusterName, node.self.Namespace, node.client)
-	if newSecretHash != node.secretHash {
+	if newSecretHash != "" && newSecretHash != node.secretHash {
 		node.secretHash = newSecretHash
 	}
 }
