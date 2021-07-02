@@ -237,7 +237,7 @@ func (n *statefulSetNode) setReplicaCount(replicas int32) error {
 
 		nodeCopy.Spec.Replicas = &replicas
 
-		if err := n.client.Update(context.TODO(), &n.self); err != nil {
+		if err := n.client.Update(context.TODO(), nodeCopy); err != nil {
 			n.L().Error(err, "Failed to update node resource")
 			return err
 		}
@@ -296,8 +296,7 @@ func (n *statefulSetNode) create() error {
 		}
 
 		// update the hashmaps
-		n.configmapHash = getConfigmapDataHash(n.clusterName, n.self.Namespace, n.client)
-		n.secretHash = getSecretDataHash(n.clusterName, n.self.Namespace, n.client)
+		n.refreshHashes()
 	} else {
 		n.scale()
 	}
@@ -332,12 +331,12 @@ func (n *statefulSetNode) executeUpdate() error {
 
 func (n *statefulSetNode) refreshHashes() {
 	newConfigmapHash := getConfigmapDataHash(n.clusterName, n.self.Namespace, n.client)
-	if newConfigmapHash != n.configmapHash {
+	if newConfigmapHash != "" && newConfigmapHash != n.configmapHash {
 		n.configmapHash = newConfigmapHash
 	}
 
 	newSecretHash := getSecretDataHash(n.clusterName, n.self.Namespace, n.client)
-	if newSecretHash != n.secretHash {
+	if newSecretHash != "" && newSecretHash != n.secretHash {
 		n.secretHash = newSecretHash
 	}
 }
