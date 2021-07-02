@@ -361,11 +361,28 @@ done
 echo "Done!"
 `
 
+const deleteThenRolloverScript = `
+set -uo pipefail
+
+/tmp/scripts/delete
+delete_rc=$?
+
+/tmp/scripts/rollover
+rollover_rc=$?
+
+if [ $delete_rc -ne 0 ] || [ $rollover_rc -ne 0 ]; then
+    exit 1
+fi
+
+exit 0
+`
+
 var scriptMap = map[string]string{
-	"delete":              deleteScript,
-	"rollover":            rolloverScript,
-	"indexManagement":     indexManagement,
-	"getWriteIndex.py":    getWriteIndex,
-	"checkRollover.py":    checkRollover,
-	"getNext25Indices.py": getNext25Indices,
+	"delete":               deleteScript,
+	"rollover":             rolloverScript,
+	"delete-then-rollover": deleteThenRolloverScript,
+	"indexManagement":      indexManagement,
+	"getWriteIndex.py":     getWriteIndex,
+	"checkRollover.py":     checkRollover,
+	"getNext25Indices.py":  getNext25Indices,
 }
