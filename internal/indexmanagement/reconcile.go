@@ -385,22 +385,17 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 }
 
 func formatCmd(policy apis.IndexManagementPolicySpec) string {
-	cmd := []string{}
-	result := []string{}
+	cmd := ""
 	if policy.Phases.Delete != nil {
-		cmd = append(cmd, "./delete", "delete_rc=$?")
-		result = append(result, "exit $delete_rc")
+		cmd = "./delete"
 	}
 	if policy.Phases.Hot != nil {
-		cmd = append(cmd, "./rollover", "rollover_rc=$?")
-		result = append(result, "exit $rollover_rc")
+		cmd = "./rollover"
 	}
-	if len(cmd) == 0 {
-		return ""
+	if policy.Phases.Delete != nil && policy.Phases.Hot != nil {
+		cmd = "./delete-then-rollover"
 	}
-	cmd = append(cmd, fmt.Sprintf("$(%s)", strings.Join(result, "&&")))
-	script := strings.Join(cmd, ";")
-	return script
+	return cmd
 }
 
 func areCronJobsSame(lhs, rhs *batch.CronJob) bool {

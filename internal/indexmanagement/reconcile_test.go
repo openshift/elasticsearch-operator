@@ -60,20 +60,20 @@ var _ = Describe("Index Management", func() {
 		Context("with delete phase", func() {
 			It("should format the command for delete", func() {
 				policy.Phases.Delete = &apis.IndexManagementDeletePhaseSpec{}
-				Expect(formatCmd(policy)).To(Equal("./delete;delete_rc=$?;$(exit $delete_rc)"))
+				Expect(formatCmd(policy)).To(Equal("./delete"))
 			})
 		})
 		Context("with rollover phase", func() {
 			It("should format the command for rollover", func() {
 				policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{}
-				Expect(formatCmd(policy)).To(Equal("./rollover;rollover_rc=$?;$(exit $rollover_rc)"))
+				Expect(formatCmd(policy)).To(Equal("./rollover"))
 			})
 		})
 		Context("with delete and rollover phases", func() {
 			It("should format the command for all phases", func() {
 				policy.Phases.Delete = &apis.IndexManagementDeletePhaseSpec{}
 				policy.Phases.Hot = &apis.IndexManagementHotPhaseSpec{}
-				Expect(formatCmd(policy)).To(Equal("./delete;delete_rc=$?;./rollover;rollover_rc=$?;$(exit $delete_rc&&exit $rollover_rc)"))
+				Expect(formatCmd(policy)).To(Equal("./delete-then-rollover"))
 			})
 		})
 	})
