@@ -20,7 +20,10 @@ func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
 	}
 	spec := indexmanagement.VerifyAndNormalize(cluster)
 	policies := spec.PolicyMap()
+
+	suspend := true
 	if er.AnyNodeReady() {
+		suspend = false
 		er.cullIndexManagement(spec.Mappings, policies)
 
 		for _, mapping := range spec.Mappings {
@@ -30,6 +33,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
 				ll.Error(err, "failed to create index template")
 				return err
 			}
+
 			// TODO: Can we have partial success?
 			if err := er.initializeIndexIfNeeded(mapping); err != nil {
 				ll.Error(err, "Failed to initialize index")
@@ -45,7 +49,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateIndexManagement() error {
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
 		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
-		if err := indexmanagement.ReconcileIndexManagementCronjob(er.client, er.cluster, policy, mapping, primaryShards); err != nil {
+		if err := indexmanagement.ReconcileIndexManagementCronjob(er.client, er.cluster, policy, mapping, primaryShards, suspend); err != nil {
 			ll.Error(err, "could not reconcile indexmanagement cronjob")
 			return err
 		}
