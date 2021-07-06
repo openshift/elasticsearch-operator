@@ -82,6 +82,12 @@ func (b *Builder) WithParallelism(p int32) *Builder {
 	return b
 }
 
+// WithSuspend sets the cronjob's suspend state
+func (b *Builder) WithSuspend(s bool) *Builder {
+	b.cj.Spec.Suspend = &s
+	return b
+}
+
 // WithPodSpec sets the cronjob pod spec and its name
 func (b *Builder) WithPodSpec(containerName string, spec *corev1.PodSpec) *Builder {
 	b.cj.Spec.JobTemplate.Spec.Template.ObjectMeta.Name = containerName
