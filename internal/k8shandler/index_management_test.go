@@ -1,6 +1,7 @@
 package k8shandler
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -9,7 +10,11 @@ import (
 	elasticsearch "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -44,6 +49,138 @@ var _ = Describe("Index Management", func() {
 		Context("when IndexManagement is not spec'd", func() {
 			It("should process the resource as a noop", func() {
 				Expect(request.CreateOrUpdateIndexManagement()).To(BeNil())
+			})
+		})
+
+		Context("when elasticsearch pods", func() {
+			var (
+				req    *ElasticsearchRequest
+				esPods []runtime.Object
+			)
+
+			BeforeEach(func() {
+				esPods = []runtime.Object{
+					&corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "elasticsearch-deadbeef-cdm-acabacab-1",
+							Namespace: "openshift-logging",
+							Labels: map[string]string{
+								"cluster-name": "elasticsearch",
+								"component":    "elasticsearch",
+								"es-node-data": "true",
+							},
+						},
+						Status: corev1.PodStatus{
+							Phase: corev1.PodRunning,
+						},
+					},
+				}
+
+				templateURI := fmt.Sprintf("_template/common.*,%s-*", constants.OcpTemplatePrefix)
+				chatter = helpers.NewFakeElasticsearchChatter(
+					map[string]helpers.FakeElasticsearchResponses{
+						"_template": {
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body:       `{"ocp-gen-infra": {}}`,
+							},
+						},
+						templateURI: {
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body:       `{}`,
+							},
+						},
+						"_template/ocp-gen-infra": {
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body:       `{ "acknowledged": true}`,
+							},
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body:       `{ "acknowledged": true}`,
+							},
+						},
+						"_alias/infra-write": {
+							{
+								Error:      nil,
+								StatusCode: 404,
+								Body:       `{ "error": "some error", "status": 404}`,
+							},
+						},
+						"infra-000001": {
+							{
+								Error:      nil,
+								StatusCode: 200,
+								Body:       `{ "acknowledged": true}`,
+							},
+						},
+					},
+				)
+				esClient := helpers.NewFakeElasticsearchClient("elasticsearch", "openshift-logging", request.client, chatter)
+
+				req = &ElasticsearchRequest{
+					client:   fake.NewFakeClient(),
+					esClient: esClient,
+					cluster: &elasticsearch.Elasticsearch{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "elasticsearch",
+							Namespace: "openshift-logging",
+						},
+						Spec: elasticsearch.ElasticsearchSpec{
+							IndexManagement: &elasticsearch.IndexManagementSpec{
+								Policies: []elasticsearch.IndexManagementPolicySpec{
+									{
+										Name:         "infra-policy",
+										PollInterval: elasticsearch.TimeUnit("1m"),
+										Phases: elasticsearch.IndexManagementPhasesSpec{
+											Hot: &elasticsearch.IndexManagementHotPhaseSpec{
+												Actions: elasticsearch.IndexManagementActionsSpec{
+													Rollover: &elasticsearch.IndexManagementActionSpec{
+														MaxAge: elasticsearch.TimeUnit("2m"),
+													},
+												},
+											},
+											Delete: &elasticsearch.IndexManagementDeletePhaseSpec{
+												MinAge: elasticsearch.TimeUnit("5m"),
+											},
+										},
+									},
+								},
+								Mappings: []elasticsearch.IndexManagementPolicyMappingSpec{
+									{
+										Name:      "infra",
+										PolicyRef: "infra-policy",
+										Aliases:   []string{"infra"},
+									},
+								},
+							},
+						},
+					},
+				}
+			})
+
+			It("should suspend all cronjobs when non available", func() {
+				Expect(req.CreateOrUpdateIndexManagement()).To(BeNil())
+
+				cj := &batchv1beta1.CronJob{}
+				key := client.ObjectKey{Name: "elasticsearch-im-infra", Namespace: "openshift-logging"}
+				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
+				Expect(*cj.Spec.Suspend).To(BeTrue())
+			})
+
+			It("should unsuspend all cronjobs when at least on elasticsearch pod running", func() {
+				req.client = fake.NewFakeClient(esPods...)
+				Expect(req.CreateOrUpdateIndexManagement()).To(BeNil())
+
+				cj := &batchv1beta1.CronJob{}
+				key := client.ObjectKey{Name: "elasticsearch-im-infra", Namespace: "openshift-logging"}
+				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
+				Expect(*cj.Spec.Suspend).To(BeFalse())
 			})
 		})
 	})
