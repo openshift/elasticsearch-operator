@@ -136,7 +136,7 @@ func ReconcileCurationConfigmap(apiclient client.Client, cluster *apis.Elasticse
 	return errCtx.Wrap(err, "failed to update configmap")
 }
 
-func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32) error {
+func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elasticsearch, policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32, suspend bool) error {
 	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
 		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
@@ -179,7 +179,7 @@ func ReconcileIndexManagementCronjob(apiclient client.Client, cluster *apis.Elas
 
 	name := fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name)
 	script := formatCmd(policy)
-	desired := newCronJob(cluster.Name, cluster.Namespace, name, schedule, script, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars)
+	desired := newCronJob(cluster.Name, cluster.Namespace, name, schedule, script, cluster.Spec.Spec.NodeSelector, cluster.Spec.Spec.Tolerations, envvars, suspend)
 
 	cluster.AddOwnerRefTo(desired)
 	return reconcileCronJob(apiclient, cluster, desired, areCronJobsSame)
@@ -306,7 +306,7 @@ func newContainer(clusterName, name, image, scriptPath string, envvars []corev1.
 	return container
 }
 
-func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar) *batch.CronJob {
+func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar, suspend bool) *batch.CronJob {
 	containerName := "indexmanagement"
 	podSpec := corev1.PodSpec{
 		ServiceAccountName: clusterName,
@@ -331,6 +331,7 @@ func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelec
 			Labels:    imLabels,
 		},
 		Spec: batch.CronJobSpec{
+			Suspend:                    &suspend,
 			ConcurrencyPolicy:          batch.ForbidConcurrent,
 			SuccessfulJobsHistoryLimit: jobHistoryLimitSuccess,
 			FailedJobsHistoryLimit:     jobHistoryLimitFailed,
