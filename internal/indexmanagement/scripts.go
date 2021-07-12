@@ -375,7 +375,7 @@ function checkIndexExists() {
 
 function updateWriteIndex() {
   currentIndex="$1"
-  nextIndex="2"
+  nextIndex="$2"
   alias="$3"
 
   curlES "$ES_SERVICE/_aliases" -w "%{response_code}" -XPOST -o /tmp/response.txt -d '{"actions":[{"add":{"index": "'$currentIndex'", "alias": "'$alias'", "is_write_index": false}},{"add":{"index": "'$nextIndex'", "alias": "'$alias'", "is_write_index": true}}]}'
