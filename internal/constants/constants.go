@@ -13,6 +13,7 @@ const (
 	SecretHashPrefix            = "logging.openshift.io/"
 	ElasticsearchDefaultImage   = "quay.io/openshift/origin-logging-elasticsearch6"
 	ProxyDefaultImage           = "quay.io/openshift/origin-elasticsearch-proxy:latest"
+	CuratorDefaultImage         = "quay.io/openshift/origin-logging-curator5"
 	TheoreticalShardMaxSizeInMB = 40960
 
 	// OcpTemplatePrefix is the prefix all operator generated templates
@@ -26,7 +27,7 @@ const (
 
 var (
 	ReconcileForGlobalProxyList = []string{KibanaTrustedCAName}
-	packagedElasticsearchImage  = utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", ElasticsearchDefaultImage)
+	packagedCuratorImage        = utils.LookupEnvWithDefault("CURATOR_IMAGE", CuratorDefaultImage)
 	ExpectedSecretKeys          = []string{
 		"admin-ca",
 		"admin-cert",
@@ -38,6 +39,6 @@ var (
 	}
 )
 
-func PackagedElasticsearchImage() string {
-	return packagedElasticsearchImage
+func PackagedCuratorImage() string {
+	return packagedCuratorImage
 }

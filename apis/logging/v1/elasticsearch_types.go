@@ -36,7 +36,6 @@ type Elasticsearch struct {
 
 // AddOwnerRefTo appends the Elasticsearch object as an OwnerReference to the passed object
 func (es *Elasticsearch) AddOwnerRefTo(o metav1.Object) {
-
 	ref := es.GetOwnerRef()
 	o.SetOwnerReferences(append(o.GetOwnerReferences(), ref))
 }

@@ -43,3 +43,5 @@ spec:
             value: "quay.io/openshift/origin-logging-elasticsearch6:latest"
           - name: KIBANA_IMAGE
             value: "quay.io/openshift/origin-logging-kibana6:latest"
+          - name: CURATOR_IMAGE
+            value: "quay.io/openshift/origin-logging-curator5:latest"

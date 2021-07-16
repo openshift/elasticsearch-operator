@@ -1,5 +1,115 @@
 package indexmanagement
 
+const indexManagementClient = `
+#!/bin/python
+
+import os, sys
+import json
+from elasticsearch import Elasticsearch
+from ssl import create_default_context
+
+def getEsClient():
+  esService = os.environ['ES_SERVICE']
+  connectTimeout = os.getenv('CONNECT_TIMEOUT', 30)
+
+  tokenFile = open('/var/run/secrets/kubernetes.io/serviceaccount/token', 'r')
+  bearer_token = tokenFile.read()
+
+  context = create_default_context(cafile='/etc/indexmanagement/keys/admin-ca')
+  es_client = Elasticsearch([esService],
+    timeout=connectTimeout,
+    max_retries=5,
+    retry_on_timeout=True,
+    headers={"authorization": f"Bearer {bearer_token}"},
+    ssl_context=context)
+  return es_client
+
+def getAlias(alias):
+  try:
+    es_client = getEsClient()
+    return json.dumps(es_client.indices.get_alias(name=alias))
+  except:
+    return ""
+
+def getIndicesAgeForAlias(alias):
+  try:
+    es_client = getEsClient()
+    return json.dumps(es_client.indices.get_settings(index=alias, name="index.creation_date"))
+  except:
+    return ""
+
+def deleteIndices(index):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    response = es_client.indices.delete(index=index)
+    return True
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return False
+
+def removeAsWriteIndexForAlias(index, alias):
+  es_client = getEsClient()
+  response = es_client.indices.update_aliases({
+    "actions": [
+        {"add":{"index": f"{index}", "alias": f"{alias}", "is_write_index": False}}
+    ]
+  })
+  return response['acknowledged']
+
+def catWriteAliases(policy):
+  try:
+    es_client = getEsClient()
+    alias_name = f"{policy}*-write"
+    response = es_client.cat.aliases(name=alias_name, h="alias")
+    response_list = list(response.split("\n"))
+    return " ".join(sorted(set(response_list)))
+  except:
+    return ""
+
+def rolloverForPolicy(alias, decoded):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    response = es_client.indices.rollover(alias=alias, body=decoded)
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(json.dumps(response))
+    sys.stdout = original_stdout
+    return True
+  except:
+    return False
+
+def checkIndexExists(index):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    return es_client.indices.exists(index=index)
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return False
+
+def updateWriteIndex(currentIndex, nextIndex, alias):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    response = es_client.indices.update_aliases({
+      "actions": [
+          {"add":{"index": f"{currentIndex}", "alias": f"{alias}", "is_write_index": False}},
+          {"add":{"index": f"{nextIndex}", "alias": f"{alias}", "is_write_index": True}}
+      ]
+    })
+    return response['acknowledged']
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return False
+`
+
 const checkRollover = `
 #!/bin/python
 
@@ -202,11 +312,11 @@ function rollover() {
   echo "Current write index for ${policy}-write: $writeIndex"
 
   # try to rollover
-  code="$(rolloverForPolicy "${policy}-write" "$decoded")"
+  responseRollover="$(rolloverForPolicy "${policy}-write" "$decoded")"
 
   echo "Checking results from _rollover call"
 
-  if [ "$code" != "200" ] ; then
+  if [ "$responseRollover" == False ] ; then
     # already in bad state
     echo "Calculating next write index based on current write index..."
 
@@ -229,9 +339,11 @@ function rollover() {
   echo "Next write index for ${policy}-write: $nextIndex"
   echo "Checking if $nextIndex exists"
 
-  # if true, ensure next index was created
-  code="$(checkIndexExists "$nextIndex")"
-  if [ "$code" == "404" ] ; then
+  # if true, ensure next index was created and
+  # cluster permits operations on it, e.g. not in read-only
+  # state because of low disk space.
+  indexExists="$(checkIndexExists "$nextIndex")"
+  if [ "$indexExists" == False ] ; then
     cat /tmp/response.txt
     return 1
   fi
@@ -252,9 +364,9 @@ function rollover() {
   echo "Updating alias for ${policy}-write"
 
   # else - try to update alias to be correct
-  code="$(updateWriteIndex "$writeIndex" "$nextIndex" "${policy}-write")"
+  responseUpdateWriteIndex="$(updateWriteIndex "$writeIndex" "$nextIndex" "${policy}-write")"
 
-  if [ "$code" == 200 ] ; then
+  if [ "$responseUpdateWriteIndex" == True ] ; then
     echo "Done!"
     return 0
   fi
@@ -307,9 +419,9 @@ function delete() {
   fi
 
   for sets in ${indices}; do
-    code="$(deleteIndices "${sets}")"
+    response="$(deleteIndices "${sets}")"
 
-    if [ "$code" != 200 ] ; then
+    if [ "$response" == False ] ; then
       cat /tmp/response.txt
       return 1
     fi
@@ -318,59 +430,48 @@ function delete() {
   echo "Done!"
 }
 
-function curlES() {
-  curl -s \
-  --connect-timeout "${CONNECT_TIMEOUT}" \
-  --cacert /etc/indexmanagement/keys/admin-ca \
-  -HContent-Type:application/json \
-  -H"Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
-  --retry 5 \
-  --retry-delay 5 \
-  "$@"
-}
-
 function getAlias() {
   local alias="$1"
 
-  curlES "$ES_SERVICE/_alias/${alias}"
+  python -c 'import indexManagementClient; print(indexManagementClient.getAlias("'$alias'"))'
 }
 
 function getIndicesAgeForAlias() {
   local alias="$1"
 
-  curlES "$ES_SERVICE/${alias}/_settings/index.creation_date"
+  python -c 'import indexManagementClient; print(indexManagementClient.getIndicesAgeForAlias("'$alias'"))'
 }
 
 function deleteIndices() {
   local index="$1"
 
-  curlES "$ES_SERVICE/${index}?pretty" -w "%{response_code}" -o /tmp/response.txt -XDELETE
+  python -c 'import indexManagementClient; print(indexManagementClient.deleteIndices("'$index'"))'
 }
 
 function removeAsWriteIndexForAlias() {
   local index="$1"
   local alias="$2"
 
-  curlES "$ES_SERVICE/_aliases" -o /dev/null -d '{"actions":[{"add":{"index": "'$index'", "alias": "'$alias'", "is_write_index": false}}]}'
+  python -c 'import indexManagementClient; print(indexManagementClient.removeAsWriteIndexForAlias("'$index'","'$alias'"))' > /tmp/response.txt
 }
 
 function catWriteAliases() {
   local policy="$1"
 
-  curlES "$ES_SERVICE/_cat/aliases/${policy}*-write?h=alias" | sort | uniq
+  python -c 'import indexManagementClient; print(indexManagementClient.catWriteAliases("'$policy'"))'
 }
 
 function rolloverForPolicy() {
   local policy="$1"
   local decoded="$2"
 
-  curlES "$ES_SERVICE/${policy}/_rollover?pretty" -w "%{response_code}" -XPOST -o /tmp/response.txt -d $decoded
+  python -c 'import indexManagementClient; print(indexManagementClient.rolloverForPolicy("'$policy'",'$decoded'))'
 }
 
 function checkIndexExists() {
   local index="$1"
 
-  curlES "$ES_SERVICE/${index}" -w "%{response_code}" -o /tmp/response.txt
+  python -c 'import indexManagementClient; print(indexManagementClient.checkIndexExists("'$index'"))'
 }
 
 function updateWriteIndex() {
@@ -378,7 +479,7 @@ function updateWriteIndex() {
   nextIndex="$2"
   alias="$3"
 
-  curlES "$ES_SERVICE/_aliases" -w "%{response_code}" -XPOST -o /tmp/response.txt -d '{"actions":[{"add":{"index": "'$currentIndex'", "alias": "'$alias'", "is_write_index": false}},{"add":{"index": "'$nextIndex'", "alias": "'$alias'", "is_write_index": true}}]}'
+  python -c 'import indexManagementClient; print(indexManagementClient.updateWriteIndex("'$currentIndex'","'$nextIndex'","'$alias'"))'
 }
 `
 
@@ -434,11 +535,12 @@ exit 0
 `
 
 var scriptMap = map[string]string{
-	"delete":               deleteScript,
-	"rollover":             rolloverScript,
-	"delete-then-rollover": deleteThenRolloverScript,
-	"indexManagement":      indexManagement,
-	"getWriteIndex.py":     getWriteIndex,
-	"checkRollover.py":     checkRollover,
-	"getNext25Indices.py":  getNext25Indices,
+	"delete":                   deleteScript,
+	"rollover":                 rolloverScript,
+	"delete-then-rollover":     deleteThenRolloverScript,
+	"indexManagement":          indexManagement,
+	"getWriteIndex.py":         getWriteIndex,
+	"checkRollover.py":         checkRollover,
+	"getNext25Indices.py":      getNext25Indices,
+	"indexManagementClient.py": indexManagementClient,
 }

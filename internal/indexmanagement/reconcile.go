@@ -481,7 +481,7 @@ func newContainer(clusterName, name, image, scriptPath string, envvars []corev1.
 func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelector map[string]string, tolerations []corev1.Toleration, envvars []corev1.EnvVar, suspend bool) *batch.CronJob {
 	containerName := "indexmanagement"
 	containers := []corev1.Container{
-		newContainer(clusterName, containerName, constants.PackagedElasticsearchImage(), script, envvars),
+		newContainer(clusterName, containerName, constants.PackagedCuratorImage(), script, envvars),
 	}
 	volumes := []corev1.Volume{
 		{
