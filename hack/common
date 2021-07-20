@@ -12,7 +12,7 @@ source "$repo_dir/hack/testing-olm/utils"
 
 VERSION=${VERSION:-$(basename $(find ${repo_dir}/manifests -type d | sort -r | head -n 1))}
 
-IMAGE_TAG=${IMAGE_TAG:-"quay.io/openshift/origin-elasticsearch-operator:latest"}
+IMAGE_TAG=${IMAGE_TAG:-"quay.io/openshift-logging/elasticsearch-operator:latest"}
 
 NAMESPACE=${NAMESPACE:-openshift-logging}
 REMOTE_REGISTRY=${REMOTE_REGISTRY:-false}
