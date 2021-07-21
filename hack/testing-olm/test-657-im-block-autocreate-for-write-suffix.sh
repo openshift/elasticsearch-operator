@@ -58,5 +58,5 @@ if [ "${DO_SETUP:-true}" == "true" ] ; then
 fi
 
 TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} TEST_OPERATOR_NAMESPACE=${TEST_NAMESPACE} \
-  go test ./test/e2e-olm/... -kubeconfig=${KUBECONFIG} -parallel=1 -timeout 1500s -run TestElasticsearchWrite  | \
+  go test ./test/e2e/... -kubeconfig=${KUBECONFIG} -parallel=1 -timeout 1500s -run TestElasticsearchWrite  | \
   $GO_JUNIT_REPORT | awk '/<properties>/,/<\/properties>/ {next} {print}' > "$JUNIT_REPORT_OUTPUT_DIR/$test_name.xml"

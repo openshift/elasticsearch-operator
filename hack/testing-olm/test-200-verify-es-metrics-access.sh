@@ -69,5 +69,5 @@ fi
 CLUSTERROLE=${CLUSTERROLE} AUTHORIZED_SA=${AUTHORIZED_SA} UNAUTHORIZED_SA=${UNAUTHORIZED_SA} \
   TEST_OPERATOR_NAMESPACE=${TEST_NAMESPACE} \
   TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} \
-  go test ./test/e2e-olm/... -kubeconfig=${KUBECONFIG} -parallel=1 -timeout 1500s -run TestElasticsearchOperatorMetrics | \
+  go test ./test/e2e/... -kubeconfig=${KUBECONFIG} -parallel=1 -timeout 1500s -run TestElasticsearchOperatorMetrics | \
   $GO_JUNIT_REPORT | awk '/<properties>/,/<\/properties>/ {next} {print}' > "$JUNIT_REPORT_OUTPUT_DIR/$test_name.xml"
