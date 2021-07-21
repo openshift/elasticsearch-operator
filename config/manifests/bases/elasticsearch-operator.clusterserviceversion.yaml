@@ -86,7 +86,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: OpenShift Optional, Logging & Tracing
     certified: "false"
-    containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
+    containerImage: quay.io/openshift-logging/elasticsearch-operator:latest
     createdAt: "2020-11-04T08:00:00Z"
     description: |
       The Elasticsearch Operator for OCP provides a means for configuring and managing an Elasticsearch cluster for tracing and cluster logging.
@@ -98,7 +98,7 @@ metadata:
       set of OCP nodes may not be large enough to support the Elasticsearch cluster.  Additional OCP nodes must be added
       to the OCP cluster if you desire to run with the recommended (or better) memory. Each ES node can operate with a
       lower memory setting though this is not recommended for production deployments.
-    olm.skipRange: '>=4.6.0-0 <5.1.0'
+    olm.skipRange: '>=4.6.0-0 <5.2.0'
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-operators-redhat
     operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'

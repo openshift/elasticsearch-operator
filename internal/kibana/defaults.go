@@ -10,6 +10,6 @@ var (
 
 	defaultKibanaProxyMemory     = resource.MustParse("256Mi")
 	defaultKibanaProxyCPURequest = resource.MustParse("100m")
-	kibanaDefaultImage           = "quay.io/openshift/origin-logging-kibana6:latest"
+	kibanaDefaultImage           = "quay.io/openshift-logging/kibana6:latest"
 	kibanaProxyDefaultImage      = "quay.io/openshift/origin-oauth-proxy:latest"
 )

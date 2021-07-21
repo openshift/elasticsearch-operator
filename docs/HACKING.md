@@ -29,7 +29,7 @@ oc create -f hack/cr.yaml
 
 ## Image customization
 
-The operator is designed to work with `quay.io/openshift/origin-logging-elasticsearch6` image.  To use
+The operator is designed to work with `quay.io/openshift-logging/elasticsearch6` image.  To use
 a different image, edit `manifests/image-references` before deployment, or edit the environment variable in the Elasticsearch Operator csv after deployment. e.g. `oc edit csv -n openshift-operators-redhat elasticsearch-operator.v4.6.0`.
 
 ## Storage configuration
