@@ -343,7 +343,7 @@ func fullClusterRedeployWithNonDataNodeTest(t *testing.T) {
 	}
 
 	statefulSetName := fmt.Sprintf("elasticsearch-%v-cm-%v", esUUID, nonDataUUID)
-	err = utils.WaitForStatefulset(t, k8sClient, operatorNamespace, statefulSetName, 1, retryInterval, timeout)
+	err = utils.WaitForStatefulset(t, k8sClient, operatorNamespace, statefulSetName, 1, retryInterval, timeout*2)
 	if err != nil {
 		t.Fatalf("timed out waiting for non-data node %v: %v", statefulSetName, err)
 	}
@@ -354,7 +354,7 @@ func fullClusterRedeployWithNonDataNodeTest(t *testing.T) {
 		"component":    "elasticsearch",
 	}
 
-	initialPods, err := utils.WaitForPods(t, k8sClient, operatorNamespace, matchingLabels, retryInterval, timeout)
+	initialPods, err := utils.WaitForPods(t, k8sClient, operatorNamespace, matchingLabels, retryInterval, timeout*2)
 	if err != nil {
 		t.Fatalf("failed to wait for pods: %v", err)
 	}
@@ -386,7 +386,7 @@ func fullClusterRedeployWithNonDataNodeTest(t *testing.T) {
 	time.Sleep(time.Second * 60) // Let the operator do his thing
 
 	// Increase redeploy timeout on full cluster redeploy until min masters available
-	redeployTimeout := time.Second * 600
+	redeployTimeout := time.Second * 1200
 
 	dplName = fmt.Sprintf("elasticsearch-%v-cdm-%v-1", esUUID, dataUUID)
 	err = utils.WaitForReadyDeployment(t, k8sClient, operatorNamespace, dplName, 1, retryInterval, redeployTimeout)
