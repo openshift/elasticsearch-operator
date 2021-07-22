@@ -4,7 +4,7 @@ go 1.14
 
 // Pinned to kubernetes-1.18.3 and openshift release-4.6
 require (
-	github.com/ViaQ/logerr v1.0.9
+	github.com/ViaQ/logerr v1.0.10
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
