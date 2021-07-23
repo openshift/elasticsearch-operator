@@ -1,6 +1,6 @@
 # cloud.google.com/go v0.49.0
 cloud.google.com/go/compute/metadata
-# github.com/ViaQ/logerr v1.0.8
+# github.com/ViaQ/logerr v1.0.10
 ## explicit
 github.com/ViaQ/logerr/internal/kv
 github.com/ViaQ/logerr/kverrors
