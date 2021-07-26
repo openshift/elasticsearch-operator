@@ -16,7 +16,7 @@ COPY ${REMOTE_SOURCE}/apis apis
 COPY ${REMOTE_SOURCE}/controllers controllers
 COPY ${REMOTE_SOURCE}/files files
 COPY ${REMOTE_SOURCE}/internal internal
-COPY ${REMOTE_SOURCE}/manifests manifests
+COPY ${REMOTE_SOURCE}/bundle bundle
 COPY ${REMOTE_SOURCE}/vendor vendor
 COPY ${REMOTE_SOURCE}/version version
 COPY ${REMOTE_SOURCE}/.bingo ./.bingo
@@ -47,7 +47,7 @@ ENV RUNBOOK_BASE_URL="https://github.com/openshift/elasticsearch-operator/blob/m
 
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/bin/elasticsearch-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/files/ /etc/elasticsearch-operator/files/
-COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/manifests /manifests
+COPY --from=builder /go/src/github.com/openshift/elasticsearch-operator/bundle /bundle
 RUN mkdir /tmp/ocp-eo && \
     chmod og+w /tmp/ocp-eo
 
