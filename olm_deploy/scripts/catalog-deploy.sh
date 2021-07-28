@@ -4,22 +4,11 @@ OCP_VERSION=${OCP_VERSION:-4.7}
 LOGGING_VERSION=${LOGGING_VERSION:-5.2}
 LOGGING_IS=${LOGGING_IS:-logging}
 export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-operator-registry}
-export IMAGE_KUBE_RBAC_PROXY=${IMAGE_KUBE_RBAC_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:kube-rbac-proxy}
-export IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-operator}
-export IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:logging-elasticsearch6}
-export IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-proxy}
-export IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:logging-kibana6}
-export IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:oauth-proxy}
+export IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE=${IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-operator-bundle}
 ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}
 
 echo "Using images: "
 echo "elastic operator registry: ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"
-echo "elastic operator: ${IMAGE_ELASTICSEARCH_OPERATOR}"
-echo "kube rbac proxy: ${IMAGE_KUBE_RBAC_PROXY}"
-echo "elastic6: ${IMAGE_ELASTICSEARCH6}"
-echo "elasticsearch proxy: ${IMAGE_ELASTICSEARCH_PROXY}"
-echo "kibana: ${IMAGE_LOGGING_KIBANA6}"
-echo "oauth proxy: ${IMAGE_OAUTH_PROXY}"
 
 echo "In namespace: ${ELASTICSEARCH_OPERATOR_NAMESPACE}"
 

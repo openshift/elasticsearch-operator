@@ -75,7 +75,7 @@ OPM := $(GOBIN)/opm-v1.17.5
 $(OPM): $(BINGO_DIR)/opm.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/opm-v1.17.5"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.17.5 "github.com/operator-framework/operator-registry/cmd/opm"
+	@cd $(BINGO_DIR) && $(GO) build -tags=json1 -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.17.5 "github.com/operator-framework/operator-registry/cmd/opm"
 
 PROMTOOL := $(GOBIN)/promtool-v1.8.2-0.20200522113006-f4dd45609a05
 $(PROMTOOL): $(BINGO_DIR)/promtool.mod

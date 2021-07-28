@@ -169,6 +169,7 @@ test-e2e-upgrade:
 # to use these targets, ensure the following env vars are set:
 # either each IMAGE env var:
 # IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY
+# IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE
 # IMAGE_ELASTICSEARCH_OPERATOR
 # IMAGE_ELASTICSEARCH6
 # IMAGE_ELASTICSEARCH_PROXY
@@ -177,6 +178,12 @@ test-e2e-upgrade:
 #
 # You must also set:
 # ELASTICSEARCH_OPERATOR_NAMESPACE (Default: openshift-operators-redhat)
+#
+# For local development to use a custom bundle and registry you must also set. Both will override
+# their counterparts: IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY, IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE
+# to allow building/pushing to the dev OCP cluster image registry via port-forward:
+# LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY="127.0.0.1:5000/openshift/elasticsearch-operator-registry:latest"
+# LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE="127.0.0.1:5000/openshift/elasticsearch-operator-bundle:latest"
 RANDOM_SUFFIX:=$(shell echo $$RANDOM)
 TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
 test-e2e-olm: DEPLOYMENT_NAMESPACE="${TEST_NAMESPACE}"
@@ -186,21 +193,16 @@ test-e2e-olm: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
 	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 .PHONY: test-e2e-olm
 
-E2E_RANDOM_SUFFIX:=$(shell echo $$RANDOM)
-E2E_TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
-test-e2e: DEPLOYMENT_NAMESPACE="${E2E_TEST_NAMESPACE}"
-test-e2e: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
-	TEST_NAMESPACE=${E2E_TEST_NAMESPACE} DO_SETUP="false" hack/test-e2e.sh
-	echo "Completed test-e2e"
-	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
-.PHONY: test-e2e
-
-elasticsearch-catalog: elasticsearch-catalog-build elasticsearch-catalog-deploy
+elasticsearch-catalog: elasticsearch-bundle-build elasticsearch-catalog-build elasticsearch-catalog-deploy
 
 elasticsearch-cleanup: elasticsearch-operator-uninstall elasticsearch-catalog-uninstall
 
+# builds an operator-bundle image container the elasticsearch operator bundle
+elasticsearch-bundle-build:
+	olm_deploy/scripts/bundle-build.sh
+
 # builds an operator-registry image containing the elasticsearch operator
-elasticsearch-catalog-build:
+elasticsearch-catalog-build: $(OPM)
 	olm_deploy/scripts/catalog-build.sh
 
 # deploys the operator registry image and creates a catalogsource referencing it

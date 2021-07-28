@@ -3,7 +3,7 @@ kind: Subscription
 metadata:
   name: elasticsearch-operator
 spec:
-  channel: ${OPERATOR_PACKAGE_CHANNEL}
+  channel: stable
   name: elasticsearch-operator
   source: elasticsearch-catalog
   sourceNamespace: ${ELASTICSEARCH_OPERATOR_NAMESPACE}

@@ -1,9 +1,15 @@
 #!/bin/bash
+
 set -eou pipefail
 
-IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-$LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}
-echo "Building operator registry image ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"
-podman build -f olm_deploy/operatorregistry/Dockerfile -t ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY} .
+source .bingo/variables.env
+
+echo -e "Dumping IMAGE env vars\n"
+env | grep IMAGE
+echo -e "\n\n"
+
+IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE=${LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE:-$IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE}
+IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-$IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}
 
 if [ -n ${LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY} ] ; then
     coproc oc -n openshift-image-registry port-forward service/image-registry 5000:5000
@@ -16,5 +22,21 @@ if [ -n ${LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY} ] ; then
         echo "Unexpected message from oc port-forward: $PORT_FORWARD_STDOUT"
     fi
 fi
+
+echo "Generating operator registry db for ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"
+#
+# TODO: Remove --generate and subsequent `podman build` call when upstream fix available
+#       https://github.com/operator-framework/operator-registry/issues/619
+#
+$OPM index add \
+    -c podman \
+    --skip-tls \
+    --bundles "${IMAGE_ELASTICSEARCH_OPERATOR_BUNDLE}" \
+    --tag "${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}" \
+    --generate
+
+echo "Building image ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"
+podman build -t "${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}" -f olm_deploy/operatorregistry/Dockerfile .
+
 echo "Pushing image ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"
-podman push  --tls-verify=false ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}
+podman push --tls-verify=false "${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"

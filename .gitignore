@@ -117,3 +117,6 @@ tags
 /tmp
 .output/
 .cache/
+/database
+/bundle_tmp*
+/index.Dockerfile

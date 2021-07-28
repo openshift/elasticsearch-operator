@@ -13,39 +13,13 @@ spec:
         registry.operator.elasticsearch: "true"
       name: elasticsearch-operator-registry
     spec:
-      initContainers:
-      - name: mutate-csv-and-generate-sqlite-db
-        image: ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}
-        imagePullPolicy: Always
-        command:
-        - sh
-        args:
-        - /scripts/registry-init.sh
-        volumeMounts:
-        - name: workdir
-          mountPath: /bundle
-        env:
-        - name: IMAGE_ELASTICSEARCH_OPERATOR
-          value: ${IMAGE_ELASTICSEARCH_OPERATOR}
-        - name: IMAGE_ELASTICSEARCH6
-          value: ${IMAGE_ELASTICSEARCH6}
-        - name: IMAGE_ELASTICSEARCH_PROXY
-          value: ${IMAGE_ELASTICSEARCH_PROXY}
-        - name: IMAGE_OAUTH_PROXY
-          value: ${IMAGE_OAUTH_PROXY}
-        - name: IMAGE_LOGGING_KIBANA6
-          value: ${IMAGE_LOGGING_KIBANA6}
-
       containers:
       - name: elasticsearch-operator-registry
         image: ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}
         imagePullPolicy: Always
         command:
-        - /usr/bin/registry-server
-        - --database=/bundle/bundles.db
-        volumeMounts:
-        - name: workdir
-          mountPath: /bundle
+        - /usr/bin/catalog-run.sh
+        - /registry/index.db
         ports:
         - containerPort: 50051
           name: grpc
@@ -53,12 +27,12 @@ spec:
         livenessProbe:
           exec:
             command:
-            - grpc_health_probe
+            - /usr/bin/grpc_health_probe
             - -addr=localhost:50051
         readinessProbe:
           exec:
             command:
-            - grpc_health_probe
+            - /usr/bin/grpc_health_probe
             - -addr=localhost:50051
         resources:
           requests:
@@ -66,6 +40,3 @@ spec:
             memory: 100Mi
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
-      volumes:
-      - name: workdir
-        emptyDir: {}

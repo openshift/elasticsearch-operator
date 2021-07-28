@@ -1,34 +1,21 @@
-FROM quay.io/operator-framework/upstream-registry-builder AS registry-builder
+FROM quay.io/operator-framework/upstream-opm-builder AS opm-builder
 
 FROM registry.ci.openshift.org/ocp/4.7:base
 
-WORKDIR /
+LABEL operators.operatorframework.io.index.database.v1=/database/index.db
 
-COPY bundle/manifests /manifests/
-COPY bundle/metadata /metadata/
+RUN yum install -q -y sqlite && \
+    yum clean -q all
 
-#
-# TODO: Remove this once we migrate olm-deploy to use `opm index add`
-#       to deploy using the operator bundle image instead. This is
-#       currently a temporary solution as per /bin/initializer
-#       does not support loading package and channel information from
-#       the metadata/annotations.yaml
-#
-COPY olm_deploy/operatorregistry/elasticsearch-operator.package.yaml /manifests/
+COPY --from=opm-builder /bin/opm /usr/bin/opm
+COPY --from=opm-builder /bin/grpc_health_probe /usr/bin/grpc_health_probe
 
-RUN chmod -R g+w /manifests /metadata
+ADD /olm_deploy/scripts/catalog-init.sh /usr/bin/catalog-init.sh
+ADD /olm_deploy/scripts/catalog-run.sh /usr/bin/catalog-run.sh
+ADD /database/index.db /registry/index.db
+RUN chmod -R 775 /registry
 
-COPY olm_deploy/scripts/registry-init.sh /scripts/
-
-COPY --from=registry-builder /bin/initializer /usr/bin/initializer
-COPY --from=registry-builder /bin/opm /usr/bin/opm
-#
-# TODO: Remove this after merging switch to opm to get registry builds into CI first.
-#
-COPY --from=registry-builder /bin/registry-server /usr/bin/registry-server
-COPY --from=registry-builder /bin/grpc_health_probe /usr/bin/grpc_health_probe
-
-# Change working directory to enable registry migrations
-# See https://bugzilla.redhat.com/show_bug.cgi?id=1843702
-# See https://bugzilla.redhat.com/show_bug.cgi?id=1827612
-WORKDIR /bundle
+EXPOSE 50051
+WORKDIR /registry
+ENTRYPOINT ["/usr/bin/catalog-run.sh"]
+CMD ["/registry/index.db"]
