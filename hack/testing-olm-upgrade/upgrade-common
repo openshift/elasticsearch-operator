@@ -21,7 +21,7 @@ KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 TIMEOUT_MIN=$((2 * $minute))
 ES_POD_TIMEOUT=$((5 * $minute))
 export CLUSTER_LOGGING_OPERATOR_NAMESPACE="openshift-logging"
-manifest_dir=${repo_dir}/manifests
+manifest_dir=${repo_dir}/bundle/manifests
 
 log::info() {
 	echo "[INFO] ${*}"
@@ -394,7 +394,7 @@ discover_versions(){
     curl -L https://github.com/mikefarah/yq/releases/download/3.3.0/yq_linux_amd64 -o /tmp/yq && chmod +x /tmp/yq
   fi
 
-  full_version="$(/tmp/yq r ${manifest_dir}/*/elasticsearch-operator.*.yaml spec.version)"
+  full_version="$(/tmp/yq r ${manifest_dir}/elasticsearch-operator.*.yaml spec.version)"
   major_version="$(echo $full_version | cut -d'.' -f1)"
   minor_version="$(echo $full_version | cut -d'.' -f2)"
 

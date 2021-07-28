@@ -29,9 +29,9 @@ DEPLOYMENT_NAMESPACE?=openshift-logging
 REPLICAS?=0
 OS_NAME=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-GO_FILES       := $(shell find . -type f -name '*.go')
-MANIFEST_FILES := $(shell find manifests/ -type f)
-OTHER_FILES    := $(shell find files/ -type f)
+GO_FILES     := $(shell find . -type f -name '*.go')
+BUNDLE_FILES := $(shell find bundle/ -type f)
+OTHER_FILES  := $(shell find files/ -type f)
 
 .PHONY: all build clean fmt generate gobindir run test-e2e test-unit
 
@@ -86,7 +86,7 @@ lint-dockerfile:
 .PHONY: lint-dockerfile
 
 image: .output/image
-.output/image: gen-dockerfiles $(GO_FILES) $(MANIFEST_FILES) $(OTHER_FILES)
+.output/image: gen-dockerfiles $(GO_FILES) $(BUNDLE_FILES) $(OTHER_FILES)
 	podman build -f Dockerfile.dev -t $(IMAGE_TAG) .
 	@touch $@
 
@@ -150,7 +150,6 @@ uninstall:
 .PHONY: uninstall
 
 # Generate bundle manifests and metadata, then validate generated files.
-# - the bundle manifests are copied to ./manifests/${LOGGING_VERSION}/, e.g., ./manifests/4.7/
 BUNDLE_VERSION?=$(LOGGING_VERSION).0
 # Options for 'bundle-build'
 BUNDLE_CHANNELS := --channels=stable,stable-${LOGGING_VERSION}
@@ -161,18 +160,6 @@ bundle: regenerate $(KUSTOMIZE)
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
 	$(OPERATOR_SDK) bundle validate ./bundle
-	cp bundle/manifests/elasticsearch-operator.clusterserviceversion.yaml  manifests/${LOGGING_VERSION}/elasticsearch-operator.v${BUNDLE_VERSION}.clusterserviceversion.yaml
-	cp bundle/manifests/logging.openshift.io_elasticsearches.yaml  manifests/${LOGGING_VERSION}/logging.openshift.io_elasticsearches_crd.yaml
-	cp bundle/manifests/logging.openshift.io_kibanas.yaml  manifests/${LOGGING_VERSION}/logging.openshift.io_kibanas_crd.yaml
-	cp bundle/manifests/elasticsearch-operator-metrics-monitor_monitoring.coreos.com_v1_servicemonitor.yaml  manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/elasticsearch-operator-metrics_v1_service.yaml  manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/leader-election-role_rbac.authorization.k8s.io_v1_role.yaml manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/leader-election-rolebinding_rbac.authorization.k8s.io_v1_rolebinding.yaml manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/metrics-reader_rbac.authorization.k8s.io_v1beta1_clusterrole.yaml manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/proxy-role_rbac.authorization.k8s.io_v1_clusterrole.yaml manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/proxy-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/prometheus_rbac.authorization.k8s.io_v1_role.yaml manifests/${LOGGING_VERSION}/
-	cp bundle/manifests/prometheus_rbac.authorization.k8s.io_v1_rolebinding.yaml manifests/${LOGGING_VERSION}/
 .PHONY: bundle
 
 test-e2e-upgrade: 
