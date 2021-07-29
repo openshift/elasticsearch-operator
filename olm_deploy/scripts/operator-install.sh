@@ -23,7 +23,7 @@ echo "##################"
 oc create -n ${ELASTICSEARCH_OPERATOR_NAMESPACE} -f olm_deploy/subscription/operator-group.yaml
 
 # create the subscription
-export OPERATOR_PACKAGE_CHANNEL="$(echo \"$LOGGING_VERSION\")"
+export OPERATOR_PACKAGE_CHANNEL="stable"
 subscription=$(envsubst < olm_deploy/subscription/subscription.yaml)
 echo "Creating:"
 echo "$subscription"
