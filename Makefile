@@ -181,10 +181,19 @@ RANDOM_SUFFIX:=$(shell echo $$RANDOM)
 TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
 test-e2e-olm: DEPLOYMENT_NAMESPACE="${TEST_NAMESPACE}"
 test-e2e-olm: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
-	TEST_NAMESPACE=${TEST_NAMESPACE} hack/test-e2e-olm.sh
-	echo "Complete e2e olm test"
+	TEST_NAMESPACE=${TEST_NAMESPACE} hack/test-e2e.sh
+	echo "Completed test-e2e"
 	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 .PHONY: test-e2e-olm
+
+E2E_RANDOM_SUFFIX:=$(shell echo $$RANDOM)
+E2E_TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
+test-e2e: DEPLOYMENT_NAMESPACE="${E2E_TEST_NAMESPACE}"
+test-e2e: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
+	TEST_NAMESPACE=${E2E_TEST_NAMESPACE} DO_SETUP="false" hack/test-e2e.sh
+	echo "Completed test-e2e"
+	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
+.PHONY: test-e2e
 
 elasticsearch-catalog: elasticsearch-catalog-build elasticsearch-catalog-deploy
 

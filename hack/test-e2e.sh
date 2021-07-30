@@ -7,6 +7,7 @@ source "${current_dir}/lib/init.sh"
 
 source "${current_dir}/../.bingo/variables.env"
 
+export DO_SETUP="${DO_SETUP:-true}"
 export GO_JUNIT_REPORT="${GO_JUNIT_REPORT:-go-junit-report}"
 export JUNITREPORT="${JUNITREPORT:-junitreport}"
 export JUNIT_REPORT_OUTPUT="${JUNIT_REPORT_OUTPUT_DIR:-/tmp/artifacts/junit}/junit.out"
