@@ -41,15 +41,17 @@ cleanup(){
 }
 trap cleanup exit
 
-if oc get namespace ${TEST_NAMESPACE} > /dev/null 2>&1 ; then
-  echo using existing project ${TEST_NAMESPACE}
-else
-  oc create namespace ${TEST_NAMESPACE}
-fi
+if [ "${DO_SETUP:-true}" == "true" ] ; then
+    if oc get namespace ${TEST_NAMESPACE} > /dev/null 2>&1 ; then
+        echo using existing project ${TEST_NAMESPACE}
+    else
+        oc create namespace ${TEST_NAMESPACE}
+    fi
 
-# install the catalog containing the elasticsearch operator csv
-export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
-deploy_elasticsearch_operator
+    # install the catalog containing the elasticsearch operator csv
+    export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
+    deploy_elasticsearch_operator
+fi
 
 TEST_OPERATOR_NAMESPACE=${TEST_NAMESPACE} \
 TEST_WATCH_NAMESPACE=${TEST_NAMESPACE} \
