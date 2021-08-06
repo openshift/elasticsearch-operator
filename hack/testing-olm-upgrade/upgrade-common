@@ -6,6 +6,7 @@
 set -euo pipefail
 
 repo_dir="$( cd "$(dirname "$0")/../.." ; pwd -P )"
+source "$repo_dir/olm_deploy/scripts/env.sh"
 source "$repo_dir/hack/testing-olm/utils"
 source "$repo_dir/hack/testing-olm/assertions"
 
@@ -567,7 +568,6 @@ patch_subscription() {
 
 check_deployment_rolled_out() {
   log::info "Checking if deployment successfully updated..."
-  IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/logging/${version}:elasticsearch-operator}
   log::info "Checking if deployment version is ${IMAGE_ELASTICSEARCH_OPERATOR}..."
   try_until_text "oc -n openshift-operators-redhat get deployment elasticsearch-operator -o jsonpath={.spec.template.spec.containers[1].image}" "${IMAGE_ELASTICSEARCH_OPERATOR}" ${TIMEOUT_MIN}
 }

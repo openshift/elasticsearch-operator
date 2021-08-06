@@ -1,8 +1,7 @@
 #!/bin/bash
 set -eou pipefail
 
-export ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}
-
+source $(dirname "${BASH_SOURCE[0]}")/env.sh
 
 if oc get project ${ELASTICSEARCH_OPERATOR_NAMESPACE} > /dev/null 2>&1 ; then
   echo using existing project ${ELASTICSEARCH_OPERATOR_NAMESPACE} for operator installation

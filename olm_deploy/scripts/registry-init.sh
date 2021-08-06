@@ -1,17 +1,11 @@
 #!/bin/bash
 
 set -eou pipefail
+source $(dirname "${BASH_SOURCE[0]}")/env.sh
 
 echo -e "Dumping IMAGE env vars\n"
 env | grep IMAGE
 echo -e "\n\n"
-
-IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-quay.io/openshift-logging/elasticsearch-operator:latest}
-IMAGE_KUBE_RBAC_PROXY=${IMAGE_KUBE_RBAC_PROXY:-quay.io/openshift/origin-kube-rbac-proxy:latest}
-IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-quay.io/openshift-logging/elasticsearch6:latest}
-IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-quay.io/openshift-logging/elasticsearch-proxy:latest}
-IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-quay.io/openshift/origin-oauth-proxy:latest}
-IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-quay.io/openshift-logging/kibana6:latest}
 
 # update the manifest with the image built by ci
 sed -i "s,quay.io/openshift-logging/elasticsearch-operator:latest,${IMAGE_ELASTICSEARCH_OPERATOR}," /manifests/*clusterserviceversion.yaml
