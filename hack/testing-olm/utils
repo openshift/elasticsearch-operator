@@ -11,8 +11,14 @@ gather_logging_resources() {
   oc -n ${LOGGING_NS} get configmaps -o yaml > $outdir/configmaps.yaml 2>&1 || :
   oc -n ${LOGGING_NS} get secrets -o yaml > $outdir/secrets.yaml 2>&1 || :
   oc -n ${LOGGING_NS} get cronjobs -o yaml > $outdir/cronjobs.yaml 2>&1 || :
-  
+  oc -n ${LOGGING_NS} get deployments -o yaml > $outdir/deployments.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get replicasets -o yaml > $outdir/replicasets.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get statefulsets -o yaml > $outdir/statefulsets.yaml 2>&1 || :
+  oc -n ${LOGGING_NS} get pods -o yaml > $outdir/pods.yaml 2>&1 || :
+
   oc -n ${LOGGING_NS} get deployments -o wide > $outdir/deployments.txt 2>&1 || :
+  oc -n ${LOGGING_NS} get replicasets -o wide > $outdir/replicasets.txt 2>&1 || :
+  oc -n ${LOGGING_NS} get statefulsets -o wide > $outdir/statefulsets.txt 2>&1 || :
   oc -n ${LOGGING_NS} get pods -o wide > $outdir/pods.txt 2>&1 || :
   oc -n ${LOGGING_NS} get events -o wide > $outdir/events.txt 2>&1 || :
   oc -n ${LOGGING_NS} get secrets -o wide > $outdir/secrets.txt 2>&1 || :
