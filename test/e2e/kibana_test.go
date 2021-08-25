@@ -11,7 +11,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/route"
 	"github.com/openshift/elasticsearch-operator/test/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -93,7 +92,7 @@ func KibanaDeployment(t *testing.T) {
 	}
 }
 
-func waitForObject(t *testing.T, client client.Client, key types.NamespacedName, obj runtime.Object, retryInterval, timout time.Duration) error {
+func waitForObject(t *testing.T, client client.Client, key types.NamespacedName, obj client.Object, retryInterval, timout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		err = client.Get(goctx.TODO(), key, obj)
 		if err != nil {

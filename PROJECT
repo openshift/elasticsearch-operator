@@ -1,15 +1,29 @@
 domain: openshift.io
-layout: go.kubebuilder.io/v2
+layout:
+- go.kubebuilder.io/v3
+multigroup: true
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: elasticsearch-operator
 repo: github.com/openshift/elasticsearch-operator
 resources:
-- group: logging
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openshift.io
+  group: logging
   kind: Elasticsearch
+  path: github.com/openshift/elasticsearch-operator/apis/logging/v1
   version: v1
-- group: logging
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openshift.io
+  group: logging
   kind: Kibana
+  path: github.com/openshift/elasticsearch-operator/apis/logging/v1
   version: v1
-multigroup: true
-version: 3-alpha
-plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
-projectName: elasticsearch-operator
+version: "3"

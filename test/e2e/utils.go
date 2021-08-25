@@ -18,7 +18,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -260,7 +259,7 @@ func getProjectRootPath(projectRootDir string) string {
 	}
 }
 
-func waitForDeleteObject(t *testing.T, client client.Client, key types.NamespacedName, obj runtime.Object, retryInterval, timout time.Duration) error {
+func waitForDeleteObject(t *testing.T, client client.Client, key types.NamespacedName, obj client.Object, retryInterval, timout time.Duration) error {
 	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		err = client.Get(context.Background(), key, obj)
 		if err != nil {
