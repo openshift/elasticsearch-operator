@@ -20,10 +20,15 @@ spec:
         - "--v=2"
         ports:
         - containerPort: 8443
+          protocol: TCP
           name: https
         volumeMounts:
         - mountPath: /var/run/secrets/serving-cert
           name: elasticsearch-operator-metrics-cert
+      - name: elasticsearch-operator
+        args:
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-bind-address=127.0.0.1:8080"
       volumes:
       - name: elasticsearch-operator-metrics-cert
         secret:

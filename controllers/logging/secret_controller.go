@@ -24,7 +24,7 @@ type SecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-func (r *SecretReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 
 	cluster := &loggingv1.Elasticsearch{}
@@ -33,7 +33,7 @@ func (r *SecretReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		Name:      req.Name,
 	}
 
-	err := r.Get(context.TODO(), esName, cluster)
+	err := r.Get(ctx, esName, cluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -53,8 +53,8 @@ func esSecretUpdatePredicate(r client.Client) predicate.Predicate {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			cluster := &loggingv1.Elasticsearch{}
 			esName := types.NamespacedName{
-				Namespace: e.MetaNew.GetNamespace(),
-				Name:      e.MetaNew.GetName(),
+				Namespace: e.ObjectNew.GetNamespace(),
+				Name:      e.ObjectNew.GetName(),
 			}
 			err := r.Get(context.TODO(), esName, cluster)
 			if err != nil {

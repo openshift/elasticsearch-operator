@@ -36,13 +36,10 @@ import (
 )
 
 // map handlers to be used for all non-kibana CR events
-var globalMapHandler = handler.EnqueueRequestsFromMapFunc{
-	ToRequests: handler.ToRequestsFunc(getKibanaEvents),
-}
-
-var namespacedMapHandler = handler.EnqueueRequestsFromMapFunc{
-	ToRequests: handler.ToRequestsFunc(getNamespacedKibanaEvent),
-}
+var (
+	globalMapHandler     = handler.EnqueueRequestsFromMapFunc(getKibanaEvents)
+	namespacedMapHandler = handler.EnqueueRequestsFromMapFunc(getNamespacedKibanaEvent)
+)
 
 type RegisteredNamespacedNames struct {
 	registered []types.NamespacedName
@@ -58,7 +55,7 @@ type KibanaReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-func (r *KibanaReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// get CR
 	kibanaInstance := &loggingv1.Kibana{}
 	key := types.NamespacedName{
@@ -215,7 +212,7 @@ func unregisterKibanaNamespacedName(request reconcile.Request) {
 
 // this is used for when we get a proxy config or trusted CA change
 // it will return requests for all known kibana CRs
-func getKibanaEvents(a handler.MapObject) []reconcile.Request {
+func getKibanaEvents(a client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	registeredKibanas.mux.Lock()
@@ -230,8 +227,8 @@ func getKibanaEvents(a handler.MapObject) []reconcile.Request {
 
 // this is used when we have a secret update
 // it will return requests for all known kibana CRs that match
-func getNamespacedKibanaEvent(a handler.MapObject) []reconcile.Request {
-	namespace := a.Meta.GetNamespace()
+func getNamespacedKibanaEvent(a client.Object) []reconcile.Request {
+	namespace := a.GetNamespace()
 	requests := []reconcile.Request{}
 
 	registeredKibanas.mux.Lock()
@@ -249,7 +246,7 @@ func getNamespacedKibanaEvent(a handler.MapObject) []reconcile.Request {
 func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Watch for updates to the kibana secret
 	secretPred := predicate.Funcs{
-		UpdateFunc:  func(e event.UpdateEvent) bool { return handleSecret(e.MetaNew) },
+		UpdateFunc:  func(e event.UpdateEvent) bool { return handleSecret(e.ObjectNew) },
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
@@ -265,15 +262,15 @@ func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Watch for changes to the additional trust bundle configmap
 	trustedBundlePred := predicate.Funcs{
-		UpdateFunc:  func(e event.UpdateEvent) bool { return handleConfigMap(e.MetaNew) },
+		UpdateFunc:  func(e event.UpdateEvent) bool { return handleConfigMap(e.ObjectNew) },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		CreateFunc:  func(e event.CreateEvent) bool { return handleConfigMap(e.Meta) },
+		CreateFunc:  func(e event.CreateEvent) bool { return handleConfigMap(e.Object) },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	// Watch for changes to the kibana pod
 	podPred := predicate.Funcs{
-		UpdateFunc:  func(e event.UpdateEvent) bool { return handlePod(e.MetaNew) },
+		UpdateFunc:  func(e event.UpdateEvent) bool { return handlePod(e.ObjectNew) },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
@@ -291,10 +288,10 @@ func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("kibana-controller").
 		For(&loggingv1.Kibana{}).
-		Watches(&source.Kind{Type: &corev1.Secret{}}, &namespacedMapHandler, builder.WithPredicates(secretPred)).
-		Watches(&source.Kind{Type: &configv1.Proxy{}}, &globalMapHandler, builder.WithPredicates(proxyPred)).
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, &namespacedMapHandler, builder.WithPredicates(trustedBundlePred)).
-		Watches(&source.Kind{Type: &corev1.Pod{}}, &namespacedMapHandler, builder.WithPredicates(podPred)).
+		Watches(&source.Kind{Type: &corev1.Secret{}}, namespacedMapHandler, builder.WithPredicates(secretPred)).
+		Watches(&source.Kind{Type: &configv1.Proxy{}}, globalMapHandler, builder.WithPredicates(proxyPred)).
+		Watches(&source.Kind{Type: &corev1.ConfigMap{}}, namespacedMapHandler, builder.WithPredicates(trustedBundlePred)).
+		Watches(&source.Kind{Type: &corev1.Pod{}}, namespacedMapHandler, builder.WithPredicates(podPred)).
 		Watches(&source.Kind{Type: &routev1.Route{}}, &handler.EnqueueRequestForOwner{
 			OwnerType:    &loggingv1.Kibana{},
 			IsController: true,

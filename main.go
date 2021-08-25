@@ -6,33 +6,32 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/openshift/elasticsearch-operator/internal/metrics"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	// "sigs.k8s.io/controller-runtime/pkg/log/zap"
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	oauth "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
 
-	"github.com/ViaQ/logerr/log"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	controllers "github.com/openshift/elasticsearch-operator/controllers/logging"
+	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	"github.com/openshift/elasticsearch-operator/version"
+
+	"github.com/ViaQ/logerr/log"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = apiruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-
-	metricsPort int32 = 8080
 )
 
 func init() {
@@ -49,10 +48,15 @@ func init() {
 }
 
 func main() {
+	var metricsAddr string
 	var enableLeaderElection bool
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	var probeAddr string
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe end point binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
 	flag.Parse()
 
 	log.MustInit("elasticsearch-operator")
@@ -72,13 +76,14 @@ func main() {
 	ll := log.WithValues("namespace", namespace)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		Namespace:          namespace,
-		MetricsBindAddress: fmt.Sprintf(":%d", metricsPort),
-		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "d471c3b1.openshift.io",
-		Logger:             ll,
+		Scheme:                 scheme,
+		Namespace:              namespace,
+		MetricsBindAddress:     metricsAddr,
+		Port:                   9443,
+		HealthProbeBindAddress: probeAddr,
+		LeaderElection:         enableLeaderElection,
+		LeaderElectionID:       "d471c3b1.openshift.io",
+		Logger:                 ll,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -110,6 +115,15 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 
 	log.Info("Registering custom metrics for Elasticsearch Operator.")
 	metrics.RegisterCustomMetrics()

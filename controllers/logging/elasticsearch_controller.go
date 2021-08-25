@@ -35,11 +35,11 @@ var (
 	reconcileResult = ctrl.Result{RequeueAfter: reconcilePeriod}
 )
 
-func (r *ElasticsearchReconciler) Reconcile(request ctrl.Request) (ctrl.Result, error) {
+func (r *ElasticsearchReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// Fetch the Elasticsearch instance
 	cluster := &loggingv1.Elasticsearch{}
 
-	err := r.Get(context.TODO(), request.NamespacedName, cluster)
+	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
