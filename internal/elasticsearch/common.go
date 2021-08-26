@@ -637,7 +637,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 
 /*
 kind: NetworkPolicy
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 metadata:
   name: restricted-es-access
 spec:
