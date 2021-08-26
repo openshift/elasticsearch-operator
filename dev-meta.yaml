@@ -1,6 +1,6 @@
 from:
 - source: openshift-golang-builder\:v(?:[\.0-9\-]*).*
-  target: registry.ci.openshift.org/openshift/release:golang-1.14 AS builder
+  target: registry.ci.openshift.org/openshift/release:golang-1.16 AS builder
 - source: openshift-ose-base\:v(?:[\.0-9\-]*)
   target: docker.io/centos:8 AS centos
 env:
