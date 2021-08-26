@@ -44,15 +44,15 @@ cleanup(){
 }
 trap cleanup exit
 
+for item in "${TEST_NAMESPACE}" "openshift-operators-redhat" ; do
+  if oc get project ${item} > /dev/null 2>&1 ; then
+    echo using existing project ${item}
+  else
+    oc create namespace ${item}
+  fi
+done
+  
 if [ "${DO_SETUP:-true}" == "true" ] ; then
-  for item in "${TEST_NAMESPACE}" "openshift-operators-redhat" ; do
-    if oc get project ${item} > /dev/null 2>&1 ; then
-      echo using existing project ${item}
-    else
-      oc create namespace ${item}
-    fi
-  done
-
   export ELASTICSEARCH_OPERATOR_NAMESPACE=${TEST_NAMESPACE}
   deploy_elasticsearch_operator
 fi
