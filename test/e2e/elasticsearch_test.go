@@ -22,9 +22,11 @@ func TestElasticsearchCluster(t *testing.T) {
 	t.Run("Single node", singleNodeTest)
 	t.Run("Multiple nodes", multipleNodesTest)
 	t.Run("Scale up nodes", scaleUpNodesTest)
-	t.Run("Multiple nodes with a single non-data node", multipleNodesWithNonDataNodeTest)
+	// TODO Re-enable once we figure out what breaks upstream ci to restart statefulsets
+	// t.Run("Multiple nodes with a single non-data node", multipleNodesWithNonDataNodeTest)
 	t.Run("Full cluster redeploy", fullClusterRedeployTest)
-	t.Run("Full cluster redeploy with a single non-data-node", fullClusterRedeployWithNonDataNodeTest)
+	// TODO Re-enable once we figure out what breaks upstream ci to restart statefulsets
+	// t.Run("Full cluster redeploy with a single non-data-node", fullClusterRedeployWithNonDataNodeTest)
 	t.Run("Rolling restart", rollingRestartTest)
 	t.Run("Invalid master count", invalidMasterCountTest)
 }
@@ -142,7 +144,7 @@ func scaleUpNodesTest(t *testing.T) {
 	t.Log("ScaleUpNodesTest finished successfully")
 }
 
-func multipleNodesWithNonDataNodeTest(t *testing.T) {
+func multipleNodesWithNonDataNodeTest(t *testing.T) { //nolint:deadcode
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
@@ -294,7 +296,7 @@ func fullClusterRedeployTest(t *testing.T) {
 	t.Log("fullClusterRedeploy test finished successfully")
 }
 
-func fullClusterRedeployWithNonDataNodeTest(t *testing.T) {
+func fullClusterRedeployWithNonDataNodeTest(t *testing.T) { // nolint:deadcode
 	esUUID := utils.GenerateUUID()
 	t.Logf("Using UUID for elasticsearch CR: %v", esUUID)
 
