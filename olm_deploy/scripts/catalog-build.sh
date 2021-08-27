@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eou pipefail
+source $(dirname "${BASH_SOURCE[0]}")/env.sh
 
-IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-$LOCAL_IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}
 echo "Building operator registry image ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY}"
 podman build -f olm_deploy/operatorregistry/Dockerfile -t ${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY} .
 

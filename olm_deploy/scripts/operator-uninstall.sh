@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eou pipefail
 
-ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}
+source $(dirname "${BASH_SOURCE[0]}")/env.sh
 
 oc delete --wait --ignore-not-found ns ${ELASTICSEARCH_OPERATOR_NAMESPACE}
 

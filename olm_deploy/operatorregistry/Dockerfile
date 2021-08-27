@@ -18,7 +18,7 @@ COPY olm_deploy/operatorregistry/elasticsearch-operator.package.yaml /manifests/
 
 RUN chmod -R g+w /manifests /metadata
 
-COPY olm_deploy/scripts/registry-init.sh /scripts/
+COPY olm_deploy/scripts/registry-init.sh olm_deploy/scripts/env.sh /scripts/
 
 COPY --from=registry-builder /bin/initializer /usr/bin/initializer
 COPY --from=registry-builder /bin/opm /usr/bin/opm
