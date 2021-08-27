@@ -34,11 +34,12 @@ cleanup(){
   os::log::info "Running cleanup"
   end_seconds=$(date +%s)
   runtime="$(($end_seconds - $start_seconds))s"
-  
-  if [ "${DO_CLEANUP:-true}" == "true" ] ; then
-    if [ "$return_code" != "0" ] ; then
+
+  if [ "$return_code" != "0" ] ; then
       gather_logging_resources ${TEST_NAMESPACE} $test_artifact_dir
-    fi
+  fi
+
+  if [ "${SKIP_CLEANUP:-false}" == "false" ] ; then
     for item in "ns/${TEST_NAMESPACE}" "ns/openshift-operators-redhat"; do
       oc delete $item --wait=true --ignore-not-found --force --grace-period=0
     done

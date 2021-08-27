@@ -24,13 +24,12 @@ cleanup(){
   os::log::info "Running cleanup"
   end_seconds=$(date +%s)
   runtime="$(($end_seconds - $start_seconds))s"
+
+  if [ "$return_code" != "0" ] ; then
+    gather_logging_resources ${TEST_NAMESPACE} $test_artifact_dir
+  fi
   
   if [ "${SKIP_CLEANUP:-false}" == "false" ] ; then
-
-    if [ "$return_code" != "0" ] ; then
-      gather_logging_resources ${TEST_NAMESPACE} $test_artifact_dir
-    fi
-
     ${repo_dir}/olm_deploy/scripts/catalog-uninstall.sh
     ${repo_dir}/olm_deploy/scripts/operator-uninstall.sh
     oc delete ns/${TEST_NAMESPACE} --wait=true --ignore-not-found --force --grace-period=0

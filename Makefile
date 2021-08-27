@@ -164,11 +164,16 @@ test-e2e-olm: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
 	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 .PHONY: test-e2e-olm
 
+#
+# test-e2e is a future replacement target for test-e2e-olm that is used only upstream CI, until we merge:
+# https://github.com/openshift/release/pull/21383
+# This PR will make use of CI-managed operator installs/cleanups using the bundle w/o olm_deploy.
+#
 E2E_RANDOM_SUFFIX:=$(shell echo $$RANDOM)
 E2E_TEST_NAMESPACE?="e2e-test-${RANDOM_SUFFIX}"
 test-e2e: DEPLOYMENT_NAMESPACE="${E2E_TEST_NAMESPACE}"
 test-e2e: $(GO_JUNIT_REPORT) $(JUNITMERGE) $(JUNITREPORT) junitreportdir
-	TEST_NAMESPACE=${E2E_TEST_NAMESPACE} DO_SETUP="false" hack/test-e2e.sh
+	TEST_NAMESPACE=${E2E_TEST_NAMESPACE} DO_SETUP="false" SKIP_CLEANUP="true" hack/test-e2e.sh
 	echo "Completed test-e2e"
 	$(JUNITMERGE) $$(find $$JUNIT_REPORT_OUTPUT_DIR -iname "*.xml") > $(JUNIT_REPORT_OUTPUT_DIR)/junit.xml
 .PHONY: test-e2e
