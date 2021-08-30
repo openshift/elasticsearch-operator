@@ -141,8 +141,13 @@ test-unit-prom: $(PROMTOOL) ## Run prometheus unit tests.
 	@$(PROMTOOL) test rules ./test/files/prometheus-unit-tests/test.yml
 
 test-e2e-upgrade: ## Run e2e upgrate tests.
-	hack/testing-olm-upgrade/test-030-olm-upgrade-n-1-n.sh
+	@hack/testing-olm-upgrade/test-upgrade-n-1-n.sh
 .PHONY: test-e2e-upgrade
+
+# Run e2e upgrade tests on upstream CI.
+test-e2e-upgrade-ci:
+	@DO_SETUP="false" hack/testing-olm-upgrade/test-upgrade-n-1-n.sh
+.PHONY: test-e2e-upgrade-ci
 
 # to use these targets, ensure the following env vars are set:
 # either each IMAGE env var:
