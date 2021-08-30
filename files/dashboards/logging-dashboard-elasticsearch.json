@@ -2709,6 +2709,178 @@
          "title": "JVM",
          "titleSize": "h6",
          "type": "row"
+      },
+      {
+         "collapse": false,
+         "collapsed": false,
+         "height": "200",
+         "panels": [
+            {
+               "aliasColors": { },
+               "bars": false,
+               "dashLength": 10,
+               "dashes": false,
+               "datasource": "$datasource",
+               "fill": 1,
+               "gridPos": { },
+               "id": 9,
+               "legend": {
+                  "alignAsTable": false,
+                  "avg": false,
+                  "current": false,
+                  "max": false,
+                  "min": false,
+                  "rightSide": false,
+                  "show": true,
+                  "total": false,
+                  "values": false
+               },
+               "lines": true,
+               "linewidth": 1,
+               "links": [ ],
+               "nullPointMode": "null",
+               "percentage": false,
+               "pointradius": 5,
+               "points": false,
+               "renderer": "flot",
+               "repeat": null,
+               "seriesOverrides": [ ],
+               "spaceLength": 10,
+               "span": 6,
+               "stack": true,
+               "steppedLine": false,
+               "targets": [
+                  {
+                     "expr": "sum by (exported_namespace) (es_index_document_count{cluster=\"$cluster\"})",
+                     "format": "time_series",
+                     "intervalFactor": 2,
+                     "legendFormat": "{{exported_namespace}}",
+                     "refId": "A"
+                  }
+               ],
+               "thresholds": [ ],
+               "timeFrom": null,
+               "timeShift": null,
+               "title": "Documents per Namespace trend",
+               "tooltip": {
+                  "shared": true,
+                  "sort": 0,
+                  "value_type": "individual"
+               },
+               "type": "graph",
+               "xaxis": {
+                  "buckets": null,
+                  "mode": "time",
+                  "name": null,
+                  "show": true,
+                  "values": [ ]
+               },
+               "yaxes": [
+                  {
+                     "format": "short",
+                     "label": null,
+                     "logBase": 1,
+                     "max": null,
+                     "min": null,
+                     "show": true
+                  },
+                  {
+                     "format": "short",
+                     "label": null,
+                     "logBase": 1,
+                     "max": null,
+                     "min": null,
+                     "show": true
+                  }
+               ]
+            },
+            {
+               "cacheTimeout": null,
+               "colorBackground": false,
+               "colorValue": false,
+               "colors": [
+                 "#37872D",
+                 "#37872D",
+                 "#d44a3a"
+               ],
+               "datasource": "$datasource",
+               "format": "short",
+               "gauge": {
+                 "maxValue": 100,
+                 "minValue": 0,
+                 "show": false,
+                 "thresholdLabels": false,
+                 "thresholdMarkers": true
+               },
+               "gridPos": {
+                 "h": 7,
+                 "w": 8,
+                 "x": 0,
+                 "y": 8
+               },
+               "id": 19,
+               "interval": null,
+               "links": [],
+               "mappingType": 1,
+               "mappingTypes": [
+                 {
+                   "name": "value to text",
+                   "value": 1
+                 },
+                 {
+                   "name": "range to text",
+                   "value": 2
+                 }
+               ],
+               "maxDataPoints": 100,
+               "nullPointMode": "connected",
+               "nullText": null,
+               "options": {},
+               "postfix": "",
+               "postfixFontSize": "50%",
+               "prefix": "",
+               "prefixFontSize": "50%",
+               "rangeMaps": [
+                 {
+                   "from": "null",
+                   "text": "N/A",
+                   "to": "null"
+                 }
+               ],
+               "sparkline": {
+                 "fillColor": "rgba(31, 118, 189, 0.18)",
+                 "full": false,
+                 "lineColor": "rgb(31, 120, 193)",
+                 "show": false,
+                 "ymax": null,
+                 "ymin": null
+               },
+               "tableColumn": "",
+               "targets": [
+                 {
+                   "expr": "sum by(cluster)(es_index_namespaces_total)",
+                   "instant": true,
+                   "refId": "A"
+                 }
+               ],
+               "thresholds": "0,0.5,1",
+               "timeFrom": null,
+               "timeShift": null,
+               "title": "Total Namespace Count",
+               "type": "singlestat",
+               "span": 3,
+               "valueFontSize": "80%",
+               "valueMaps": [],
+               "valueName": "current"
+             }
+         ],
+         "repeat": null,
+         "repeatIteration": null,
+         "repeatRowId": null,
+         "showTitle": true,
+         "title": "Index Level Metrics",
+         "titleSize": "h6",
+         "type": "row"
       }
    ],
    "schemaVersion": 14,
