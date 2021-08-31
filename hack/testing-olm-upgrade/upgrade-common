@@ -12,10 +12,9 @@ source "$repo_dir/hack/testing-olm/assertions"
 
 start_seconds=$(date +%s)
 
-ARTIFACT_DIR=${ARTIFACT_DIR:-"$repo_dir/_output/"}
-ARTIFACT_DIR="${ARTIFACT_DIR}/$(basename ${BASH_SOURCE[0]})"
-if [ ! -d $ARTIFACT_DIR ] ; then
-  mkdir -p $ARTIFACT_DIR
+E2E_ARTIFACT_DIR=${ARTIFACT_DIR:-"./tmp/artifacts"}/testing-olm-upgrade
+if [ ! -d $E2E_ARTIFACT_DIR ] ; then
+  mkdir -p $E2E_ARTIFACT_DIR
 fi
 
 KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
@@ -34,16 +33,16 @@ cleanup(){
   log::info "Running cleanup"
   end_seconds=$(date +%s)
   runtime="$(($end_seconds - $start_seconds))s"
-  oc -n openshift-operators-redhat -o yaml get subscription elasticsearch-operator > $ARTIFACT_DIR/subscription-eo.yml 2>&1 ||:
-  oc -n openshift-operators-redhat -o yaml get deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator-deployment.yml 2>&1 ||:
-  oc -n openshift-operators-redhat -o yaml get pods > $ARTIFACT_DIR/openshift-operators-redhat-pods.yml 2>&1 ||:
-  oc -n openshift-operators-redhat -o yaml get configmaps > $ARTIFACT_DIR/openshift-operators-redhat-configmaps.yml 2>&1 ||:
-  oc -n openshift-operators-redhat describe deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.describe 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get subscription elasticsearch-operator > $E2E_ARTIFACT_DIR/subscription-eo.yml 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get deployment/elasticsearch-operator > $E2E_ARTIFACT_DIR/elasticsearch-operator-deployment.yml 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get pods > $E2E_ARTIFACT_DIR/openshift-operators-redhat-pods.yml 2>&1 ||:
+  oc -n openshift-operators-redhat -o yaml get configmaps > $E2E_ARTIFACT_DIR/openshift-operators-redhat-configmaps.yml 2>&1 ||:
+  oc -n openshift-operators-redhat describe deployment/elasticsearch-operator > $E2E_ARTIFACT_DIR/elasticsearch-operator.describe 2>&1 ||:
 
-  oc logs -n "openshift-operators-redhat" -c elasticsearch-operator deployment/elasticsearch-operator > $ARTIFACT_DIR/elasticsearch-operator.log 2>&1 ||:
-  oc logs -n "openshift-operators-redhat" -c kube-rbac-proxy deployment/elasticsearch-operator > $ARTIFACT_DIR/kube-rbac-proxy.log 2>&1 ||:
-  oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/catalog-operator > $ARTIFACT_DIR/catalog-operator.logs 2>&1 ||:
-  oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/olm-operator > $ARTIFACT_DIR/olm-operator.logs 2>&1 ||:
+  oc logs -n "openshift-operators-redhat" -c elasticsearch-operator deployment/elasticsearch-operator > $E2E_ARTIFACT_DIR/elasticsearch-operator.log 2>&1 ||:
+  oc logs -n "openshift-operators-redhat" -c kube-rbac-proxy deployment/elasticsearch-operator > $E2E_ARTIFACT_DIR/kube-rbac-proxy.log 2>&1 ||:
+  oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/catalog-operator > $E2E_ARTIFACT_DIR/catalog-operator.logs 2>&1 ||:
+  oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/olm-operator > $E2E_ARTIFACT_DIR/olm-operator.logs 2>&1 ||:
 
   ${repo_dir}/olm_deploy/scripts/operator-uninstall.sh
   ${repo_dir}/olm_deploy/scripts/catalog-uninstall.sh
@@ -51,7 +50,6 @@ cleanup(){
   set -e
   exit ${return_code}
 }
-trap cleanup exit
 
 expect_success(){
   local cmd=$1
@@ -266,12 +264,13 @@ get_latest_catalog_version(){
 
   versions="$(oc run grpcurl-query \
      -n openshift-marketplace \
+     --quiet \
      --rm=true \
      --restart=Never \
      --attach=true \
      --image=docker.io/fullstorydev/grpcurl \
      -- -plaintext redhat-operators.openshift-marketplace.svc:50051 api.Registry/ListBundles \
-     | jq '. | select(.packageName == "elasticsearch-operator") | .channelName')"
+     | jq '. | select(.packageName == "elasticsearch-operator") | .channelName' | sort -r)"
   
   oc delete pod grpcurl-query -n openshift-marketplace --ignore-not-found=true
 
@@ -297,6 +296,10 @@ get_major_version(){
                 echo $previous_major
                 return 0
             fi
+            if [ "$maj_ver" == "stable-$previous_major" ]; then
+                echo "stable-$previous_major"
+                return 0
+            fi            
 
         done
 
@@ -321,6 +324,10 @@ get_minor_count_down(){
         for ver in ${versions[@]}; do
 
             if [ "$ver" == "$version" ]; then
+                echo $previous_minor
+                return 0
+            fi
+            if [ "$ver" == "stable-$version" ]; then
                 echo $previous_minor
                 return 0
             fi
@@ -380,7 +387,7 @@ get_latest_previous_version(){
   # get subset of versions where the major version matches
   export versions=$(subset_versions_for_major $previous_major)
 
-  if [[ $major_version -eq $previous_major ]]; then
+  if [[ $major_version -eq ${previous_major/stable-/} ]]; then
     previous_minor=$(get_minor_count_down $minor_version)
   else
     previous_minor=$(get_minor_count_up)

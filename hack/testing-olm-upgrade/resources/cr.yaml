@@ -21,7 +21,6 @@ spec:
     - data
     - master
     storage:
-      storageClassName: standard
       size: 10G
   redundancyPolicy: SingleRedundancy
   indexManagement:
