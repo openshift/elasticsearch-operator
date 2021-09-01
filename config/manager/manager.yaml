@@ -52,10 +52,10 @@ spec:
           - name: PROXY_IMAGE
             value: "quay.io/openshift/origin-oauth-proxy:latest"
           - name: ELASTICSEARCH_PROXY
-            value: "quay.io/openshift-logging/elasticsearch-proxy:latest"
+            value: "quay.io/openshift-logging/elasticsearch-proxy:1.0"
           - name: ELASTICSEARCH_IMAGE
-            value: "quay.io/openshift-logging/elasticsearch6:latest"
+            value: "quay.io/openshift-logging/elasticsearch6:6.8.1"
           - name: KIBANA_IMAGE
-            value: "quay.io/openshift-logging/kibana6:latest"
+            value: "quay.io/openshift-logging/kibana6:6.8.1"
           - name: CURATOR_IMAGE
-            value: "quay.io/openshift-logging/curator5:latest"
+            value: "quay.io/openshift-logging/curator5:5.8.1"
