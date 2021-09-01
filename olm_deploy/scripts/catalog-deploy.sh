@@ -2,13 +2,18 @@
 set -eou pipefail
 OCP_VERSION=${OCP_VERSION:-4.7}
 LOGGING_VERSION=${LOGGING_VERSION:-5.2}
+LOGGING_ES_VERSION=${LOGGING_ES_VERSION:-5.y}
+LOGGING_ES_PROXY_VERSION=${LOGGING_ES_PROXY_VERSION:-5.y}
+LOGGING_KIBANA_VERSION=${LOGGING_KIBANA_VERSION:-5.y}
+LOGGING_CURATOR_VERSION=${LOGGING_CURATOR_VERSION:-5.y}
 LOGGING_IS=${LOGGING_IS:-logging}
 export IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-operator-registry}
 export IMAGE_KUBE_RBAC_PROXY=${IMAGE_KUBE_RBAC_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:kube-rbac-proxy}
 export IMAGE_ELASTICSEARCH_OPERATOR=${IMAGE_ELASTICSEARCH_OPERATOR:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-operator}
-export IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:logging-elasticsearch6}
-export IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:elasticsearch-proxy}
-export IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_VERSION}:logging-kibana6}
+export IMAGE_ELASTICSEARCH6=${IMAGE_ELASTICSEARCH6:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_ES_VERSION}:logging-elasticsearch6}
+export IMAGE_ELASTICSEARCH_PROXY=${IMAGE_ELASTICSEARCH_PROXY:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_ES_PROXY_VERSION}:elasticsearch-proxy}
+export IMAGE_LOGGING_KIBANA6=${IMAGE_LOGGING_KIBANA6:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_KIBANA_VERSION}:logging-kibana6}
+export IMAGE_CURATOR5=${IMAGE_CURATOR5:-registry.ci.openshift.org/${LOGGING_IS}/${LOGGING_CURATOR_VERSION}:logging-curator5}
 export IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:oauth-proxy}
 ELASTICSEARCH_OPERATOR_NAMESPACE=${ELASTICSEARCH_OPERATOR_NAMESPACE:-openshift-operators-redhat}
 
@@ -19,6 +24,7 @@ echo "kube rbac proxy: ${IMAGE_KUBE_RBAC_PROXY}"
 echo "elastic6: ${IMAGE_ELASTICSEARCH6}"
 echo "elasticsearch proxy: ${IMAGE_ELASTICSEARCH_PROXY}"
 echo "kibana: ${IMAGE_LOGGING_KIBANA6}"
+echo "curator5: ${IMAGE_CURATOR5}"
 echo "oauth proxy: ${IMAGE_OAUTH_PROXY}"
 
 echo "In namespace: ${ELASTICSEARCH_OPERATOR_NAMESPACE}"
