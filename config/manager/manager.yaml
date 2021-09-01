@@ -20,7 +20,7 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        image: quay.io/openshift/origin-elasticsearch-operator:latest
+        image: quay.io/openshift-logging/elasticsearch-operator:latest
         name: elasticsearch-operator
         imagePullPolicy: IfNotPresent
         resources: {}
@@ -38,8 +38,8 @@ spec:
           - name: PROXY_IMAGE
             value: "quay.io/openshift/origin-oauth-proxy:latest"
           - name: ELASTICSEARCH_PROXY
-            value: "quay.io/openshift/origin-elasticsearch-proxy:latest"
+            value: "quay.io/openshift-logging/elasticsearch-proxy:1.0"
           - name: ELASTICSEARCH_IMAGE
-            value: "quay.io/openshift/origin-logging-elasticsearch6:latest"
+            value: "quay.io/openshift-logging/elasticsearch6:6.8.1"
           - name: KIBANA_IMAGE
-            value: "quay.io/openshift/origin-logging-kibana6:latest"
+            value: "quay.io/openshift-logging/kibana6:6.8.1"
