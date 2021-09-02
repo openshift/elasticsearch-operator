@@ -35,8 +35,8 @@ spec:
           value: ${IMAGE_OAUTH_PROXY}
         - name: IMAGE_LOGGING_KIBANA6
           value: ${IMAGE_LOGGING_KIBANA6}
-        - name: IMAGE_CURATOR5
-          value: ${IMAGE_CURATOR5}
+        - name: IMAGE_LOGGING_CURATOR5
+          value: ${IMAGE_LOGGING_CURATOR5}
 
       containers:
       - name: elasticsearch-operator-registry
