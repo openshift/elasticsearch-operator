@@ -14,7 +14,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceAccount() error {
 	sa := serviceaccount.New(dpl.Name, dpl.Namespace, map[string]string{})
 	er.cluster.AddOwnerRefTo(sa)
 
-	err := serviceaccount.CreateOrUpdate(context.TODO(), er.client, sa)
+	err := serviceaccount.CreateOrUpdate(context.TODO(), er.client, sa, serviceaccount.AnnotationsEqual, serviceaccount.MutateAnnotationsOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch serviceaccount",
 			"cluster", dpl.Name,
