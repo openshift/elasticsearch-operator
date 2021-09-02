@@ -13,11 +13,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// EqualityFunc is the type for functions that compare two serviceaccounts.
+// Return true if two deployment are equal.
+type EqualityFunc func(current, desired *corev1.ServiceAccount) bool
+
+// MutateFunc is the type for functions that mutate the current serviceaccount
+// by applying the values from the desired serviceaccount.
+type MutateFunc func(current, desired *corev1.ServiceAccount)
+
 // CreateOrUpdate attempts first to create the given serviceaccount. If the
 // serviceaccount already exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, sa *corev1.ServiceAccount) error {
+func CreateOrUpdate(ctx context.Context, c client.Client, sa *corev1.ServiceAccount, equal EqualityFunc, mutate MutateFunc) error {
 	err := c.Create(ctx, sa)
 	if err == nil {
 		return nil
@@ -40,14 +48,14 @@ func CreateOrUpdate(ctx context.Context, c client.Client, sa *corev1.ServiceAcco
 		)
 	}
 
-	if !equality.Semantic.DeepEqual(current, sa) {
+	if !equal(current, sa) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
 				log.Error(err, "failed to get serviceaccount", sa.Name)
 				return err
 			}
 
-			current = sa
+			mutate(current, sa)
 			if err := c.Update(ctx, current); err != nil {
 				log.Error(err, "failed to update serviceaccount", sa.Name)
 				return err
@@ -64,4 +72,15 @@ func CreateOrUpdate(ctx context.Context, c client.Client, sa *corev1.ServiceAcco
 	}
 
 	return nil
+}
+
+// AnnotationsEqual returns true only if the service account annotations are equal.
+func AnnotationsEqual(current, desired *corev1.ServiceAccount) bool {
+	return equality.Semantic.DeepEqual(current.Annotations, desired.Annotations)
+}
+
+// MutateAnnotationsOnly is a default mutate implementation that replaces
+// current serviceaccount's annotations with the desired annotations.
+func MutateAnnotationsOnly(current, desired *corev1.ServiceAccount) {
+	current.Annotations = desired.Annotations
 }
