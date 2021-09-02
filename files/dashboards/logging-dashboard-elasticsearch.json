@@ -2858,7 +2858,7 @@
                "tableColumn": "",
                "targets": [
                  {
-                   "expr": "sum by(cluster)(es_index_namespaces_total)",
+                   "expr": "es_index_namespaces_total{cluster=\"$cluster\"}",
                    "instant": true,
                    "refId": "A"
                  }
