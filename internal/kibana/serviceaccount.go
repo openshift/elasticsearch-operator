@@ -14,7 +14,7 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 
 	utils.AddOwnerRefToObject(sa, getOwnerRef(clusterRequest.cluster))
 
-	err := serviceaccount.CreateOrUpdate(context.TODO(), clusterRequest.client, sa)
+	err := serviceaccount.CreateOrUpdate(context.TODO(), clusterRequest.client, sa, serviceaccount.AnnotationsEqual, serviceaccount.MutateAnnotationsOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana serviceaccount",
 			"cluster", clusterRequest.cluster.Name,
