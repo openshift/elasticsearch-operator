@@ -3,9 +3,10 @@ package indexmanagement
 const indexManagementClient = `
 #!/bin/python
 
-import os, sys
+import os, sys, ast
 import json
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search, Q
 from ssl import create_default_context
 
 def getEsClient():
@@ -44,6 +45,29 @@ def deleteIndices(index):
     es_client = getEsClient()
     response = es_client.indices.delete(index=index)
     return True
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return False
+
+def deleteByQuery(index, namespaceSpecs, defaultAge):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    s = Search(using=es_client)
+
+    #Extract string values of namespace and minAge from namespaceSpecs to feed into dsl-query
+    namespaceSpecs = json.loads(namespaceSpecs)
+    for namespaceName in namespaceSpecs:
+      s = s.query('prefix', kubernetes__namespace_name=namespaceName)
+      minAge = namespaceSpecs[namespaceName]
+      if minAge == "":
+        s = s.filter('range', **{'@timestamp': {'lt': 'now-{}'.format(defaultAge)}})
+      else:
+        s = s.filter('range', **{'@timestamp': {'lt': 'now-{}'.format(minAge)}})
+      response = es_client.delete_by_query(index=index, body=s.to_dict(), doc_type="_doc")
+      return True
   except Exception as e:
     sys.stdout = open('/tmp/response.txt', 'w')
     print(e)
@@ -389,6 +413,7 @@ function delete() {
   fi
 
   indices="$(getIndicesAgeForAlias "${policy}-write")"
+  echo "indices = [$indices]"
 
   if [ -z "$indices" ]; then
     echo "Received an empty response from elasticsearch -- server may not be ready"
@@ -400,6 +425,7 @@ function delete() {
   # Delete in batches of 25 for cases where there are a large number of indices to remove
   nowInMillis=$(date +%s%3N)
   minAgeFromEpoc=$(($nowInMillis - $MIN_AGE))
+  
   if ! indices=$(python /tmp/scripts/getNext25Indices.py "$minAgeFromEpoc" "$writeIndex" "$jsonResponse" 2>>$ERRORS) ; then
     cat $ERRORS
     rm $ERRORS
@@ -412,13 +438,14 @@ function delete() {
   fi
 
   if [ "${indices}" == "" ] ; then
-      echo No indices to delete
+      echo "No indices to delete"
       return 0
   else
       echo deleting indices: "${indices}"
   fi
 
   for sets in ${indices}; do
+  
     response="$(deleteIndices "${sets}")"
 
     if [ "$response" == False ] ; then
@@ -446,6 +473,18 @@ function deleteIndices() {
   local index="$1"
 
   python -c 'import indexManagementClient; print(indexManagementClient.deleteIndices("'$index'"))'
+}
+
+function pruneNamespaces() {
+  local indexMappings="$1"
+  local namespacespec="$2"
+  local defaultAge="$3"
+
+  echo "========================"
+  echo "Index management prune process starting for $indexMappings"
+  echo "namespace_spec = $namespacespec"
+
+  python -c 'import indexManagementClient; print(indexManagementClient.deleteByQuery("'$indexMappings'","'$namespacespec'","'$defaultAge'"))'
 }
 
 function removeAsWriteIndexForAlias() {
@@ -493,7 +532,6 @@ decoded=$(echo $PAYLOAD | base64 -d)
 writeAliases="$(getWriteAliases "$POLICY_MAPPING")"
 
 for aliasBase in $writeAliases; do
-
   alias="$(echo $aliasBase | sed 's/-write$//g')"
   if ! rollover "$alias" "$decoded" ; then
     exit 1
@@ -534,10 +572,35 @@ fi
 exit 0
 `
 
+const pruneNamespacesScript = `
+set -uo pipefail
+
+source /tmp/scripts/indexManagement
+
+DEFAULT_AGE="7d"
+
+if  [ -z "$NAMESPACE_SPECS" ] ;  then
+  echo "No namespaces to prune"
+  exit 1
+fi
+
+namespaceSpec="$(echo $NAMESPACE_SPECS | sed 's/\"/\\\"/g')"
+
+# Prune namespaces runs on all current index patterns
+indexMappings="$(echo $POLICY_MAPPING*)"
+
+if ! pruneNamespaces "$indexMappings" "$namespaceSpec" "$DEFAULT_AGE" ; then
+    exit 1
+fi
+
+exit 0
+`
+
 var scriptMap = map[string]string{
 	"delete":                   deleteScript,
 	"rollover":                 rolloverScript,
 	"delete-then-rollover":     deleteThenRolloverScript,
+	"prune-namespaces":         pruneNamespacesScript,
 	"indexManagement":          indexManagement,
 	"getWriteIndex.py":         getWriteIndex,
 	"checkRollover.py":         checkRollover,

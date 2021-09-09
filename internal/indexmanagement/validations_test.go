@@ -39,7 +39,8 @@ var _ = Describe("Index Management", func() {
 									},
 								},
 								Delete: &esapi.IndexManagementDeletePhaseSpec{
-									MinAge: "7d",
+									MinAge:                  "7d",
+									PruneNamespacesInterval: "",
 								},
 							},
 						},
@@ -104,7 +105,8 @@ var _ = Describe("Index Management", func() {
 								"name": "my-policy",
 								"phases": {
 									"delete": {
-										"minAge": "7d"
+										"minAge": "7d",
+										"pruneNamespacesInterval": ""
 									},
 									"hot": {
 										"actions": {
@@ -150,7 +152,8 @@ var _ = Describe("Index Management", func() {
 									"name": "my-policy",
 									"phases": {
 										"delete": {
-											"minAge": "7d"
+											"minAge": "7d",
+											"pruneNamespacesInterval": ""
 										},
 										"hot": {
 											"actions": {
@@ -194,7 +197,8 @@ var _ = Describe("Index Management", func() {
 									"name": "my-policy",
 									"phases": {
 										"delete": {
-											"minAge": "7d"
+											"minAge": "7d",
+											"pruneNamespacesInterval": ""
 										},
 										"hot": {
 											"actions": {

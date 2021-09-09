@@ -35,6 +35,10 @@ spec:
               maxAge:   2m
         delete:
           minAge: 5m
+          pruneNamespacesInterval: 15m
+          namespaceSpec:
+          - namespace: openshift-     #note: prefix-query is supported
+            minAge: 10m
     mappings:
     - name:  infra
       policyRef: infra-policy
