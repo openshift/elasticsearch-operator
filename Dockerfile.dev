@@ -32,7 +32,7 @@ LABEL \
         io.openshift.tags="openshift,logging,elasticsearch" \
         com.redhat.delivery.appregistry="false" \
         maintainer="AOS Logging <aos-logging@redhat.com>" \
-        name="openshift/ose-elasticsearch-operator" \
+        name="openshift-logging/elasticsearch-rhel8-operator" \
         com.redhat.component="elasticsearch-operator-container" \
         io.openshift.maintainer.product="OpenShift Container Platform" \
         io.openshift.build.commit.id=${CI_ELASTICSEARCH_OPERATOR_UPSTREAM_COMMIT} \
