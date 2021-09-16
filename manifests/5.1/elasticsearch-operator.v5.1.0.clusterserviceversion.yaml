@@ -93,7 +93,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: OpenShift Optional, Logging & Tracing
     certified: "false"
-    containerImage: quay.io/openshift/origin-elasticsearch-operator:latest
+    containerImage: quay.io/openshift-logging/elasticsearch-operator:latest
     createdAt: "2020-11-04T08:00:00Z"
     description: |
       The Elasticsearch Operator for OCP provides a means for configuring and managing an Elasticsearch cluster for tracing and cluster logging.
@@ -446,12 +446,12 @@ spec:
                 - name: PROXY_IMAGE
                   value: quay.io/openshift/origin-oauth-proxy:latest
                 - name: ELASTICSEARCH_PROXY
-                  value: quay.io/openshift/origin-elasticsearch-proxy:latest
+                  value: quay.io/openshift-logging/elasticsearch-proxy:1.0
                 - name: ELASTICSEARCH_IMAGE
-                  value: quay.io/openshift/origin-logging-elasticsearch6:latest
+                  value: quay.io/openshift-logging/elasticsearch6:6.8.1
                 - name: KIBANA_IMAGE
-                  value: quay.io/openshift/origin-logging-kibana6:latest
-                image: quay.io/openshift/origin-elasticsearch-operator:latest
+                  value: quay.io/openshift-logging/kibana6:6.8.1
+                image: quay.io/openshift-logging/elasticsearch-operator:latest
                 imagePullPolicy: IfNotPresent
                 name: elasticsearch-operator
                 ports:
