@@ -31,6 +31,7 @@ LABEL \
         io.k8s.description="This is the component that manages an Elasticsearch cluster on a kubernetes based platform" \
         io.openshift.tags="openshift,logging,elasticsearch" \
         com.redhat.delivery.appregistry="false" \
+        License="Apache-2.0" \
         maintainer="AOS Logging <aos-logging@redhat.com>" \
         name="openshift-logging/elasticsearch-rhel8-operator" \
         com.redhat.component="elasticsearch-operator-container" \
