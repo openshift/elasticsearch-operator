@@ -1,6 +1,7 @@
 ### This is a generated file from Dockerfile.in ###
-#@follow_tag(openshift-golang-builder:1.14)
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.16)
 FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.16-openshift-4.8 AS builder
+
 
 ENV BUILD_VERSION=${CI_CONTAINER_VERSION}
 ENV OS_GIT_MAJOR=${CI_X_VERSION}
@@ -24,7 +25,7 @@ ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod $
 
 RUN make build
 
-#@follow_tag(openshift-ose-base:ubi8)
+#@follow_tag(registry.redhat.io/ubi8:latest)
 FROM registry.ci.openshift.org/ocp/4.8:base
 LABEL \
         io.k8s.display-name="OpenShift elasticsearch-operator" \

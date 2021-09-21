@@ -1,5 +1,6 @@
-#@follow_tag(openshift-golang-builder:1.14)
-FROM openshift-golang-builder:v1.14.4-9 AS builder
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.16)
+FROM registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:v1.16.6-202107291435.el8.git.83c4106 AS builder
+
 
 ENV BUILD_VERSION=${CI_CONTAINER_VERSION}
 ENV OS_GIT_MAJOR=${CI_X_VERSION}
@@ -26,8 +27,8 @@ ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod $
 
 RUN make build
 
-#@follow_tag(openshift-ose-base:ubi8)
-FROM openshift-ose-base:v4.0-202009120053.11408
+#@follow_tag(registry.redhat.io/ubi8:latest)
+FROM registry.redhat.io/ubi8:8.4-209
 LABEL \
         io.k8s.display-name="OpenShift elasticsearch-operator" \
         io.k8s.description="This is the component that manages an Elasticsearch cluster on a kubernetes based platform" \
