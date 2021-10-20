@@ -11,6 +11,7 @@
       sum by (cluster) (es_cluster_status == 2)
     "for": 7m
     "labels":
+      "namespace": openshift-logging
       "severity": critical
 
   - "alert": ElasticsearchClusterNotHealthy
@@ -22,6 +23,7 @@
       sum by (cluster) (es_cluster_status == 1)
     "for": 20m
     "labels":
+      "namespace": openshift-logging
       "severity": warning
 
   - "alert": ElasticsearchWriteRequestsRejectionJumps
@@ -33,6 +35,7 @@
       round( writing:reject_ratio:rate2m * 100, 0.001 ) > 5
     "for": 10m
     "labels":
+      "namespace": openshift-logging
       "severity": warning
 
   - "alert": ElasticsearchNodeDiskWatermarkReached
@@ -51,6 +54,7 @@
       ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_low_pct
     "for": 5m
     "labels":
+      "namespace": openshift-logging
       "severity": info
 
   - "alert": ElasticsearchNodeDiskWatermarkReached
@@ -69,6 +73,7 @@
       ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_high_pct
     "for": 5m
     "labels":
+      "namespace": openshift-logging
       "severity": critical
 
   - "alert": ElasticsearchNodeDiskWatermarkReached
@@ -87,6 +92,7 @@
       ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_flood_stage_pct
     "for": 5m
     "labels":
+      "namespace": openshift-logging
       "severity": critical
 
   - "alert": ElasticsearchJVMHeapUseHigh
@@ -98,6 +104,7 @@
       sum by (cluster, instance, node) (es_jvm_mem_heap_used_percent) > 75
     "for": 10m
     "labels":
+      "namespace": openshift-logging
       "severity": info
 
   - "alert": AggregatedLoggingSystemCPUHigh
@@ -109,6 +116,7 @@
       sum by (cluster, instance, node) (es_os_cpu_percent) > 90
     "for": 1m
     "labels":
+      "namespace": openshift-logging
       "severity": info
 
   - "alert": ElasticsearchProcessCPUHigh
@@ -120,6 +128,7 @@
       sum by (cluster, instance, node) (es_process_cpu_percent) > 90
     "for": 1m
     "labels":
+      "namespace": openshift-logging
       "severity": info
 
   - "alert": ElasticsearchDiskSpaceRunningLow
@@ -131,6 +140,7 @@
       sum(predict_linear(es_fs_path_available_bytes[6h], 6 * 3600)) < 0
     "for": 1h
     "labels":
+      "namespace": openshift-logging
       "severity": critical
 
   - "alert": ElasticsearchHighFileDescriptorUsage
@@ -142,6 +152,7 @@
       predict_linear(es_process_file_descriptors_max_number[1h], 3600) - predict_linear(es_process_file_descriptors_open_number[1h], 3600) < 0
     "for": 10m
     "labels":
+      "namespace": openshift-logging
       "severity": warning
 
   - "alert": ElasticsearchOperatorCSVNotSuccessful
@@ -152,6 +163,7 @@
       csv_succeeded{name =~ "elasticsearch-operator.*"} == 0
     "for": 10m
     "labels":
+      "namespace": openshift-logging
       "severity": warning
 
   - "alert": ElasticsearchNodeDiskWatermarkReached
@@ -170,6 +182,7 @@
       ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_low_pct
     "for": 1h
     "labels":
+      "namespace": openshift-logging
       "severity": warning
 
   - "alert": ElasticsearchNodeDiskWatermarkReached
@@ -188,6 +201,7 @@
       ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_high_pct
     "for": 1h
     "labels":
+      "namespace": openshift-logging
       "severity": warning
 
   - "alert": ElasticsearchNodeDiskWatermarkReached
@@ -206,4 +220,5 @@
       ) > on(instance, pod) es_cluster_routing_allocation_disk_watermark_flood_stage_pct
     "for": 1h
     "labels":
+      "namespace": openshift-logging
       "severity": warning
