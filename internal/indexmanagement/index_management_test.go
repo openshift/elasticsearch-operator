@@ -219,7 +219,7 @@ var _ = Describe("Index Management", func() {
 							"number_of_shards": "3"
 						}
 					},
-					"template": "node.infra*"
+					"index_patterns": ["node.infra*"]
 				}`)
 		})
 	})

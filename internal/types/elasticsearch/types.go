@@ -2,7 +2,7 @@ package elasticsearch
 
 func NewIndexTemplate(pattern string, aliases []string, shards, replicas int32) *IndexTemplate {
 	template := IndexTemplate{
-		Template: pattern,
+		IndexPatterns: []string{pattern},
 		Settings: IndexSettings{
 			Index: &IndexingSettings{
 				NumberOfShards:   shards,
@@ -49,9 +49,9 @@ type Index struct {
 }
 
 type IndexTemplate struct {
-	Template string                `json:"template,omitempty"`
-	Settings IndexSettings         `json:"settings,omitempty"`
-	Aliases  map[string]IndexAlias `json:"aliases,omitempty"`
+	IndexPatterns []string              `json:"index_patterns,omitempty"`
+	Settings      IndexSettings         `json:"settings,omitempty"`
+	Aliases       map[string]IndexAlias `json:"aliases,omitempty"`
 }
 
 type GetIndexTemplate struct {
