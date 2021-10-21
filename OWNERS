@@ -7,7 +7,6 @@ filters:
       - periklis
       - alanconway
     reviewers:
-      - ewolinetz
       - jcantrill
       - lukas-vlcek
       - alanconway
@@ -15,6 +14,7 @@ filters:
       - vimalk78
       - syedriko
       - periklis
+      - shwetaap
   "Dockerfile(?:\\.in)?$":   # matches Dockerfile, Dockerfile.in
     labels:
       - midstream/Dockerfile
