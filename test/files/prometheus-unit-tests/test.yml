@@ -57,6 +57,7 @@ tests:
         exp_alerts:
           - exp_labels:
               cluster: elasticsearch
+              namespace: openshift-logging
               severity: warning
             exp_annotations:
               summary: "Cluster health status is YELLOW"
@@ -69,6 +70,7 @@ tests:
         exp_alerts:
           - exp_labels:
               cluster: elasticsearch
+              namespace: openshift-logging
               severity: critical
             exp_annotations:
               summary: "Cluster health status is RED"
@@ -88,6 +90,7 @@ tests:
               cluster: elasticsearch
               instance: localhost:9090
               node: elasticsearch-cdm-1
+              namespace: openshift-logging
               severity: warning
             exp_annotations:
               summary: "High Write Rejection Ratio - 10%"
@@ -107,6 +110,7 @@ tests:
           - exp_labels:
               instance: localhost:9090
               pod: pod-1
+              namespace: openshift-logging
               severity: info
             exp_annotations:
               summary: "Disk Low Watermark Reached - disk saturation is 90%"
@@ -121,6 +125,7 @@ tests:
               cluster: elasticsearch
               instance: localhost:9090
               node: elasticsearch-cdm-1
+              namespace: openshift-logging
               severity: info
             exp_annotations:
               summary: "System CPU usage is high"
@@ -140,6 +145,7 @@ tests:
               cluster: elasticsearch
               instance: localhost:9090
               node: elasticsearch-cdm-1
+              namespace: openshift-logging
               severity: info
             exp_annotations:
               summary: "ES process CPU usage is high"
@@ -157,6 +163,7 @@ tests:
         exp_alerts:
           - exp_labels:
               name: elasticsearch-operator.currentversion-builddate
+              namespace: openshift-logging
               severity: warning
             exp_annotations:
               summary: "Elasticsearch Operator CSV Not Successful"
