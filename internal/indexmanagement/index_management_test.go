@@ -10,7 +10,7 @@ import (
 	elasticsearch "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -116,7 +116,7 @@ var _ = Describe("Index Management", func() {
 			It("should suspend all cronjobs when non available", func() {
 				Expect(req.createOrUpdateIndexManagement()).To(BeNil())
 
-				cj := &batchv1beta1.CronJob{}
+				cj := &batchv1.CronJob{}
 				key := client.ObjectKey{Name: "elasticsearch-im-infra", Namespace: "openshift-logging"}
 				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
 				Expect(*cj.Spec.Suspend).To(BeTrue())
@@ -126,7 +126,7 @@ var _ = Describe("Index Management", func() {
 				req.client = fake.NewFakeClient(esPods...)
 				Expect(req.createOrUpdateIndexManagement()).To(BeNil())
 
-				cj := &batchv1beta1.CronJob{}
+				cj := &batchv1.CronJob{}
 				key := client.ObjectKey{Name: "elasticsearch-im-infra", Namespace: "openshift-logging"}
 				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
 				Expect(*cj.Spec.Suspend).To(BeFalse())
