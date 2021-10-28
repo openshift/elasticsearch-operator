@@ -2,14 +2,13 @@ package cronjob
 
 import (
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Builder represents the type to build Cronjob objects
 type Builder struct {
-	cj *batchv1beta1.CronJob
+	cj *batchv1.CronJob
 }
 
 // New returns a new Builder for Cronjob objects
@@ -17,19 +16,19 @@ func New(name, namespace string, labels map[string]string) *Builder {
 	return &Builder{cj: newCronjob(name, namespace, labels)}
 }
 
-func newCronjob(name, namespace string, labels map[string]string) *batchv1beta1.CronJob {
-	return &batchv1beta1.CronJob{
+func newCronjob(name, namespace string, labels map[string]string) *batchv1.CronJob {
+	return &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "CronJob",
-			APIVersion: batchv1beta1.SchemeGroupVersion.String(),
+			APIVersion: batchv1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels:    labels,
 		},
-		Spec: batchv1beta1.CronJobSpec{
-			JobTemplate: batchv1beta1.JobTemplateSpec{
+		Spec: batchv1.CronJobSpec{
+			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
@@ -44,10 +43,10 @@ func newCronjob(name, namespace string, labels map[string]string) *batchv1beta1.
 }
 
 // Build returns the final Cronjob object
-func (b *Builder) Build() *batchv1beta1.CronJob { return b.cj }
+func (b *Builder) Build() *batchv1.CronJob { return b.cj }
 
 // WithConcurrencyPolicy sets the concurrency policy for the cronjob
-func (b *Builder) WithConcurrencyPolicy(cp batchv1beta1.ConcurrencyPolicy) *Builder {
+func (b *Builder) WithConcurrencyPolicy(cp batchv1.ConcurrencyPolicy) *Builder {
 	b.cj.Spec.ConcurrencyPolicy = cp
 	return b
 }
