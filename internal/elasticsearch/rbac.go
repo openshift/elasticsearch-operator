@@ -38,7 +38,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch clusterrole",
 			"cluster", dpl.Name,
-			"namespace", dpl.Namespace,
 		)
 	}
 
@@ -87,7 +86,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch proxy clusterrole",
 			"cluster", dpl.Name,
-			"namespace", dpl.Namespace,
 		)
 	}
 
@@ -119,6 +117,43 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch proxy clusterrolebinding",
 			"cluster_role_binding_name", proxyRoleBinding.Name,
+		)
+	}
+
+	sccRole := rbac.NewRole(
+		"elasticsearch-restricted",
+		dpl.Namespace,
+		rbac.NewPolicyRules(
+			rbac.NewPolicyRule(
+				[]string{"security.openshift.io"},
+				[]string{"securitycontextconstraints"},
+				[]string{"restricted"},
+				[]string{"use"},
+				[]string{},
+			),
+		),
+	)
+
+	err = rbac.CreateOrUpdateRole(context.TODO(), er.client, sccRole)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update elasticsearch restricted role",
+			"cluster", dpl.Name,
+			"namespace", dpl.Namespace,
+		)
+	}
+
+	sccRoleBinding := rbac.NewRoleBinding(
+		"elasticsearch-restricted",
+		dpl.Namespace,
+		"elasticsearch-restricted",
+		subjects,
+	)
+
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.client, sccRoleBinding)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update elasticsearch restricted rolebinding",
+			"role_binding_name", sccRoleBinding.Name,
+			"namespace", dpl.Namespace,
 		)
 	}
 

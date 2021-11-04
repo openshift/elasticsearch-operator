@@ -167,6 +167,11 @@ func GetInt64(value int64) *int64 {
 	return &i
 }
 
+func GetBool(value bool) *bool {
+	b := value
+	return &b
+}
+
 func ContainsString(slice []string, s string) bool {
 	for _, item := range slice {
 		if item == s {
