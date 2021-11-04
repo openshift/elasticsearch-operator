@@ -12,6 +12,7 @@ import (
 	"github.com/ViaQ/logerr/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	securityv1 "github.com/openshift/api/security/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -77,6 +78,11 @@ func registerSchemes(t *testing.T) {
 	}
 
 	err = routev1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
+	}
+
+	err = securityv1.AddToScheme(scheme.Scheme)
 	if err != nil {
 		t.Fatalf("failed to add custom resource scheme to framework: %v", err)
 	}

@@ -21,6 +21,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	oauth "github.com/openshift/api/oauth/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	securityv1 "github.com/openshift/api/security/v1"
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	controllers "github.com/openshift/elasticsearch-operator/controllers/logging"
@@ -46,6 +47,7 @@ func init() {
 	utilruntime.Must(oauth.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
+	utilruntime.Must(securityv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

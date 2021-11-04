@@ -127,7 +127,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 			rbac.NewPolicyRule(
 				[]string{"security.openshift.io"},
 				[]string{"securitycontextconstraints"},
-				[]string{"restricted"},
+				[]string{"elasticsearch-scc"},
 				[]string{"use"},
 				[]string{},
 			),
