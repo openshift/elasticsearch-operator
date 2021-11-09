@@ -105,7 +105,7 @@ metadata:
       set of OCP nodes may not be large enough to support the Elasticsearch cluster.  Additional OCP nodes must be added
       to the OCP cluster if you desire to run with the recommended (or better) memory. Each ES node can operate with a
       lower memory setting though this is not recommended for production deployments.
-    olm.skipRange: '>=4.6.0-0 <5.3.0'
+    olm.skipRange: '>=4.6.0-0 <5.4.0'
     operatorframework.io/cluster-monitoring: "true"
     operatorframework.io/suggested-namespace: openshift-operators-redhat
     operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'
@@ -116,7 +116,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: elasticsearch-operator.v5.3.0
+  name: elasticsearch-operator.v5.4.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -550,4 +550,4 @@ spec:
   minKubeVersion: 1.18.3
   provider:
     name: Red Hat
-  version: 5.3.0
+  version: 5.4.0
