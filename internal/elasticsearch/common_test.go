@@ -478,7 +478,7 @@ func TestProxyContainerTLSClientAuthDefined(t *testing.T) {
 		}
 	}
 
-	wantVolumeMount := v1.VolumeMount{Name: "certificates", MountPath: "/etc/proxy/elasticsearch"}
+	wantVolumeMount := v1.VolumeMount{Name: "certificates", MountPath: "/etc/proxy/elasticsearch", ReadOnly: true}
 
 	hasMount := false
 	for _, vm := range proxyContainer.VolumeMounts {
@@ -533,6 +533,7 @@ func TestProxyContainerSpec(t *testing.T) {
 	wantVolumeMount := v1.VolumeMount{
 		Name:      "elasticsearch-metrics",
 		MountPath: "/etc/proxy/secrets",
+		ReadOnly:  true,
 	}
 
 	hasMount := false

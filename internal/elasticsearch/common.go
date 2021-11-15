@@ -23,6 +23,7 @@ import (
 
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 )
 
 var excludeConfigMapKeys = []string{"index_settings"}
@@ -186,6 +187,9 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 			},
 		},
 		Resources: resourceRequirements,
+		SecurityContext: &v1.SecurityContext{
+			AllowPrivilegeEscalation: pointer.BoolPtr(false),
+		},
 	}
 }
 
@@ -216,10 +220,12 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 			{
 				Name:      fmt.Sprintf("%s-%s", clusterName, "metrics"),
 				MountPath: "/etc/proxy/secrets",
+				ReadOnly:  true,
 			},
 			{
 				Name:      "certificates",
 				MountPath: "/etc/proxy/elasticsearch",
+				ReadOnly:  true,
 			},
 		},
 		Args: []string{
@@ -245,6 +251,10 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 			"--auth-default-role=project_user",
 		},
 		Resources: resourceRequirements,
+		SecurityContext: &v1.SecurityContext{
+			ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+			AllowPrivilegeEscalation: pointer.BoolPtr(false),
+		},
 	}
 	return container
 }

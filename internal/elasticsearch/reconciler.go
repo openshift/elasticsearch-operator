@@ -152,12 +152,17 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 
 	degradedCondition := false
 
+	// Ensure existence of securitycontextconstraints
+	if err := elasticsearchRequest.CreateOrUpdateSecurityContextConstraints(); err != nil {
+		return kverrors.Wrap(err, "Failed to reconcile SecurityContextConstraints for Elasticsearch cluster")
+	}
+
 	// Ensure existence of servicesaccount
 	if err := elasticsearchRequest.CreateOrUpdateServiceAccount(); err != nil {
 		return kverrors.Wrap(err, "Failed to reconcile ServiceAccount for Elasticsearch cluster")
 	}
 
-	// Ensure existence of clusterroles and clusterrolebindings
+	// Ensure existence of roles, rolebindings, clusterroles and clusterrolebindings
 	if err := elasticsearchRequest.CreateOrUpdateRBAC(); err != nil {
 		return kverrors.Wrap(err, "Failed to reconcile Roles and RoleBindings for Elasticsearch cluster")
 	}
