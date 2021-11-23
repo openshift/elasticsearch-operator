@@ -545,7 +545,6 @@ func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelec
 		WithNodeSelectors(nodeSelector).
 		WithTolerations(tolerations...).
 		WithRestartPolicy(corev1.RestartPolicyNever).
-		WithRestartPolicy(corev1.RestartPolicyNever).
 		WithTerminationGracePeriodSeconds(300 * time.Second).
 		Build()
 
@@ -555,7 +554,7 @@ func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelec
 		WithSuccessfulJobsHistoryLimit(jobHistoryLimitSuccess).
 		WithFailedJobsHistoryLimit(jobHistoryLimitFailed).
 		WithSchedule(schedule).
-		WithBackoffLimit(0).
+		WithBackoffLimit(2).
 		WithParallelism(1).
 		WithPodSpec(containerName, podSpec).
 		Build()
