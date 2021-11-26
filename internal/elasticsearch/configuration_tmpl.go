@@ -51,19 +51,19 @@ opendistro_security:
       enabled: true
       enforce_hostname_verification: false
       keystore_type: PKCS12
-      keystore_filepath: /etc/elasticsearch/secret/searchguard-key.p12
+      keystore_filepath: /var/run/elasticsearch/secret/searchguard-key.p12
       keystore_password: kspass
       truststore_type: PKCS12
-      truststore_filepath: /etc/elasticsearch/secret/searchguard-truststore.p12
+      truststore_filepath: /var/run/elasticsearch/secret/searchguard-truststore.p12
       truststore_password: tspass
     http:
       enabled: true
       keystore_type: PKCS12
-      keystore_filepath: /etc/elasticsearch/secret/key.p12
+      keystore_filepath: /var/run/elasticsearch/secret/key.p12
       keystore_password: kspass
       clientauth_mode: OPTIONAL
       truststore_type: PKCS12
-      truststore_filepath: /etc/elasticsearch/secret/truststore.p12
+      truststore_filepath: /var/run/elasticsearch/secret/truststore.p12
       truststore_password: tspass`
 
 const log4j2PropertiesTmpl = `
