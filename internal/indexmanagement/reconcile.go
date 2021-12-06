@@ -337,12 +337,27 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 	}
 
 	if policy.Phases.Delete != nil {
+		var (
+			namespaceSpecs       = make(map[string]string)
+			namespaceSpecsString = ""
+		)
+
+		if policy.Phases.Delete.Namespaces != nil {
+			for _, spec := range policy.Phases.Delete.Namespaces {
+				namespaceSpecs[spec.Namespace] = string(spec.MinAge)
+			}
+			namespaceSpecsJSON, _ := json.Marshal(namespaceSpecs)
+			namespaceSpecsString = string(namespaceSpecsJSON)
+		}
+
 		minAgeMillis, err := calculateMillisForTimeUnit(policy.Phases.Delete.MinAge)
 		if err != nil {
 			return err
 		}
+
 		envvars = append(envvars,
 			corev1.EnvVar{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
+			corev1.EnvVar{Name: "NAMESPACE_SPECS", Value: namespaceSpecsString},
 		)
 	} else {
 		log.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
@@ -362,6 +377,27 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 		log.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
 	}
 
+	// prune-namespaces cron job
+	if policy.Phases.Delete != nil && len(policy.Phases.Delete.Namespaces) != 0 {
+		schedule, err := crontabScheduleFor(policy.Phases.Delete.PruneNamespacesInterval)
+		if err != nil {
+			return kverrors.Wrap(err, "failed to reconcile prune cronjob", "policymapping", mapping.Name, "namespaceSpec", policy.Phases.Delete.Namespaces)
+		}
+		name := fmt.Sprintf("%s-im-prune-%s", imr.cluster.Name, mapping.Name)
+		script := "./prune-namespaces"
+		desired := newCronJob(imr.cluster.Name, imr.cluster.Namespace, name, schedule, script, imr.cluster.Spec.Spec.NodeSelector, imr.cluster.Spec.Spec.Tolerations, envvars, suspend)
+
+		imr.cluster.AddOwnerRefTo(desired)
+
+		err = cronjob.CreateOrUpdate(context.TODO(), imr.client, desired, areCronJobsSame, cronjob.Mutate)
+		if err != nil {
+			return kverrors.Wrap(err, "failed to create or update cronjob",
+				"cluster", desired.Name,
+				"namespace", desired.Namespace,
+			)
+		}
+	}
+	// delete & rollover cron job
 	schedule, err := crontabScheduleFor(policy.PollInterval)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to reconcile rollover cronjob", "policymapping", mapping.Name)
@@ -399,7 +435,7 @@ func formatCmd(policy apis.IndexManagementPolicySpec) string {
 }
 
 func areCronJobsSame(lhs, rhs *batch.CronJob) bool {
-	if len(lhs.Spec.JobTemplate.Spec.Template.Spec.Containers) != len(lhs.Spec.JobTemplate.Spec.Template.Spec.Containers) {
+	if len(lhs.Spec.JobTemplate.Spec.Template.Spec.Containers) != len(rhs.Spec.JobTemplate.Spec.Template.Spec.Containers) {
 		return false
 	}
 	if !comparators.AreStringMapsSame(lhs.Spec.JobTemplate.Spec.Template.Spec.NodeSelector, rhs.Spec.JobTemplate.Spec.Template.Spec.NodeSelector) {

@@ -95,7 +95,14 @@ var _ = Describe("Index Management", func() {
 												},
 											},
 											Delete: &elasticsearch.IndexManagementDeletePhaseSpec{
-												MinAge: elasticsearch.TimeUnit("5m"),
+												MinAge:                  elasticsearch.TimeUnit("5m"),
+												PruneNamespacesInterval: elasticsearch.TimeUnit("15m"),
+												Namespaces: []elasticsearch.IndexManagementDeleteNamespaceSpec{
+													{
+														Namespace: "openshift-logging",
+														MinAge:    elasticsearch.TimeUnit("10m"),
+													},
+												},
 											},
 										},
 									},
@@ -120,6 +127,10 @@ var _ = Describe("Index Management", func() {
 				key := client.ObjectKey{Name: "elasticsearch-im-infra", Namespace: "openshift-logging"}
 				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
 				Expect(*cj.Spec.Suspend).To(BeTrue())
+
+				key = client.ObjectKey{Name: "elasticsearch-im-prune-infra", Namespace: "openshift-logging"}
+				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
+				Expect(*cj.Spec.Suspend).To(BeTrue())
 			})
 
 			It("should unsuspend all cronjobs when at least on elasticsearch pod running", func() {
@@ -128,6 +139,10 @@ var _ = Describe("Index Management", func() {
 
 				cj := &batchv1.CronJob{}
 				key := client.ObjectKey{Name: "elasticsearch-im-infra", Namespace: "openshift-logging"}
+				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
+				Expect(*cj.Spec.Suspend).To(BeFalse())
+
+				key = client.ObjectKey{Name: "elasticsearch-im-prune-infra", Namespace: "openshift-logging"}
 				Expect(req.client.Get(context.TODO(), key, cj)).To(BeNil())
 				Expect(*cj.Spec.Suspend).To(BeFalse())
 			})

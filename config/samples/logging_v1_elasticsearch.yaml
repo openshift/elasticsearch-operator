@@ -28,6 +28,10 @@ spec:
               maxAge:   8h
         delete:
           minAge: 2d
+          pruneNamespacesInterval: 24h
+          namespaceSpec:
+          - namespace: openshift-monitoring
+            minAge: 5h
     mappings:
     - name:  infra
       policyRef: infra-policy

@@ -103,6 +103,30 @@ spec:
                                     it should be deleted (e.g. 10d)
                                   pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                   type: string
+                                namespaceSpec:
+                                  description: The per namesapce specification to
+                                    delete documents older than a given minimum age
+                                  items:
+                                    properties:
+                                      minAge:
+                                        description: Delete the records matching the
+                                          namespaces which are older than this MinAge
+                                          (e.g. 1d)
+                                        pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                                        type: string
+                                      namespace:
+                                        description: Target Namespace to delete logs
+                                          older than MinAge (defaults to 7d)
+                                        type: string
+                                    required:
+                                    - namespace
+                                    type: object
+                                  type: array
+                                pruneNamespacesInterval:
+                                  description: How often to run a new prune-namespaces
+                                    cron job
+                                  pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                                  type: string
                               required:
                               - minAge
                               type: object
