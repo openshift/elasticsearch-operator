@@ -378,7 +378,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 	}
 
 	// prune-namespaces cron job
-	if policy.Phases.Delete != nil && len(policy.Phases.Delete.Namespaces) != 0 {
+	if policy.Phases.Delete != nil && policy.Phases.Delete.Namespaces != nil {
 		schedule, err := crontabScheduleFor(policy.Phases.Delete.PruneNamespacesInterval)
 		if err != nil {
 			return kverrors.Wrap(err, "failed to reconcile prune cronjob", "policymapping", mapping.Name, "namespaceSpec", policy.Phases.Delete.Namespaces)
