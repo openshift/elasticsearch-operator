@@ -32,7 +32,6 @@ type certificate struct {
 	key       []byte
 	x509Cert  *x509.Certificate
 	privKey   *rsa.PrivateKey
-	certMutex sync.Mutex
 }
 
 type certCA struct {
@@ -115,6 +114,10 @@ var (
 	// In ASN.1, "2 5 29 17" is the OID for subjectAltName (SAN)
 	// The FullBytes are ASN.1-encoded 1.2.3.4.5.5
 	sanIdentifier asn1.ObjectIdentifier = asn1.ObjectIdentifier{2, 5, 29, 17}
+	//Fixing a race condition between GenerateComponentsCerts and GenerateKibanaCerts functions
+	//Here make mutex global. Probably temporary solution, need more deep refactoring of code related to certificate
+	//generation. Problem was founded during working on issue: https://issues.redhat.com/browse/LOG-1923
+	certMutex                           = sync.Mutex{}
 )
 
 type CertificateRequest struct {
@@ -168,6 +171,8 @@ func (cr *CertificateRequest) getSigningSecretName() string {
 }
 
 func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
+	certMutex.Lock()
+	defer certMutex.Unlock()
 	key := client.ObjectKey{Name: secretName, Namespace: cr.Namespace}
 	s, err := secret.Get(context.TODO(), cr.K8sClient, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
@@ -205,6 +210,8 @@ func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
 }
 
 func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
+	certMutex.Lock()
+	defer certMutex.Unlock()
 	key := client.ObjectKey{Name: kibanaSecretName, Namespace: cr.Namespace}
 	s, err := secret.Get(context.TODO(), cr.K8sClient, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
@@ -281,6 +288,8 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 }
 
 func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
+	certMutex.Lock()
+	defer certMutex.Unlock()
 	// get from secret
 	key := client.ObjectKey{Name: clusterName, Namespace: cr.Namespace}
 	s, err := secret.Get(context.TODO(), cr.K8sClient, key)
@@ -358,9 +367,6 @@ func (cr *CertificateRequest) persistCA(caCert *certCA) error {
 }
 
 func (cr *CertificateRequest) ensureCA(caCert *certCA) error {
-	caCert.certMutex.Lock()
-	defer caCert.certMutex.Unlock()
-
 	secretName := cr.getSigningSecretName()
 
 	// get the ca from the secret if we can
@@ -406,9 +412,6 @@ func (cr *CertificateRequest) ensureCA(caCert *certCA) error {
 }
 
 func (cr *CertificateRequest) incrementCertSerial(ca *certCA) (*big.Int, error) {
-	ca.certMutex.Lock()
-	defer ca.certMutex.Unlock()
-
 	ca.serial.Add(ca.serial, bigOne)
 	serial := big.NewInt(0)
 	serial.Set(ca.serial)
@@ -460,9 +463,6 @@ func (cr *CertificateRequest) generateCert(componentName string, cert *certifica
 	if err != nil {
 		return err
 	}
-
-	cert.certMutex.Lock()
-	defer cert.certMutex.Unlock()
 
 	x509Cert := &x509.Certificate{
 		SerialNumber:       serial,
@@ -591,7 +591,6 @@ func genCA() (*certCA, error) {
 			keyPEMBytes,
 			ca,
 			caPrivKey,
-			sync.Mutex{},
 		},
 		serial,
 		caPubKeySHA1[:],
@@ -793,7 +792,6 @@ func validateCASecret(secret *v1.Secret) (*certCA, error) {
 			keyBytes,
 			x509Cert,
 			rsaKey,
-			sync.Mutex{},
 		},
 		serial,
 		pubKeySHA1[:],
