@@ -51,13 +51,13 @@ func (r *ElasticsearchReconciler) Reconcile(ctx context.Context, request ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	metrics.CollectNodeMetrics(&cluster.Spec)
+	metrics.SetRedundancyMetric(cluster.Spec.RedundancyPolicy)
+	metrics.SetManagementStateMetric(cluster.Spec.ManagementState == loggingv1.ManagementStateManaged)
+
 	if cluster.Spec.ManagementState == loggingv1.ManagementStateUnmanaged {
-		// Cluster state changes from Managed -> Unmanaged, so set "unmanaged" as 1 and set "managed" as 0.
-		metrics.SetEsClusterManagementStateUnmanaged()
 		return ctrl.Result{}, nil
 	}
-	// Cluster state changes from Unmanaged -> Managed, so set "managed" as 1 and set "unmanaged" as 0.
-	metrics.SetEsClusterManagementStateManaged()
 
 	if cluster.Spec.Spec.Image != "" {
 		if cluster.Status.Conditions == nil {
