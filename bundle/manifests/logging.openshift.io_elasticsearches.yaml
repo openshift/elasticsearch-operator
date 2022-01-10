@@ -104,7 +104,7 @@ spec:
                                   pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                   type: string
                                 namespaceSpec:
-                                  description: The per namesapce specification to
+                                  description: The per namespace specification to
                                     delete documents older than a given minimum age
                                   items:
                                     properties:
@@ -116,7 +116,9 @@ spec:
                                         type: string
                                       namespace:
                                         description: Target Namespace to delete logs
-                                          older than MinAge (defaults to 7d)
+                                          older than MinAge (defaults to 7d) Can be
+                                          one namespace name or a prefix (e.g., "openshift-"
+                                          covers all namespaces with this prefix)
                                         type: string
                                     required:
                                     - namespace
@@ -124,7 +126,7 @@ spec:
                                   type: array
                                 pruneNamespacesInterval:
                                   description: How often to run a new prune-namespaces
-                                    cron job
+                                    job
                                   pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                   type: string
                               required:

@@ -27,7 +27,14 @@ metadata:
                   "name": "infra-policy",
                   "phases": {
                     "delete": {
-                      "minAge": "2d"
+                      "minAge": "2d",
+                      "namespaceSpec": [
+                        {
+                          "minAge": "5h",
+                          "namespace": "openshift-monitoring"
+                        }
+                      ],
+                      "pruneNamespacesInterval": "24h"
                     },
                     "hot": {
                       "actions": {

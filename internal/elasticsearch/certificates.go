@@ -28,10 +28,10 @@ import (
 )
 
 type certificate struct {
-	cert      []byte
-	key       []byte
-	x509Cert  *x509.Certificate
-	privKey   *rsa.PrivateKey
+	cert     []byte
+	key      []byte
+	x509Cert *x509.Certificate
+	privKey  *rsa.PrivateKey
 }
 
 type certCA struct {
@@ -114,10 +114,10 @@ var (
 	// In ASN.1, "2 5 29 17" is the OID for subjectAltName (SAN)
 	// The FullBytes are ASN.1-encoded 1.2.3.4.5.5
 	sanIdentifier asn1.ObjectIdentifier = asn1.ObjectIdentifier{2, 5, 29, 17}
-	//Fixing a race condition between GenerateComponentsCerts and GenerateKibanaCerts functions
-	//Here make mutex global. Probably temporary solution, need more deep refactoring of code related to certificate
-	//generation. Problem was founded during working on issue: https://issues.redhat.com/browse/LOG-1923
-	certMutex                           = sync.Mutex{}
+	// Fixing a race condition between GenerateComponentsCerts and GenerateKibanaCerts functions
+	// Here make mutex global. Probably temporary solution, need more deep refactoring of code related to certificate
+	// generation. Problem was founded during working on issue: https://issues.redhat.com/browse/LOG-1923
+	certMutex = sync.Mutex{}
 )
 
 type CertificateRequest struct {

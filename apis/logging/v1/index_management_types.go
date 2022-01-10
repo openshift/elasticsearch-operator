@@ -51,7 +51,7 @@ type IndexManagementDeletePhaseSpec struct {
 
 	// How often to run a new prune-namespaces job
 	// +optional
-	PruneNamespacesInterval TimeUnit `json:"pruneNamespacesInterval"`
+	PruneNamespacesInterval TimeUnit `json:"pruneNamespacesInterval,omitempty"`
 
 	// The per namespace specification to delete documents older than a given minimum age
 	// +optional
