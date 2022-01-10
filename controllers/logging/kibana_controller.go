@@ -248,7 +248,7 @@ func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	secretPred := predicate.Funcs{
 		UpdateFunc:  func(e event.UpdateEvent) bool { return handleSecret(e.ObjectNew) },
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return handleSecret(e.Object) },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
