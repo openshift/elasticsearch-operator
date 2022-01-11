@@ -26,22 +26,23 @@ type MutatePVCFunc func(current, desired *corev1.PersistentVolumeClaim)
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdatePVC(ctx context.Context, c client.Client, pvc *corev1.PersistentVolumeClaim, equal EqualityPVCFunc, mutate MutatePVCFunc) error {
-	err := c.Create(ctx, pvc)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create persistentvolumeclaim",
-			"name", pvc.Name,
-			"namespace", pvc.Namespace,
-		)
-	}
-
 	current := &corev1.PersistentVolumeClaim{}
 	key := client.ObjectKey{Name: pvc.Name, Namespace: pvc.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, pvc)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create persistentvolumeclaim",
+				"name", pvc.Name,
+				"namespace", pvc.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get persistentvolumeclaim",
 			"name", pvc.Name,
 			"namespace", pvc.Namespace,
