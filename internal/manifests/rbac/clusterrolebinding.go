@@ -13,26 +13,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateOrUpdateClusterRoleBinding attempts first to create the given clusterrolebinding. If the
-// clusterrolebinding already exists and the provided comparison func detects any changes
+// CreateOrUpdateClusterRoleBinding attempts first to get the given clusterrolebinding. If the
+// clusterrolebinding does not exist, the clusterrolebinding will be created. Otherwise,
+// if the clusterrolebinding exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdateClusterRoleBinding(ctx context.Context, c client.Client, crb *rbacv1.ClusterRoleBinding) error {
-	err := c.Create(ctx, crb)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create clusterrolebinding",
-			"name", crb.Name,
-		)
-	}
-
 	current := &rbacv1.ClusterRoleBinding{}
 	key := client.ObjectKey{Name: crb.Name}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, crb)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create clusterrolebinding",
+				"name", crb.Name,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get clusterrolebinding",
 			"name", crb.Name,
 		)

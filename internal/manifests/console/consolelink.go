@@ -21,26 +21,28 @@ type ConsoleLinkEqualityFunc func(current, desired *consolev1.ConsoleLink) bool
 // by applying the values from the desired consolelink.
 type MutateConsoleLinkFunc func(current, desired *consolev1.ConsoleLink)
 
-// CreateOrUpdateConsoleLink attempts first to create the given consolelink. If the
-// consolelink already exists and the provided comparison func detects any changes
+// CreateOrUpdateConsoleLink attempts first to get the given consolelink. If the
+// consolelink does not exist, the consolelink will be created. Otherwise,
+// if the consolelink exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *consolev1.ConsoleLink, equal ConsoleLinkEqualityFunc, mutate MutateConsoleLinkFunc) error {
-	err := c.Create(ctx, cl)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create consolelink",
-			"name", cl.Name,
-		)
-	}
-
 	current := &consolev1.ConsoleLink{}
 	key := client.ObjectKey{Name: cl.Name}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, cl)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create consolelink",
+				"name", cl.Name,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get consolelink",
 			"name", cl.Name,
 		)

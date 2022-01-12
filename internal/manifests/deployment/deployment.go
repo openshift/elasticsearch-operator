@@ -49,54 +49,50 @@ func Create(ctx context.Context, c client.Client, dpl *appsv1.Deployment) error 
 
 // Update will update an existing deployment if compare func returns true or else leave it unchanged
 func Update(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal EqualityFunc, mutate MutateFunc) error {
-	current := &appsv1.Deployment{}
-	key := client.ObjectKey{Name: dpl.Name, Namespace: dpl.Namespace}
-	err := c.Get(ctx, key, current)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &appsv1.Deployment{}
+		key := client.ObjectKey{Name: dpl.Name, Namespace: dpl.Namespace}
+
+		if err := c.Get(ctx, key, current); err != nil {
+			log.Error(err, "failed to get deployment", dpl.Name)
+			return err
+		}
+
+		if equal(current, dpl) {
+			return nil
+		}
+
+		mutate(current, dpl)
+		if err := c.Update(ctx, current); err != nil {
+			log.Error(err, "failed to update deployment", dpl.Name)
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return kverrors.Wrap(err, "failed to get deployment",
+		return kverrors.Wrap(err, "failed to update deployment",
 			"name", dpl.Name,
 			"namespace", dpl.Namespace,
 		)
 	}
-
-	if !equal(current, dpl) {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get deployment", dpl.Name)
-				return err
-			}
-
-			mutate(current, dpl)
-			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update deployment", dpl.Name)
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			return kverrors.Wrap(err, "failed to update deployment",
-				"name", dpl.Name,
-				"namespace", dpl.Namespace,
-			)
-		}
-		return nil
-	}
-
 	return nil
 }
 
-// CreateOrUpdate attempts first to create the given deployment. If the
-// deployment already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given deployment. If the
+// deployment does not exist, the deployment will be created. Otherwise,
+// if the deployment exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal EqualityFunc, mutate MutateFunc) error {
-	err := Create(ctx, c, dpl)
-	if err == nil {
-		return nil
-	}
+	current := &appsv1.Deployment{}
+	key := client.ObjectKey{Name: dpl.Name, Namespace: dpl.Namespace}
+	err := c.Get(ctx, key, current)
+	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			return Create(ctx, c, dpl)
+		}
 
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create deployment",
+		return kverrors.Wrap(err, "failed to get deployment",
 			"name", dpl.Name,
 			"namespace", dpl.Namespace,
 		)

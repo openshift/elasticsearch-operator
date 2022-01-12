@@ -85,27 +85,20 @@ func Create(ctx context.Context, c client.Client, cm *corev1.ConfigMap) error {
 	return nil
 }
 
-// CreateOrUpdate attempts first to create the given configmap. If the
-// configmap already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given configmap. If the
+// configmap does not exist, the configmap will be created. Otherwise,
+// if the configmap exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
-// Returns on failure an non-nil error.
+// Returns on failure an non-nil error. Returns true if the configmap was updated and false otherwise.
 func CreateOrUpdate(ctx context.Context, c client.Client, cm *corev1.ConfigMap, equal EqualityFunc, mutate MutateFunc) (bool, error) {
-	err := Create(ctx, c, cm)
-	if err == nil {
-		return false, nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return false, kverrors.Wrap(err, "failed to create configmap",
-			"name", cm.Name,
-			"namespace", cm.Namespace,
-		)
-	}
-
 	current := &corev1.ConfigMap{}
 	key := client.ObjectKey{Name: cm.Name, Namespace: cm.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			return false, Create(ctx, c, cm)
+		}
+
 		return false, kverrors.Wrap(err, "failed to get configmap",
 			"name", cm.Name,
 			"namespace", cm.Namespace,

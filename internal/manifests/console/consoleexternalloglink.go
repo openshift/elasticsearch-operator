@@ -21,26 +21,28 @@ type ConsoleExternalLogLinkEqualityFunc func(current, desired *consolev1.Console
 // by applying the values from the desired consoleexternalloglink.
 type MutateConsoleExternalLogLinkFunc func(current, desired *consolev1.ConsoleExternalLogLink)
 
-// CreateOrUpdateConsoleExternalLogLink attempts first to create the given consoleexternalloglink. If the
-// consoleexternalloglink already exists and the provided comparison func detects any changes
+// CreateOrUpdateConsoleExternalLogLink attempts first to get the given consoleexternalloglink. If the
+// consoleexternalloglink does not exist, the consoleexternalloglink will be created. Otherwise,
+// if the consoleexternalloglink exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdateConsoleExternalLogLink(ctx context.Context, c client.Client, cll *consolev1.ConsoleExternalLogLink, equal ConsoleExternalLogLinkEqualityFunc, mutate MutateConsoleExternalLogLinkFunc) error {
-	err := c.Create(ctx, cll)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create consoleexternalloglink",
-			"name", cll.Name,
-		)
-	}
-
 	current := &consolev1.ConsoleExternalLogLink{}
 	key := client.ObjectKey{Name: cll.Name}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, cll)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create consoleexternalloglink",
+				"name", cll.Name,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get consoleexternalloglink",
 			"name", cll.Name,
 		)

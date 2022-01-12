@@ -14,30 +14,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// MutateFunc is the type for functions that mutate the current constraints
+// MutateFunc is the type for functions that mutate the current securitycontextconstraints
 // by applying the values from the desired route.
 type MutateFunc func(current, desired *securityv1.SecurityContextConstraints)
 
-// CreateOrUpdate attempts first to create the given constraints. If the
-// constraints already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given securitycontextconstraints. If the
+// securitycontextconstraints does not exist, the securitycontextconstraints will be created. Otherwise,
+// if the securitycontextconstraints exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, s *securityv1.SecurityContextConstraints, mutate MutateFunc) error {
-	err := c.Create(ctx, s)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create security context constraints",
-			"name", s.Name,
-		)
-	}
-
 	current := &securityv1.SecurityContextConstraints{}
 	key := client.ObjectKey{Name: s.Name}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, s)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create security context constraints",
+				"name", s.Name,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get security context constraints",
 			"name", s.Name,
 		)

@@ -21,8 +21,9 @@ type EqualityPVCFunc func(current, desired *corev1.PersistentVolumeClaim) bool
 // by applying the values from the desired persistentvolumeclaim.
 type MutatePVCFunc func(current, desired *corev1.PersistentVolumeClaim)
 
-// CreateOrUpdatePVC attempts first to create the given persistentvolumeclaim. If the
-// persistentvolumeclaim already exists and the provided comparison func detects any changes
+// CreateOrUpdatePVC attempts first to get the given persistentvolumeclaim. If the
+// persistentvolumeclaim does not exist, the persistentvolumeclaim will be created. Otherwise,
+// if the persistentvolumeclaim exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdatePVC(ctx context.Context, c client.Client, pvc *corev1.PersistentVolumeClaim, equal EqualityPVCFunc, mutate MutatePVCFunc) error {

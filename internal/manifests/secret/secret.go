@@ -67,27 +67,29 @@ func GetDataSHA256(ctx context.Context, c client.Client, key client.ObjectKey) s
 	return hash
 }
 
-// CreateOrUpdate attempts first to create the given secret. If the
-// secret already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given secret. If the
+// secret does not exist, the secret will be created. Otherwise,
+// if the secret exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, s *corev1.Secret, equal EqualityFunc, mutate MutateFunc) error {
-	err := c.Create(ctx, s)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create secret",
-			"name", s.Name,
-			"namespace", s.Namespace,
-		)
-	}
-
 	current := &corev1.Secret{}
 	key := client.ObjectKey{Name: s.Name, Namespace: s.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, s)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create secret",
+				"name", s.Name,
+				"namespace", s.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get secret",
 			"name", s.Name,
 			"namespace", s.Namespace,

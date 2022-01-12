@@ -48,39 +48,32 @@ func Create(ctx context.Context, c client.Client, sts *appsv1.StatefulSet) error
 // Update will update an existing statefulset if compare func returns true or else leave it unchanged. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal EqualityFunc, mutate MutateFunc) error {
-	current := &appsv1.StatefulSet{}
-	key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
-	err := c.Get(ctx, key, current)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &appsv1.StatefulSet{}
+		key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
+
+		if err := c.Get(ctx, key, current); err != nil {
+			log.Error(err, "failed to get statefulset", sts.Name)
+			return err
+		}
+
+		if equal(current, sts) {
+			return nil
+		}
+
+		mutate(current, sts)
+		if err := c.Update(ctx, current); err != nil {
+			log.Error(err, "failed to update statefulset", sts.Name)
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return kverrors.Wrap(err, "failed to get statefulset",
+		return kverrors.Wrap(err, "failed to update statefulset",
 			"name", sts.Name,
 			"namespace", sts.Namespace,
 		)
 	}
-
-	if !equal(current, sts) {
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get statefulset", sts.Name)
-				return err
-			}
-
-			mutate(current, sts)
-			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update statefulset", sts.Name)
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			return kverrors.Wrap(err, "failed to update statefulset",
-				"name", sts.Name,
-				"namespace", sts.Namespace,
-			)
-		}
-		return nil
-	}
-
 	return nil
 }
 

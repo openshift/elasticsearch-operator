@@ -21,27 +21,29 @@ type EqualityFunc func(current, desired *batchv1beta1.CronJob) bool
 // by applying the values from the desired cronjob.
 type MutateFunc func(current, desired *batchv1beta1.CronJob)
 
-// CreateOrUpdate attempts first to create the given cronjob. If the
-// cronjob already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given cronjob. If the
+// cronjob does not exist, the cronjob will be created. Otherwise,
+// if the cronjob exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, cj *batchv1beta1.CronJob, equal EqualityFunc, mutate MutateFunc) error {
-	err := c.Create(ctx, cj)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create cronjob",
-			"name", cj.Name,
-			"namespace", cj.Namespace,
-		)
-	}
-
 	current := &batchv1beta1.CronJob{}
 	key := client.ObjectKey{Name: cj.Name, Namespace: cj.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, cj)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create cronjob",
+				"name", cj.Name,
+				"namespace", cj.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get cronjob",
 			"name", cj.Name,
 			"namespace", cj.Namespace,
