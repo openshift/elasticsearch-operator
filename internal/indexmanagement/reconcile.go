@@ -28,6 +28,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/cronjob"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/rbac"
+	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	esapi "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 )
@@ -338,6 +339,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 	if policy.Phases.Delete != nil {
 		var (
+			namespaceCount       = 0
 			namespaceSpecs       = make(map[string]string)
 			namespaceSpecsString = ""
 		)
@@ -346,6 +348,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			for _, spec := range policy.Phases.Delete.Namespaces {
 				namespaceSpecs[spec.Namespace] = string(spec.MinAge)
 			}
+			namespaceCount = len(policy.Phases.Delete.Namespaces)
 			namespaceSpecsJSON, _ := json.Marshal(namespaceSpecs)
 			namespaceSpecsString = string(namespaceSpecsJSON)
 		}
@@ -359,8 +362,14 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			corev1.EnvVar{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
 			corev1.EnvVar{Name: "NAMESPACE_SPECS", Value: namespaceSpecsString},
 		)
+
+		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, minAgeMillis / millisPerSecond)
+		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, namespaceCount)
 	} else {
 		log.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
+
+		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, 0)
+		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, 0)
 	}
 
 	if policy.Phases.Hot != nil {
@@ -373,8 +382,14 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			corev1.EnvVar{Name: "PAYLOAD", Value: base64.StdEncoding.EncodeToString(payload)},
 		)
 
+		if policy.Phases.Hot.Actions.Rollover != nil {
+			maxAgeMillis, _ := calculateMillisForTimeUnit(policy.Phases.Hot.Actions.Rollover.MaxAge)
+			metrics.SetIndexRetentionDocumentAge(false, mapping.Name, maxAgeMillis / millisPerSecond)
+		}
 	} else {
 		log.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
+
+		metrics.SetIndexRetentionDocumentAge(false, mapping.Name, 0)
 	}
 
 	// prune-namespaces cron job
