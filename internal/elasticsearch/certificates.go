@@ -101,8 +101,8 @@ var (
 
 	caOrganizationUnit        = []string{"Logging Signing CA"}
 	caCountry                 = []string{"io", "openshift"}
-	certOrganization          = []string{"OpenShift"}
-	componentOrganizationUnit = []string{"Logging"}
+	certOrganization          = []string{"Logging"}
+	componentOrganizationUnit = []string{"OpenShift"}
 
 	ridRawValue asn1.RawValue = asn1.RawValue{
 		FullBytes: []byte{0x88, 0x05, 0x2A, 0x03, 0x04, 0x05, 0x05},
