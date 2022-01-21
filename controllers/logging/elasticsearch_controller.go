@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/openshift/elasticsearch-operator/internal/indexmanagement"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/console"
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 
 	"github.com/ViaQ/logerr/log"
@@ -45,6 +46,9 @@ func (r *ElasticsearchReconciler) Reconcile(request ctrl.Request) (ctrl.Result, 
 			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
 			elasticsearch.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
 			elasticsearch.RemoveDashboardConfigMap(r.Client)
+			if err := console.DeleteKibanaConsoleLink(context.TODO(), r.Client); err != nil {
+				log.Error(err, "failed to delete consolelink")
+			}
 			return ctrl.Result{}, nil
 		}
 
