@@ -13,27 +13,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateOrUpdateRoleBinding attempts first to create the given rolebinding. If the
-// rolebinding already exists and the provided comparison func detects any changes
+// CreateOrUpdateRoleBinding attempts first to get the given rolebinding. If the
+// rolebinding does not exist, the rolebinding will be created. Otherwise,
+// if the rolebinding exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdateRoleBinding(ctx context.Context, c client.Client, rb *rbacv1.RoleBinding) error {
-	err := c.Create(ctx, rb)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create rolebinding",
-			"name", rb.Name,
-			"namespace", rb.Namespace,
-		)
-	}
-
 	current := &rbacv1.RoleBinding{}
 	key := client.ObjectKey{Name: rb.Name, Namespace: rb.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, rb)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create rolebinding",
+				"name", rb.Name,
+				"namespace", rb.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get rolebinding",
 			"name", rb.Name,
 			"namespace", rb.Namespace,

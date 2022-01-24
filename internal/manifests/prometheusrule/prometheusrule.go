@@ -14,27 +14,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateOrUpdate attempts first to create the given prometheusrule. If the
-// prometheusrule already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given prometheusrule. If the
+// prometheusrule does not exist, the prometheusrule will be created. Otherwise,
+// if the prometheusrule exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, pr *monitoringv1.PrometheusRule) error {
-	err := c.Create(ctx, pr)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create prometheusrule",
-			"name", pr.Name,
-			"namespace", pr.Namespace,
-		)
-	}
-
 	current := &monitoringv1.PrometheusRule{}
 	key := client.ObjectKey{Name: pr.Name, Namespace: pr.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, pr)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create prometheusrule",
+				"name", pr.Name,
+				"namespace", pr.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get prometheusrule",
 			"name", pr.Name,
 			"namespace", pr.Namespace,

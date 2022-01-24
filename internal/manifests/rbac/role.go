@@ -13,27 +13,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateOrUpdateRole attempts first to create the given role. If the
-// role already exists and the provided comparison func detects any changes
+// CreateOrUpdateRole attempts first to get the given role. If the
+// role does not exist, the role will be created. Otherwise,
+// if the role exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdateRole(ctx context.Context, c client.Client, r *rbacv1.Role) error {
-	err := c.Create(ctx, r)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create role",
-			"name", r.Name,
-			"namespace", r.Namespace,
-		)
-	}
-
 	current := &rbacv1.Role{}
 	key := client.ObjectKey{Name: r.Name, Namespace: r.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, r)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create role",
+				"name", r.Name,
+				"namespace", r.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get role",
 			"name", r.Name,
 			"namespace", r.Namespace,

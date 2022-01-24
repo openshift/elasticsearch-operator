@@ -13,26 +13,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// CreateOrUpdateClusterRole attempts first to create the given clusterrole. If the
-// clusterrole already exists and the provided comparison func detects any changes
+// CreateOrUpdateClusterRole attempts first to get the given clusterrole. If the
+// clusterrole does not exist, the clusterrole will be created. Otherwise,
+// if the clusterrole exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdateClusterRole(ctx context.Context, c client.Client, cr *rbacv1.ClusterRole) error {
-	err := c.Create(ctx, cr)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create clusterrole",
-			"name", cr.Name,
-		)
-	}
-
 	current := &rbacv1.ClusterRole{}
 	key := client.ObjectKey{Name: cr.Name}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, cr)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create clusterrole",
+				"name", cr.Name,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get clusterrole",
 			"name", cr.Name,
 		)

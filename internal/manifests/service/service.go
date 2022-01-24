@@ -21,27 +21,29 @@ type EqualityFunc func(current, desired *corev1.Service) bool
 // by applying the values from the desired service.
 type MutateFunc func(current, desired *corev1.Service)
 
-// CreateOrUpdate attempts first to create the given service. If the
-// service already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given service. If the
+// service does not exist, the service will be created. Otherwise,
+// if the service exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
-// Returns on failure a non-nil error.
+// Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, svc *corev1.Service, equal EqualityFunc, mutate MutateFunc) error {
-	err := c.Create(ctx, svc)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create service",
-			"name", svc.Name,
-			"namespace", svc.Namespace,
-		)
-	}
-
 	current := &corev1.Service{}
 	key := client.ObjectKey{Name: svc.Name, Namespace: svc.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, svc)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create service",
+				"name", svc.Name,
+				"namespace", svc.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get service",
 			"name", svc.Name,
 			"namespace", svc.Namespace,

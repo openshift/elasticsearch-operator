@@ -36,27 +36,29 @@ func Get(ctx context.Context, c client.Client, key client.ObjectKey) (*routev1.R
 	return r, nil
 }
 
-// CreateOrUpdate attempts first to create the given route. If the
-// route already exists and the provided comparison func detects any changes
+// CreateOrUpdate attempts first to get the given route. If the
+// route does not exist, the route will be created. Otherwise,
+// if the route exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
 func CreateOrUpdate(ctx context.Context, c client.Client, r *routev1.Route, equal EqualityFunc, mutate MutateFunc) error {
-	err := c.Create(ctx, r)
-	if err == nil {
-		return nil
-	}
-
-	if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
-		return kverrors.Wrap(err, "failed to create route",
-			"name", r.Name,
-			"namespace", r.Namespace,
-		)
-	}
-
 	current := &routev1.Route{}
 	key := client.ObjectKey{Name: r.Name, Namespace: r.Namespace}
-	err = c.Get(ctx, key, current)
+	err := c.Get(ctx, key, current)
 	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			err = c.Create(ctx, r)
+
+			if err == nil {
+				return nil
+			}
+
+			return kverrors.Wrap(err, "failed to create route",
+				"name", r.Name,
+				"namespace", r.Namespace,
+			)
+		}
+
 		return kverrors.Wrap(err, "failed to get route",
 			"name", r.Name,
 			"namespace", r.Namespace,
