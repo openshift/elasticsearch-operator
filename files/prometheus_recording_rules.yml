@@ -11,3 +11,17 @@
   - "expr": |
       sum by (cluster, instance, node) (writing:rejected_requests:rate2m) / on (cluster, instance, node) (writing:completed_requests:rate2m)
     "record": "writing:reject_ratio:rate2m"
+- "name": "logging_elasticsearch_telemetry.rules"
+  "rules":
+  - "expr": |
+      max by(cluster)(es_cluster_datanodes_number)
+    "record": "cluster:eo_es_datanodes_total:max"
+  - "expr": |
+      sum by(cluster)(es_indices_doc_number)
+    "record": "cluster:eo_es_documents_created_total:sum"
+  - "expr": |
+      sum by(cluster)(es_indices_doc_deleted_number)
+    "record": "cluster:eo_es_documents_deleted_total:sum"
+  - "expr": |
+      max(sum by(pod)(es_cluster_shards_number{type!="active_primary"}))
+    "record": "pod:eo_es_shards_total:max"
