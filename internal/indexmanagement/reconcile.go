@@ -232,6 +232,7 @@ func (imr *IndexManagementRequest) removeCronJobsForMappings(mappings []apis.Ind
 	expected := sets.NewString()
 	for _, mapping := range mappings {
 		expected.Insert(fmt.Sprintf("%s-im-%s", imr.cluster.Name, mapping.Name))
+		expected.Insert(fmt.Sprintf("%s-im-prune-%s", imr.cluster.Name, mapping.Name))
 	}
 
 	cronList, err := cronjob.List(context.TODO(), imr.client, imr.cluster.Namespace, imLabels)
@@ -363,7 +364,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			corev1.EnvVar{Name: "NAMESPACE_SPECS", Value: namespaceSpecsString},
 		)
 
-		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, minAgeMillis / millisPerSecond)
+		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, minAgeMillis/millisPerSecond)
 		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, namespaceCount)
 	} else {
 		log.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
@@ -384,7 +385,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 		if policy.Phases.Hot.Actions.Rollover != nil {
 			maxAgeMillis, _ := calculateMillisForTimeUnit(policy.Phases.Hot.Actions.Rollover.MaxAge)
-			metrics.SetIndexRetentionDocumentAge(false, mapping.Name, maxAgeMillis / millisPerSecond)
+			metrics.SetIndexRetentionDocumentAge(false, mapping.Name, maxAgeMillis/millisPerSecond)
 		}
 	} else {
 		log.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
