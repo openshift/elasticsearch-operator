@@ -1,8 +1,13 @@
 package kibana
 
 import (
+	"context"
+
+	"github.com/ViaQ/logerr/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func NewConsoleLink(name, href string) *consolev1.ConsoleLink {
@@ -21,6 +26,21 @@ func NewConsoleLink(name, href string) *consolev1.ConsoleLink {
 			},
 		},
 	}
+}
+
+func DeleteKibanaConsoleLink(ctx context.Context, c client.Client) error {
+
+	current := NewConsoleLink(KibanaConsoleLinkName, "")
+
+	if err := c.Delete(ctx, current); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return kverrors.Wrap(err, "failed to delete consolelink",
+				"name", KibanaConsoleLinkName,
+			)
+		}
+	}
+
+	return nil
 }
 
 func consoleLinksEqual(current, desired *consolev1.ConsoleLink) bool {
