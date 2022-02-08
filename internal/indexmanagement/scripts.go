@@ -67,7 +67,7 @@ def deleteByQuery(index, namespaceSpecs, defaultAge):
       else:
         s = s.filter('range', **{'@timestamp': {'lt': 'now-{}'.format(minAge)}})
       response = es_client.delete_by_query(index=index, body=s.to_dict(), doc_type="_doc")
-      return True
+    return True
   except Exception as e:
     sys.stdout = open('/tmp/response.txt', 'w')
     print(e)
