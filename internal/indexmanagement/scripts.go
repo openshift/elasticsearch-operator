@@ -55,11 +55,10 @@ def deleteByQuery(index, namespaceSpecs, defaultAge):
   original_stdout = sys.stdout
   try:
     es_client = getEsClient()
-    s = Search(using=es_client)
-
     #Extract string values of namespace and minAge from namespaceSpecs to feed into dsl-query
     namespaceSpecs = json.loads(namespaceSpecs)
     for namespaceName in namespaceSpecs:
+      s = Search(using=es_client)
       s = s.query('prefix', kubernetes__namespace_name=namespaceName)
       minAge = namespaceSpecs[namespaceName]
       if minAge == "":
