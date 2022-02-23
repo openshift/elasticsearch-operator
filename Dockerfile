@@ -18,7 +18,6 @@ COPY ${REMOTE_SOURCE}/controllers controllers
 COPY ${REMOTE_SOURCE}/files files
 COPY ${REMOTE_SOURCE}/internal internal
 COPY ${REMOTE_SOURCE}/bundle bundle
-COPY ${REMOTE_SOURCE}/vendor vendor
 COPY ${REMOTE_SOURCE}/version version
 COPY ${REMOTE_SOURCE}/.bingo ./.bingo
 ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod ${REMOTE_SOURCE}/go.sum ./
