@@ -65,7 +65,7 @@ def deleteByQuery(index, namespaceSpecs, defaultAge):
         s = s.filter('range', **{'@timestamp': {'lt': 'now-{}'.format(defaultAge)}})
       else:
         s = s.filter('range', **{'@timestamp': {'lt': 'now-{}'.format(minAge)}})
-      response = es_client.delete_by_query(index=index, body=s.to_dict(), doc_type="_doc")
+      response = es_client.delete_by_query(index=index, body=s.to_dict(), doc_type="_doc", conflicts="proceed")
     return True
   except Exception as e:
     sys.stdout = open('/tmp/response.txt', 'w')
@@ -126,6 +126,72 @@ def updateWriteIndex(currentIndex, nextIndex, alias):
       ]
     })
     return response['acknowledged']
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return False
+
+def getMaxAllowedSize(diskThreshold):
+  # Returns the total disk space of all nodes combined multiplied by the pre-defined threshold
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    response = es_client.cat.allocation(format="JSON", h="disk.total", bytes="kb")
+    totalSize = 0
+    for i in range(len(response)):
+      totalSize = totalSize + int(response[i]["disk.total"])
+    return int(diskThreshold/100.0 * totalSize)
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return -1
+
+def getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indicesToDelete):
+  # Returns a list of indices from [alias] (infra, app, or audit), that should be deleted
+  # traverse through indices from newest to oldest, adding up their size. When the sum of sizes exceeds
+  # maxAllowedSize, start adding indices to the list
+  original_stdout = sys.stdout
+  try:
+    sizeCounter = indicesSizeCounter
+    indices = indicesToDelete
+    expectedSize = int(index['store.size']) + sizeCounter
+    if expectedSize < maxAllowedSize:
+      sizeCounter = expectedSize
+    else:
+      if index['index'].startswith(alias):
+        indices.append(index['index'])
+    return indices, sizeCounter
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print(e)
+    sys.stdout = original_stdout
+    return -1
+
+def deleteByPercentage(alias, diskThreshold):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    
+    # Get the maximum allowed size, that if exceeded, old indices are deleted
+    maxAllowedSize = getMaxAllowedSize(int(diskThreshold))
+    if maxAllowedSize == -1:
+      return False
+
+    indices = es_client.cat.indices(format="json",h="index,creation.date,store.size", s="creation.date", bytes="kb")
+    
+    indicesToDelete = []
+    indicesSizeCounter = 0
+
+    for index in sorted(indices, key=lambda x: x['creation.date'], reverse=True):
+      indicesToDelete, indicesSizeCounter = getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indicesToDelete)
+
+    for index in indicesToDelete:
+      es_client.indices.delete(index=index)
+      print ("Index ", index, " deleted")
+    return True
+    
   except Exception as e:
     sys.stdout = open('/tmp/response.txt', 'w')
     print(e)
@@ -419,6 +485,15 @@ function delete() {
     return 1
   fi
 
+  # Delete indices based on disk usage
+  if [ ! "$DISK_THRESHOLD" -eq "0" ]; then
+    if ! response=$(deleteByPercentage $policy 2 >>$ERRORS) ; then
+      cat $ERRORS
+      rm $ERRORS
+      return 1
+    fi
+  fi
+
   jsonResponse="$(echo [$indices] | sed 's/}{/},{/g')"
 
   # Delete in batches of 25 for cases where there are a large number of indices to remove
@@ -454,6 +529,12 @@ function delete() {
   done
 
   echo "Done!"
+}
+
+function deleteByPercentage() {
+  local alias=$1
+
+  python -c 'import indexManagementClient; print(indexManagementClient.deleteByPercentage("'$alias'", "'$DISK_THRESHOLD'"))'
 }
 
 function getAlias() {
