@@ -8,12 +8,11 @@ filters:
       - alanconway
     reviewers:
       - jcantrill
-      - lukas-vlcek
       - alanconway
-      - igor-karpukhin
+      - Red-GV
       - vimalk78
       - syedriko
-      - periklis
+      - xperimental
       - shwetaap
   "Dockerfile(?:\\.in)?$":   # matches Dockerfile, Dockerfile.in
     labels:
