@@ -528,9 +528,16 @@ func TestPodSpecEqual_NonStrictTolerations(t *testing.T) {
 		want   bool
 	}
 
+	// For the special toleration cases, the contains case is the only
+	// one which matters. The strict tolerations examination is used to
+	// compare deployments and statefulsets against themselves. These should
+	// always match. The non strict examination is used for comparing deployments
+	// to the pod spec used by the deployed pods. The controller will optimize
+	// the toleration list so that only the largest subset will be used. Thus,
+	// the examination should be more relaxed.
 	tests := []table{
 		{
-			desc: "contains exact tolerations",
+			desc: "is exact tolerations",
 			lhs: corev1.PodSpec{
 				Tolerations: []corev1.Toleration{
 					{
@@ -545,6 +552,80 @@ func TestPodSpecEqual_NonStrictTolerations(t *testing.T) {
 					{
 						Key:      "key",
 						Operator: corev1.TolerationOpEqual,
+						Value:    "value",
+					},
+				},
+			},
+			strict: true,
+			want:   true,
+		},
+		{
+			desc: "is not exact tolerations",
+			lhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value",
+					},
+				},
+			},
+			rhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value",
+					},
+					{
+						Key:      "key1",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value",
+					},
+				},
+			},
+			strict: true,
+			want:   false,
+		},
+		{
+			desc: "is exact tolerations; special case - tolerate everything",
+			lhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				},
+			},
+			rhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key1",
+						Operator: corev1.TolerationOpExists,
+						Value:    "value",
+					},
+				},
+			},
+			strict: true,
+			want:   true,
+		},
+		{
+			desc: "is exact tolerations; special case - all effects for key",
+			lhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value",
+					},
+				},
+			},
+			rhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Effect:   corev1.TaintEffectNoSchedule,
 						Value:    "value",
 					},
 				},
@@ -579,6 +660,67 @@ func TestPodSpecEqual_NonStrictTolerations(t *testing.T) {
 			},
 			strict: false,
 			want:   false,
+		},
+		{
+			desc: "contains same tolerations; special case - tolerate everything",
+			lhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Operator: corev1.TolerationOpExists,
+					},
+				},
+			},
+			rhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key1",
+						Operator: corev1.TolerationOpExists,
+						Value:    "value",
+					},
+					{
+						Key:      "key2",
+						Operator: corev1.TolerationOpExists,
+						Value:    "value",
+					},
+					{
+						Key:      "key3",
+						Operator: corev1.TolerationOpExists,
+						Value:    "value",
+					},
+				},
+			},
+			strict: false,
+			want:   true,
+		},
+		{
+			desc: "contains same tolerations; special case - all effects for key",
+			lhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value",
+					},
+				},
+			},
+			rhs: corev1.PodSpec{
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Effect:   corev1.TaintEffectNoSchedule,
+						Value:    "value",
+					},
+					{
+						Key:      "key",
+						Operator: corev1.TolerationOpEqual,
+						Effect:   corev1.TaintEffectNoExecute,
+						Value:    "value",
+					},
+				},
+			},
+			strict: false,
+			want:   true,
 		},
 	}
 	for _, test := range tests {
