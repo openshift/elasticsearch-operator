@@ -461,6 +461,47 @@ func TestTolerations(t *testing.T) {
 	}
 }
 
+func TestToleration_SpecialCase_TolerateEverything(t *testing.T) {
+	specialToleration := []v1.Toleration{
+		{
+			Operator: v1.TolerationOpExists,
+		},
+	}
+
+	normalToleration := []v1.Toleration{
+		{
+			Key:      "node.kubernetes.io/memory-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	if !areTolerationsSame(specialToleration, normalToleration) {
+		t.Errorf("Expected special toleration to be tolerated")
+	}
+}
+
+func TestToleration_SpecialCase_AllEffects(t *testing.T) {
+	specialToleration := []v1.Toleration{
+		{
+			Key: "node.kubernetes.io/memory-pressure",
+			Operator: v1.TolerationOpExists,
+		},
+	}
+
+	normalToleration := []v1.Toleration{
+		{
+			Key:      "node.kubernetes.io/memory-pressure",
+			Operator: v1.TolerationOpExists,
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+	}
+
+	if !areTolerationsSame(specialToleration, normalToleration) {
+		t.Errorf("Expected special toleration to be tolerated")
+	}
+}
+
 func getEmptyPod(name string, labels map[string]string) v1.Pod {
 	return v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

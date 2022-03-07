@@ -138,10 +138,22 @@ func isTolerationSame(lhs, rhs v1.Toleration) bool {
 		}
 	}
 
+	tolerationEffectBool := lhs.Effect == rhs.Effect
+	if lhs.Effect == "" || rhs.Effect == "" {
+		tolerationEffectBool = true
+	}
+
+	// A toleration with the exists operator can leave the key empty to tolerate everything
+	if (lhs.Operator == rhs.Operator) && (lhs.Operator == v1.TolerationOpExists) {
+		if lhs.Key == "" || rhs.Key == "" {
+			return true
+		}
+	}
+
 	return (lhs.Key == rhs.Key) &&
 		(lhs.Operator == rhs.Operator) &&
 		(lhs.Value == rhs.Value) &&
-		(lhs.Effect == rhs.Effect) &&
+		tolerationEffectBool &&
 		tolerationSecondsBool
 }
 
