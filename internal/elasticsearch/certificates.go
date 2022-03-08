@@ -357,7 +357,7 @@ func (cr *CertificateRequest) EnsureCert(componentName string, cert *certificate
 
 	// validate that the cert isn't expired and is signed correctly
 	if !isValidCert(cert.x509Cert, cert.privKey, componentName) || !isSignedCorrectly {
-		err := cr.generateCert(componentName, cert)
+		err := cr.generateCert(componentName, cert, ca)
 		if err != nil {
 			return err
 		}
@@ -427,13 +427,7 @@ func (cr *CertificateRequest) persistCA(caCert *certCA) error {
 	return CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef)
 }
 
-func (cr *CertificateRequest) generateCert(componentName string, cert *certificate) error {
-	ca := &certCA{}
-	err := cr.ensureCA(ca)
-	if err != nil {
-		return err
-	}
-
+func (cr *CertificateRequest) generateCert(componentName string, cert *certificate, ca *certCA) error {
 	privKey, err := rsa.GenerateKey(rand.Reader, rsaKeyLength)
 	if err != nil {
 		return err
