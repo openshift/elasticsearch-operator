@@ -166,10 +166,6 @@ func NewCertificateRequest(clusterName, namespace string, ownerRef metav1.OwnerR
 	}
 }
 
-func (cr *CertificateRequest) getSigningSecretName() string {
-	return fmt.Sprintf("signing-%s", cr.ClusterName)
-}
-
 func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
 	certMutex.Lock()
 	defer certMutex.Unlock()
@@ -180,27 +176,27 @@ func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
 		return
 	}
 
+	ca := &certCA{}
+	if err = cr.ensureCA(ca); err != nil {
+		log.Error(err, "Unable to get CA")
+		return
+	}
+
 	componentCert := &certificate{}
 	if err = unmarshalCert(s.Data[componentCertName], s.Data[componentKeyName], componentCert); err != nil {
 		log.Info("Failed to unmarshal cert from secret for component", "error", err)
 	}
 
-	err = cr.EnsureCert(cn, componentCert)
+	err = cr.EnsureCert(cn, componentCert, ca)
 	if err != nil {
 		log.Error(err, "Unable to generate cert for component")
-		return
-	}
-
-	ca, err := cr.getCACertBytes()
-	if err != nil {
-		log.Error(err, "Unable to get CA bytes")
 		return
 	}
 
 	componentSecretData := map[string][]byte{
 		componentKeyName:  componentCert.key,
 		componentCertName: componentCert.cert,
-		componentCAName:   ca,
+		componentCAName:   ca.cert,
 	}
 
 	if err := CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, componentSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
@@ -219,27 +215,27 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 		return
 	}
 
+	ca := &certCA{}
+	if err = cr.ensureCA(ca); err != nil {
+		log.Error(err, "Unable to get CA")
+		return
+	}
+
 	kibanaCert := &certificate{}
 	if err = unmarshalCert(s.Data[kibanaComponentCertName], s.Data[kibanaComponentKeyName], kibanaCert); err != nil {
 		log.Info("Failed to unmarshal cert from secret for kibana", "error", err)
 	}
 
-	err = cr.EnsureCert(kibanaComponentName, kibanaCert)
+	err = cr.EnsureCert(kibanaComponentName, kibanaCert, ca)
 	if err != nil {
 		log.Error(err, "Unable to generate cert for kibana")
-		return
-	}
-
-	ca, err := cr.getCACertBytes()
-	if err != nil {
-		log.Error(err, "Unable to get CA bytes")
 		return
 	}
 
 	kibanaSecretData := map[string][]byte{
 		kibanaComponentKeyName:  kibanaCert.key,
 		kibanaComponentCertName: kibanaCert.cert,
-		kibanaComponentCAName:   ca,
+		kibanaComponentCAName:   ca.cert,
 	}
 
 	if err = CreateOrUpdateSecretWithOwnerRef(kibanaSecretName, cr.Namespace, kibanaSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
@@ -259,7 +255,7 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 		log.Info("Failed to unmarshal cert from secret for kibana-proxy", "error", err)
 	}
 
-	err = cr.EnsureCert(kibanaInternalComponentName, kibanaProxyCert)
+	err = cr.EnsureCert(kibanaInternalComponentName, kibanaProxyCert, ca)
 	if err != nil {
 		log.Error(err, "Unable to generate cert for kibana-internal")
 		return
@@ -298,13 +294,18 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 		return
 	}
 
-	adminCert := &certificate{}
+	ca := &certCA{}
+	if err = cr.ensureCA(ca); err != nil {
+		log.Error(err, "Unable to get CA")
+		return
+	}
 
+	adminCert := &certificate{}
 	if err = unmarshalCert(s.Data[esAdminCertName], s.Data[esAdminKeyName], adminCert); err != nil {
 		log.Info("Failed to unmarshal cert from secret for admin", "error", err)
 	}
 
-	err = cr.EnsureCert(esAdminComponentName, adminCert)
+	err = cr.EnsureCert(esAdminComponentName, adminCert, ca)
 	if err != nil {
 		log.Error(err, "Unable to generate cert for admin user")
 		return
@@ -315,7 +316,7 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 		log.Info("Failed to unmarshal cert from secret for elasticsearch", "error", err)
 	}
 
-	err = cr.EnsureCert(esComponentName, elasticsearchCert)
+	err = cr.EnsureCert(esComponentName, elasticsearchCert, ca)
 	if err != nil {
 		log.Error(err, "Unable to generate cert for elasticsearch")
 		return
@@ -326,15 +327,9 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 		log.Info("Failed to unmarshal cert from secret for logging-es", "error", err)
 	}
 
-	err = cr.EnsureCert(esInternalComponentName, loggingESCert)
+	err = cr.EnsureCert(esInternalComponentName, loggingESCert, ca)
 	if err != nil {
 		log.Error(err, "Unable to generate cert for logging-es")
-		return
-	}
-
-	ca, err := cr.getCACertBytes()
-	if err != nil {
-		log.Error(err, "Unable to get CA bytes")
 		return
 	}
 
@@ -345,7 +340,7 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 		esInternalCertname:  loggingESCert.cert,
 		esAdminKeyName:      adminCert.key,
 		esAdminCertName:     adminCert.cert,
-		esAdminCAName:       ca,
+		esAdminCAName:       ca.cert,
 	}
 
 	if err := CreateOrUpdateSecretWithOwnerRef(clusterName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
@@ -354,16 +349,25 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 	}
 }
 
-func (cr *CertificateRequest) persistCA(caCert *certCA) error {
-	secretName := cr.getSigningSecretName()
-
-	secretData := map[string][]byte{
-		esCACertName:   caCert.cert,
-		esCAKeyName:    caCert.key,
-		esCASerialName: []byte(caCert.serial.Text(10)),
+func (cr *CertificateRequest) EnsureCert(componentName string, cert *certificate, ca *certCA) error {
+	isSignedCorrectly := false
+	if cert.x509Cert != nil {
+		isSignedCorrectly = cert.x509Cert.CheckSignatureFrom(ca.x509Cert) == nil
 	}
 
-	return CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef)
+	// validate that the cert isn't expired and is signed correctly
+	if !isValidCert(cert.x509Cert, cert.privKey, componentName) || !isSignedCorrectly {
+		err := cr.generateCert(componentName, cert, ca)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (cr *CertificateRequest) getSigningSecretName() string {
+	return fmt.Sprintf("signing-%s", cr.ClusterName)
 }
 
 func (cr *CertificateRequest) ensureCA(caCert *certCA) error {
@@ -411,47 +415,19 @@ func (cr *CertificateRequest) ensureCA(caCert *certCA) error {
 	return nil
 }
 
-func (cr *CertificateRequest) incrementCertSerial(ca *certCA) (*big.Int, error) {
-	ca.serial.Add(ca.serial, bigOne)
-	serial := big.NewInt(0)
-	serial.Set(ca.serial)
+func (cr *CertificateRequest) persistCA(caCert *certCA) error {
+	secretName := cr.getSigningSecretName()
 
-	if err := cr.persistCA(ca); err != nil {
-		return nil, err
+	secretData := map[string][]byte{
+		esCACertName:   caCert.cert,
+		esCAKeyName:    caCert.key,
+		esCASerialName: []byte(caCert.serial.Text(10)),
 	}
 
-	return serial, nil
+	return CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef)
 }
 
-func (cr *CertificateRequest) getCACertBytes() ([]byte, error) {
-	ca := &certCA{}
-	err := cr.ensureCA(ca)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return ca.cert, nil
-}
-
-func (cr *CertificateRequest) EnsureCert(componentName string, cert *certificate) error {
-	// validate that the cert isn't expired
-	if !isValidCert(cert.x509Cert, cert.privKey, componentName) {
-		err := cr.generateCert(componentName, cert)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (cr *CertificateRequest) generateCert(componentName string, cert *certificate) error {
-	ca := &certCA{}
-	err := cr.ensureCA(ca)
-	if err != nil {
-		return err
-	}
-
+func (cr *CertificateRequest) generateCert(componentName string, cert *certificate, ca *certCA) error {
 	privKey, err := rsa.GenerateKey(rand.Reader, rsaKeyLength)
 	if err != nil {
 		return err
@@ -544,154 +520,16 @@ func (cr *CertificateRequest) generateCert(componentName string, cert *certifica
 	return nil
 }
 
-func certWillExpireSoon(cert *x509.Certificate) bool {
-	certExpiration := cert.NotAfter
-	return time.Now().After(certExpiration.Add(time.Hour * -1))
-}
-
-func genCA() (*certCA, error) {
-	caPrivKey, err := rsa.GenerateKey(rand.Reader, rsaKeyLength)
-	if err != nil {
-		return nil, err
-	}
-	caPubKeySHA1 := sha1.Sum(x509.MarshalPKCS1PublicKey(&caPrivKey.PublicKey))
+func (cr *CertificateRequest) incrementCertSerial(ca *certCA) (*big.Int, error) {
+	ca.serial.Add(ca.serial, bigOne)
 	serial := big.NewInt(0)
-	ca := &x509.Certificate{
-		SerialNumber:       serial,
-		SignatureAlgorithm: x509.SHA512WithRSA,
-		Subject: pkix.Name{
-			Country:            caCountry,
-			Organization:       certOrganization,
-			OrganizationalUnit: caOrganizationUnit,
-			CommonName:         caCN,
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(caNotAfterYears, 0, 0),
-		IsCA:                  true,
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-		SubjectKeyId:          caPubKeySHA1[:],
-		AuthorityKeyId:        caPubKeySHA1[:],
-	}
-	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
-	if err != nil {
+	serial.Set(ca.serial)
+
+	if err := cr.persistCA(ca); err != nil {
 		return nil, err
 	}
-	caPEMBytes, err := pemEncodeCert(caBytes)
-	if err != nil {
-		return nil, err
-	}
-	keyPEMBytes, err := pemEncodePrivateKey(caPrivKey)
-	if err != nil {
-		return nil, err
-	}
-	return &certCA{
-		certificate{
-			caPEMBytes,
-			keyPEMBytes,
-			ca,
-			caPrivKey,
-		},
-		serial,
-		caPubKeySHA1[:],
-	}, nil
-}
 
-func isValidCert(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey, commonName string) bool {
-	if x509Cert == nil {
-		return false
-	}
-
-	if rsaPrivKey == nil {
-		return false
-	}
-
-	if certWillExpireSoon(x509Cert) {
-		return false
-	}
-
-	rsaPubKey, ok := x509Cert.PublicKey.(*rsa.PublicKey)
-	if !ok {
-		return false
-	}
-
-	if rsaPubKey.N.Cmp(rsaPrivKey.N) != 0 {
-		return false
-	}
-
-	if x509Cert.Issuer.CommonName != caCN {
-		return false
-	}
-
-	if x509Cert.Subject.CommonName != commonName {
-		return false
-	}
-
-	return true
-}
-
-func isValidCA(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey) bool {
-	if !isValidCert(x509Cert, rsaPrivKey, caCN) {
-		return false
-	}
-
-	if !x509Cert.IsCA {
-		return false
-	}
-
-	return true
-}
-
-func pemEncodePrivateKey(privKey *rsa.PrivateKey) ([]byte, error) {
-	pemBuffer := &bytes.Buffer{}
-	if err := pem.Encode(pemBuffer, &pem.Block{
-		Type:  `RSA PRIVATE KEY`,
-		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
-	}); err != nil {
-		return nil, err
-	}
-	return pemBuffer.Bytes(), nil
-}
-
-func pemDecodePrivateKey(keyBytes []byte) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode(keyBytes)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block containing private key")
-	}
-
-	if block.Type == "RSA PRIVATE KEY" {
-		return x509.ParsePKCS1PrivateKey(block.Bytes)
-	}
-
-	if block.Type == "PRIVATE KEY" {
-		pkcs8Key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, err
-		}
-
-		privateKey, ok := pkcs8Key.(*rsa.PrivateKey)
-		if ok {
-			return privateKey, nil
-		}
-	}
-
-	return nil, fmt.Errorf("failed to decode PEM block containing private key")
-}
-
-func pemEncodeCert(certDERBytes []byte) ([]byte, error) {
-	pemBuffer := &bytes.Buffer{}
-	if err := pem.Encode(pemBuffer, &pem.Block{Type: `CERTIFICATE`, Bytes: certDERBytes}); err != nil {
-		return nil, err
-	}
-	return pemBuffer.Bytes(), nil
-}
-
-func pemDecodeCert(certPEMBytes []byte) (*x509.Certificate, error) {
-	block, _ := pem.Decode(certPEMBytes)
-	if block == nil || block.Type != `CERTIFICATE` {
-		return nil, fmt.Errorf("failed to decode PEM block containing certificate")
-	}
-	return x509.ParseCertificate(block.Bytes)
+	return serial, nil
 }
 
 func getKibanaProxySecretName(componentName string) string {
@@ -748,6 +586,104 @@ func unmarshalCert(cert, key []byte, unmarshalledCert *certificate) error {
 	return nil
 }
 
+func isValidCert(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey, commonName string) bool {
+	if x509Cert == nil {
+		return false
+	}
+
+	if rsaPrivKey == nil {
+		return false
+	}
+
+	if certWillExpireSoon(x509Cert) {
+		return false
+	}
+
+	rsaPubKey, ok := x509Cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return false
+	}
+
+	if rsaPubKey.N.Cmp(rsaPrivKey.N) != 0 {
+		return false
+	}
+
+	if x509Cert.Issuer.CommonName != caCN {
+		return false
+	}
+
+	if x509Cert.Subject.CommonName != commonName {
+		return false
+	}
+
+	return true
+}
+
+func certWillExpireSoon(cert *x509.Certificate) bool {
+	certExpiration := cert.NotAfter
+	return time.Now().After(certExpiration.Add(time.Hour * -1))
+}
+
+func genCA() (*certCA, error) {
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, rsaKeyLength)
+	if err != nil {
+		return nil, err
+	}
+	caPubKeySHA1 := sha1.Sum(x509.MarshalPKCS1PublicKey(&caPrivKey.PublicKey))
+	serial := big.NewInt(0)
+	ca := &x509.Certificate{
+		SerialNumber:       serial,
+		SignatureAlgorithm: x509.SHA512WithRSA,
+		Subject: pkix.Name{
+			Country:            caCountry,
+			Organization:       certOrganization,
+			OrganizationalUnit: caOrganizationUnit,
+			CommonName:         caCN,
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(caNotAfterYears, 0, 0),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		SubjectKeyId:          caPubKeySHA1[:],
+		AuthorityKeyId:        caPubKeySHA1[:],
+	}
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
+	if err != nil {
+		return nil, err
+	}
+	caPEMBytes, err := pemEncodeCert(caBytes)
+	if err != nil {
+		return nil, err
+	}
+	keyPEMBytes, err := pemEncodePrivateKey(caPrivKey)
+	if err != nil {
+		return nil, err
+	}
+	return &certCA{
+		certificate{
+			caPEMBytes,
+			keyPEMBytes,
+			ca,
+			caPrivKey,
+		},
+		serial,
+		caPubKeySHA1[:],
+	}, nil
+}
+
+func isValidCA(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey) bool {
+	if !isValidCert(x509Cert, rsaPrivKey, caCN) {
+		return false
+	}
+
+	if !x509Cert.IsCA {
+		return false
+	}
+
+	return true
+}
+
 func validateCASecret(secret *v1.Secret) (*certCA, error) {
 	var x509Cert *x509.Certificate
 	var err error
@@ -796,4 +732,56 @@ func validateCASecret(secret *v1.Secret) (*certCA, error) {
 		serial,
 		pubKeySHA1[:],
 	}, nil
+}
+
+func pemEncodePrivateKey(privKey *rsa.PrivateKey) ([]byte, error) {
+	pemBuffer := &bytes.Buffer{}
+	if err := pem.Encode(pemBuffer, &pem.Block{
+		Type:  `RSA PRIVATE KEY`,
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	}); err != nil {
+		return nil, err
+	}
+	return pemBuffer.Bytes(), nil
+}
+
+func pemDecodePrivateKey(keyBytes []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
+	}
+
+	if block.Type == "RSA PRIVATE KEY" {
+		return x509.ParsePKCS1PrivateKey(block.Bytes)
+	}
+
+	if block.Type == "PRIVATE KEY" {
+		pkcs8Key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		privateKey, ok := pkcs8Key.(*rsa.PrivateKey)
+		if ok {
+			return privateKey, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to decode PEM block containing private key")
+}
+
+func pemEncodeCert(certDERBytes []byte) ([]byte, error) {
+	pemBuffer := &bytes.Buffer{}
+	if err := pem.Encode(pemBuffer, &pem.Block{Type: `CERTIFICATE`, Bytes: certDERBytes}); err != nil {
+		return nil, err
+	}
+	return pemBuffer.Bytes(), nil
+}
+
+func pemDecodeCert(certPEMBytes []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(certPEMBytes)
+	if block == nil || block.Type != `CERTIFICATE` {
+		return nil, fmt.Errorf("failed to decode PEM block containing certificate")
+	}
+	return x509.ParseCertificate(block.Bytes)
 }
