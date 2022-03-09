@@ -150,6 +150,11 @@ func DataEqual(current, desired *corev1.ConfigMap) bool {
 	return equality.Semantic.DeepEqual(current.Data, desired.Data)
 }
 
+// LabelEqual return only true if the configmaps have equal label sections only.
+func LabelEqual(current, desired *corev1.ConfigMap) bool {
+	return equality.Semantic.DeepEqual(current.Labels, desired.Labels)
+}
+
 // MutateDataOnly is a default mutate function implementation
 // that copies only the data section from desired to current
 // configmap.

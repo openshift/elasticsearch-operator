@@ -2,12 +2,14 @@ package elasticsearch
 
 import (
 	"context"
+	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"io/ioutil"
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -25,18 +27,43 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 	if err != nil {
 		return kverrors.Wrap(err, "failed to read dashboard file", "filePath", defaultElasticDashboardFile)
 	}
+
+	var hash string
+	hash, err = utils.CalculateMD5Hash(string(b))
+	if err != nil {
+		log.Error(err, "error calculating hash for elasticsearch dashboard configmap")
+	}
+
 	cm := configmap.New(
 		grafanaCMName,
 		grafanaCMNameSpace,
 		map[string]string{
-			"console.openshift.io/dashboard": "true",
+			constants.ConsoleDashboardLabel: "true",
+			constants.LoggingHashLabel:      hash,
 		},
 		map[string]string{
-			"openshift-elasticsearch.json": string(b),
+			constants.ElasticsearchDashboardFileName: string(b),
 		},
 	)
 
-	key := client.ObjectKey{Name: grafanaCMName, Namespace: grafanaCMNameSpace}
+	current := &corev1.ConfigMap{}
+	key := client.ObjectKey{Name: cm.Name, Namespace: cm.Namespace}
+	err = er.client.Get(context.TODO(), key, current)
+	if err != nil {
+		if apierrors.IsNotFound(kverrors.Root(err)) {
+			return configmap.Create(context.TODO(), er.client, cm)
+		}
+
+		return kverrors.Wrap(err, "failed to get configmap",
+			"name", cm.Name,
+			"namespace", cm.Namespace,
+		)
+	}
+
+	if configmap.LabelEqual(current, cm) {
+		return nil
+	}
+
 	err = configmap.Delete(context.TODO(), er.client, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
 		return kverrors.Wrap(err, "failed to delete elasticsearch dashboard config map",

@@ -23,6 +23,10 @@ const (
 
 	EOCertManagementLabel = "logging.openshift.io/elasticsearch-cert-management"
 	EOComponentCertPrefix = "logging.openshift.io/elasticsearch-cert."
+
+	ConsoleDashboardLabel          = "console.openshift.io/dashboard"
+	LoggingHashLabel               = "logging.openshift.io/hash"
+	ElasticsearchDashboardFileName = "openshift-elasticsearch.json"
 )
 
 var (
