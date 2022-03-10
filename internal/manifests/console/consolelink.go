@@ -77,7 +77,7 @@ func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *console
 
 func DeleteKibanaConsoleLink(ctx context.Context, c client.Client) error {
 
-	current := NewConsoleLink(KibanaConsoleLinkName, "", "", "")
+	current := NewConsoleLink(KibanaConsoleLinkName, "", "", "", "")
 
 	if err := c.Delete(ctx, current); err != nil {
 		if !apierrors.IsNotFound(err) {
