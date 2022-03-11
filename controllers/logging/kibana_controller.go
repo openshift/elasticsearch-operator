@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
@@ -84,7 +83,7 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 	es, err := elasticsearch.GetElasticsearchCR(r.Client, request.Namespace)
 	if err != nil {
 		log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
-		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+		return reconcileResult, nil
 	}
 
 	// Check if es has annotation logging.openshift.io/elasticsearch-cert-management: true
@@ -102,34 +101,28 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 	esClient := esclient.NewClient(es.Name, es.Namespace, r.Client)
 	proxyCfg, err := kibana.GetProxyConfig(r.Client)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcileResult, err
 	}
 
 	if err := kibana.Reconcile(kibanaInstance, r.Client, esClient, proxyCfg, eoCertManagement, certOwnerRef); err != nil {
-		return reconcile.Result{}, err
+		return reconcileResult, err
 	}
 
-	return reconcile.Result{}, nil
+	return reconcileResult, nil
 }
 
 // handleSecret returns true if metaname is such that (cr_name) matches or that (cr_name + "-proxy") matches
-func handleSecret(meta metav1.Object, c client.Client) bool {
+func handleSecret(meta metav1.Object) bool {
 	// iterate over registeredKibanas that match the namespace
 	namespace := meta.GetNamespace()
 
 	registeredKibanas.mux.Lock()
 	defer registeredKibanas.mux.Unlock()
 
-	// Grabbing the ES cr to get the cluster name for the CA secret
-	es, err := elasticsearch.GetElasticsearchCR(c, namespace)
-	if err != nil {
-		return false
-	}
-
 	for _, kibana := range registeredKibanas.registered {
 		if kibana.Namespace == namespace {
 			if utils.ContainsString(
-				[]string{kibana.Name, fmt.Sprintf("%s-proxy", kibana.Name), fmt.Sprintf("signing-%s", es.Name)},
+				[]string{kibana.Name, fmt.Sprintf("%s-proxy", kibana.Name)},
 				meta.GetName(),
 			) {
 				return true
@@ -252,9 +245,9 @@ func getNamespacedKibanaEvent(a client.Object) []reconcile.Request {
 func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Watch for updates to the kibana secret
 	secretPred := predicate.Funcs{
-		UpdateFunc:  func(e event.UpdateEvent) bool { return handleSecret(e.ObjectNew, r.Client) },
+		UpdateFunc:  func(e event.UpdateEvent) bool { return handleSecret(e.ObjectNew) },
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return handleSecret(e.Object, r.Client) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return handleSecret(e.Object) },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
