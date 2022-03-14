@@ -7,7 +7,7 @@ import (
 )
 
 // NewConsoleLink returns a new openshift api console link
-func NewConsoleLink(name, href, text, section string) *consolev1.ConsoleLink {
+func NewConsoleLink(name, href, text, icon, section string) *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -19,7 +19,8 @@ func NewConsoleLink(name, href, text, section string) *consolev1.ConsoleLink {
 				Href: href,
 			},
 			ApplicationMenu: &consolev1.ApplicationMenuSpec{
-				Section: section,
+				ImageURL: icon,
+				Section:  section,
 			},
 		},
 	}
