@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
@@ -84,7 +83,7 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 	es, err := elasticsearch.GetElasticsearchCR(r.Client, request.Namespace)
 	if err != nil {
 		log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
-		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+		return reconcileResult, nil
 	}
 
 	// Check if es has annotation logging.openshift.io/elasticsearch-cert-management: true
@@ -102,14 +101,14 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 	esClient := esclient.NewClient(es.Name, es.Namespace, r.Client)
 	proxyCfg, err := kibana.GetProxyConfig(r.Client)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcileResult, err
 	}
 
 	if err := kibana.Reconcile(kibanaInstance, r.Client, esClient, proxyCfg, eoCertManagement, certOwnerRef); err != nil {
-		return reconcile.Result{}, err
+		return reconcileResult, err
 	}
 
-	return reconcile.Result{}, nil
+	return reconcileResult, nil
 }
 
 // handleSecret returns true if metaname is such that (cr_name) matches or that (cr_name + "-proxy") matches
