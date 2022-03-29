@@ -2,8 +2,9 @@ package elasticsearch
 
 import (
 	"context"
-	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"io/ioutil"
+
+	"github.com/openshift/elasticsearch-operator/internal/constants"
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/ViaQ/logerr/log"
