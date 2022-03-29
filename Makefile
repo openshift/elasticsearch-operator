@@ -71,7 +71,7 @@ gobindir:
 	@mkdir -p $(GOBIN)
 
 GEN_TIMESTAMP=.zz_generate_timestamp
-generate: $(GEN_TIMESTAMP) $(OPERATOR_SDK) $(CONTROLLER_GEN) ## Generate APIs and CustomResourceDefinition objects.
+generate: $(OPERATOR_SDK) $(CONTROLLER_GEN) $(GEN_TIMESTAMP) ## Generate APIs and CustomResourceDefinition objects.
 $(GEN_TIMESTAMP): $(shell find apis -name '*.go')
 	@$(CONTROLLER_GEN) object paths="./apis/..."
 	@$(CONTROLLER_GEN) crd:crdVersions=v1 rbac:roleName=elasticsearch-operator paths="./..." output:crd:artifacts:config=config/crd/bases
