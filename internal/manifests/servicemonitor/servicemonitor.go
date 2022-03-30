@@ -54,13 +54,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, sm *monitoringv1.Servi
 	if !equal(current, sm) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get servicemonitor", sm.Name)
+				log.DefaultLogger().Error(err, "failed to get servicemonitor", sm.Name)
 				return err
 			}
 
 			mutate(current, sm)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update servicemonitor", sm.Name)
+				log.DefaultLogger().Error(err, "failed to update servicemonitor", sm.Name)
 				return err
 			}
 			return nil

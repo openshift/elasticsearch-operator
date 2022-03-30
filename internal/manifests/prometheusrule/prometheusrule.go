@@ -46,13 +46,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, pr *monitoringv1.Prome
 	if !equality.Semantic.DeepEqual(current, pr) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get prometheusrule", pr.Name)
+				log.DefaultLogger().Error(err, "failed to get prometheusrule", pr.Name)
 				return err
 			}
 
 			current.Spec = pr.Spec
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update prometheusrule", pr.Name)
+				log.DefaultLogger().Error(err, "failed to update prometheusrule", pr.Name)
 				return err
 			}
 			return nil

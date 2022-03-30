@@ -45,13 +45,13 @@ func CreateOrUpdateRole(ctx context.Context, c client.Client, r *rbacv1.Role) er
 	if !equality.Semantic.DeepEqual(current, r) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get role", r.Name)
+				log.DefaultLogger().Error(err, "failed to get role", r.Name)
 				return err
 			}
 
 			current.Rules = r.Rules
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update role", r.Name)
+				log.DefaultLogger().Error(err, "failed to update role", r.Name)
 				return err
 			}
 			return nil

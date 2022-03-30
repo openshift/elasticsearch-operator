@@ -39,7 +39,7 @@ func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 			return selectors
 		}
 		// Selector is provided but is not "linux"
-		log.Info("Overriding node selector value",
+		log.DefaultLogger().Info("Overriding node selector value",
 			"from", fmt.Sprintf("%s=%s", OsNodeLabel, name),
 			"to", LinuxValue)
 	}

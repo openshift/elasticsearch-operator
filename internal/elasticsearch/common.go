@@ -164,7 +164,7 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 			TimeoutSeconds:      30,
 			InitialDelaySeconds: 10,
 			PeriodSeconds:       5,
-			Handler: v1.Handler{
+			ProbeHandler: v1.ProbeHandler{
 				Exec: &v1.ExecAction{
 					Command: []string{
 						"/usr/share/elasticsearch/probe/readiness.sh",
@@ -610,7 +610,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 	// in the case where we do not have a size provided we need to
 	// fall back to using ephemeral storage since a pvc requires a size
 	if specVol.Size == nil {
-		log.Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
+		log.DefaultLogger().Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
 		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
 		return volSource
 	}
@@ -639,7 +639,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 
 	err := persistentvolume.CreateOrUpdatePVC(context.TODO(), client, pvc, persistentvolume.LabelsEqual, persistentvolume.MutateLabelsOnly)
 	if err != nil {
-		log.Error(err, "Unable to create PersistentVolumeClaim")
+		log.DefaultLogger().Error(err, "Unable to create PersistentVolumeClaim")
 	}
 
 	return volSource

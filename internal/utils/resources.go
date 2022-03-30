@@ -52,7 +52,7 @@ func AreResourcesDifferent(current, desired interface{}) bool {
 	desiredType := reflect.TypeOf(desired)
 
 	if currentType != desiredType {
-		log.Info("Attempting to compare resources for different types", "current", currentType, "desired", desiredType)
+		log.DefaultLogger().Info("Attempting to compare resources for different types", "current", currentType, "desired", desiredType)
 		return false
 	}
 
@@ -70,7 +70,7 @@ func AreResourcesDifferent(current, desired interface{}) bool {
 		desiredContainers = desired.(*batch.CronJob).Spec.JobTemplate.Spec.Template.Spec.Containers
 
 	default:
-		log.Info("Attempting to check resources for unmatched type", "type", currentType)
+		log.DefaultLogger().Info("Attempting to check resources for unmatched type", "type", currentType)
 		return false
 	}
 

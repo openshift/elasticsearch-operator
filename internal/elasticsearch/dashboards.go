@@ -32,7 +32,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 	var hash string
 	hash, err = utils.CalculateMD5Hash(string(b))
 	if err != nil {
-		log.Error(err, "error calculating hash for elasticsearch dashboard configmap")
+		log.DefaultLogger().Error(err, "error calculating hash for elasticsearch dashboard configmap")
 	}
 
 	cm := configmap.New(
@@ -93,6 +93,6 @@ func RemoveDashboardConfigMap(c client.Client) {
 		if apierrors.IsNotFound(kverrors.Root(err)) {
 			return
 		}
-		log.Error(err, "error deleting grafana configmap")
+		log.DefaultLogger().Error(err, "error deleting grafana configmap")
 	}
 }

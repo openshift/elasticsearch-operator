@@ -30,7 +30,7 @@ import (
 func GetFileContents(filePath string) []byte {
 	contents, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Error(err, "Unable to read file to get contents")
+		log.DefaultLogger().Error(err, "Unable to read file to get contents")
 		return nil
 	}
 

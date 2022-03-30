@@ -28,7 +28,7 @@ func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, erro
 	r, err := route.Get(context.TODO(), clusterRequest.client, key)
 	if err != nil {
 		if !apierrors.IsNotFound(kverrors.Root(err)) {
-			log.Error(err, "Failed to check for kibana object")
+			log.DefaultLogger().Error(err, "Failed to check for kibana object")
 		}
 		return "", err
 	}
@@ -42,7 +42,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 	fp := utils.GetWorkingDirFilePath("ca.crt")
 	caCert, err := ioutil.ReadFile(fp)
 	if err != nil {
-		log.Info("could not read CA certificate for kibana route",
+		log.DefaultLogger().Info("could not read CA certificate for kibana route",
 			"filePath", fp,
 			"cause", err)
 	}

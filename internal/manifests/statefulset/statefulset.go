@@ -53,7 +53,7 @@ func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal
 		key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
 
 		if err := c.Get(ctx, key, current); err != nil {
-			log.Error(err, "failed to get statefulset", sts.Name)
+			log.DefaultLogger().Error(err, "failed to get statefulset", sts.Name)
 			return err
 		}
 
@@ -63,7 +63,7 @@ func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal
 
 		mutate(current, sts)
 		if err := c.Update(ctx, current); err != nil {
-			log.Error(err, "failed to update statefulset", sts.Name)
+			log.DefaultLogger().Error(err, "failed to update statefulset", sts.Name)
 			return err
 		}
 		return nil

@@ -47,7 +47,7 @@ func buildVersionArray(version string) []int {
 	for _, v := range strings.Split(version, ".") {
 		i, err := strconv.Atoi(v)
 		if err != nil {
-			log.Error(err, "unable to build version array")
+			log.DefaultLogger().Error(err, "unable to build version array")
 			break
 		}
 

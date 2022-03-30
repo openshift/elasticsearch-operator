@@ -99,13 +99,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, s *corev1.Secret, equa
 	if !equal(current, s) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get secret", s.Name)
+				log.DefaultLogger().Error(err, "failed to get secret", s.Name)
 				return err
 			}
 
 			mutate(current, s)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update secret", s.Name)
+				log.DefaultLogger().Error(err, "failed to update secret", s.Name)
 				return err
 			}
 			return nil

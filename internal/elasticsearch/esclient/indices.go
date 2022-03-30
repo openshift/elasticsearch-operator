@@ -190,7 +190,7 @@ func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
 		URI:         "_aliases",
 		RequestBody: body,
 	}
-	log.Info("Updating aliases", "payload", actions)
+	log.DefaultLogger().Info("Updating aliases", "payload", actions)
 	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
@@ -271,7 +271,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 		if payload.ResponseBody[index] != nil {
 			indexBody, ok := payload.ResponseBody[index].(map[string]interface{})
 			if !ok {
-				log.Error(nil, "unable to unmarshal index",
+				log.DefaultLogger().Error(nil, "unable to unmarshal index",
 					"index", index,
 					"cluster", ec.cluster,
 					"type", fmt.Sprintf("%T", payload.ResponseBody[index]),
@@ -281,7 +281,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 			if indexBody["aliases"] != nil {
 				aliasBody, ok := indexBody["aliases"].(map[string]interface{})
 				if !ok {
-					log.Error(nil, "unable to unmarshal alias index",
+					log.DefaultLogger().Error(nil, "unable to unmarshal alias index",
 						"index", index,
 						"cluster", ec.cluster,
 						"type", fmt.Sprintf("%T", indexBody["aliases"]),

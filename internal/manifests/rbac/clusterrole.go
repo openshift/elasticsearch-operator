@@ -43,13 +43,13 @@ func CreateOrUpdateClusterRole(ctx context.Context, c client.Client, cr *rbacv1.
 	if !equality.Semantic.DeepEqual(current, cr) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get clusterrole", cr.Name)
+				log.DefaultLogger().Error(err, "failed to get clusterrole", cr.Name)
 				return err
 			}
 
 			current.Rules = cr.Rules
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update clusterrole", cr.Name)
+				log.DefaultLogger().Error(err, "failed to update clusterrole", cr.Name)
 				return err
 			}
 			return nil

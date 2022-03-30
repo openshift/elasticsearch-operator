@@ -200,7 +200,7 @@ func (node *deploymentNode) podSpecMatches() bool {
 func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 	podList, err := pod.List(context.TODO(), node.client, node.self.Namespace, labels)
 	if err != nil {
-		log.Error(err, "Could not get node pods", "node", node.name())
+		log.DefaultLogger().Error(err, "Could not get node pods", "node", node.name())
 		return false
 	}
 
@@ -272,7 +272,7 @@ func (node *deploymentNode) replicaCount() (int32, error) {
 	key := client.ObjectKey{Name: node.self.Name, Namespace: node.self.Namespace}
 	dpl, err := deployment.Get(context.TODO(), node.client, key)
 	if err != nil {
-		log.Error(err, "Could not get Elasticsearch node resource")
+		log.DefaultLogger().Error(err, "Could not get Elasticsearch node resource")
 		return -1, err
 	}
 

@@ -48,13 +48,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, s *securityv1.Security
 	if !equality.Semantic.DeepEqual(current, s) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get security context constraints", s.Name)
+				log.DefaultLogger().Error(err, "failed to get security context constraints", s.Name)
 				return err
 			}
 
 			mutate(current, s)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update security context constraints", s.Name)
+				log.DefaultLogger().Error(err, "failed to update security context constraints", s.Name)
 				return err
 			}
 			return nil

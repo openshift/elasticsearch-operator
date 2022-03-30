@@ -166,7 +166,7 @@ func (er *ElasticsearchRequest) isValidScaleDownRate() (bool, error) {
 		// check the lowest replica value in the cluster
 		foundLowestReplica, err := er.esClient.GetLowestReplicaValue()
 		if err != nil {
-			log.Error(err, "Unable to determine lowest replica value for cluster")
+			log.DefaultLogger().Error(err, "Unable to determine lowest replica value for cluster")
 			return false, kverrors.Wrap(err, "Unable to determine lowest replica value for cluster")
 		}
 

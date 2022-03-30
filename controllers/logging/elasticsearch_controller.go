@@ -43,11 +43,11 @@ func (r *ElasticsearchReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Flushing nodes", "objectKey", request.NamespacedName)
+			log.DefaultLogger().Info("Flushing nodes", "objectKey", request.NamespacedName)
 			elasticsearch.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
 			elasticsearch.RemoveDashboardConfigMap(r.Client)
 			if err := console.DeleteKibanaConsoleLink(context.TODO(), r.Client); err != nil {
-				log.Error(err, "failed to delete consolelink")
+				log.DefaultLogger().Error(err, "failed to delete consolelink")
 			}
 			return ctrl.Result{}, nil
 		}

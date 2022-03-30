@@ -3,9 +3,9 @@ module github.com/openshift/elasticsearch-operator
 go 1.17
 
 require (
-	github.com/ViaQ/logerr v1.0.10
+	github.com/ViaQ/logerr v1.1.0
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
-	github.com/go-logr/logr v1.2.0
+	github.com/go-logr/logr v1.2.3
 	github.com/google/go-cmp v0.5.5
 	github.com/inhies/go-bytesize v0.0.0-20151001220322-5990f52c6ad6
 	github.com/onsi/ginkgo v1.16.5

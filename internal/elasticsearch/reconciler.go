@@ -28,8 +28,9 @@ type ElasticsearchRequest struct {
 // L is the logger used for this request.
 // TODO This needs to be removed in favor of using context.Context() with values.
 func (er *ElasticsearchRequest) L() logr.Logger {
-	if er.ll == nil {
-		er.ll = log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+	var logger logr.Logger
+	if er.ll == logger {
+		er.ll = log.DefaultLogger().WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 	}
 	return er.ll
 }
@@ -41,7 +42,7 @@ func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClien
 	elasticsearchRequest := ElasticsearchRequest{
 		client:  requestClient,
 		cluster: requestCluster,
-		ll:      log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+		ll:      log.DefaultLogger().WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// evaluate if we are missing the required secret/certs
@@ -126,7 +127,7 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		client:   requestClient,
 		cluster:  requestCluster,
 		esClient: esClient,
-		ll:       log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+		ll:       log.DefaultLogger().WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// check if we are doing ES cert management looking for annotation:

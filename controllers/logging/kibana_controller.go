@@ -82,7 +82,7 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 
 	es, err := elasticsearch.GetElasticsearchCR(r.Client, request.Namespace)
 	if err != nil {
-		log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
+		log.DefaultLogger().Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
 		return reconcileResult, nil
 	}
 
@@ -182,7 +182,7 @@ func registerKibanaNamespacedName(request reconcile.Request) {
 
 	// if not, add it to registeredKibanas
 	if !found {
-		log.Info("Registering future events", "name", request.NamespacedName)
+		log.DefaultLogger().Info("Registering future events", "name", request.NamespacedName)
 		registeredKibanas.registered = append(registeredKibanas.registered, request.NamespacedName)
 	}
 }
@@ -204,7 +204,7 @@ func unregisterKibanaNamespacedName(request reconcile.Request) {
 
 	// if we find it, remove it from registeredKibanas
 	if found {
-		log.Info("Unregistering future events", "name", request.NamespacedName)
+		log.DefaultLogger().Info("Unregistering future events", "name", request.NamespacedName)
 		registeredKibanas.registered = append(registeredKibanas.registered[:index], registeredKibanas.registered[index+1:]...)
 	}
 }

@@ -53,13 +53,13 @@ func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *console
 	if !equal(current, cl) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get consolelink", cl.Name)
+				log.DefaultLogger().Error(err, "failed to get consolelink", cl.Name)
 				return err
 			}
 
 			mutate(current, cl)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update consolelink", cl.Name)
+				log.DefaultLogger().Error(err, "failed to update consolelink", cl.Name)
 				return err
 			}
 			return nil

@@ -53,13 +53,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, svc *corev1.Service, e
 	if !equal(current, svc) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get service", svc.Name)
+				log.DefaultLogger().Error(err, "failed to get service", svc.Name)
 				return err
 			}
 
 			mutate(current, svc)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update service", svc.Name)
+				log.DefaultLogger().Error(err, "failed to update service", svc.Name)
 				return err
 			}
 			return nil

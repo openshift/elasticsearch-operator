@@ -51,13 +51,13 @@ func CreateOrUpdateConsoleExternalLogLink(ctx context.Context, c client.Client, 
 	if !equal(current, cll) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get consoleexternalloglink", cll.Name)
+				log.DefaultLogger().Error(err, "failed to get consoleexternalloglink", cll.Name)
 				return err
 			}
 
 			mutate(current, cll)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update consoleexternalloglink", cll.Name)
+				log.DefaultLogger().Error(err, "failed to update consoleexternalloglink", cll.Name)
 				return err
 			}
 			return nil

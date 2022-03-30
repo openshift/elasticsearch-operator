@@ -53,13 +53,13 @@ func CreateOrUpdatePVC(ctx context.Context, c client.Client, pvc *corev1.Persist
 	if !equal(current, pvc) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get persistentvolumeclaim", pvc.Name)
+				log.DefaultLogger().Error(err, "failed to get persistentvolumeclaim", pvc.Name)
 				return err
 			}
 
 			mutate(current, pvc)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update persistentvolumeclaim", pvc.Name)
+				log.DefaultLogger().Error(err, "failed to update persistentvolumeclaim", pvc.Name)
 				return err
 			}
 			return nil

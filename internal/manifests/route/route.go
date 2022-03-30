@@ -68,13 +68,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, r *routev1.Route, equa
 	if !equal(current, r) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get route", r.Name)
+				log.DefaultLogger().Error(err, "failed to get route", r.Name)
 				return err
 			}
 
 			mutate(current, r)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update route", r.Name)
+				log.DefaultLogger().Error(err, "failed to update route", r.Name)
 				return err
 			}
 			return nil

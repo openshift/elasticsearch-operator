@@ -45,8 +45,9 @@ type statefulSetNode struct {
 //
 // TODO remove this construct when context.Context is passed and it should contain any relevant contextual values
 func (n *statefulSetNode) L() logr.Logger {
-	if n.l == nil {
-		n.l = log.WithValues("node", n.name())
+	var logger logr.Logger
+	if n.l == logger {
+		n.l = log.DefaultLogger().WithValues("node", n.name())
 	}
 	return n.l
 }

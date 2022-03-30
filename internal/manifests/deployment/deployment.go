@@ -54,7 +54,7 @@ func Update(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal 
 		key := client.ObjectKey{Name: dpl.Name, Namespace: dpl.Namespace}
 
 		if err := c.Get(ctx, key, current); err != nil {
-			log.Error(err, "failed to get deployment", dpl.Name)
+			log.DefaultLogger().Error(err, "failed to get deployment", dpl.Name)
 			return err
 		}
 
@@ -64,7 +64,7 @@ func Update(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal 
 
 		mutate(current, dpl)
 		if err := c.Update(ctx, current); err != nil {
-			log.Error(err, "failed to update deployment", dpl.Name)
+			log.DefaultLogger().Error(err, "failed to update deployment", dpl.Name)
 			return err
 		}
 		return nil

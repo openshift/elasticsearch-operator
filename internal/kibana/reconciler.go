@@ -472,7 +472,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	}
 
 	kibanaContainer.ReadinessProbe = &v1.Probe{
-		Handler: v1.Handler{
+		ProbeHandler: v1.ProbeHandler{
 			Exec: &v1.ExecAction{
 				Command: []string{
 					"/usr/share/kibana/probe/readiness.sh",

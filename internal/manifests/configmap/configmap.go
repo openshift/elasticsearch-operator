@@ -108,13 +108,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, cm *corev1.ConfigMap, 
 	if !equal(current, cm) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get configmap", cm.Name)
+				log.DefaultLogger().Error(err, "failed to get configmap", cm.Name)
 				return err
 			}
 
 			mutate(current, cm)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update configmap", cm.Name)
+				log.DefaultLogger().Error(err, "failed to update configmap", cm.Name)
 				return err
 			}
 			return nil

@@ -714,7 +714,7 @@ func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Q
 
 	quantity, err := resource.ParseQuantity(usage)
 	if err != nil {
-		log.Error(err, "Unable to parse quantity", "value", usage)
+		log.DefaultLogger().Error(err, "Unable to parse quantity", "value", usage)
 		return false
 	}
 
@@ -920,7 +920,7 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 	executeUpdateCondition func(*api.ElasticsearchStatus, v1.ConditionStatus) bool, client client.Client) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); err != nil {
-			log.Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
+			log.DefaultLogger().Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
 			return err
 		}
 
@@ -929,7 +929,7 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 		}
 
 		if err := client.Status().Update(context.TODO(), dpl); err != nil {
-			log.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
+			log.DefaultLogger().Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
 			return err
 		}
 		return nil

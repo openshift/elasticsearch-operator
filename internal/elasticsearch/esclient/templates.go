@@ -126,7 +126,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 			}
 
 			if !(payload.StatusCode == 200 && acknowledged) {
-				log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+				log.DefaultLogger().Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
 			}
 		}
 	}
@@ -168,7 +168,7 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 			}
 
 			if !(payload.StatusCode == 200 && acknowledged) {
-				log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+				log.DefaultLogger().Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
 			}
 		}
 	}

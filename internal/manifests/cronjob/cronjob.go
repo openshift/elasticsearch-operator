@@ -53,13 +53,13 @@ func CreateOrUpdate(ctx context.Context, c client.Client, cj *batchv1beta1.CronJ
 	if !equal(current, cj) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get cronjob", cj.Name)
+				log.DefaultLogger().Error(err, "failed to get cronjob", cj.Name)
 				return err
 			}
 
 			mutate(current, cj)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update cronjob", cj.Name)
+				log.DefaultLogger().Error(err, "failed to update cronjob", cj.Name)
 				return err
 			}
 			return nil

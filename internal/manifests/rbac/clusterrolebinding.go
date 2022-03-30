@@ -43,13 +43,13 @@ func CreateOrUpdateClusterRoleBinding(ctx context.Context, c client.Client, crb 
 	if !equality.Semantic.DeepEqual(current, crb) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get clusterrolebinding", crb.Name)
+				log.DefaultLogger().Error(err, "failed to get clusterrolebinding", crb.Name)
 				return err
 			}
 
 			current.Subjects = crb.Subjects
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update clusterrolebinding", crb.Name)
+				log.DefaultLogger().Error(err, "failed to update clusterrolebinding", crb.Name)
 				return err
 			}
 			return nil

@@ -63,8 +63,8 @@ func main() {
 
 	flag.Parse()
 
-	log.MustInit("elasticsearch-operator")
-	log.Info("starting up...",
+	log.NewLogger("elasticsearch-operator")
+	log.DefaultLogger().Info("starting up...",
 		"operator_version", version.Version,
 		"go_version", runtime.Version(),
 		"go_os", runtime.GOOS,
@@ -73,11 +73,11 @@ func main() {
 
 	namespace, err := getWatchNamespace()
 	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+		log.DefaultLogger().Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
 
-	ll := log.WithValues("namespace", namespace)
+	ll := log.DefaultLogger().WithValues("namespace", namespace)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -129,10 +129,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Registering custom metrics for Elasticsearch Operator.")
+	log.DefaultLogger().Info("Registering custom metrics for Elasticsearch Operator.")
 	metrics.RegisterCustomMetrics()
 
-	log.Info("Registring profiling endpoints.")
+	log.DefaultLogger().Info("Registring profiling endpoints.")
 	err = registerProfiler(mgr)
 	if err != nil {
 		ll.Error(err, "failed to register extra pprof handler")

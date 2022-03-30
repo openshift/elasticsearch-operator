@@ -45,13 +45,13 @@ func CreateOrUpdateRoleBinding(ctx context.Context, c client.Client, rb *rbacv1.
 	if !equality.Semantic.DeepEqual(current, rb) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get rolebinding", rb.Name)
+				log.DefaultLogger().Error(err, "failed to get rolebinding", rb.Name)
 				return err
 			}
 
 			current.Subjects = rb.Subjects
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update rolebinding", rb.Name)
+				log.DefaultLogger().Error(err, "failed to update rolebinding", rb.Name)
 				return err
 			}
 			return nil
