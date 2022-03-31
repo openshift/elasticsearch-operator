@@ -49,6 +49,10 @@ type IndexManagementDeletePhaseSpec struct {
 	// The minimum age of an index before it should be deleted (e.g. 10d)
 	MinAge TimeUnit `json:"minAge"`
 
+	// The threshold percentage of ES disk usage that when reached, old indices should be deleted (e.g. 75)
+	// +optional
+	DiskThresholdPercent int64 `json:"diskThresholdPercent,omitempty"`
+
 	// How often to run a new prune-namespaces job
 	// +optional
 	PruneNamespacesInterval TimeUnit `json:"pruneNamespacesInterval,omitempty"`

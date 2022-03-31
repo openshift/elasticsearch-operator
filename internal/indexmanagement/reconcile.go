@@ -359,9 +359,16 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			return err
 		}
 
+		diskThreshold := policy.Phases.Delete.DiskThresholdPercent
+		if diskThreshold < 0 || diskThreshold > 100 {
+			err := fmt.Errorf("invalid percentage value")
+			return kverrors.Wrap(err, ", %d should be between 0 and 100", diskThreshold)
+		}
+
 		envvars = append(envvars,
 			corev1.EnvVar{Name: "MIN_AGE", Value: strconv.FormatUint(minAgeMillis, 10)},
 			corev1.EnvVar{Name: "NAMESPACE_SPECS", Value: namespaceSpecsString},
+			corev1.EnvVar{Name: "DISK_THRESHOLD", Value: strconv.FormatInt(diskThreshold, 10)},
 		)
 
 		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, minAgeMillis/millisPerSecond)
