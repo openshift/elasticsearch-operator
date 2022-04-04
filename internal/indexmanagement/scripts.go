@@ -169,7 +169,7 @@ def getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indice
     sys.stdout = original_stdout
     return -1
 
-def deleteByPercentage(alias, diskThreshold):
+def deleteByPercentage(alias, writeIndex, diskThreshold):
   original_stdout = sys.stdout
   try:
     es_client = getEsClient()
@@ -188,8 +188,11 @@ def deleteByPercentage(alias, diskThreshold):
       indicesToDelete, indicesSizeCounter = getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indicesToDelete)
 
     for index in indicesToDelete:
-      es_client.indices.delete(index=index)
-      print ("Index ", index, " deleted")
+      if index == writeIndex:
+        print ("Cannot delete write index")
+      else:
+        es_client.indices.delete(index=index)
+        print ("Index ", index, " deleted")
     return True
     
   except Exception as e:
@@ -487,7 +490,7 @@ function delete() {
 
   # Delete indices based on disk usage
   if [ ! "$DISK_THRESHOLD" -eq "0" ]; then
-    if ! response=$(deleteByPercentage $policy 2 >>$ERRORS) ; then
+    if ! response=$(deleteByPercentage $policy $writeIndex 2 >>$ERRORS) ; then
       cat $ERRORS
       rm $ERRORS
       return 1
@@ -534,7 +537,7 @@ function delete() {
 function deleteByPercentage() {
   local alias=$1
 
-  python -c 'import indexManagementClient; print(indexManagementClient.deleteByPercentage("'$alias'", "'$DISK_THRESHOLD'"))'
+  python -c 'import indexManagementClient; print(indexManagementClient.deleteByPercentage("'$alias'", "'$writeIndex'", "'$DISK_THRESHOLD'"))'
 }
 
 function getAlias() {
