@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
 
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
@@ -166,7 +165,7 @@ func (er *ElasticsearchRequest) isValidScaleDownRate() (bool, error) {
 		// check the lowest replica value in the cluster
 		foundLowestReplica, err := er.esClient.GetLowestReplicaValue()
 		if err != nil {
-			log.DefaultLogger().Error(err, "Unable to determine lowest replica value for cluster")
+			logger.Error(err, "Unable to determine lowest replica value for cluster")
 			return false, kverrors.Wrap(err, "Unable to determine lowest replica value for cluster")
 		}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -51,16 +51,18 @@ func CreateOrUpdate(ctx context.Context, c client.Client, sm *monitoringv1.Servi
 		)
 	}
 
+	var logger logr.Logger
+
 	if !equal(current, sm) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get servicemonitor", sm.Name)
+				logger.Error(err, "failed to get servicemonitor", sm.Name)
 				return err
 			}
 
 			mutate(current, sm)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update servicemonitor", sm.Name)
+				logger.Error(err, "failed to update servicemonitor", sm.Name)
 				return err
 			}
 			return nil

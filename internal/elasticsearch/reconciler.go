@@ -28,10 +28,10 @@ type ElasticsearchRequest struct {
 // L is the logger used for this request.
 // TODO This needs to be removed in favor of using context.Context() with values.
 func (er *ElasticsearchRequest) L() logr.Logger {
-	var logger logr.Logger
-	if er.ll == logger {
-		er.ll = log.DefaultLogger().WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+	if er.ll.Empty() {
+		er.ll = logger.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 	}
+
 	return er.ll
 }
 
@@ -122,12 +122,13 @@ func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClien
 
 func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
 	esClient := esclient.NewClient(requestCluster.Name, requestCluster.Namespace, requestClient)
+	//logger := log.NewLogger("elasticsearch-operator")
 
 	elasticsearchRequest := ElasticsearchRequest{
 		client:   requestClient,
 		cluster:  requestCluster,
 		esClient: esClient,
-		ll:       log.DefaultLogger().WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+		ll:       logger.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// check if we are doing ES cert management looking for annotation:
@@ -137,7 +138,7 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 		manageBool, _ := strconv.ParseBool(value)
 		if manageBool {
 			cr := NewCertificateRequest(requestCluster.Name, requestCluster.Namespace, requestCluster.GetOwnerRef(), requestClient)
-			cr.GenerateElasticsearchCerts(requestCluster.Name)
+			cr.GenerateElasticsearchCerts(requestCluster.Name, logger)
 
 			// for any components specified like:
 			// logging.openshift.io/elasticsearch-cert.{secret_name}: {component_name}
@@ -145,7 +146,7 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 				if strings.HasPrefix(annotationKey, constants.EOComponentCertPrefix) {
 					secretName := strings.TrimPrefix(annotationKey, constants.EOComponentCertPrefix)
 
-					cr.GenerateComponentCerts(secretName, componentName)
+					cr.GenerateComponentCerts(secretName, componentName, logger)
 				}
 			}
 		}

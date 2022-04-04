@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -50,16 +50,17 @@ func CreateOrUpdatePVC(ctx context.Context, c client.Client, pvc *corev1.Persist
 		)
 	}
 
+	var logger logr.Logger
 	if !equal(current, pvc) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get persistentvolumeclaim", pvc.Name)
+				logger.Error(err, "failed to get persistentvolumeclaim", pvc.Name)
 				return err
 			}
 
 			mutate(current, pvc)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update persistentvolumeclaim", pvc.Name)
+				logger.Error(err, "failed to update persistentvolumeclaim", pvc.Name)
 				return err
 			}
 			return nil

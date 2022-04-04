@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/ViaQ/logerr/log"
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -200,7 +199,7 @@ func (node *deploymentNode) podSpecMatches() bool {
 func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 	podList, err := pod.List(context.TODO(), node.client, node.self.Namespace, labels)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Could not get node pods", "node", node.name())
+		logger.Error(err, "Could not get node pods", "node", node.name())
 		return false
 	}
 
@@ -272,7 +271,7 @@ func (node *deploymentNode) replicaCount() (int32, error) {
 	key := client.ObjectKey{Name: node.self.Name, Namespace: node.self.Namespace}
 	dpl, err := deployment.Get(context.TODO(), node.client, key)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Could not get Elasticsearch node resource")
+		logger.Error(err, "Could not get Elasticsearch node resource")
 		return -1, err
 	}
 

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -714,7 +713,7 @@ func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Q
 
 	quantity, err := resource.ParseQuantity(usage)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to parse quantity", "value", usage)
+		logger.Error(err, "Unable to parse quantity", "value", usage)
 		return false
 	}
 
@@ -920,7 +919,7 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 	executeUpdateCondition func(*api.ElasticsearchStatus, v1.ConditionStatus) bool, client client.Client) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); err != nil {
-			log.DefaultLogger().Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
+			logger.Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
 			return err
 		}
 
@@ -929,7 +928,7 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 		}
 
 		if err := client.Status().Update(context.TODO(), dpl); err != nil {
-			log.DefaultLogger().Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
+			logger.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
 			return err
 		}
 		return nil

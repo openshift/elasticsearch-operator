@@ -1,9 +1,12 @@
 package rbac
 
 import (
+	"github.com/go-logr/logr"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var logger logr.Logger
 
 // NewRole returns a new k8s role
 func NewRole(roleName, namespace string, rules []rbacv1.PolicyRule) *rbacv1.Role {

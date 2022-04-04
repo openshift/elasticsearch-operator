@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/persistentvolume"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
 )
+
+var logger logr.Logger
 
 var excludeConfigMapKeys = []string{"index_settings"}
 
@@ -610,7 +612,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 	// in the case where we do not have a size provided we need to
 	// fall back to using ephemeral storage since a pvc requires a size
 	if specVol.Size == nil {
-		log.DefaultLogger().Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
+		logger.Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
 		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
 		return volSource
 	}
@@ -639,7 +641,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 
 	err := persistentvolume.CreateOrUpdatePVC(context.TODO(), client, pvc, persistentvolume.LabelsEqual, persistentvolume.MutateLabelsOnly)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to create PersistentVolumeClaim")
+		logger.Error(err, "Unable to create PersistentVolumeClaim")
 	}
 
 	return volSource

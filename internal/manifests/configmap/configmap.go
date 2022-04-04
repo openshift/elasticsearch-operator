@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -106,15 +106,17 @@ func CreateOrUpdate(ctx context.Context, c client.Client, cm *corev1.ConfigMap, 
 	}
 
 	if !equal(current, cm) {
+
+		var logger logr.Logger
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get configmap", cm.Name)
+				logger.Error(err, "failed to get configmap", cm.Name)
 				return err
 			}
 
 			mutate(current, cm)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update configmap", cm.Name)
+				logger.Error(err, "failed to update configmap", cm.Name)
 				return err
 			}
 			return nil

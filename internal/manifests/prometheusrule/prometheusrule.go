@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -43,16 +43,17 @@ func CreateOrUpdate(ctx context.Context, c client.Client, pr *monitoringv1.Prome
 		)
 	}
 
+	var logger logr.Logger
 	if !equality.Semantic.DeepEqual(current, pr) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get prometheusrule", pr.Name)
+				logger.Error(err, "failed to get prometheusrule", pr.Name)
 				return err
 			}
 
 			current.Spec = pr.Spec
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update prometheusrule", pr.Name)
+				logger.Error(err, "failed to update prometheusrule", pr.Name)
 				return err
 			}
 			return nil

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/util/retry"
@@ -52,8 +52,10 @@ func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal
 		current := &appsv1.StatefulSet{}
 		key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
 
+		var logger logr.Logger
+
 		if err := c.Get(ctx, key, current); err != nil {
-			log.DefaultLogger().Error(err, "failed to get statefulset", sts.Name)
+			logger.Error(err, "failed to get statefulset", sts.Name)
 			return err
 		}
 
@@ -63,7 +65,7 @@ func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal
 
 		mutate(current, sts)
 		if err := c.Update(ctx, current); err != nil {
-			log.DefaultLogger().Error(err, "failed to update statefulset", sts.Name)
+			logger.Error(err, "failed to update statefulset", sts.Name)
 			return err
 		}
 		return nil

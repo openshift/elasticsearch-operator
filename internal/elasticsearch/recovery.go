@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/deployment"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/persistentvolume"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/statefulset"
@@ -41,7 +40,7 @@ func (er *ElasticsearchRequest) recoverOrphanedCluster() error {
 		selector := map[string]string{}
 		pvcList, err := persistentvolume.ListPVC(context.TODO(), er.client, er.cluster.Namespace, selector)
 		if err != nil {
-			log.DefaultLogger().Error(err, "Unable to retrieve PVC list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+			logger.Error(err, "Unable to retrieve PVC list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 			return err
 		}
 
@@ -148,7 +147,7 @@ func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, node
 
 		deploymentList, err := deployment.List(context.TODO(), er.client, er.cluster.Namespace, selector)
 		if err != nil {
-			log.DefaultLogger().Error(err, "Unable to retrieve Deployment list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+			logger.Error(err, "Unable to retrieve Deployment list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 			return err
 		}
 
@@ -194,7 +193,7 @@ func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, node
 			var deploymentList []appsv1.Deployment
 			deploymentList, err := deployment.List(context.TODO(), er.client, er.cluster.Namespace, selector)
 			if err != nil {
-				log.DefaultLogger().Error(err, "Unable to retrieve Deployment list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+				logger.Error(err, "Unable to retrieve Deployment list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 				return err
 			}
 
@@ -206,7 +205,7 @@ func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, node
 				}
 
 				if sliceContainsString(knownUUIDs, uuid) {
-					log.DefaultLogger().Info("already found while adopting", "knownUUIDs", knownUUIDs, "uuid", uuid)
+					logger.Info("already found while adopting", "knownUUIDs", knownUUIDs, "uuid", uuid)
 					continue
 				}
 
@@ -224,7 +223,7 @@ func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, node
 			var statefulsetList []appsv1.StatefulSet
 			statefulsetList, err := statefulset.List(context.TODO(), er.client, er.cluster.Namespace, selector)
 			if err != nil {
-				log.DefaultLogger().Error(err, "Unable to retrieve Statefulset list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+				logger.Error(err, "Unable to retrieve Statefulset list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 				return err
 			}
 
@@ -236,7 +235,7 @@ func (er *ElasticsearchRequest) recoverFromDeployments(knownUUIDs []string, node
 				}
 
 				if sliceContainsString(knownUUIDs, uuid) {
-					log.DefaultLogger().Info("already found while adopting", "knownUUIDs", knownUUIDs, "uuid", uuid)
+					logger.Info("already found while adopting", "knownUUIDs", knownUUIDs, "uuid", uuid)
 					continue
 				}
 
@@ -264,7 +263,7 @@ func (er *ElasticsearchRequest) recoverFromPVCs(knownUUIDs []string, nodesToMatc
 
 	pvcList, err := persistentvolume.ListPVC(context.TODO(), er.client, er.cluster.Namespace, selector)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to retrieve PVC list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
+		logger.Error(err, "Unable to retrieve PVC list while recovering", "cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 		return err
 	}
 
@@ -318,7 +317,7 @@ func (er *ElasticsearchRequest) recoverFromPVCs(knownUUIDs []string, nodesToMatc
 			}
 
 			if sliceContainsString(knownUUIDs, uuid) {
-				log.DefaultLogger().Info("already found while adopting", "knownUUIDs", knownUUIDs, "uuid", uuid)
+				logger.Info("already found while adopting", "knownUUIDs", knownUUIDs, "uuid", uuid)
 				continue
 			}
 

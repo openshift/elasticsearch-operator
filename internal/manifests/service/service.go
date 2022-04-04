@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -50,16 +50,18 @@ func CreateOrUpdate(ctx context.Context, c client.Client, svc *corev1.Service, e
 		)
 	}
 
+	var logger logr.Logger
+
 	if !equal(current, svc) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get service", svc.Name)
+				logger.Error(err, "failed to get service", svc.Name)
 				return err
 			}
 
 			mutate(current, svc)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update service", svc.Name)
+				logger.Error(err, "failed to update service", svc.Name)
 				return err
 			}
 			return nil

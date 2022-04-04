@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -166,30 +166,30 @@ func NewCertificateRequest(clusterName, namespace string, ownerRef metav1.OwnerR
 	}
 }
 
-func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
+func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string, logger logr.Logger) {
 	certMutex.Lock()
 	defer certMutex.Unlock()
 	key := client.ObjectKey{Name: secretName, Namespace: cr.Namespace}
 	s, err := secret.Get(context.TODO(), cr.K8sClient, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
-		log.DefaultLogger().Error(err, "unable to get secret")
+		logger.Error(err, "unable to get secret")
 		return
 	}
 
 	ca := &certCA{}
 	if err = cr.ensureCA(ca); err != nil {
-		log.DefaultLogger().Error(err, "Unable to get CA")
+		logger.Error(err, "Unable to get CA")
 		return
 	}
 
 	componentCert := &certificate{}
 	if err = unmarshalCert(s.Data[componentCertName], s.Data[componentKeyName], componentCert); err != nil {
-		log.DefaultLogger().Info("Failed to unmarshal cert from secret for component", "error", err)
+		logger.Info("Failed to unmarshal cert from secret for component", "error", err)
 	}
 
-	err = cr.EnsureCert(cn, componentCert, ca)
+	err = cr.EnsureCert(cn, componentCert, ca, logger)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to generate cert for component")
+		logger.Error(err, "Unable to generate cert for component")
 		return
 	}
 
@@ -200,7 +200,7 @@ func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
 	}
 
 	if err := CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, componentSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
-		log.DefaultLogger().Error(err, "Unable to create secret for component")
+		logger.Error(err, "Unable to create secret for component")
 		return
 	}
 }
@@ -211,24 +211,24 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 	key := client.ObjectKey{Name: kibanaSecretName, Namespace: cr.Namespace}
 	s, err := secret.Get(context.TODO(), cr.K8sClient, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
-		log.DefaultLogger().Error(err, "unable to get secret")
+		logger.Error(err, "unable to get secret")
 		return
 	}
 
 	ca := &certCA{}
 	if err = cr.ensureCA(ca); err != nil {
-		log.DefaultLogger().Error(err, "Unable to get CA")
+		logger.Error(err, "Unable to get CA")
 		return
 	}
 
 	kibanaCert := &certificate{}
 	if err = unmarshalCert(s.Data[kibanaComponentCertName], s.Data[kibanaComponentKeyName], kibanaCert); err != nil {
-		log.DefaultLogger().Info("Failed to unmarshal cert from secret for kibana", "error", err)
+		logger.Info("Failed to unmarshal cert from secret for kibana", "error", err)
 	}
 
-	err = cr.EnsureCert(kibanaComponentName, kibanaCert, ca)
+	err = cr.EnsureCert(kibanaComponentName, kibanaCert, ca, logger)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to generate cert for kibana")
+		logger.Error(err, "Unable to generate cert for kibana")
 		return
 	}
 
@@ -239,25 +239,25 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 	}
 
 	if err = CreateOrUpdateSecretWithOwnerRef(kibanaSecretName, cr.Namespace, kibanaSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
-		log.DefaultLogger().Error(err, "Unable to create secret for kibana component")
+		logger.Error(err, "Unable to create secret for kibana component")
 		return
 	}
 
 	key = client.ObjectKey{Name: getKibanaProxySecretName(kibanaSecretName), Namespace: cr.Namespace}
 	s, err = secret.Get(context.TODO(), cr.K8sClient, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
-		log.DefaultLogger().Error(err, "unable to get secret")
+		logger.Error(err, "unable to get secret")
 		return
 	}
 
 	kibanaProxyCert := &certificate{}
 	if err = unmarshalCert(s.Data[kibanaInternalCertName], s.Data[kibanaInternalKeyName], kibanaProxyCert); err != nil {
-		log.DefaultLogger().Info("Failed to unmarshal cert from secret for kibana-proxy", "error", err)
+		logger.Info("Failed to unmarshal cert from secret for kibana-proxy", "error", err)
 	}
 
-	err = cr.EnsureCert(kibanaInternalComponentName, kibanaProxyCert, ca)
+	err = cr.EnsureCert(kibanaInternalComponentName, kibanaProxyCert, ca, logger)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to generate cert for kibana-internal")
+		logger.Error(err, "Unable to generate cert for kibana-internal")
 		return
 	}
 
@@ -267,7 +267,7 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 	// ensure session secret here
 	err = ensureSessionSecret(kibanaSessionSecretLength, allowedRunes, kibanaProxySessionSecret)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to ensure session secret for kibana proxy")
+		logger.Error(err, "Unable to ensure session secret for kibana proxy")
 		return
 	}
 
@@ -278,58 +278,58 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 	}
 
 	if err = CreateOrUpdateSecretWithOwnerRef(getKibanaProxySecretName(kibanaSecretName), cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
-		log.DefaultLogger().Error(err, "Unable to create secret for kibana-proxy")
+		logger.Error(err, "Unable to create secret for kibana-proxy")
 		return
 	}
 }
 
-func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
+func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string, logger logr.Logger) {
 	certMutex.Lock()
 	defer certMutex.Unlock()
 	// get from secret
 	key := client.ObjectKey{Name: clusterName, Namespace: cr.Namespace}
 	s, err := secret.Get(context.TODO(), cr.K8sClient, key)
 	if err != nil && !apierrors.IsNotFound(kverrors.Root(err)) {
-		log.DefaultLogger().Error(err, "unable to get secret")
+		logger.Error(err, "unable to get secret")
 		return
 	}
 
 	ca := &certCA{}
 	if err = cr.ensureCA(ca); err != nil {
-		log.DefaultLogger().Error(err, "Unable to get CA")
+		logger.Error(err, "Unable to get CA")
 		return
 	}
 
 	adminCert := &certificate{}
 	if err = unmarshalCert(s.Data[esAdminCertName], s.Data[esAdminKeyName], adminCert); err != nil {
-		log.DefaultLogger().Info("Failed to unmarshal cert from secret for admin", "error", err)
+		logger.Info("Failed to unmarshal cert from secret for admin", "error", err)
 	}
 
-	err = cr.EnsureCert(esAdminComponentName, adminCert, ca)
+	err = cr.EnsureCert(esAdminComponentName, adminCert, ca, logger)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to generate cert for admin user")
+		logger.Error(err, "Unable to generate cert for admin user")
 		return
 	}
 
 	elasticsearchCert := &certificate{}
 	if err = unmarshalCert(s.Data[esComponentCertName], s.Data[esComponentKeyName], elasticsearchCert); err != nil {
-		log.DefaultLogger().Info("Failed to unmarshal cert from secret for elasticsearch", "error", err)
+		logger.Info("Failed to unmarshal cert from secret for elasticsearch", "error", err)
 	}
 
-	err = cr.EnsureCert(esComponentName, elasticsearchCert, ca)
+	err = cr.EnsureCert(esComponentName, elasticsearchCert, ca, logger)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to generate cert for elasticsearch")
+		logger.Error(err, "Unable to generate cert for elasticsearch")
 		return
 	}
 
 	loggingESCert := &certificate{}
 	if err = unmarshalCert(s.Data[esInternalCertname], s.Data[esInternalKeyName], loggingESCert); err != nil {
-		log.DefaultLogger().Info("Failed to unmarshal cert from secret for logging-es", "error", err)
+		logger.Info("Failed to unmarshal cert from secret for logging-es", "error", err)
 	}
 
-	err = cr.EnsureCert(esInternalComponentName, loggingESCert, ca)
+	err = cr.EnsureCert(esInternalComponentName, loggingESCert, ca, logger)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to generate cert for logging-es")
+		logger.Error(err, "Unable to generate cert for logging-es")
 		return
 	}
 
@@ -344,12 +344,12 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 	}
 
 	if err := CreateOrUpdateSecretWithOwnerRef(clusterName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
-		log.DefaultLogger().Error(err, "Unable to create secret for elasticsearch component")
+		logger.Error(err, "Unable to create secret for elasticsearch component")
 		return
 	}
 }
 
-func (cr *CertificateRequest) EnsureCert(componentName string, cert *certificate, ca *certCA) error {
+func (cr *CertificateRequest) EnsureCert(componentName string, cert *certificate, ca *certCA, logger logr.Logger) error {
 	isSignedCorrectly := false
 	if cert.x509Cert != nil {
 		isSignedCorrectly = cert.x509Cert.CheckSignatureFrom(ca.x509Cert) == nil

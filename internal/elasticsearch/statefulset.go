@@ -45,8 +45,7 @@ type statefulSetNode struct {
 //
 // TODO remove this construct when context.Context is passed and it should contain any relevant contextual values
 func (n *statefulSetNode) L() logr.Logger {
-	var logger logr.Logger
-	if n.l == logger {
+	if n.l.Empty() {
 		n.l = log.DefaultLogger().WithValues("node", n.name())
 	}
 	return n.l
@@ -144,7 +143,7 @@ func (n *statefulSetNode) waitForNodeRejoinCluster() (bool, error) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
 		clusterSize, err := n.esClient.GetClusterNodeCount()
 		if err != nil {
-			n.L().Error(err, "Unable to get cluster size waiting to rejoin cluster")
+			n.l.Error(err, "Unable to get cluster size waiting to rejoin cluster")
 			return false, err
 		}
 

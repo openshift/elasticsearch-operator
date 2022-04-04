@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/ViaQ/logerr/log"
 	apis "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
@@ -62,6 +61,8 @@ var (
 	}
 )
 
+var logger logr.Logger
+
 type rolloverConditions struct {
 	MaxAge  string `json:"max_age,omitempty"`
 	MaxDocs int32  `json:"max_docs,omitempty"`
@@ -82,7 +83,7 @@ func Reconcile(req *apis.Elasticsearch, reqClient client.Client) error {
 		client:   reqClient,
 		esClient: esClient,
 		cluster:  req,
-		ll:       log.DefaultLogger().WithValues("cluster", req.Name, "namespace", req.Namespace, "handler", "indexmanagement"),
+		ll:       logger.WithValues("cluster", req.Name, "namespace", req.Namespace, "handler", "indexmanagement"),
 	}
 
 	return imr.createOrUpdateIndexManagement()
@@ -115,7 +116,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 	if running {
 		imr.cullIndexManagement(spec.Mappings, policies)
 		for _, mapping := range spec.Mappings {
-			ll := log.DefaultLogger().WithValues("mapping", mapping.Name)
+			ll := logger.WithValues("mapping", mapping.Name)
 			// create or update template
 			if err := imr.createOrUpdateIndexTemplate(mapping); err != nil {
 				ll.Error(err, "failed to create index template")
@@ -141,7 +142,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 	primaryShards := elasticsearch.GetDataCount(imr.cluster)
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
-		ll := log.DefaultLogger().WithValues("mapping", mapping.Name, "policy", policy.Name)
+		ll := logger.WithValues("mapping", mapping.Name, "policy", policy.Name)
 		if err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, suspend); err != nil {
 			ll.Error(err, "could not reconcile indexmanagement cronjob")
 			return err
@@ -153,7 +154,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 
 func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexManagementPolicyMappingSpec, policies apis.PolicyMap) {
 	if err := imr.removeCronJobsForMappings(mappings, policies); err != nil {
-		log.DefaultLogger().Error(err, "Unable to cull cronjobs")
+		logger.Error(err, "Unable to cull cronjobs")
 	}
 	mappingNames := sets.NewString()
 	for _, mapping := range mappings {
@@ -162,7 +163,7 @@ func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexMana
 
 	existing, err := imr.esClient.ListTemplates()
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to list existing templates in order to reconcile stale ones")
+		logger.Error(err, "Unable to list existing templates in order to reconcile stale ones")
 		return
 	}
 	difference := existing.Difference(mappingNames)
@@ -170,7 +171,7 @@ func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexMana
 	for _, template := range difference.List() {
 		if strings.HasPrefix(template, constants.OcpTemplatePrefix) {
 			if err := imr.esClient.DeleteIndexTemplate(template); err != nil {
-				log.DefaultLogger().Error(err, "Unable to delete stale template in order to reconcile", "template", template)
+				logger.Error(err, "Unable to delete stale template in order to reconcile", "template", template)
 			}
 		}
 	}
@@ -253,7 +254,7 @@ func (imr *IndexManagementRequest) removeCronJobsForMappings(mappings []apis.Ind
 		key := client.ObjectKey{Name: name, Namespace: imr.cluster.Namespace}
 		err := cronjob.Delete(context.TODO(), imr.client, key)
 		if err != nil && !apierrors.IsNotFound(err) {
-			log.DefaultLogger().Error(err, "failed to remove cronjob", "namespace", imr.cluster.Namespace, "name", name)
+			logger.Error(err, "failed to remove cronjob", "namespace", imr.cluster.Namespace, "name", name)
 		}
 	}
 	return nil
@@ -330,7 +331,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 
 func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32, suspend bool) error {
 	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
-		log.DefaultLogger().V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
+		logger.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
 	}
 
@@ -367,7 +368,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, minAgeMillis/millisPerSecond)
 		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, namespaceCount)
 	} else {
-		log.DefaultLogger().V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
+		logger.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
 
 		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, 0)
 		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, 0)
@@ -388,7 +389,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			metrics.SetIndexRetentionDocumentAge(false, mapping.Name, maxAgeMillis/millisPerSecond)
 		}
 	} else {
-		log.DefaultLogger().V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
+		logger.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
 
 		metrics.SetIndexRetentionDocumentAge(false, mapping.Name, 0)
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	batchv1beta1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -50,16 +50,17 @@ func CreateOrUpdate(ctx context.Context, c client.Client, cj *batchv1beta1.CronJ
 		)
 	}
 
+	var logger logr.Logger
 	if !equal(current, cj) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get cronjob", cj.Name)
+				logger.Error(err, "failed to get cronjob", cj.Name)
 				return err
 			}
 
 			mutate(current, cj)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update cronjob", cj.Name)
+				logger.Error(err, "failed to update cronjob", cj.Name)
 				return err
 			}
 			return nil

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	securityv1 "github.com/openshift/api/security/v1"
 
@@ -45,16 +45,18 @@ func CreateOrUpdate(ctx context.Context, c client.Client, s *securityv1.Security
 		)
 	}
 
+	var logger logr.Logger
+
 	if !equality.Semantic.DeepEqual(current, s) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get security context constraints", s.Name)
+				logger.Error(err, "failed to get security context constraints", s.Name)
 				return err
 			}
 
 			mutate(current, s)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update security context constraints", s.Name)
+				logger.Error(err, "failed to update security context constraints", s.Name)
 				return err
 			}
 			return nil

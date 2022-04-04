@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -96,16 +96,18 @@ func CreateOrUpdate(ctx context.Context, c client.Client, s *corev1.Secret, equa
 		)
 	}
 
+	var logger logr.Logger
+
 	if !equal(current, s) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get secret", s.Name)
+				logger.Error(err, "failed to get secret", s.Name)
 				return err
 			}
 
 			mutate(current, s)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update secret", s.Name)
+				logger.Error(err, "failed to update secret", s.Name)
 				return err
 			}
 			return nil

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -45,13 +44,13 @@ func CreateOrUpdateRoleBinding(ctx context.Context, c client.Client, rb *rbacv1.
 	if !equality.Semantic.DeepEqual(current, rb) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get rolebinding", rb.Name)
+				logger.Error(err, "failed to get rolebinding", rb.Name)
 				return err
 			}
 
 			current.Subjects = rb.Subjects
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update rolebinding", rb.Name)
+				logger.Error(err, "failed to update rolebinding", rb.Name)
 				return err
 			}
 			return nil

@@ -1,10 +1,13 @@
 package console
 
 import (
+	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var logger logr.Logger
 
 // NewConsoleLink returns a new openshift api console link
 func NewConsoleLink(name, href, text, icon, section string) *consolev1.ConsoleLink {

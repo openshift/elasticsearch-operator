@@ -8,7 +8,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/console"
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 
-	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,11 +42,11 @@ func (r *ElasticsearchReconciler) Reconcile(ctx context.Context, request ctrl.Re
 	err := r.Get(ctx, request.NamespacedName, cluster)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.DefaultLogger().Info("Flushing nodes", "objectKey", request.NamespacedName)
+			r.Log.Info("Flushing nodes", "objectKey", request.NamespacedName)
 			elasticsearch.FlushNodes(request.NamespacedName.Name, request.NamespacedName.Namespace)
 			elasticsearch.RemoveDashboardConfigMap(r.Client)
 			if err := console.DeleteKibanaConsoleLink(context.TODO(), r.Client); err != nil {
-				log.DefaultLogger().Error(err, "failed to delete consolelink")
+				r.Log.Error(err, "failed to delete consolelink")
 			}
 			return ctrl.Result{}, nil
 		}

@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -39,6 +40,8 @@ const (
 var kibanaServiceAccountAnnotations = map[string]string{
 	"serviceaccounts.openshift.io/oauth-redirectreference.first": kibanaOAuthRedirectReference,
 }
+
+var logger logr.Logger
 
 func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esClient esclient.Client, proxyConfig *configv1.Proxy, eoManagedCerts bool, ownerRef metav1.OwnerReference) error {
 	clusterKibanaRequest := KibanaRequest{

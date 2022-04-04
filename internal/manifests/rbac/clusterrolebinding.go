@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,13 +42,13 @@ func CreateOrUpdateClusterRoleBinding(ctx context.Context, c client.Client, crb 
 	if !equality.Semantic.DeepEqual(current, crb) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get clusterrolebinding", crb.Name)
+				logger.Error(err, "failed to get clusterrolebinding", crb.Name)
 				return err
 			}
 
 			current.Subjects = crb.Subjects
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update clusterrolebinding", crb.Name)
+				logger.Error(err, "failed to update clusterrolebinding", crb.Name)
 				return err
 			}
 			return nil

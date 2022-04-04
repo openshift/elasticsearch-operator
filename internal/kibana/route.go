@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/console"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/route"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
@@ -28,7 +27,7 @@ func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, erro
 	r, err := route.Get(context.TODO(), clusterRequest.client, key)
 	if err != nil {
 		if !apierrors.IsNotFound(kverrors.Root(err)) {
-			log.DefaultLogger().Error(err, "Failed to check for kibana object")
+			logger.Error(err, "Failed to check for kibana object")
 		}
 		return "", err
 	}
@@ -42,7 +41,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 	fp := utils.GetWorkingDirFilePath("ca.crt")
 	caCert, err := ioutil.ReadFile(fp)
 	if err != nil {
-		log.DefaultLogger().Info("could not read CA certificate for kibana route",
+		logger.Info("could not read CA certificate for kibana route",
 			"filePath", fp,
 			"cause", err)
 	}

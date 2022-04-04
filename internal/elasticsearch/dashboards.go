@@ -7,7 +7,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +31,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 	var hash string
 	hash, err = utils.CalculateMD5Hash(string(b))
 	if err != nil {
-		log.DefaultLogger().Error(err, "error calculating hash for elasticsearch dashboard configmap")
+		logger.Error(err, "error calculating hash for elasticsearch dashboard configmap")
 	}
 
 	cm := configmap.New(
@@ -93,6 +92,6 @@ func RemoveDashboardConfigMap(c client.Client) {
 		if apierrors.IsNotFound(kverrors.Root(err)) {
 			return
 		}
-		log.DefaultLogger().Error(err, "error deleting grafana configmap")
+		logger.Error(err, "error deleting grafana configmap")
 	}
 }

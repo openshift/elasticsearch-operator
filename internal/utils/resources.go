@@ -3,8 +3,6 @@ package utils
 import (
 	"reflect"
 
-	"github.com/ViaQ/logerr/log"
-
 	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,7 +50,7 @@ func AreResourcesDifferent(current, desired interface{}) bool {
 	desiredType := reflect.TypeOf(desired)
 
 	if currentType != desiredType {
-		log.DefaultLogger().Info("Attempting to compare resources for different types", "current", currentType, "desired", desiredType)
+		logger.Info("Attempting to compare resources for different types", "current", currentType, "desired", desiredType)
 		return false
 	}
 
@@ -70,7 +68,7 @@ func AreResourcesDifferent(current, desired interface{}) bool {
 		desiredContainers = desired.(*batch.CronJob).Spec.JobTemplate.Spec.Template.Spec.Containers
 
 	default:
-		log.DefaultLogger().Info("Attempting to check resources for unmatched type", "type", currentType)
+		logger.Info("Attempting to check resources for unmatched type", "type", currentType)
 		return false
 	}
 

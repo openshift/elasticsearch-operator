@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 
 	routev1 "github.com/openshift/api/route/v1"
 
@@ -65,16 +65,17 @@ func CreateOrUpdate(ctx context.Context, c client.Client, r *routev1.Route, equa
 		)
 	}
 
+	var logger logr.Logger
 	if !equal(current, r) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get route", r.Name)
+				logger.Error(err, "failed to get route", r.Name)
 				return err
 			}
 
 			mutate(current, r)
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update route", r.Name)
+				logger.Error(err, "failed to update route", r.Name)
 				return err
 			}
 			return nil

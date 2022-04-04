@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -43,13 +42,13 @@ func CreateOrUpdateClusterRole(ctx context.Context, c client.Client, cr *rbacv1.
 	if !equality.Semantic.DeepEqual(current, cr) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to get clusterrole", cr.Name)
+				logger.Error(err, "failed to get clusterrole", cr.Name)
 				return err
 			}
 
 			current.Rules = cr.Rules
 			if err := c.Update(ctx, current); err != nil {
-				log.DefaultLogger().Error(err, "failed to update clusterrole", cr.Name)
+				logger.Error(err, "failed to update clusterrole", cr.Name)
 				return err
 			}
 			return nil
