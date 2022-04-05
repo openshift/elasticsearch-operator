@@ -5,9 +5,7 @@ import (
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/go-logr/logr"
-
 	securityv1 "github.com/openshift/api/security/v1"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -23,7 +21,7 @@ type MutateFunc func(current, desired *securityv1.SecurityContextConstraints)
 // if the securitycontextconstraints exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, s *securityv1.SecurityContextConstraints, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, s *securityv1.SecurityContextConstraints, mutate MutateFunc) error {
 	current := &securityv1.SecurityContextConstraints{}
 	key := client.ObjectKey{Name: s.Name}
 	err := c.Get(ctx, key, current)
@@ -45,18 +43,16 @@ func CreateOrUpdate(ctx context.Context, c client.Client, s *securityv1.Security
 		)
 	}
 
-	var logger logr.Logger
-
 	if !equality.Semantic.DeepEqual(current, s) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				logger.Error(err, "failed to get security context constraints", s.Name)
+				log.Error(err, "failed to get security context constraints", s.Name)
 				return err
 			}
 
 			mutate(current, s)
 			if err := c.Update(ctx, current); err != nil {
-				logger.Error(err, "failed to update security context constraints", s.Name)
+				log.Error(err, "failed to update security context constraints", s.Name)
 				return err
 			}
 			return nil

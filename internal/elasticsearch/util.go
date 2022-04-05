@@ -165,7 +165,7 @@ func (er *ElasticsearchRequest) isValidScaleDownRate() (bool, error) {
 		// check the lowest replica value in the cluster
 		foundLowestReplica, err := er.esClient.GetLowestReplicaValue()
 		if err != nil {
-			logger.Error(err, "Unable to determine lowest replica value for cluster")
+			er.ll.Error(err, "Unable to determine lowest replica value for cluster")
 			return false, kverrors.Wrap(err, "Unable to determine lowest replica value for cluster")
 		}
 
@@ -181,36 +181,36 @@ func (er *ElasticsearchRequest) isValidConf() error {
 	dpl := er.cluster
 
 	if !isValidMasterCount(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionTrue, updateInvalidMasterCountCondition, er.client); err != nil {
 			return err
 		}
 		return kverrors.New("invalid master nodes count. Please ensure the total nodes with master roles is less than the maximum",
 			"maximum", maxMasterCount)
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidMasterCountCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionFalse, updateInvalidMasterCountCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set master count status")
 		}
 	}
 
 	if !isValidDataCount(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidDataCountCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionTrue, updateInvalidDataCountCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set data count status")
 		}
 		return kverrors.New("no data nodes requested. Please ensure there is at least 1 node with data roles")
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidDataCountCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionFalse, updateInvalidDataCountCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set data count status")
 		}
 	}
 
 	if !isValidRedundancyPolicy(dpl) {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidReplicationCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionTrue, updateInvalidReplicationCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set replication status")
 		}
 		return kverrors.New("wrong RedundancyPolicy selected. Choose different RedundancyPolicy or add more nodes with data roles",
 			"policy", dpl.Spec.RedundancyPolicy)
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidReplicationCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionFalse, updateInvalidReplicationCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set replication status")
 		}
 	}
@@ -221,11 +221,11 @@ func (er *ElasticsearchRequest) isValidConf() error {
 	}
 
 	if isValid {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateInvalidScaleDownCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionFalse, updateInvalidScaleDownCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set scale down status")
 		}
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateInvalidScaleDownCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionTrue, updateInvalidScaleDownCondition, er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set scale down status")
 		}
 		return kverrors.New("Data node scale down rate is too high based on minimum number of replicas for all indices")
@@ -233,12 +233,12 @@ func (er *ElasticsearchRequest) isValidConf() error {
 
 	// TODO: replace this with a validating web hook to ensure field is immutable
 	if err := validateUUIDs(dpl); err != nil {
-		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionTrue, err.Error(), er.client); err != nil {
+		if err := updateInvalidUUIDChangeCondition(er.ll, dpl, v1.ConditionTrue, err.Error(), er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set UUID change status")
 		}
 		return kverrors.Wrap(err, "unsupported change to UUIDs made")
 	} else {
-		if err := updateInvalidUUIDChangeCondition(dpl, v1.ConditionFalse, "", er.client); err != nil {
+		if err := updateInvalidUUIDChangeCondition(er.ll, dpl, v1.ConditionFalse, "", er.client); err != nil {
 			return kverrors.Wrap(err, "failed to set UUID change status")
 		}
 	}

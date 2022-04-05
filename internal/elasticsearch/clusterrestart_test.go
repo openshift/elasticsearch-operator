@@ -1,10 +1,11 @@
 package elasticsearch
 
 import (
-	"github.com/ViaQ/logerr/kverrors"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	v1 "k8s.io/api/core/v1"
 )
@@ -53,6 +54,7 @@ var _ = Describe("clusterrestart", func() {
 			}
 
 			restarter = Restarter{
+				log:              log.DefaultLogger(),
 				scheduledNodes:   testNodes,
 				clusterName:      "test-cluster",
 				clusterNamespace: "test-namespace",
@@ -236,6 +238,7 @@ var _ = Describe("clusterrestart", func() {
 	Context("cluster restarts", func() {
 		JustBeforeEach(func() {
 			restarter = Restarter{
+				log:              log.DefaultLogger(),
 				scheduledNodes:   testNodes,
 				clusterName:      "test-cluster",
 				clusterNamespace: "test-namespace",

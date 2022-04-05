@@ -27,7 +27,7 @@ func (clusterRequest *KibanaRequest) GetRouteURL(routeName string) (string, erro
 	r, err := route.Get(context.TODO(), clusterRequest.client, key)
 	if err != nil {
 		if !apierrors.IsNotFound(kverrors.Root(err)) {
-			logger.Error(err, "Failed to check for kibana object")
+			clusterRequest.log.Error(err, "Failed to check for kibana object")
 		}
 		return "", err
 	}
@@ -41,7 +41,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 	fp := utils.GetWorkingDirFilePath("ca.crt")
 	caCert, err := ioutil.ReadFile(fp)
 	if err != nil {
-		logger.Info("could not read CA certificate for kibana route",
+		clusterRequest.log.Info("could not read CA certificate for kibana route",
 			"filePath", fp,
 			"cause", err)
 	}
@@ -62,7 +62,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 
 	utils.AddOwnerRefToObject(rt, getOwnerRef(cluster))
 
-	err = route.CreateOrUpdate(context.TODO(), clusterRequest.client, rt, route.RouteTLSConfigEqual, route.MutateTLSConfigOnly)
+	err = route.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, rt, route.RouteTLSConfigEqual, route.MutateTLSConfigOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update Kibana route for cluster",
 			"cluster", cluster.Name,
@@ -83,7 +83,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 
 	cl := console.NewConsoleLink(KibanaConsoleLinkName, kibanaURL, "Logging", icon, "Observability")
 
-	err = console.CreateOrUpdateConsoleLink(context.TODO(), clusterRequest.client, cl, console.ConsoleLinksEqual, console.MutateConsoleLinkSpecOnly)
+	err = console.CreateOrUpdateConsoleLink(context.TODO(), clusterRequest.log, clusterRequest.client, cl, console.ConsoleLinksEqual, console.MutateConsoleLinkSpecOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana console link CR for cluster",
 			"cluster", cluster.Name,
@@ -126,6 +126,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 
 	err = console.CreateOrUpdateConsoleExternalLogLink(
 		context.TODO(),
+		clusterRequest.log,
 		clusterRequest.client,
 		consoleExternalLogLink,
 		console.ConsoleExternalLogLinkEqual,

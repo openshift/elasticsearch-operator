@@ -5,37 +5,27 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateOrUpdateSecretWithOwnerRef(secretName, namespace string, data map[string][]byte, client client.Client, ownerRef metav1.OwnerReference) error {
+func CreateOrUpdateSecretWithOwnerRef(log logr.Logger, secretName, namespace string, data map[string][]byte, client client.Client, ownerRef metav1.OwnerReference) error {
 	s := secret.New(secretName, namespace, data)
 
 	// add owner ref to secret
 	s.OwnerReferences = append(s.OwnerReferences, ownerRef)
 
-	err := secret.CreateOrUpdate(context.TODO(), client, s, secret.DataEqual, secret.MutateDataOnly)
+	err := secret.CreateOrUpdate(context.TODO(), log, client, s, secret.DataEqual, secret.MutateDataOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch secret",
 			"owner_ref_name", ownerRef.Name,
 		)
-	}
-
-	return nil
-}
-
-func CreateOrUpdateSecret(secretName, namespace string, data map[string][]byte, client client.Client) error {
-	s := secret.New(secretName, namespace, data)
-
-	err := secret.CreateOrUpdate(context.TODO(), client, s, secret.DataEqual, secret.MutateDataOnly)
-	if err != nil {
-		return kverrors.Wrap(err, "failed to create or update elasticsearch secret")
 	}
 
 	return nil

@@ -6,17 +6,19 @@ import (
 	"reflect"
 	"strings"
 
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
+
 	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
-	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -477,10 +479,9 @@ func (er *ElasticsearchRequest) pruneMissingNodes(status *api.ElasticsearchStatu
 
 func (er *ElasticsearchRequest) updatePodNodeConditions(status *api.ElasticsearchStatus, thresholdEnabled bool) error {
 	cluster := er.cluster
-	ll := er.L()
 
 	for nodeIndex, node := range status.Nodes {
-		ll = ll.WithValues("node", node)
+		ll := er.L().WithValues("node", node)
 
 		nodeName := "unknown name"
 		if node.DeploymentName != "" {
@@ -713,7 +714,8 @@ func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Q
 
 	quantity, err := resource.ParseQuantity(usage)
 	if err != nil {
-		logger.Error(err, "Unable to parse quantity", "value", usage)
+		// TODO fix logger usage in helper function
+		log.DefaultLogger().Error(err, "Unable to parse quantity", "value", usage)
 		return false
 	}
 
@@ -915,11 +917,11 @@ func updateESNodeCondition(status *api.ElasticsearchStatus, condition *api.Clust
 	return !isEqual
 }
 
-func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
+func updateConditionWithRetry(log logr.Logger, dpl *api.Elasticsearch, value v1.ConditionStatus,
 	executeUpdateCondition func(*api.ElasticsearchStatus, v1.ConditionStatus) bool, client client.Client) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); err != nil {
-			logger.Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
+			log.Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
 			return err
 		}
 
@@ -928,7 +930,7 @@ func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 		}
 
 		if err := client.Status().Update(context.TODO(), dpl); err != nil {
-			logger.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
+			log.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
 			return err
 		}
 		return nil
@@ -972,7 +974,7 @@ func updateInvalidDataCountCondition(status *api.ElasticsearchStatus, value v1.C
 	})
 }
 
-func updateInvalidUUIDChangeCondition(cluster *api.Elasticsearch, value v1.ConditionStatus, message string, client client.Client) error {
+func updateInvalidUUIDChangeCondition(log logr.Logger, cluster *api.Elasticsearch, value v1.ConditionStatus, message string, client client.Client) error {
 	var reason string
 	if value == v1.ConditionTrue {
 		reason = "Invalid Spec"
@@ -981,6 +983,7 @@ func updateInvalidUUIDChangeCondition(cluster *api.Elasticsearch, value v1.Condi
 	}
 
 	return updateConditionWithRetry(
+		log,
 		cluster,
 		value,
 		func(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
@@ -1039,6 +1042,7 @@ func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, mess
 	}
 
 	return updateConditionWithRetry(
+		er.ll,
 		cluster,
 		statusValue,
 		func(status *api.ElasticsearchStatus, statusValue v1.ConditionStatus) bool {

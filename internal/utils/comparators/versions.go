@@ -4,10 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/log"
 )
-
-var logger logr.Logger
 
 // CompareVersions will return one of:
 // -1 : if lhs > rhs
@@ -49,7 +47,7 @@ func buildVersionArray(version string) []int {
 	for _, v := range strings.Split(version, ".") {
 		i, err := strconv.Atoi(v)
 		if err != nil {
-			logger.Error(err, "unable to build version array")
+			log.DefaultLogger().Error(err, "unable to build version array")
 			break
 		}
 

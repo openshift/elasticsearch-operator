@@ -7,19 +7,19 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/ginkgo"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
+
+	"github.com/ViaQ/logerr/log"
+	"github.com/google/go-cmp/cmp"
+	. "github.com/onsi/ginkgo"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var (
@@ -557,7 +557,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 		},
 	}
 
-	podTemplateSpec := newPodTemplateSpec("test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
+	podTemplateSpec := newPodTemplateSpec(context.Background(), log.DefaultLogger(), "test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
@@ -754,7 +754,7 @@ func TestNewVolumeSource(t *testing.T) {
 		test := test
 		client := fake.NewFakeClient()
 
-		vs := newVolumeSource(clusterName, nodeName, namespace, test.node, client)
+		vs := newVolumeSource(context.Background(), log.DefaultLogger(), clusterName, nodeName, namespace, test.node, client)
 		if diff := cmp.Diff(test.vs, vs); diff != "" {
 			t.Errorf("diff: %s", diff)
 		}
@@ -775,10 +775,12 @@ func TestNewVolumeSource(t *testing.T) {
 
 // Return a fresh new PodTemplateSpec using provided node selectors.
 // Resulting selectors set always contains also the node selector with value of "linux", see LOG-411
-// This function wraps the call to newPodTempalteSpec in case its signature changes in the future
+// This function wraps the call to newPodTemplateSpec in case its signature changes in the future
 // so that keeping unit tests up to date will be easier.
 func preparePodTemplateSpecProvidingNodeSelectors(selectors map[string]string) v1.PodTemplateSpec {
 	return newPodTemplateSpec(
+		context.Background(),
+		log.DefaultLogger(),
 		"test-node-name",
 		"test-cluster-name",
 		"test-namespace-name",

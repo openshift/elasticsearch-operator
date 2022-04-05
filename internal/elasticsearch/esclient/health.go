@@ -14,7 +14,7 @@ func (ec *esClient) GetClusterHealth() (api.ClusterHealth, error) {
 		URI:    "_cluster/health",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	if payload.Error != nil {
 		return clusterHealth, payload.Error
@@ -39,7 +39,7 @@ func (ec *esClient) GetClusterHealthStatus() (string, error) {
 		URI:    "_cluster/health",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	status := ""
 	if payload.ResponseBody["status"] != nil {
@@ -57,7 +57,7 @@ func (ec *esClient) GetClusterNodeCount() (int32, error) {
 		URI:    "_cluster/health",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	nodeCount := int32(0)
 	if nodeCountFloat, ok := payload.ResponseBody["number_of_nodes"].(float64); ok {

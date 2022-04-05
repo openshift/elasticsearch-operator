@@ -6,27 +6,23 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/persistentvolume"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
-
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var logger logr.Logger
 
 var excludeConfigMapKeys = []string{"index_settings"}
 
@@ -352,7 +348,7 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 	}
 }
 
-func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
+func newPodTemplateSpec(ctx context.Context, log logr.Logger, nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
 	resourceRequirements := newESResourceRequirements(node.Resources, commonSpec.Resources)
 	proxyResourceRequirements := newESProxyResourceRequirements(node.ProxyResources, commonSpec.ProxyResources)
 
@@ -382,7 +378,7 @@ func newPodTemplateSpec(nodeName, clusterName, namespace string, node api.Elasti
 		),
 	}
 
-	volumes := newVolumes(clusterName, nodeName, namespace, node, client)
+	volumes := newVolumes(ctx, log, clusterName, nodeName, namespace, node, client)
 
 	podSpec := pod.NewSpec(clusterName, containers, volumes).
 		WithAffinity(newAffinity(roleMap)).
@@ -563,7 +559,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements, default
 	}
 }
 
-func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) []v1.Volume {
+func newVolumes(ctx context.Context, log logr.Logger, clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) []v1.Volume {
 	return []v1.Volume{
 		{
 			Name: "elasticsearch-config",
@@ -577,7 +573,7 @@ func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchN
 		},
 		{
 			Name:         "elasticsearch-storage",
-			VolumeSource: newVolumeSource(clusterName, nodeName, namespace, node, client),
+			VolumeSource: newVolumeSource(ctx, log, clusterName, nodeName, namespace, node, client),
 		},
 		{
 			Name: "certificates",
@@ -598,7 +594,7 @@ func newVolumes(clusterName, nodeName, namespace string, node api.ElasticsearchN
 	}
 }
 
-func newVolumeSource(clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) v1.VolumeSource {
+func newVolumeSource(ctx context.Context, log logr.Logger, clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) v1.VolumeSource {
 	specVol := node.Storage
 	volSource := v1.VolumeSource{}
 
@@ -612,7 +608,7 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 	// in the case where we do not have a size provided we need to
 	// fall back to using ephemeral storage since a pvc requires a size
 	if specVol.Size == nil {
-		logger.Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
+		log.Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
 		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
 		return volSource
 	}
@@ -639,9 +635,9 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 		StorageClassName: specVol.StorageClassName,
 	}
 
-	err := persistentvolume.CreateOrUpdatePVC(context.TODO(), client, pvc, persistentvolume.LabelsEqual, persistentvolume.MutateLabelsOnly)
+	err := persistentvolume.CreateOrUpdatePVC(ctx, log, client, pvc, persistentvolume.LabelsEqual, persistentvolume.MutateLabelsOnly)
 	if err != nil {
-		logger.Error(err, "Unable to create PersistentVolumeClaim")
+		log.Error(err, "Unable to create PersistentVolumeClaim")
 	}
 
 	return volSource

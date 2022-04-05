@@ -27,13 +27,14 @@ import (
 	controllers "github.com/openshift/elasticsearch-operator/controllers/logging"
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	"github.com/openshift/elasticsearch-operator/version"
+
+	"github.com/ViaQ/logerr/log"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = apiruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	eoLog    = ctrl.Log.WithName("elasticsearch-operator")
 )
 
 func init() {
@@ -62,7 +63,8 @@ func main() {
 
 	flag.Parse()
 
-	eoLog.Info("starting up...",
+	logger := log.NewLogger("elasticsearch-operator")
+	logger.Info("starting up...",
 		"operator_version", version.Version,
 		"go_version", runtime.Version(),
 		"go_os", runtime.GOOS,
@@ -71,11 +73,11 @@ func main() {
 
 	namespace, err := getWatchNamespace()
 	if err != nil {
-		eoLog.Error(err, "Failed to get watch namespace")
+		logger.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
 
-	ll := eoLog.WithValues("namespace", namespace)
+	ll := logger.WithValues("namespace", namespace)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -127,10 +129,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	eoLog.Info("Registering custom metrics for Elasticsearch Operator.")
+	logger.Info("Registering custom metrics for Elasticsearch Operator.")
 	metrics.RegisterCustomMetrics()
 
-	eoLog.Info("Registring profiling endpoints.")
+	logger.Info("Registering profiling endpoints.")
 	err = registerProfiler(mgr)
 	if err != nil {
 		ll.Error(err, "failed to register extra pprof handler")

@@ -69,7 +69,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() error {
 
 	dpl.AddOwnerRefTo(cm)
 
-	updated, err := configmap.CreateOrUpdate(context.TODO(), er.client, cm, configMapContentEqual, configmap.MutateDataOnly)
+	updated, err := configmap.CreateOrUpdate(context.TODO(), er.ll, er.client, cm, configMapContentEqual, configmap.MutateDataOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch configmap",
 			"cluster", er.cluster.Name,
@@ -79,11 +79,11 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() error {
 
 	if updated {
 		// Cluster settings has changed, make sure it doesnt go unnoticed
-		if err := updateConditionWithRetry(dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionTrue, updateUpdatingSettingsCondition, er.client); err != nil {
 			return err
 		}
 	} else {
-		if err := updateConditionWithRetry(dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
+		if err := updateConditionWithRetry(er.ll, dpl, v1.ConditionFalse, updateUpdatingSettingsCondition, er.client); err != nil {
 			return err
 		}
 	}

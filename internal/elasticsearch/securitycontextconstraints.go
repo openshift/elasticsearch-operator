@@ -55,7 +55,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateSecurityContextConstraints() error
 
 	scc := builder.Build()
 
-	err := securitycontextconstraints.CreateOrUpdate(context.TODO(), er.client, scc, securitycontextconstraints.Mutate)
+	err := securitycontextconstraints.CreateOrUpdate(context.TODO(), er.ll, er.client, scc, securitycontextconstraints.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch securitycontextconstraints",
 			"cluster", dpl.Name,

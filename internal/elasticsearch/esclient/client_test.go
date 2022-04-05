@@ -2,12 +2,16 @@ package esclient
 
 import (
 	"testing"
+
+	"github.com/ViaQ/logerr/log"
 )
+
+var logger = log.DefaultLogger()
 
 func TestHeaderGenEmptyToken(t *testing.T) {
 	tokenFile := "../../../test/files/emptyToken"
 
-	_, ok := readSAToken(tokenFile)
+	_, ok := readSAToken(logger, tokenFile)
 
 	if ok {
 		t.Errorf("Expected to be unable to read file [%s] due to empty file but could", tokenFile)
@@ -19,7 +23,7 @@ func TestHeaderGenWithToken(t *testing.T) {
 
 	expected := "test\n"
 
-	actual, ok := readSAToken(tokenFile)
+	actual, ok := readSAToken(logger, tokenFile)
 
 	if !ok {
 		t.Errorf("Expected to be able to read file [%s] but couldn't", tokenFile)
@@ -33,7 +37,7 @@ func TestHeaderGenWithToken(t *testing.T) {
 func TestHeaderGenWithNoToken(t *testing.T) {
 	tokenFile := "../../../test/files/errorToken"
 
-	_, ok := readSAToken(tokenFile)
+	_, ok := readSAToken(logger, tokenFile)
 
 	if ok {
 		t.Errorf("Expected to be unable to read file [%s]", tokenFile)

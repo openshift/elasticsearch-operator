@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ViaQ/logerr/log"
+
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,18 +22,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/go-logr/logr"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 )
 
-var logger logr.Logger
-
 func GetFileContents(filePath string) []byte {
 	contents, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		logger.Error(err, "Unable to read file to get contents")
+		log.Error(err, "Unable to read file to get contents")
 		return nil
 	}
 

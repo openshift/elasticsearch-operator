@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-
+	"github.com/go-logr/logr"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +17,7 @@ import (
 // if the clusterrole exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateClusterRole(ctx context.Context, c client.Client, cr *rbacv1.ClusterRole) error {
+func CreateOrUpdateClusterRole(ctx context.Context, log logr.Logger, c client.Client, cr *rbacv1.ClusterRole) error {
 	current := &rbacv1.ClusterRole{}
 	key := client.ObjectKey{Name: cr.Name}
 	err := c.Get(ctx, key, current)
@@ -42,13 +42,13 @@ func CreateOrUpdateClusterRole(ctx context.Context, c client.Client, cr *rbacv1.
 	if !equality.Semantic.DeepEqual(current, cr) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				logger.Error(err, "failed to get clusterrole", cr.Name)
+				log.Error(err, "failed to get clusterrole", cr.Name)
 				return err
 			}
 
 			current.Rules = cr.Rules
 			if err := c.Update(ctx, current); err != nil {
-				logger.Error(err, "failed to update clusterrole", cr.Name)
+				log.Error(err, "failed to update clusterrole", cr.Name)
 				return err
 			}
 			return nil

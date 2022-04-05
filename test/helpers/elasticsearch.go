@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -98,13 +99,13 @@ func (response *FakeElasticsearchResponse) BodyAsResponseBody() map[string]inter
 
 func NewFakeElasticsearchClient(cluster, namespace string, k8sClient client.Client, chatter *FakeElasticsearchChatter) esclient.Client {
 	sendFakeRequest := NewFakeSendRequestFn(chatter)
-	c := esclient.NewClient(cluster, namespace, k8sClient)
+	c := esclient.NewClient(log.DefaultLogger(), cluster, namespace, k8sClient)
 	c.SetSendRequestFn(sendFakeRequest)
 	return c
 }
 
 func NewFakeSendRequestFn(chatter *FakeElasticsearchChatter) esclient.FnEsSendRequest {
-	return func(cluster, namespace string, payload *esclient.EsRequest, client client.Client) {
+	return func(log logr.Logger, cluster, namespace string, payload *esclient.EsRequest, client client.Client) {
 		chatter.recordRequest(payload)
 		if val, found := chatter.GetResponse(payload.URI); found {
 			payload.Error = val.Error

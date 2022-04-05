@@ -4,16 +4,16 @@ import (
 	"testing"
 	"time"
 
+	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+
+	"github.com/ViaQ/logerr/log"
+	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	"github.com/google/go-cmp/cmp"
-
-	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
 func TestPruneMissingNodes(t *testing.T) {
@@ -301,6 +301,8 @@ func TestPruneMissingNodes(t *testing.T) {
 	for _, test := range tests {
 		test := test
 
+		logger := log.DefaultLogger()
+
 		// Populate fake client with api server objects
 		client := newFakeClient(test.pods, test.deployments, test.missingPods, test.missingDpl)
 
@@ -309,7 +311,7 @@ func TestPruneMissingNodes(t *testing.T) {
 		nodes[key] = populateNodes(test.cluster.Name, test.deployments, client)
 
 		// Define new elasticsearch CR request
-		er := &ElasticsearchRequest{client: client, cluster: test.cluster}
+		er := &ElasticsearchRequest{ll: logger, client: client, cluster: test.cluster}
 
 		err := er.pruneMissingNodes(test.status)
 		if err != test.wantErr {
@@ -419,8 +421,9 @@ func TestUnschedulableNodesConditions(t *testing.T) {
 		},
 	}
 
+	logger := log.DefaultLogger()
 	mockClient := fake.NewFakeClient(mockedPodList)
-	er := &ElasticsearchRequest{client: mockClient, cluster: testCluster}
+	er := &ElasticsearchRequest{ll: logger, client: mockClient, cluster: testCluster}
 
 	// call updatePodNodeConditions and verify we have the correct node conditions
 

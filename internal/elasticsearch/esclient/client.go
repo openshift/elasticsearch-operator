@@ -31,8 +31,6 @@ const (
 	k8sTokenFile  = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
 
-var logger logr.Logger
-
 type Client interface {
 	ClusterName() string
 
@@ -91,9 +89,10 @@ type Client interface {
 	SetSendRequestFn(fn FnEsSendRequest)
 }
 
-type FnEsSendRequest func(cluster, namespace string, payload *EsRequest, client k8sclient.Client)
+type FnEsSendRequest func(log logr.Logger, cluster, namespace string, payload *EsRequest, client k8sclient.Client)
 
 type esClient struct {
+	log             logr.Logger
 	cluster         string
 	namespace       string
 	k8sClient       k8sclient.Client
@@ -110,8 +109,9 @@ type EsRequest struct {
 	Error           error
 }
 
-func NewClient(cluster, namespace string, client k8sclient.Client) Client {
+func NewClient(log logr.Logger, cluster, namespace string, client k8sclient.Client) Client {
 	return &esClient{
+		log:             log,
 		cluster:         cluster,
 		namespace:       namespace,
 		k8sClient:       client,
@@ -135,11 +135,11 @@ func (ec *esClient) errorCtx() kverrors.Context {
 }
 
 // FIXME: this needs to return an error instead of swallowing
-func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
+func sendEsRequest(log logr.Logger, cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", cluster, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
 	if err != nil {
-		logger.Error(err, "failed to parse URL", "url", u)
+		log.Error(err, "failed to parse URL", "url", u)
 		return
 	}
 
@@ -178,9 +178,9 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 		return
 	}
 
-	request.Header = ensureTokenHeader(request.Header)
+	request.Header = ensureTokenHeader(log, request.Header)
 	// we use the insecure TLS client here because we are providing the SA token.
-	httpClient := getTLSClient(cluster, namespace, client)
+	httpClient := getTLSClient(log, cluster, namespace, client)
 	resp, err := httpClient.Do(request)
 	if err != nil {
 		if resp == nil {
@@ -194,7 +194,7 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 		// TODO: eventually remove after all ES images have been updated to use SA token auth for EO?
 		if resp.StatusCode == http.StatusForbidden ||
 			resp.StatusCode == http.StatusUnauthorized {
-			logger.Info("failed sending payload using bearer token", "method", payload.Method, "url", payload.URI)
+			log.Info("failed sending payload using bearer token", "method", payload.Method, "url", payload.URI)
 			// if we get a 401 that means that we couldn't read from the token and provided
 			// no header.
 			// if we get a 403 that means the ES cluster doesn't allow us to use
@@ -203,27 +203,27 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 
 			// Not sure why, but just trying to reuse the request with the old client
 			// resulted in a 400 every time. Doing it this way got a 200 response as expected.
-			sendRequestWithMTlsClient(cluster, namespace, payload, client)
+			sendRequestWithMTlsClient(log, cluster, namespace, payload, client)
 			return
 		}
 
 		payload.StatusCode = resp.StatusCode
 		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
-			logger.Error(err, "failed to get raw response body")
+			log.Error(err, "failed to get raw response body")
 		}
 		if payload.ResponseBody, err = getMapFromBody(payload.RawResponseBody); err != nil {
-			logger.Error(err, "getMapFromBody failed")
+			log.Error(err, "getMapFromBody failed")
 		}
 	}
 
 	payload.Error = err
 }
 
-func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest, client k8sclient.Client) {
+func sendRequestWithMTlsClient(log logr.Logger, clusterName, namespace string, payload *EsRequest, client k8sclient.Client) {
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
 	if err != nil {
-		logger.Error(err, "unable to parse URL", "url", u)
+		log.Error(err, "unable to parse URL", "url", u)
 		return
 	}
 
@@ -262,7 +262,7 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 		return
 	}
 
-	httpClient := getMTlsClient(clusterName, namespace, client)
+	httpClient := getMTlsClient(log, clusterName, namespace, client)
 	resp, err := httpClient.Do(request)
 	if err != nil {
 		if resp == nil {
@@ -274,27 +274,27 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 
 	if resp != nil {
 		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
-			logger.Info("failed sending payload using mTLS PKI", "method", payload.Method, "url", payload.URI)
+			log.Info("failed sending payload using mTLS PKI", "method", payload.Method, "url", payload.URI)
 		}
 
 		payload.StatusCode = resp.StatusCode
 		if payload.RawResponseBody, err = getRawBody(resp.Body); err != nil {
-			logger.Error(err, "failed to get raw response body")
+			log.Error(err, "failed to get raw response body")
 		}
 		if payload.ResponseBody, err = getMapFromBody(payload.RawResponseBody); err != nil {
-			logger.Error(err, "getMapFrombody failed")
+			log.Error(err, "getMapFrombody failed")
 		}
 	}
 
 	payload.Error = err
 }
 
-func ensureTokenHeader(header http.Header) http.Header {
+func ensureTokenHeader(log logr.Logger, header http.Header) http.Header {
 	if header == nil {
 		header = map[string][]string{}
 	}
 
-	if saToken, ok := readSAToken(k8sTokenFile); ok {
+	if saToken, ok := readSAToken(log, k8sTokenFile); ok {
 		header.Set("Authorization", fmt.Sprintf("Bearer %s", saToken))
 	}
 
@@ -303,16 +303,16 @@ func ensureTokenHeader(header http.Header) http.Header {
 
 // we want to read each time so that we can be sure to have the most up to date
 // token in the case where our perms change and a new token is mounted
-func readSAToken(tokenFile string) (string, bool) {
+func readSAToken(log logr.Logger, tokenFile string) (string, bool) {
 	// read from /var/run/secrets/kubernetes.io/serviceaccount/token
 	token, err := ioutil.ReadFile(tokenFile)
 	if err != nil {
-		logger.Error(err, "Unable to read auth token from file", "file", tokenFile)
+		log.Error(err, "Unable to read auth token from file", "file", tokenFile)
 		return "", false
 	}
 
 	if len(token) == 0 {
-		logger.Error(nil, "Unable to read auth token from file", "file", tokenFile)
+		log.Error(nil, "Unable to read auth token from file", "file", tokenFile)
 		return "", false
 	}
 
@@ -320,9 +320,9 @@ func readSAToken(tokenFile string) (string, bool) {
 }
 
 // this client is used with the SA token, it does not present any client certs
-func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.Client {
+func getTLSClient(log logr.Logger, clusterName, namespace string, client k8sclient.Client) *http.Client {
 	// get the contents of the secret
-	extractSecret(clusterName, namespace, client)
+	extractSecret(log, clusterName, namespace, client)
 
 	// http.Transport sourced from go 1.10.7
 	return &http.Client{
@@ -339,7 +339,7 @@ func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
-				RootCAs:            getRootCA(clusterName, namespace),
+				RootCAs:            getRootCA(log, clusterName, namespace),
 			},
 		},
 	}
@@ -347,9 +347,9 @@ func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.
 
 // this client is used in the case where the SA token is not honored. it presents client certs
 // and validates the ES cluster CA cert
-func getMTlsClient(clusterName, namespace string, client k8sclient.Client) *http.Client {
+func getMTlsClient(log logr.Logger, clusterName, namespace string, client k8sclient.Client) *http.Client {
 	// get the contents of the secret
-	extractSecret(clusterName, namespace, client)
+	extractSecret(log, clusterName, namespace, client)
 
 	// http.Transport sourced from go 1.10.7
 	return &http.Client{
@@ -366,21 +366,21 @@ func getMTlsClient(clusterName, namespace string, client k8sclient.Client) *http
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
-				RootCAs:            getRootCA(clusterName, namespace),
+				RootCAs:            getRootCA(log, clusterName, namespace),
 				Certificates:       getClientCertificates(clusterName, namespace),
 			},
 		},
 	}
 }
 
-func getRootCA(clusterName, namespace string) *x509.CertPool {
+func getRootCA(log logr.Logger, clusterName, namespace string) *x509.CertPool {
 	certPool := x509.NewCertPool()
 
 	// load cert into []byte
 	f := path.Join(certLocalPath, namespace, clusterName, "admin-ca")
 	caPem, err := ioutil.ReadFile(f)
 	if err != nil {
-		logger.Error(err, "Unable to read file to get contents", "file", f)
+		log.Error(err, "Unable to read file to get contents", "file", f)
 		return nil
 	}
 
@@ -425,18 +425,18 @@ func getMapFromBody(rawBody string) (map[string]interface{}, error) {
 	return results, nil
 }
 
-func extractSecret(secretName, namespace string, client k8sclient.Client) {
+func extractSecret(log logr.Logger, secretName, namespace string, client k8sclient.Client) {
 	key := types.NamespacedName{Name: secretName, Namespace: namespace}
 	s, err := secret.Get(context.TODO(), client, key)
 	if err != nil {
-		logger.Error(err, "Error reading secret", "secret", secretName)
+		log.Error(err, "Error reading secret", "secret", secretName)
 	}
 
 	// make sure that the dir === secretName exists
 	secretDir := path.Join(certLocalPath, namespace, secretName)
 	if _, err := os.Stat(secretDir); os.IsNotExist(err) {
 		if err = os.MkdirAll(secretDir, 0o755); err != nil {
-			logger.Error(err, "Error creating dir", "dir", secretDir)
+			log.Error(err, "Error creating dir", "dir", secretDir)
 		}
 	}
 
@@ -446,12 +446,12 @@ func extractSecret(secretName, namespace string, client k8sclient.Client) {
 
 		// check to see if the map value exists
 		if !ok {
-			logger.Error(nil, "secret key not found", "key", key)
+			log.Error(nil, "secret key not found", "key", key)
 		}
 
 		secretFile := path.Join(certLocalPath, namespace, secretName, key)
 		if err := ioutil.WriteFile(secretFile, value, 0o644); err != nil {
-			logger.Error(err, "failed to write value to file", "value", value, "file", secretFile)
+			log.Error(err, "failed to write value to file", "value", value, "file", secretFile)
 		}
 	}
 }

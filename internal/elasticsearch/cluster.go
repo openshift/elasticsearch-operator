@@ -37,7 +37,6 @@ func nodeMapKey(clusterName, namespace string) string {
 
 // CreateOrUpdateElasticsearchCluster creates an Elasticsearch deployment
 func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
-	ll := logger.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
 	esClient := er.esClient
 
 	// Verify that we didn't scale up too many masters
@@ -69,7 +68,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		return err
 	}
 	if err := er.progressUnschedulableNodes(); err != nil {
-		ll.Error(err, "unable to progress unschedulable nodes")
+		er.ll.Error(err, "unable to progress unschedulable nodes")
 		return er.UpdateClusterStatus()
 	}
 
@@ -77,7 +76,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 	stillRecovering := containsClusterCondition(api.Recovering, v1.ConditionTrue, &er.cluster.Status)
 	if len(certRestartNodes) > 0 || stillRecovering {
 		if err := er.PerformFullClusterCertRestart(certRestartNodes); err != nil {
-			ll.Error(err, "unable to complete full cluster restart")
+			er.ll.Error(err, "unable to complete full cluster restart")
 			return er.UpdateClusterStatus()
 		}
 
@@ -94,7 +93,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		// Check to see if the inProgressNode was being updated or restarted
 		if _, ok := containsNodeTypeInterface(inProgressNode, scheduledNodes); ok {
 			if err := er.PerformNodeUpdate(inProgressNode); err != nil {
-				ll.Error(err, "unable to update node")
+				er.ll.Error(err, "unable to update node")
 				return er.UpdateClusterStatus()
 			}
 
@@ -102,7 +101,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			scheduledNodes = er.getScheduledUpgradeNodes()
 		} else {
 			if err := er.PerformNodeRestart(inProgressNode); err != nil {
-				ll.Error(err, "unable to restart node", "node", inProgressNode.name())
+				er.ll.Error(err, "unable to restart node", "node", inProgressNode.name())
 				return er.UpdateClusterStatus()
 			}
 		}
@@ -118,7 +117,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		version, err := esClient.GetLowestClusterVersion()
 		if err != nil {
 			// this can be because we couldn't get a valid response from ES
-			ll.Error(err, "failed to get LowestClusterVersion")
+			er.ll.Error(err, "failed to get LowestClusterVersion")
 			return er.UpdateClusterStatus()
 		}
 
@@ -128,12 +127,12 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 		if comparison > 0 {
 			// perform a full cluster update
 			if err := er.PerformFullClusterUpdate(scheduledNodes); err != nil {
-				logger.Error(err, "failed to perform full cluster update")
+				er.ll.Error(err, "failed to perform full cluster update")
 				return er.UpdateClusterStatus()
 			}
 		} else {
 			if err := er.PerformRollingUpdate(scheduledNodes); err != nil {
-				logger.Error(err, "failed to perform rolling update")
+				er.ll.Error(err, "failed to perform rolling update")
 				return er.UpdateClusterStatus()
 			}
 			metrics.IncrementRestartCounterRolling()
@@ -161,7 +160,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			}
 
 			if err := er.setNodeStatus(node, nodeStatus, clusterStatus); err != nil {
-				logger.Error(err, "unable to set status for node", "node", node.name())
+				er.ll.Error(err, "unable to set status for node", "node", node.name())
 			}
 		}
 
@@ -228,12 +227,12 @@ func (er *ElasticsearchRequest) progressUnschedulableNodes() error {
 			for _, node := range clusterNodes {
 				if nodeStatus.DeploymentName == node.name() || nodeStatus.StatefulSetName == node.name() {
 					if node.isMissing() {
-						logger.Info("Unschedulable node does not have k8s resource, skipping", "node", node.name())
+						er.ll.Info("Unschedulable node does not have k8s resource, skipping", "node", node.name())
 						continue
 					}
 
 					if err := node.progressNodeChanges(); err != nil {
-						logger.Error(err, "Failed to progress update of unschedulable node", "node", node.name())
+						er.ll.Error(err, "Failed to progress update of unschedulable node", "node", node.name())
 						return err
 					}
 				}
@@ -260,14 +259,12 @@ func (er *ElasticsearchRequest) setUUIDs() {
 }
 
 func (er *ElasticsearchRequest) setUUID(index int, uuid string) {
-	ll := logger.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
-
 	nretries := -1
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		nretries++
 		if err := er.client.Get(context.TODO(), types.NamespacedName{Name: er.cluster.Name, Namespace: er.cluster.Namespace}, er.cluster); err != nil {
 			// FIXME: return structured error
-			ll.Info("Could not get Elasticsearch cluster", "error", err)
+			er.ll.Info("Could not get Elasticsearch cluster", "error", err)
 			return err
 		}
 
@@ -279,16 +276,16 @@ func (er *ElasticsearchRequest) setUUID(index int, uuid string) {
 
 		if updateErr := er.client.Update(context.TODO(), er.cluster); updateErr != nil {
 			// FIXME: return structured error
-			ll.Info("Failed to update Elasticsearch status. Trying again...", "error", updateErr)
+			er.ll.Info("Failed to update Elasticsearch status. Trying again...", "error", updateErr)
 			return updateErr
 		}
 		return nil
 	})
 
 	if err != nil {
-		ll.Error(err, "Could not update CR for Elasticsearch", "retries", nretries)
+		er.ll.Error(err, "Could not update CR for Elasticsearch", "retries", nretries)
 	} else {
-		ll.Info("Updated Elasticsearch", "retries", nretries)
+		er.ll.Info("Updated Elasticsearch", "retries", nretries)
 	}
 }
 
@@ -327,7 +324,7 @@ func (er *ElasticsearchRequest) populateNodes() error {
 	for _, node := range nodes[nodeMapKey(cluster.Name, cluster.Namespace)] {
 		if _, ok := containsNodeTypeInterface(node, currentNodes); !ok {
 			if status, _ := er.esClient.GetClusterHealthStatus(); !utils.Contains(desiredClusterStates, status) {
-				logger.Info("Unable to delete/scale down any Elasticsearch nodes because of current cluster health", "currentHealth", status, "desiredHealth", desiredClusterStates)
+				er.ll.Info("Unable to delete/scale down any Elasticsearch nodes because of current cluster health", "currentHealth", status, "desiredHealth", desiredClusterStates)
 				break
 			}
 
@@ -340,7 +337,7 @@ func (er *ElasticsearchRequest) populateNodes() error {
 			}
 
 			if err := node.delete(); err != nil {
-				logger.Error(err, "unable to delete node")
+				er.ll.Error(err, "unable to delete node")
 			}
 
 			// remove from status.Nodes
@@ -411,7 +408,7 @@ func (er *ElasticsearchRequest) checkWatermarkAndUnblockIndices() {
 	if er.isDiskUtilizationBelowFloodWatermark() {
 		indices, err := er.esClient.GetAllIndices("")
 		if err != nil {
-			logger.Error(err, "failed to fetch all indices")
+			er.ll.Error(err, "failed to fetch all indices")
 		}
 		for _, index := range indices {
 			if index.Index == constants.SecurityIndex {
@@ -419,7 +416,7 @@ func (er *ElasticsearchRequest) checkWatermarkAndUnblockIndices() {
 			}
 			if er.isIndexBlocked(index.Index) {
 				if err := er.unblockIndex(index.Index); err != nil {
-					logger.Error(err, "Couldn't update the index setting")
+					er.ll.Error(err, "Couldn't update the index setting")
 				}
 			}
 		}
@@ -430,7 +427,7 @@ func (er *ElasticsearchRequest) isDiskUtilizationBelowFloodWatermark() bool {
 	for _, nodeTypeInterface := range nodes[nodeMapKey(er.cluster.Name, er.cluster.Namespace)] {
 		usage, percent, err := er.esClient.GetNodeDiskUsage(nodeTypeInterface.name())
 		if err != nil {
-			logger.Info("Unable to get disk usage", "error", err)
+			er.ll.Info("Unable to get disk usage", "error", err)
 			continue
 		}
 		if exceedsFloodWatermark(usage, percent) {

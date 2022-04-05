@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
 	elasticsearchv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
@@ -28,21 +27,17 @@ type ElasticsearchRequest struct {
 // L is the logger used for this request.
 // TODO This needs to be removed in favor of using context.Context() with values.
 func (er *ElasticsearchRequest) L() logr.Logger {
-	if er.ll.Empty() {
-		er.ll = logger.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
-	}
-
 	return er.ll
 }
 
 // SecretReconcile returns false if the event needs to be requeued
-func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) (bool, error) {
+func SecretReconcile(log logr.Logger, requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) (bool, error) {
 	var secretChanged bool
 
 	elasticsearchRequest := ElasticsearchRequest{
 		client:  requestClient,
 		cluster: requestCluster,
-		ll:      log.DefaultLogger().WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+		ll:      log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// evaluate if we are missing the required secret/certs
@@ -120,15 +115,14 @@ func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClien
 	return true, nil
 }
 
-func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
-	esClient := esclient.NewClient(requestCluster.Name, requestCluster.Namespace, requestClient)
-	//logger := log.NewLogger("elasticsearch-operator")
+func Reconcile(log logr.Logger, requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
+	esClient := esclient.NewClient(log, requestCluster.Name, requestCluster.Namespace, requestClient)
 
 	elasticsearchRequest := ElasticsearchRequest{
 		client:   requestClient,
 		cluster:  requestCluster,
 		esClient: esClient,
-		ll:       logger.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
+		ll:       log.WithValues("cluster", requestCluster.Name, "namespace", requestCluster.Namespace),
 	}
 
 	// check if we are doing ES cert management looking for annotation:
@@ -137,8 +131,8 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 	if ok {
 		manageBool, _ := strconv.ParseBool(value)
 		if manageBool {
-			cr := NewCertificateRequest(requestCluster.Name, requestCluster.Namespace, requestCluster.GetOwnerRef(), requestClient)
-			cr.GenerateElasticsearchCerts(requestCluster.Name, logger)
+			cr := NewCertificateRequest(log, requestCluster.Name, requestCluster.Namespace, requestCluster.GetOwnerRef(), requestClient)
+			cr.GenerateElasticsearchCerts(requestCluster.Name)
 
 			// for any components specified like:
 			// logging.openshift.io/elasticsearch-cert.{secret_name}: {component_name}
@@ -146,7 +140,7 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 				if strings.HasPrefix(annotationKey, constants.EOComponentCertPrefix) {
 					secretName := strings.TrimPrefix(annotationKey, constants.EOComponentCertPrefix)
 
-					cr.GenerateComponentCerts(secretName, componentName, logger)
+					cr.GenerateComponentCerts(secretName, componentName)
 				}
 			}
 		}

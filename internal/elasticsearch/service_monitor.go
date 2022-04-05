@@ -59,7 +59,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
 
 	dpl.AddOwnerRefTo(monitor)
 
-	err := servicemonitor.CreateOrUpdate(context.TODO(), er.client, monitor, servicemonitor.Equal, servicemonitor.Mutate)
+	err := servicemonitor.CreateOrUpdate(context.TODO(), er.ll, er.client, monitor, servicemonitor.Equal, servicemonitor.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch servicemonitor",
 			"cluster", er.cluster.Name,

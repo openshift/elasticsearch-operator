@@ -14,7 +14,7 @@ func (ec *esClient) GetNodeDiskUsage(nodeName string) (string, float64, error) {
 		URI:    "_nodes/stats/fs",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	usage := ""
 	percentUsage := float64(-1)

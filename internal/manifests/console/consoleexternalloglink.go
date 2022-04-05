@@ -4,9 +4,8 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-
+	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +24,7 @@ type MutateConsoleExternalLogLinkFunc func(current, desired *consolev1.ConsoleEx
 // if the consoleexternalloglink exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateConsoleExternalLogLink(ctx context.Context, c client.Client, cll *consolev1.ConsoleExternalLogLink, equal ConsoleExternalLogLinkEqualityFunc, mutate MutateConsoleExternalLogLinkFunc) error {
+func CreateOrUpdateConsoleExternalLogLink(ctx context.Context, log logr.Logger, c client.Client, cll *consolev1.ConsoleExternalLogLink, equal ConsoleExternalLogLinkEqualityFunc, mutate MutateConsoleExternalLogLinkFunc) error {
 	current := &consolev1.ConsoleExternalLogLink{}
 	key := client.ObjectKey{Name: cll.Name}
 	err := c.Get(ctx, key, current)
@@ -50,13 +49,13 @@ func CreateOrUpdateConsoleExternalLogLink(ctx context.Context, c client.Client, 
 	if !equal(current, cll) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				logger.Error(err, "failed to get consoleexternalloglink", cll.Name)
+				log.Error(err, "failed to get consoleexternalloglink", cll.Name)
 				return err
 			}
 
 			mutate(current, cll)
 			if err := c.Update(ctx, current); err != nil {
-				logger.Error(err, "failed to update consoleexternalloglink", cll.Name)
+				log.Error(err, "failed to update consoleexternalloglink", cll.Name)
 				return err
 			}
 			return nil

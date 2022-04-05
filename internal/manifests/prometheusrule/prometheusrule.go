@@ -4,10 +4,8 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
-
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -19,7 +17,7 @@ import (
 // if the prometheusrule exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, pr *monitoringv1.PrometheusRule) error {
+func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, pr *monitoringv1.PrometheusRule) error {
 	current := &monitoringv1.PrometheusRule{}
 	key := client.ObjectKey{Name: pr.Name, Namespace: pr.Namespace}
 	err := c.Get(ctx, key, current)
@@ -43,17 +41,16 @@ func CreateOrUpdate(ctx context.Context, c client.Client, pr *monitoringv1.Prome
 		)
 	}
 
-	var logger logr.Logger
 	if !equality.Semantic.DeepEqual(current, pr) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				logger.Error(err, "failed to get prometheusrule", pr.Name)
+				log.Error(err, "failed to get prometheusrule", pr.Name)
 				return err
 			}
 
 			current.Spec = pr.Spec
 			if err := c.Update(ctx, current); err != nil {
-				logger.Error(err, "failed to update prometheusrule", pr.Name)
+				log.Error(err, "failed to update prometheusrule", pr.Name)
 				return err
 			}
 			return nil

@@ -13,7 +13,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/statefulset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/ViaQ/logerr/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,9 +44,6 @@ type statefulSetNode struct {
 //
 // TODO remove this construct when context.Context is passed and it should contain any relevant contextual values
 func (n *statefulSetNode) L() logr.Logger {
-	if n.l.Empty() {
-		n.l = log.DefaultLogger().WithValues("node", n.name())
-	}
 	return n.l
 }
 
@@ -56,7 +52,7 @@ func (n *statefulSetNode) populateReference(nodeName string, node api.Elasticsea
 	partition := int32(0)
 	logConfig := getLogConfig(cluster.GetAnnotations())
 
-	template := newPodTemplateSpec(
+	template := newPodTemplateSpec(context.TODO(), n.L(),
 		nodeName, cluster.Name, cluster.Namespace, node,
 		cluster.Spec.Spec, labels, roleMap, client, logConfig,
 	)
@@ -143,7 +139,7 @@ func (n *statefulSetNode) waitForNodeRejoinCluster() (bool, error) {
 	err := wait.Poll(time.Second*1, time.Second*60, func() (done bool, err error) {
 		clusterSize, err := n.esClient.GetClusterNodeCount()
 		if err != nil {
-			n.l.Error(err, "Unable to get cluster size waiting to rejoin cluster")
+			n.L().Error(err, "Unable to get cluster size waiting to rejoin cluster")
 			return false, err
 		}
 
@@ -178,7 +174,7 @@ func (n *statefulSetNode) setPartition(partitions int32) error {
 		current.Spec.UpdateStrategy.RollingUpdate.Partition = &partitions
 	}
 
-	err := statefulset.Update(context.TODO(), n.client, &n.self, equalFunc, mutateFunc)
+	err := statefulset.Update(context.TODO(), n.L(), n.client, &n.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node statefulset",
 			"node_statefulset_name", n.self.Name,
@@ -212,7 +208,7 @@ func (n *statefulSetNode) setReplicaCount(replicas int32) error {
 		current.Spec.Replicas = &replicas
 	}
 
-	err := statefulset.Update(context.TODO(), n.client, &n.self, equalFunc, mutateFunc)
+	err := statefulset.Update(context.TODO(), n.L(), n.client, &n.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node statefulset",
 			"node_statefulset_name", n.self.Name,
@@ -283,7 +279,7 @@ func (n *statefulSetNode) executeUpdate() error {
 		current.Spec.Template = createUpdatablePodTemplateSpec(current.Spec.Template, desired.Spec.Template)
 	}
 
-	err := statefulset.Update(context.TODO(), n.client, &n.self, equalFunc, mutateFunc)
+	err := statefulset.Update(context.TODO(), n.L(), n.client, &n.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node statefulset",
 			"node_statefulset_name", n.self.Name,

@@ -13,8 +13,7 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
-
+	"github.com/ViaQ/logerr/log"
 	configv1 "github.com/openshift/api/config/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +25,7 @@ const (
 	LinuxValue        = "linux"
 )
 
-var logger logr.Logger
+var logger = log.DefaultLogger()
 
 // EnsureLinuxNodeSelector takes given selector map and returns a selector map with linux node selector added into it.
 // If there is already a node type selector and is different from "linux" then it is overridden and warning is logged.

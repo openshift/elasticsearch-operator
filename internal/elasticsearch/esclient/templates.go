@@ -22,7 +22,7 @@ func (ec *esClient) CreateIndexTemplate(name string, template *estypes.IndexTemp
 		RequestBody: body,
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil || (payload.StatusCode != 200 && payload.StatusCode != 201) {
 		return ec.errorCtx().New("failed to create index template",
 			"template", name,
@@ -40,7 +40,7 @@ func (ec *esClient) DeleteIndexTemplate(name string) error {
 		URI:    fmt.Sprintf("_template/%s", name),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error == nil && (payload.StatusCode == 404 || payload.StatusCode < 300) {
 		return nil
 	}
@@ -59,7 +59,7 @@ func (ec *esClient) ListTemplates() (sets.String, error) {
 		URI:    "_template",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil || payload.StatusCode != 200 {
 		return nil, ec.errorCtx().New("failed to get list of index templates",
 			"response_status", payload.StatusCode,
@@ -79,7 +79,7 @@ func (ec *esClient) GetIndexTemplates() (map[string]estypes.GetIndexTemplate, er
 		URI:    fmt.Sprintf("_template/common.*,%s-*", constants.OcpTemplatePrefix),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	// unmarshal response body and return that
 	templates := map[string]estypes.GetIndexTemplate{}
@@ -117,7 +117,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 				RequestBody: string(templateJSON),
 			}
 
-			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+			ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 			acknowledged := false
 			if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
@@ -125,7 +125,7 @@ func (ec *esClient) updateAllIndexTemplateReplicas(replicaCount int32) (bool, er
 			}
 
 			if !(payload.StatusCode == 200 && acknowledged) {
-				logger.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+				ec.log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
 			}
 		}
 	}
@@ -159,7 +159,7 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 				RequestBody: string(templateJSON),
 			}
 
-			ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+			ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 			acknowledged := false
 			if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
@@ -167,7 +167,7 @@ func (ec *esClient) UpdateTemplatePrimaryShards(shardCount int32) error {
 			}
 
 			if !(payload.StatusCode == 200 && acknowledged) {
-				logger.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
+				ec.log.Error(payload.Error, "unable to update template", "cluster", ec.cluster, "namespace", ec.namespace, "template", templateName)
 			}
 		}
 	}

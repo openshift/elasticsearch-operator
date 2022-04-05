@@ -5,7 +5,6 @@ import (
 
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/go-logr/logr"
-
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,15 +46,13 @@ func Create(ctx context.Context, c client.Client, sts *appsv1.StatefulSet) error
 
 // Update will update an existing statefulset if compare func returns true or else leave it unchanged. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal EqualityFunc, mutate MutateFunc) error {
+func Update(ctx context.Context, log logr.Logger, c client.Client, sts *appsv1.StatefulSet, equal EqualityFunc, mutate MutateFunc) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current := &appsv1.StatefulSet{}
 		key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
 
-		var logger logr.Logger
-
 		if err := c.Get(ctx, key, current); err != nil {
-			logger.Error(err, "failed to get statefulset", sts.Name)
+			log.Error(err, "failed to get statefulset", sts.Name)
 			return err
 		}
 
@@ -65,7 +62,7 @@ func Update(ctx context.Context, c client.Client, sts *appsv1.StatefulSet, equal
 
 		mutate(current, sts)
 		if err := c.Update(ctx, current); err != nil {
-			logger.Error(err, "failed to update statefulset", sts.Name)
+			log.Error(err, "failed to update statefulset", sts.Name)
 			return err
 		}
 		return nil

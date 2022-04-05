@@ -71,7 +71,7 @@ func (clusterRequest *KibanaRequest) extractSecretToFile(secretName string, key 
 
 	// check to see if the map value exists
 	if !ok {
-		logger.Error(nil, "no secret data found", "key", key)
+		clusterRequest.log.Error(nil, "no secret data found", "key", key)
 		return nil
 	}
 
