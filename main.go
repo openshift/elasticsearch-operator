@@ -32,10 +32,7 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-var (
-	scheme   = apiruntime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
+var scheme = apiruntime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -71,6 +68,9 @@ func main() {
 		"go_arch", runtime.GOARCH,
 	)
 
+	// Use main logger for controller-runtime
+	ctrl.SetLogger(logger)
+
 	namespace, err := getWatchNamespace()
 	if err != nil {
 		logger.Error(err, "Failed to get watch namespace")
@@ -79,6 +79,7 @@ func main() {
 
 	ll := logger.WithValues("namespace", namespace)
 
+	setupLog := logger.WithName("setup")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Namespace:              namespace,
@@ -96,7 +97,7 @@ func main() {
 
 	if err = (&controllers.ElasticsearchReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Elasticsearch"),
+		Log:    logger.WithName("controllers").WithName("Elasticsearch"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Elasticsearch")
@@ -104,7 +105,7 @@ func main() {
 	}
 	if err = (&controllers.KibanaReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Kibana"),
+		Log:    logger.WithName("controllers").WithName("Kibana"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Kibana")
@@ -112,7 +113,7 @@ func main() {
 	}
 	if err = (&controllers.SecretReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Secret"),
+		Log:    logger.WithName("controllers").WithName("Secret"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
