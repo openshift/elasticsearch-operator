@@ -142,11 +142,18 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		)
 	}
 
+	subject = rbac.NewSubject(
+		"ServiceAccount",
+		dpl.Name,
+		dpl.Namespace,
+	)
+	subject.APIGroup = ""
+	
 	sccRoleBinding := rbac.NewRoleBinding(
 		"elasticsearch-restricted",
 		dpl.Namespace,
 		"elasticsearch-restricted",
-		subjects,
+		rbac.NewSubjects(subject),
 	)
 
 	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.client, sccRoleBinding)
