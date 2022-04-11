@@ -13,9 +13,10 @@ import (
 func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	dpl := er.cluster
 
-	// elasticsearch RBAC
-	elasticsearchRole := rbac.NewClusterRole(
+	// metrics RBAC
+	metricsRole := rbac.NewRole(
 		"elasticsearch-metrics",
+		dpl.Namespace,
 		rbac.NewPolicyRules(
 			rbac.NewPolicyRule(
 				[]string{""},
@@ -24,20 +25,14 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 				[]string{"list", "watch"},
 				[]string{},
 			),
-			rbac.NewPolicyRule(
-				[]string{},
-				[]string{},
-				[]string{},
-				[]string{"get"},
-				[]string{"/metrics"},
-			),
 		),
 	)
 
-	err := rbac.CreateOrUpdateClusterRole(context.TODO(), er.ll, er.client, elasticsearchRole)
+	err := rbac.CreateOrUpdateRole(context.TODO(), er.client, metricsRole)
 	if err != nil {
-		return kverrors.Wrap(err, "failed to create or update elasticsearch clusterrole",
+		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
 			"cluster", dpl.Name,
+			"namespace", dpl.Namespace,
 		)
 	}
 
@@ -48,16 +43,18 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	)
 	subject.APIGroup = ""
 
-	elasticsearchRoleBinding := rbac.NewClusterRoleBinding(
+	metricsRoleBinding := rbac.NewRoleBinding(
 		"elasticsearch-metrics",
+		dpl.Namespace,
 		"elasticsearch-metrics",
 		rbac.NewSubjects(subject),
 	)
 
-	err = rbac.CreateOrUpdateClusterRoleBinding(context.TODO(), er.ll, er.client, elasticsearchRoleBinding)
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.client, metricsRoleBinding)
 	if err != nil {
-		return kverrors.Wrap(err, "failed to create or update elasticsearch clusterrolebinding",
-			"cluster_role_binding_name", elasticsearchRoleBinding.Name,
+		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
+			"role_binding_name", metricsRoleBinding.Name,
+			"namespace", dpl.Namespace,
 		)
 	}
 
