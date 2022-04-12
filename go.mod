@@ -9,14 +9,14 @@ require (
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/google/go-cmp v0.5.0
+	github.com/google/go-cmp v0.5.5
 	github.com/inhies/go-bytesize v0.0.0-20151001220322-5990f52c6ad6
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200602204738-768b7001fe69
-	github.com/prometheus/client_golang v1.2.1
+	github.com/prometheus/client_golang v1.12.1
 	go.uber.org/zap v1.16.0 // indirect
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v12.0.0+incompatible
