@@ -8,7 +8,6 @@ import (
 	"text/template"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/prometheusrule"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
@@ -34,7 +33,7 @@ func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
 
 	dpl.AddOwnerRefTo(rule)
 
-	err = prometheusrule.CreateOrUpdate(context.TODO(), er.client, rule)
+	err = prometheusrule.CreateOrUpdate(context.TODO(), er.ll, er.client, rule)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch prometheusrule",
 			"cluster", er.cluster.Name,
@@ -72,21 +71,18 @@ func ruleSpec(fileName, filePath string) (*monitoringv1.PrometheusRuleSpec, erro
 
 	ruleSpecTemplate, err := template.New(fileName).Delims("[[", "]]").ParseFiles(filePath)
 	if err != nil {
-		log.Error(err, "Unable to read template file")
 		return &ruleSpec, err
 	}
 
 	ruleSpecBytes := bytes.NewBuffer(nil)
 	err = ruleSpecTemplate.Execute(ruleSpecBytes, alertConfigTemplate)
 	if err != nil {
-		log.Error(err, "Unable to execute template config")
 		return &ruleSpec, err
 	}
 
 	reader := io.Reader(ruleSpecBytes)
 
 	if err := k8sYAML.NewYAMLOrJSONDecoder(reader, 1000).Decode(&ruleSpec); err != nil {
-		log.Error(err, "Unable to decode rule spec from reader")
 		return nil, kverrors.Wrap(err, "failed to decode rule spec from file", "filePath", filePath)
 	}
 

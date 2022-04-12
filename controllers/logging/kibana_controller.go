@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -66,7 +65,7 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// the CR no longer exists, since it will be cleaned up by the scheduler we don't want to trigger an event for it
-			unregisterKibanaNamespacedName(request)
+			unregisterKibanaNamespacedName(r.Log, request)
 			return reconcile.Result{}, nil
 		}
 
@@ -78,11 +77,11 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 	}
 
 	// keep track of the fact that we processed this kibana for future events and for mapping
-	registerKibanaNamespacedName(request)
+	registerKibanaNamespacedName(r.Log, request)
 
 	es, err := elasticsearch.GetElasticsearchCR(r.Client, request.Namespace)
 	if err != nil {
-		log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
+		r.Log.Info("skipping kibana reconciliation", "namespace", request.Namespace, "error", err)
 		return reconcileResult, nil
 	}
 
@@ -98,13 +97,13 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 		}
 	}
 
-	esClient := esclient.NewClient(es.Name, es.Namespace, r.Client)
+	esClient := esclient.NewClient(r.Log, es.Name, es.Namespace, r.Client)
 	proxyCfg, err := kibana.GetProxyConfig(r.Client)
 	if err != nil {
 		return reconcileResult, err
 	}
 
-	if err := kibana.Reconcile(kibanaInstance, r.Client, esClient, proxyCfg, eoCertManagement, certOwnerRef); err != nil {
+	if err := kibana.Reconcile(r.Log, kibanaInstance, r.Client, esClient, proxyCfg, eoCertManagement, certOwnerRef); err != nil {
 		return reconcileResult, err
 	}
 
@@ -167,7 +166,7 @@ func handlePod(meta metav1.Object) bool {
 	return false
 }
 
-func registerKibanaNamespacedName(request reconcile.Request) {
+func registerKibanaNamespacedName(log logr.Logger, request reconcile.Request) {
 	// check to see if the namespaced name is already registered first
 	found := false
 
@@ -187,7 +186,7 @@ func registerKibanaNamespacedName(request reconcile.Request) {
 	}
 }
 
-func unregisterKibanaNamespacedName(request reconcile.Request) {
+func unregisterKibanaNamespacedName(log logr.Logger, request reconcile.Request) {
 	// look for a namespacedname registered already
 	found := false
 	index := -1

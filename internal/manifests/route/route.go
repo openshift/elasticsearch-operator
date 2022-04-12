@@ -4,10 +4,8 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -41,7 +39,7 @@ func Get(ctx context.Context, c client.Client, key client.ObjectKey) (*routev1.R
 // if the route exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, r *routev1.Route, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, r *routev1.Route, equal EqualityFunc, mutate MutateFunc) error {
 	current := &routev1.Route{}
 	key := client.ObjectKey{Name: r.Name, Namespace: r.Namespace}
 	err := c.Get(ctx, key, current)

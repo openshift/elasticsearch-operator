@@ -13,12 +13,10 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-
+	"github.com/ViaQ/logerr/log"
 	configv1 "github.com/openshift/api/config/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/ViaQ/logerr/log"
 )
 
 const (
@@ -26,6 +24,8 @@ const (
 	OsNodeLabel       = "kubernetes.io/os"
 	LinuxValue        = "linux"
 )
+
+var logger = log.DefaultLogger()
 
 // EnsureLinuxNodeSelector takes given selector map and returns a selector map with linux node selector added into it.
 // If there is already a node type selector and is different from "linux" then it is overridden and warning is logged.
@@ -39,7 +39,7 @@ func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 			return selectors
 		}
 		// Selector is provided but is not "linux"
-		log.Info("Overriding node selector value",
+		logger.Info("Overriding node selector value",
 			"from", fmt.Sprintf("%s=%s", OsNodeLabel, name),
 			"to", LinuxValue)
 	}

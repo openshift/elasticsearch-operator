@@ -2,13 +2,14 @@ package elasticsearch
 
 import (
 	"context"
-	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"io/ioutil"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
+
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,7 +32,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 	var hash string
 	hash, err = utils.CalculateMD5Hash(string(b))
 	if err != nil {
-		log.Error(err, "error calculating hash for elasticsearch dashboard configmap")
+		er.ll.Error(err, "error calculating hash for elasticsearch dashboard configmap")
 	}
 
 	cm := configmap.New(
@@ -84,7 +85,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateDashboards() error {
 }
 
 // RemoveDashboardConfigMap removes the config map in the grafana dashboard
-func RemoveDashboardConfigMap(c client.Client) {
+func RemoveDashboardConfigMap(log logr.Logger, c client.Client) {
 	key := client.ObjectKey{Name: grafanaCMName, Namespace: grafanaCMNameSpace}
 
 	err := configmap.Delete(context.TODO(), c, key)

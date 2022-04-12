@@ -4,25 +4,25 @@ import (
 	"context"
 	"time"
 
-	"github.com/ViaQ/logerr/kverrors"
+	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/deployment"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/ViaQ/logerr/log"
-	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type deploymentNode struct {
+	log  logr.Logger
 	self apps.Deployment
 	// prior hash for configmap content
 	configmapHash string
@@ -43,7 +43,7 @@ func (node *deploymentNode) populateReference(nodeName string, n api.Elasticsear
 
 	progressDeadlineSeconds := int32(1800)
 	logConfig := getLogConfig(cluster.GetAnnotations())
-	template := newPodTemplateSpec(nodeName, cluster.Name, cluster.Namespace, n, cluster.Spec.Spec, labels, roleMap, client, logConfig)
+	template := newPodTemplateSpec(context.TODO(), node.log, nodeName, cluster.Name, cluster.Namespace, n, cluster.Spec.Spec, labels, roleMap, client, logConfig)
 
 	dpl := deployment.New(nodeName, cluster.Namespace, labels, replicas).
 		WithSelector(metav1.LabelSelector{
@@ -200,7 +200,7 @@ func (node *deploymentNode) podSpecMatches() bool {
 func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 	podList, err := pod.List(context.TODO(), node.client, node.self.Namespace, labels)
 	if err != nil {
-		log.Error(err, "Could not get node pods", "node", node.name())
+		node.log.Error(err, "Could not get node pods")
 		return false
 	}
 
@@ -231,7 +231,7 @@ func (node *deploymentNode) setPaused(paused bool) error {
 	// we use pauseNode so that we don't revert any new changes that should be made and
 	// noticed in state()
 	pausedNode := node.self.DeepCopy()
-	err := deployment.Update(context.TODO(), node.client, pausedNode, equalFunc, mutateFunc)
+	err := deployment.Update(context.TODO(), node.log, node.client, pausedNode, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node deployment",
 			"cluster", node.clusterName,
@@ -255,7 +255,7 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 		current.Spec.Replicas = &replicas
 	}
 
-	err := deployment.Update(context.TODO(), node.client, &node.self, equalFunc, mutateFunc)
+	err := deployment.Update(context.TODO(), node.log, node.client, &node.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node deployment",
 			"cluster", node.clusterName,
@@ -272,7 +272,7 @@ func (node *deploymentNode) replicaCount() (int32, error) {
 	key := client.ObjectKey{Name: node.self.Name, Namespace: node.self.Namespace}
 	dpl, err := deployment.Get(context.TODO(), node.client, key)
 	if err != nil {
-		log.Error(err, "Could not get Elasticsearch node resource")
+		node.log.Error(err, "Could not get Elasticsearch node resource")
 		return -1, err
 	}
 
@@ -318,7 +318,7 @@ func (node *deploymentNode) executeUpdate() error {
 		current.Spec.Template = createUpdatablePodTemplateSpec(current.Spec.Template, desired.Spec.Template)
 	}
 
-	err := deployment.Update(context.TODO(), node.client, &node.self, equalFunc, mutateFunc)
+	err := deployment.Update(context.TODO(), node.log, node.client, &node.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node deployment",
 			"cluster", node.clusterName,

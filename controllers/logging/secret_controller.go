@@ -41,7 +41,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	ok, err := elasticsearch.SecretReconcile(cluster, r.Client)
+	ok, err := elasticsearch.SecretReconcile(r.Log, cluster, r.Client)
 	if !ok {
 		return reconcileResult, err
 	}

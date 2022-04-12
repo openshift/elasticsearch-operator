@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,7 +47,7 @@ func Create(ctx context.Context, c client.Client, dpl *appsv1.Deployment) error 
 }
 
 // Update will update an existing deployment if compare func returns true or else leave it unchanged
-func Update(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal EqualityFunc, mutate MutateFunc) error {
+func Update(ctx context.Context, log logr.Logger, c client.Client, dpl *appsv1.Deployment, equal EqualityFunc, mutate MutateFunc) error {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current := &appsv1.Deployment{}
 		key := client.ObjectKey{Name: dpl.Name, Namespace: dpl.Namespace}
@@ -83,7 +82,7 @@ func Update(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal 
 // if the deployment exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, dpl *appsv1.Deployment, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, dpl *appsv1.Deployment, equal EqualityFunc, mutate MutateFunc) error {
 	current := &appsv1.Deployment{}
 	key := client.ObjectKey{Name: dpl.Name, Namespace: dpl.Namespace}
 	err := c.Get(ctx, key, current)
@@ -98,7 +97,7 @@ func CreateOrUpdate(ctx context.Context, c client.Client, dpl *appsv1.Deployment
 		)
 	}
 
-	return Update(ctx, c, dpl, equal, mutate)
+	return Update(ctx, log, c, dpl, equal, mutate)
 }
 
 // Delete attempts to delete a k8s deployment if existing or returns an error.

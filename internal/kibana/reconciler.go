@@ -5,11 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	configv1 "github.com/openshift/api/config/v1"
 	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
@@ -19,11 +14,16 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/service"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
+
+	"github.com/ViaQ/logerr/kverrors"
+	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,8 +40,9 @@ var kibanaServiceAccountAnnotations = map[string]string{
 	"serviceaccounts.openshift.io/oauth-redirectreference.first": kibanaOAuthRedirectReference,
 }
 
-func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esClient esclient.Client, proxyConfig *configv1.Proxy, eoManagedCerts bool, ownerRef metav1.OwnerReference) error {
+func Reconcile(log logr.Logger, requestCluster *kibana.Kibana, requestClient client.Client, esClient esclient.Client, proxyConfig *configv1.Proxy, eoManagedCerts bool, ownerRef metav1.OwnerReference) error {
 	clusterKibanaRequest := KibanaRequest{
+		log:      log,
 		client:   requestClient,
 		cluster:  requestCluster,
 		esClient: esClient,
@@ -52,7 +53,7 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 	}
 
 	if eoManagedCerts {
-		cr := elasticsearch.NewCertificateRequest(ownerRef.Name, requestCluster.Namespace, ownerRef, requestClient)
+		cr := elasticsearch.NewCertificateRequest(log, ownerRef.Name, requestCluster.Namespace, ownerRef, requestClient)
 		cr.GenerateKibanaCerts(requestCluster.Name)
 	}
 
@@ -244,7 +245,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	utils.AddOwnerRefToObject(kibanaDeployment, getOwnerRef(clusterRequest.cluster))
 
-	err = deployment.CreateOrUpdate(context.TODO(), clusterRequest.client, kibanaDeployment, compareDeployments, mutateDeployment)
+	err = deployment.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, kibanaDeployment, compareDeployments, mutateDeployment)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana deployment",
 			"cluster", clusterRequest.cluster.Name,
@@ -405,7 +406,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 
 	utils.AddOwnerRefToObject(svc, getOwnerRef(clusterRequest.cluster))
 
-	err := service.CreateOrUpdate(context.TODO(), clusterRequest.client, svc, service.Equal, service.Mutate)
+	err := service.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, svc, service.Equal, service.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana service",
 			"cluster", clusterRequest.cluster.Name,
@@ -472,7 +473,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	}
 
 	kibanaContainer.ReadinessProbe = &v1.Probe{
-		Handler: v1.Handler{
+		ProbeHandler: v1.ProbeHandler{
 			Exec: &v1.ExecAction{
 				Command: []string{
 					"/usr/share/kibana/probe/readiness.sh",

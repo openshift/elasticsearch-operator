@@ -8,7 +8,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/ViaQ/logerr/log"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	core "k8s.io/api/core/v1"
@@ -72,7 +71,7 @@ func (clusterRequest *KibanaRequest) extractSecretToFile(secretName string, key 
 
 	// check to see if the map value exists
 	if !ok {
-		log.Error(nil, "no secret data found", "key", key)
+		clusterRequest.log.Error(nil, "no secret data found", "key", key)
 		return nil
 	}
 

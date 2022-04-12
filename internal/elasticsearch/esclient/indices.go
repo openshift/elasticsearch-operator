@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 )
@@ -17,7 +16,7 @@ func (ec *esClient) GetIndex(name string) (*estypes.Index, error) {
 		Method: http.MethodGet,
 		URI:    name,
 	}
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return nil, payload.Error
 	}
@@ -46,7 +45,7 @@ func (ec *esClient) GetAllIndices(name string) (estypes.CatIndicesResponses, err
 		Method: http.MethodGet,
 		URI:    fmt.Sprintf("_cat/indices/%s?format=json", name),
 	}
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.StatusCode == http.StatusNotFound {
 		return nil, nil
 	}
@@ -80,7 +79,7 @@ func (ec *esClient) CreateIndex(name string, index *estypes.Index) error {
 		URI:         name,
 		RequestBody: body,
 	}
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
 	}
@@ -98,7 +97,7 @@ func (ec *esClient) GetIndexSettings(name string) (*estypes.Index, error) {
 		Method: http.MethodGet,
 		URI:    fmt.Sprintf("%s/_settings", name),
 	}
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return nil, payload.Error
 	}
@@ -135,7 +134,7 @@ func (ec *esClient) UpdateIndexSettings(name string, settings *estypes.IndexSett
 		URI:         fmt.Sprintf("%s/_settings", name),
 		RequestBody: body,
 	}
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
 	}
@@ -167,7 +166,7 @@ func (ec *esClient) ReIndex(src, dst, script, lang string) error {
 		URI:         "_reindex",
 		RequestBody: body,
 	}
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil || payload.StatusCode != http.StatusOK {
 		return ec.errorCtx().New("failed to reindex",
 			"from", src,
@@ -190,8 +189,8 @@ func (ec *esClient) UpdateAlias(actions estypes.AliasActions) error {
 		URI:         "_aliases",
 		RequestBody: body,
 	}
-	log.Info("Updating aliases", "payload", actions)
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.log.Info("Updating aliases", "payload", actions)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return payload.Error
 	}
@@ -211,7 +210,7 @@ func (ec *esClient) ListIndicesForAlias(aliasPattern string) ([]string, error) {
 		URI:    fmt.Sprintf("_alias/%s", aliasPattern),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.StatusCode == 404 {
 		return []string{}, nil
 	}
@@ -252,7 +251,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 		URI:    "project.*,.operations.*/_alias",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	// alias name choice based on https://github.com/openshift/enhancements/blob/master/enhancements/cluster-logging/cluster-logging-es-rollover-data-design.md#data-model
 	for index := range payload.ResponseBody {
@@ -271,7 +270,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 		if payload.ResponseBody[index] != nil {
 			indexBody, ok := payload.ResponseBody[index].(map[string]interface{})
 			if !ok {
-				log.Error(nil, "unable to unmarshal index",
+				ec.log.Error(nil, "unable to unmarshal index",
 					"index", index,
 					"cluster", ec.cluster,
 					"type", fmt.Sprintf("%T", payload.ResponseBody[index]),
@@ -281,7 +280,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 			if indexBody["aliases"] != nil {
 				aliasBody, ok := indexBody["aliases"].(map[string]interface{})
 				if !ok {
-					log.Error(nil, "unable to unmarshal alias index",
+					ec.log.Error(nil, "unable to unmarshal alias index",
 						"index", index,
 						"cluster", ec.cluster,
 						"type", fmt.Sprintf("%T", indexBody["aliases"]),
@@ -303,7 +302,7 @@ func (ec *esClient) AddAliasForOldIndices() bool {
 						Method: http.MethodPut,
 						URI:    fmt.Sprintf("%s/_alias/%s", index, indexAlias),
 					}
-					ec.fnSendEsRequest(ec.cluster, ec.namespace, putPayload, ec.k8sClient)
+					ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, putPayload, ec.k8sClient)
 
 					// check the response here -- if any failed then we want to return "false"
 					// but want to continue trying to process as many as we can now.

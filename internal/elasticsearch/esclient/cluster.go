@@ -18,7 +18,7 @@ func (ec *esClient) GetClusterNodeVersions() ([]string, error) {
 		URI:    "_cluster/stats",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	var nodeVersions []string
 	if versions := walkInterfaceMap("nodes.versions", payload.ResponseBody); versions != nil {
@@ -37,7 +37,7 @@ func (ec *esClient) GetThresholdEnabled() (bool, error) {
 		URI:    "_cluster/settings?include_defaults=true",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	var enabled interface{}
 
@@ -75,7 +75,7 @@ func (ec *esClient) GetDiskWatermarks() (interface{}, interface{}, interface{}, 
 		URI:    "_cluster/settings?include_defaults=true",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	var low interface{}
 	var high interface{}
@@ -175,7 +175,7 @@ func (ec *esClient) SetMinMasterNodes(numberMasters int32) (bool, error) {
 		RequestBody: fmt.Sprintf("{%q:{%q:%d}}", "persistent", "discovery.zen.minimum_master_nodes", numberMasters),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	acknowledged := false
 	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
@@ -191,7 +191,7 @@ func (ec *esClient) GetMinMasterNodes() (int32, error) {
 		URI:    "_cluster/settings",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	masterCount := int32(0)
 	if payload.ResponseBody["persistent"] != nil {
@@ -211,7 +211,7 @@ func (ec *esClient) DoSynchronizedFlush() (bool, error) {
 		URI:    "_flush/synced",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	failed := 0
 	if shards, ok := payload.ResponseBody["_shards"].(map[string]interface{}); ok {
@@ -234,7 +234,7 @@ func (ec *esClient) GetLowestClusterVersion() (string, error) {
 		URI:    "_cluster/stats/nodes/_all",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return "", payload.Error
 	}
@@ -276,7 +276,7 @@ func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {
 		URI:    "_cluster/state/nodes",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 	if payload.Error != nil {
 		return false, payload.Error
 	}

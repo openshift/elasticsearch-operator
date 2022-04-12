@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: elasticsearches.logging.openshift.io
 spec:
@@ -46,15 +45,20 @@ spec:
         description: An Elasticsearch cluster instance
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
-            description: Specification of the desired behavior of the Elasticsearch cluster
+            description: Specification of the desired behavior of the Elasticsearch
+              cluster
             properties:
               indexManagement:
                 description: Management spec for indicies
@@ -63,7 +67,8 @@ spec:
                   mappings:
                     description: Mappings of policies to indicies
                     items:
-                      description: IndexManagementPolicyMappingSpec maps a management policy to an index
+                      description: IndexManagementPolicyMappingSpec maps a management
+                        policy to an index
                       properties:
                         aliases:
                           description: Aliases to apply to a template
@@ -81,7 +86,8 @@ spec:
                   policies:
                     description: A list of polices for managing an indices
                     items:
-                      description: IndexManagementPolicySpec is a definition of an index management policy
+                      description: IndexManagementPolicySpec is a definition of an
+                        index management policy
                       properties:
                         name:
                           description: The unique name of the policy
@@ -96,26 +102,34 @@ spec:
                                   format: int64
                                   type: integer
                                 minAge:
-                                  description: The minimum age of an index before it should be deleted (e.g. 10d)
+                                  description: The minimum age of an index before
+                                    it should be deleted (e.g. 10d)
                                   pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                   type: string
                                 namespaceSpec:
-                                  description: The per namespace specification to delete documents older than a given minimum age
+                                  description: The per namespace specification to
+                                    delete documents older than a given minimum age
                                   items:
                                     properties:
                                       minAge:
-                                        description: Delete the records matching the namespaces which are older than this MinAge (e.g. 1d)
+                                        description: Delete the records matching the
+                                          namespaces which are older than this MinAge
+                                          (e.g. 1d)
                                         pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                         type: string
                                       namespace:
-                                        description: Target Namespace to delete logs older than MinAge (defaults to 7d) Can be one namespace name or a prefix (e.g., "openshift-" covers all namespaces with this prefix)
+                                        description: Target Namespace to delete logs
+                                          older than MinAge (defaults to 7d) Can be
+                                          one namespace name or a prefix (e.g., "openshift-"
+                                          covers all namespaces with this prefix)
                                         type: string
                                     required:
                                     - namespace
                                     type: object
                                   type: array
                                 pruneNamespacesInterval:
-                                  description: How often to run a new prune-namespaces job
+                                  description: How often to run a new prune-namespaces
+                                    job
                                   pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                   type: string
                               required:
@@ -130,7 +144,9 @@ spec:
                                       nullable: true
                                       properties:
                                         maxAge:
-                                          description: The maximum age of an index before it should be rolled over (e.g. 7d)
+                                          description: The maximum age of an index
+                                            before it should be rolled over (e.g.
+                                            7d)
                                           pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                                           type: string
                                       required:
@@ -140,7 +156,8 @@ spec:
                               type: object
                           type: object
                         pollInterval:
-                          description: How often to check an index meets the desired criteria (e.g. 1m)
+                          description: How often to check an index meets the desired
+                            criteria (e.g. 1m)
                           pattern: ^([0-9]+)([yMwdhHms]{0,1})$
                           type: string
                       required:
@@ -151,7 +168,9 @@ spec:
                     type: array
                 type: object
               managementState:
-                description: ManagementState indicates whether and how the operator should manage the component. Indicator if the resource is 'Managed' or 'Unmanaged' by the operator.
+                description: ManagementState indicates whether and how the operator
+                  should manage the component. Indicator if the resource is 'Managed'
+                  or 'Unmanaged' by the operator.
                 enum:
                 - Managed
                 - Unmanaged
@@ -180,7 +199,8 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -189,7 +209,10 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   resources:
@@ -203,7 +226,8 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -212,28 +236,49 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   tolerations:
                     items:
-                      description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+                      description: The pod this Toleration is attached to tolerates
+                        any taint that matches the triple <key,value,effect> using
+                        the matching operator <operator>.
                       properties:
                         effect:
-                          description: Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                          description: Effect indicates the taint effect to match.
+                            Empty means match all taint effects. When specified, allowed
+                            values are NoSchedule, PreferNoSchedule and NoExecute.
                           type: string
                         key:
-                          description: Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                          description: Key is the taint key that the toleration applies
+                            to. Empty means match all taint keys. If the key is empty,
+                            operator must be Exists; this combination means to match
+                            all values and all keys.
                           type: string
                         operator:
-                          description: Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+                          description: Operator represents a key's relationship to
+                            the value. Valid operators are Exists and Equal. Defaults
+                            to Equal. Exists is equivalent to wildcard for value,
+                            so that a pod can tolerate all taints of a particular
+                            category.
                           type: string
                         tolerationSeconds:
-                          description: TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+                          description: TolerationSeconds represents the period of
+                            time the toleration (which must be of effect NoExecute,
+                            otherwise this field is ignored) tolerates the taint.
+                            By default, it is not set, which means tolerate the taint
+                            forever (do not evict). Zero and negative values will
+                            be treated as 0 (evict immediately) by the system.
                           format: int64
                           type: integer
                         value:
-                          description: Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+                          description: Value is the taint value the toleration matches
+                            to. If the operator is Exists, the value should be empty,
+                            otherwise just a regular string.
                           type: string
                       type: object
                     type: array
@@ -241,10 +286,12 @@ spec:
               nodes:
                 description: Specification of the different Elasticsearch nodes
                 items:
-                  description: ElasticsearchNode struct represents individual node in Elasticsearch cluster
+                  description: ElasticsearchNode struct represents individual node
+                    in Elasticsearch cluster
                   properties:
                     genUUID:
-                      description: GenUUID will be populated by the operator if not provided
+                      description: GenUUID will be populated by the operator if not
+                        provided
                       nullable: true
                       type: string
                     nodeCount:
@@ -257,7 +304,8 @@ spec:
                       description: Define which Nodes the Pods are scheduled on.
                       type: object
                     proxyResources:
-                      description: The resource requirements for the Elasticsearch proxy
+                      description: The resource requirements for the Elasticsearch
+                        proxy
                       properties:
                         limits:
                           additionalProperties:
@@ -266,7 +314,8 @@ spec:
                             - type: string
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
-                          description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          description: 'Limits describes the maximum amount of compute
+                            resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                         requests:
                           additionalProperties:
@@ -275,11 +324,16 @@ spec:
                             - type: string
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
-                          description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          description: 'Requests describes the minimum amount of compute
+                            resources required. If Requests is omitted for a container,
+                            it defaults to Limits if that is explicitly specified,
+                            otherwise to an implementation-defined value. More info:
+                            https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                       type: object
                     resources:
-                      description: The resource requirements for the Elasticsearch node
+                      description: The resource requirements for the Elasticsearch
+                        node
                       nullable: true
                       properties:
                         limits:
@@ -289,7 +343,8 @@ spec:
                             - type: string
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
-                          description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          description: 'Limits describes the maximum amount of compute
+                            resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                         requests:
                           additionalProperties:
@@ -298,11 +353,16 @@ spec:
                             - type: string
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
-                          description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          description: 'Requests describes the minimum amount of compute
+                            resources required. If Requests is omitted for a container,
+                            it defaults to Limits if that is explicitly specified,
+                            otherwise to an implementation-defined value. More info:
+                            https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                           type: object
                       type: object
                     roles:
-                      description: The specific Elasticsearch cluster roles the node should perform
+                      description: The specific Elasticsearch cluster roles the node
+                        should perform
                       items:
                         enum:
                         - master
@@ -311,7 +371,8 @@ spec:
                         type: string
                       type: array
                     storage:
-                      description: The type of backing storage that should be used for the node
+                      description: The type of backing storage that should be used
+                        for the node
                       properties:
                         size:
                           anyOf:
@@ -321,35 +382,56 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         storageClassName:
-                          description: 'The name of the storage class to use with creating the node''s PVC. More info: https://kubernetes.io/docs/concepts/storage/storage-classes/'
+                          description: 'The name of the storage class to use with
+                            creating the node''s PVC. More info: https://kubernetes.io/docs/concepts/storage/storage-classes/'
                           type: string
                       type: object
                     tolerations:
                       items:
-                        description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+                        description: The pod this Toleration is attached to tolerates
+                          any taint that matches the triple <key,value,effect> using
+                          the matching operator <operator>.
                         properties:
                           effect:
-                            description: Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                            description: Effect indicates the taint effect to match.
+                              Empty means match all taint effects. When specified,
+                              allowed values are NoSchedule, PreferNoSchedule and
+                              NoExecute.
                             type: string
                           key:
-                            description: Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                            description: Key is the taint key that the toleration
+                              applies to. Empty means match all taint keys. If the
+                              key is empty, operator must be Exists; this combination
+                              means to match all values and all keys.
                             type: string
                           operator:
-                            description: Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+                            description: Operator represents a key's relationship
+                              to the value. Valid operators are Exists and Equal.
+                              Defaults to Equal. Exists is equivalent to wildcard
+                              for value, so that a pod can tolerate all taints of
+                              a particular category.
                             type: string
                           tolerationSeconds:
-                            description: TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+                            description: TolerationSeconds represents the period of
+                              time the toleration (which must be of effect NoExecute,
+                              otherwise this field is ignored) tolerates the taint.
+                              By default, it is not set, which means tolerate the
+                              taint forever (do not evict). Zero and negative values
+                              will be treated as 0 (evict immediately) by the system.
                             format: int64
                             type: integer
                           value:
-                            description: Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+                            description: Value is the taint value the toleration matches
+                              to. If the operator is Exists, the value should be empty,
+                              otherwise just a regular string.
                             type: string
                         type: object
                       type: array
                   type: object
                 type: array
               redundancyPolicy:
-                description: The policy towards data redundancy to specify the number of redundant primary shards
+                description: The policy towards data redundancy to specify the number
+                  of redundant primary shards
                 enum:
                 - FullRedundancy
                 - MultipleRedundancy
@@ -366,15 +448,18 @@ spec:
               cluster:
                 properties:
                   activePrimaryShards:
-                    description: The number of Active Primary Shards for the Elasticsearch Cluster
+                    description: The number of Active Primary Shards for the Elasticsearch
+                      Cluster
                     format: int32
                     type: integer
                   activeShards:
-                    description: The number of Active Shards for the Elasticsearch Cluster
+                    description: The number of Active Shards for the Elasticsearch
+                      Cluster
                     format: int32
                     type: integer
                   initializingShards:
-                    description: The number of Initializing Shards for the Elasticsearch Cluster
+                    description: The number of Initializing Shards for the Elasticsearch
+                      Cluster
                     format: int32
                     type: integer
                   numDataNodes:
@@ -389,14 +474,16 @@ spec:
                     format: int32
                     type: integer
                   relocatingShards:
-                    description: The number of Relocating Shards for the Elasticsearch Cluster
+                    description: The number of Relocating Shards for the Elasticsearch
+                      Cluster
                     format: int32
                     type: integer
                   status:
                     description: The current Status of the Elasticsearch Cluster
                     type: string
                   unassignedShards:
-                    description: The number of Unassigned Shards for the Elasticsearch Cluster
+                    description: The number of Unassigned Shards for the Elasticsearch
+                      Cluster
                     format: int32
                     type: integer
                 required:
@@ -416,14 +503,17 @@ spec:
                 items:
                   properties:
                     lastTransitionTime:
-                      description: Last time the condition transitioned from one status to another.
+                      description: Last time the condition transitioned from one status
+                        to another.
                       format: date-time
                       type: string
                     message:
-                      description: Human-readable message indicating details about last transition.
+                      description: Human-readable message indicating details about
+                        last transition.
                       type: string
                     reason:
-                      description: Unique, one-word, CamelCase reason for the condition's last transition.
+                      description: Unique, one-word, CamelCase reason for the condition's
+                        last transition.
                       type: string
                     status:
                       type: string
@@ -445,7 +535,8 @@ spec:
                     items:
                       properties:
                         conditions:
-                          description: Reasons for the state of the corresponding mapping for this status
+                          description: Reasons for the state of the corresponding
+                            mapping for this status
                           items:
                             properties:
                               message:
@@ -459,18 +550,21 @@ spec:
                             type: object
                           type: array
                         lastUpdated:
-                          description: LastUpdated represents the last time that the status was updated.
+                          description: LastUpdated represents the last time that the
+                            status was updated.
                           format: date-time
                           type: string
                         message:
                           type: string
                         name:
-                          description: Name of the corresponding mapping for this status
+                          description: Name of the corresponding mapping for this
+                            status
                           type: string
                         reason:
                           type: string
                         state:
-                          description: State of the corresponding mapping for this status
+                          description: State of the corresponding mapping for this
+                            status
                           type: string
                       type: object
                     type: array
@@ -480,7 +574,8 @@ spec:
                     items:
                       properties:
                         conditions:
-                          description: Reasons for the state of the corresponding policy for this status
+                          description: Reasons for the state of the corresponding
+                            policy for this status
                           items:
                             properties:
                               message:
@@ -494,7 +589,8 @@ spec:
                             type: object
                           type: array
                         lastUpdated:
-                          description: LastUpdated represents the last time that the status was updated.
+                          description: LastUpdated represents the last time that the
+                            status was updated.
                           format: date-time
                           type: string
                         message:
@@ -504,10 +600,12 @@ spec:
                           description: Name of the corresponding policy for this status
                           type: string
                         reason:
-                          description: Reasons for the state of the corresponding policy for this status
+                          description: Reasons for the state of the corresponding
+                            policy for this status
                           type: string
                         state:
-                          description: State of the corresponding policy for this status
+                          description: State of the corresponding policy for this
+                            status
                           type: string
                       type: object
                     type: array
@@ -519,25 +617,30 @@ spec:
                 type: object
               nodes:
                 items:
-                  description: ElasticsearchNodeStatus represents the status of individual Elasticsearch node
+                  description: ElasticsearchNodeStatus represents the status of individual
+                    Elasticsearch node
                   properties:
                     conditions:
                       items:
                         properties:
                           lastTransitionTime:
-                            description: Last time the condition transitioned from one status to another.
+                            description: Last time the condition transitioned from
+                              one status to another.
                             format: date-time
                             type: string
                           message:
-                            description: Human-readable message indicating details about last transition.
+                            description: Human-readable message indicating details
+                              about last transition.
                             type: string
                           reason:
-                            description: Unique, one-word, CamelCase reason for the condition's last transition.
+                            description: Unique, one-word, CamelCase reason for the
+                              condition's last transition.
                             type: string
                           status:
                             type: string
                           type:
-                            description: ClusterConditionType is a valid value for ClusterCondition.Type
+                            description: ClusterConditionType is a valid value for
+                              ClusterCondition.Type
                             type: string
                         required:
                         - lastTransitionTime

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/go-logr/logr"
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
@@ -89,9 +89,10 @@ type Client interface {
 	SetSendRequestFn(fn FnEsSendRequest)
 }
 
-type FnEsSendRequest func(cluster, namespace string, payload *EsRequest, client k8sclient.Client)
+type FnEsSendRequest func(log logr.Logger, cluster, namespace string, payload *EsRequest, client k8sclient.Client)
 
 type esClient struct {
+	log             logr.Logger
 	cluster         string
 	namespace       string
 	k8sClient       k8sclient.Client
@@ -108,8 +109,9 @@ type EsRequest struct {
 	Error           error
 }
 
-func NewClient(cluster, namespace string, client k8sclient.Client) Client {
+func NewClient(log logr.Logger, cluster, namespace string, client k8sclient.Client) Client {
 	return &esClient{
+		log:             log,
 		cluster:         cluster,
 		namespace:       namespace,
 		k8sClient:       client,
@@ -133,7 +135,7 @@ func (ec *esClient) errorCtx() kverrors.Context {
 }
 
 // FIXME: this needs to return an error instead of swallowing
-func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
+func sendEsRequest(log logr.Logger, cluster, namespace string, payload *EsRequest, client k8sclient.Client) {
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", cluster, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
 	if err != nil {
@@ -176,9 +178,9 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 		return
 	}
 
-	request.Header = ensureTokenHeader(request.Header)
+	request.Header = ensureTokenHeader(log, request.Header)
 	// we use the insecure TLS client here because we are providing the SA token.
-	httpClient := getTLSClient(cluster, namespace, client)
+	httpClient := getTLSClient(log, cluster, namespace, client)
 	resp, err := httpClient.Do(request)
 	if err != nil {
 		if resp == nil {
@@ -201,7 +203,7 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 
 			// Not sure why, but just trying to reuse the request with the old client
 			// resulted in a 400 every time. Doing it this way got a 200 response as expected.
-			sendRequestWithMTlsClient(cluster, namespace, payload, client)
+			sendRequestWithMTlsClient(log, cluster, namespace, payload, client)
 			return
 		}
 
@@ -217,7 +219,7 @@ func sendEsRequest(cluster, namespace string, payload *EsRequest, client k8sclie
 	payload.Error = err
 }
 
-func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest, client k8sclient.Client) {
+func sendRequestWithMTlsClient(log logr.Logger, clusterName, namespace string, payload *EsRequest, client k8sclient.Client) {
 	u := fmt.Sprintf("https://%s.%s.svc:9200/%s", clusterName, namespace, payload.URI)
 	urlURL, err := url.Parse(u)
 	if err != nil {
@@ -260,7 +262,7 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 		return
 	}
 
-	httpClient := getMTlsClient(clusterName, namespace, client)
+	httpClient := getMTlsClient(log, clusterName, namespace, client)
 	resp, err := httpClient.Do(request)
 	if err != nil {
 		if resp == nil {
@@ -287,12 +289,12 @@ func sendRequestWithMTlsClient(clusterName, namespace string, payload *EsRequest
 	payload.Error = err
 }
 
-func ensureTokenHeader(header http.Header) http.Header {
+func ensureTokenHeader(log logr.Logger, header http.Header) http.Header {
 	if header == nil {
 		header = map[string][]string{}
 	}
 
-	if saToken, ok := readSAToken(k8sTokenFile); ok {
+	if saToken, ok := readSAToken(log, k8sTokenFile); ok {
 		header.Set("Authorization", fmt.Sprintf("Bearer %s", saToken))
 	}
 
@@ -301,7 +303,7 @@ func ensureTokenHeader(header http.Header) http.Header {
 
 // we want to read each time so that we can be sure to have the most up to date
 // token in the case where our perms change and a new token is mounted
-func readSAToken(tokenFile string) (string, bool) {
+func readSAToken(log logr.Logger, tokenFile string) (string, bool) {
 	// read from /var/run/secrets/kubernetes.io/serviceaccount/token
 	token, err := ioutil.ReadFile(tokenFile)
 	if err != nil {
@@ -318,9 +320,9 @@ func readSAToken(tokenFile string) (string, bool) {
 }
 
 // this client is used with the SA token, it does not present any client certs
-func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.Client {
+func getTLSClient(log logr.Logger, clusterName, namespace string, client k8sclient.Client) *http.Client {
 	// get the contents of the secret
-	extractSecret(clusterName, namespace, client)
+	extractSecret(log, clusterName, namespace, client)
 
 	// http.Transport sourced from go 1.10.7
 	return &http.Client{
@@ -337,7 +339,7 @@ func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
-				RootCAs:            getRootCA(clusterName, namespace),
+				RootCAs:            getRootCA(log, clusterName, namespace),
 			},
 		},
 	}
@@ -345,9 +347,9 @@ func getTLSClient(clusterName, namespace string, client k8sclient.Client) *http.
 
 // this client is used in the case where the SA token is not honored. it presents client certs
 // and validates the ES cluster CA cert
-func getMTlsClient(clusterName, namespace string, client k8sclient.Client) *http.Client {
+func getMTlsClient(log logr.Logger, clusterName, namespace string, client k8sclient.Client) *http.Client {
 	// get the contents of the secret
-	extractSecret(clusterName, namespace, client)
+	extractSecret(log, clusterName, namespace, client)
 
 	// http.Transport sourced from go 1.10.7
 	return &http.Client{
@@ -364,14 +366,14 @@ func getMTlsClient(clusterName, namespace string, client k8sclient.Client) *http
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
-				RootCAs:            getRootCA(clusterName, namespace),
+				RootCAs:            getRootCA(log, clusterName, namespace),
 				Certificates:       getClientCertificates(clusterName, namespace),
 			},
 		},
 	}
 }
 
-func getRootCA(clusterName, namespace string) *x509.CertPool {
+func getRootCA(log logr.Logger, clusterName, namespace string) *x509.CertPool {
 	certPool := x509.NewCertPool()
 
 	// load cert into []byte
@@ -423,7 +425,7 @@ func getMapFromBody(rawBody string) (map[string]interface{}, error) {
 	return results, nil
 }
 
-func extractSecret(secretName, namespace string, client k8sclient.Client) {
+func extractSecret(log logr.Logger, secretName, namespace string, client k8sclient.Client) {
 	key := types.NamespacedName{Name: secretName, Namespace: namespace}
 	s, err := secret.Get(context.TODO(), client, key)
 	if err != nil {

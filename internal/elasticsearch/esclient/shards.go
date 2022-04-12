@@ -14,7 +14,7 @@ func (ec *esClient) ClearTransientShardAllocation() (bool, error) {
 		RequestBody: fmt.Sprintf("{%q:{%q:null}}", "transient", "cluster.routing.allocation.enable"),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	acknowledged := false
 	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
@@ -31,7 +31,7 @@ func (ec *esClient) SetShardAllocation(state api.ShardAllocationState) (bool, er
 		RequestBody: fmt.Sprintf("{%q:{%q:%q}}", "persistent", "cluster.routing.allocation.enable", state),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	acknowledged := false
 	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
@@ -46,7 +46,7 @@ func (ec *esClient) GetShardAllocation() (string, error) {
 		URI:    "_cluster/settings?include_defaults=true",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	var allocation interface{}
 

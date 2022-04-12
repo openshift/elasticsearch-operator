@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: kibanas.logging.openshift.io
 spec:
@@ -31,10 +30,14 @@ spec:
         description: Kibana instance
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -42,7 +45,8 @@ spec:
             description: Specification of the desired behavior of the Kibana
             properties:
               managementState:
-                description: Indicator if the resource is 'Managed' or 'Unmanaged' by the operator
+                description: Indicator if the resource is 'Managed' or 'Unmanaged'
+                  by the operator
                 enum:
                 - Managed
                 - Unmanaged
@@ -50,7 +54,8 @@ spec:
               nodeSelector:
                 additionalProperties:
                   type: string
-                description: The node selector to use for the Kibana Visualization component
+                description: The node selector to use for the Kibana Visualization
+                  component
                 type: object
               proxy:
                 description: Specification of the Kibana Proxy component
@@ -66,7 +71,8 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -75,12 +81,16 @@ spec:
                           - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                 type: object
               replicas:
-                description: The desired number of Kibana Pods for the Visualization component
+                description: The desired number of Kibana Pods for the Visualization
+                  component
                 format: int32
                 type: integer
               resources:
@@ -94,7 +104,8 @@ spec:
                       - type: string
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
-                    description: 'Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    description: 'Limits describes the maximum amount of compute resources
+                      allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                   requests:
                     additionalProperties:
@@ -103,28 +114,48 @@ spec:
                       - type: string
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
-                    description: 'Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    description: 'Requests describes the minimum amount of compute
+                      resources required. If Requests is omitted for a container,
+                      it defaults to Limits if that is explicitly specified, otherwise
+                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                     type: object
                 type: object
               tolerations:
                 items:
-                  description: The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.
+                  description: The pod this Toleration is attached to tolerates any
+                    taint that matches the triple <key,value,effect> using the matching
+                    operator <operator>.
                   properties:
                     effect:
-                      description: Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                      description: Effect indicates the taint effect to match. Empty
+                        means match all taint effects. When specified, allowed values
+                        are NoSchedule, PreferNoSchedule and NoExecute.
                       type: string
                     key:
-                      description: Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                      description: Key is the taint key that the toleration applies
+                        to. Empty means match all taint keys. If the key is empty,
+                        operator must be Exists; this combination means to match all
+                        values and all keys.
                       type: string
                     operator:
-                      description: Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.
+                      description: Operator represents a key's relationship to the
+                        value. Valid operators are Exists and Equal. Defaults to Equal.
+                        Exists is equivalent to wildcard for value, so that a pod
+                        can tolerate all taints of a particular category.
                       type: string
                     tolerationSeconds:
-                      description: TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.
+                      description: TolerationSeconds represents the period of time
+                        the toleration (which must be of effect NoExecute, otherwise
+                        this field is ignored) tolerates the taint. By default, it
+                        is not set, which means tolerate the taint forever (do not
+                        evict). Zero and negative values will be treated as 0 (evict
+                        immediately) by the system.
                       format: int64
                       type: integer
                     value:
-                      description: Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.
+                      description: Value is the taint value the toleration matches
+                        to. If the operator is Exists, the value should be empty,
+                        otherwise just a regular string.
                       type: string
                   type: object
                 type: array
@@ -140,14 +171,17 @@ spec:
                     items:
                       properties:
                         lastTransitionTime:
-                          description: Last time the condition transitioned from one status to another.
+                          description: Last time the condition transitioned from one
+                            status to another.
                           format: date-time
                           type: string
                         message:
-                          description: Human-readable message indicating details about last transition.
+                          description: Human-readable message indicating details about
+                            last transition.
                           type: string
                         reason:
-                          description: Unique, one-word, CamelCase reason for the condition's last transition.
+                          description: Unique, one-word, CamelCase reason for the
+                            condition's last transition.
                           type: string
                         status:
                           type: string
@@ -168,7 +202,8 @@ spec:
                     items:
                       type: string
                     type: array
-                  description: The status for each of the Kibana pods for the Visualization component
+                  description: The status for each of the Kibana pods for the Visualization
+                    component
                   type: object
                 replicaSets:
                   items:

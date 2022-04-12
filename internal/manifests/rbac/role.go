@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,7 +17,7 @@ import (
 // if the role exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateRole(ctx context.Context, c client.Client, r *rbacv1.Role) error {
+func CreateOrUpdateRole(ctx context.Context, log logr.Logger, c client.Client, r *rbacv1.Role) error {
 	current := &rbacv1.Role{}
 	key := client.ObjectKey{Name: r.Name, Namespace: r.Namespace}
 	err := c.Get(ctx, key, current)

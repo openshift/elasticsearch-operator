@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
 	"github.com/go-logr/logr"
 	elasticsearchv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
@@ -28,14 +27,11 @@ type ElasticsearchRequest struct {
 // L is the logger used for this request.
 // TODO This needs to be removed in favor of using context.Context() with values.
 func (er *ElasticsearchRequest) L() logr.Logger {
-	if er.ll == nil {
-		er.ll = log.WithValues("cluster", er.cluster.Name, "namespace", er.cluster.Namespace)
-	}
 	return er.ll
 }
 
 // SecretReconcile returns false if the event needs to be requeued
-func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) (bool, error) {
+func SecretReconcile(log logr.Logger, requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) (bool, error) {
 	var secretChanged bool
 
 	elasticsearchRequest := ElasticsearchRequest{
@@ -119,8 +115,8 @@ func SecretReconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClien
 	return true, nil
 }
 
-func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
-	esClient := esclient.NewClient(requestCluster.Name, requestCluster.Namespace, requestClient)
+func Reconcile(log logr.Logger, requestCluster *elasticsearchv1.Elasticsearch, requestClient client.Client) error {
+	esClient := esclient.NewClient(log, requestCluster.Name, requestCluster.Namespace, requestClient)
 
 	elasticsearchRequest := ElasticsearchRequest{
 		client:   requestClient,
@@ -135,7 +131,7 @@ func Reconcile(requestCluster *elasticsearchv1.Elasticsearch, requestClient clie
 	if ok {
 		manageBool, _ := strconv.ParseBool(value)
 		if manageBool {
-			cr := NewCertificateRequest(requestCluster.Name, requestCluster.Namespace, requestCluster.GetOwnerRef(), requestClient)
+			cr := NewCertificateRequest(log, requestCluster.Name, requestCluster.Namespace, requestCluster.GetOwnerRef(), requestClient)
 			cr.GenerateElasticsearchCerts(requestCluster.Name)
 
 			// for any components specified like:

@@ -7,8 +7,7 @@ import (
 	"sort"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -72,7 +71,7 @@ func GetDataSHA256(ctx context.Context, c client.Client, key client.ObjectKey) s
 // if the secret exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, s *corev1.Secret, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, s *corev1.Secret, equal EqualityFunc, mutate MutateFunc) error {
 	current := &corev1.Secret{}
 	key := client.ObjectKey{Name: s.Name, Namespace: s.Namespace}
 	err := c.Get(ctx, key, current)

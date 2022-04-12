@@ -3,6 +3,7 @@ package kibana
 import (
 	"context"
 
+	"github.com/ViaQ/logerr/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -29,6 +30,7 @@ var _ = Describe("Reconciling", func() {
 	_ = loggingv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	var (
+		logger  = log.DefaultLogger()
 		cluster = &loggingv1.Kibana{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kibana",
@@ -145,7 +147,7 @@ var _ = Describe("Reconciling", func() {
 			})
 
 			It("should create one new console link for the Kibana route", func() {
-				Expect(Reconcile(cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				key := types.NamespacedName{Name: KibanaConsoleLinkName}
 				got := &consolev1.ConsoleLink{}
@@ -201,7 +203,7 @@ var _ = Describe("Reconciling", func() {
 
 			It("should use the default CA bundle in kibana proxy", func() {
 				// Reconcile w/o custom CA bundle
-				Expect(Reconcile(cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				key := types.NamespacedName{Name: constants.KibanaTrustedCAName, Namespace: cluster.GetNamespace()}
 				kibanaCaBundle := &corev1.ConfigMap{}
@@ -222,7 +224,7 @@ var _ = Describe("Reconciling", func() {
 
 			It("should use the injected custom CA bundle in kibana proxy", func() {
 				// Reconcile w/o custom CA bundle
-				Expect(Reconcile(cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				// Inject custom CA bundle into kibana config map
 				injectedCABundle := kibanaCABundle.DeepCopy()
@@ -231,7 +233,7 @@ var _ = Describe("Reconciling", func() {
 
 				// Reconcile with injected custom CA bundle
 				esClient = newFakeEsClient(client, fakeResponses)
-				Expect(Reconcile(cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				key := types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}
 				dpl := &appsv1.Deployment{}

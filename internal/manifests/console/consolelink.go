@@ -4,10 +4,8 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +26,7 @@ type MutateConsoleLinkFunc func(current, desired *consolev1.ConsoleLink)
 // if the consolelink exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *consolev1.ConsoleLink, equal ConsoleLinkEqualityFunc, mutate MutateConsoleLinkFunc) error {
+func CreateOrUpdateConsoleLink(ctx context.Context, log logr.Logger, c client.Client, cl *consolev1.ConsoleLink, equal ConsoleLinkEqualityFunc, mutate MutateConsoleLinkFunc) error {
 	current := &consolev1.ConsoleLink{}
 	key := client.ObjectKey{Name: cl.Name}
 	err := c.Get(ctx, key, current)
@@ -76,7 +74,6 @@ func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *console
 }
 
 func DeleteKibanaConsoleLink(ctx context.Context, c client.Client) error {
-
 	current := NewConsoleLink(KibanaConsoleLinkName, "", "", "", "")
 
 	if err := c.Delete(ctx, current); err != nil {

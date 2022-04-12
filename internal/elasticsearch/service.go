@@ -93,7 +93,7 @@ func (er *ElasticsearchRequest) createOrUpdateService(serviceName, namespace, cl
 
 	cluster.AddOwnerRefTo(svc)
 
-	err := service.CreateOrUpdate(context.TODO(), client, svc, service.Equal, service.Mutate)
+	err := service.CreateOrUpdate(context.TODO(), er.ll, client, svc, service.Equal, service.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch service",
 			"cluster", cluster.Name,

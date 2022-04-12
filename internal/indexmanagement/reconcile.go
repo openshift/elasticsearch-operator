@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/ViaQ/logerr/log"
 	apis "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
@@ -75,14 +74,15 @@ type IndexManagementRequest struct {
 	ll       logr.Logger
 }
 
-func Reconcile(req *apis.Elasticsearch, reqClient client.Client) error {
-	esClient := esclient.NewClient(req.Name, req.Namespace, reqClient)
+func Reconcile(log logr.Logger, req *apis.Elasticsearch, reqClient client.Client) error {
+	ll := log.WithValues("cluster", req.Name, "namespace", req.Namespace, "handler", "indexmanagement")
+	esClient := esclient.NewClient(ll, req.Name, req.Namespace, reqClient)
 
 	imr := IndexManagementRequest{
 		client:   reqClient,
 		esClient: esClient,
 		cluster:  req,
-		ll:       log.WithValues("cluster", req.Name, "namespace", req.Namespace, "handler", "indexmanagement"),
+		ll:       ll,
 	}
 
 	return imr.createOrUpdateIndexManagement()
@@ -115,7 +115,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 	if running {
 		imr.cullIndexManagement(spec.Mappings, policies)
 		for _, mapping := range spec.Mappings {
-			ll := log.WithValues("mapping", mapping.Name)
+			ll := imr.ll.WithValues("mapping", mapping.Name)
 			// create or update template
 			if err := imr.createOrUpdateIndexTemplate(mapping); err != nil {
 				ll.Error(err, "failed to create index template")
@@ -129,7 +129,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 		}
 	}
 
-	if err := createOrUpdateCurationConfigmap(imr.client, imr.cluster); err != nil {
+	if err := createOrUpdateCurationConfigmap(imr.ll, imr.client, imr.cluster); err != nil {
 		return err
 	}
 
@@ -141,7 +141,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 	primaryShards := elasticsearch.GetDataCount(imr.cluster)
 	for _, mapping := range spec.Mappings {
 		policy := policies[mapping.PolicyRef]
-		ll := log.WithValues("mapping", mapping.Name, "policy", policy.Name)
+		ll := imr.ll.WithValues("mapping", mapping.Name, "policy", policy.Name)
 		if err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, suspend); err != nil {
 			ll.Error(err, "could not reconcile indexmanagement cronjob")
 			return err
@@ -153,7 +153,7 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 
 func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexManagementPolicyMappingSpec, policies apis.PolicyMap) {
 	if err := imr.removeCronJobsForMappings(mappings, policies); err != nil {
-		log.Error(err, "Unable to cull cronjobs")
+		imr.ll.Error(err, "Unable to cull cronjobs")
 	}
 	mappingNames := sets.NewString()
 	for _, mapping := range mappings {
@@ -162,7 +162,7 @@ func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexMana
 
 	existing, err := imr.esClient.ListTemplates()
 	if err != nil {
-		log.Error(err, "Unable to list existing templates in order to reconcile stale ones")
+		imr.ll.Error(err, "Unable to list existing templates in order to reconcile stale ones")
 		return
 	}
 	difference := existing.Difference(mappingNames)
@@ -170,7 +170,7 @@ func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexMana
 	for _, template := range difference.List() {
 		if strings.HasPrefix(template, constants.OcpTemplatePrefix) {
 			if err := imr.esClient.DeleteIndexTemplate(template); err != nil {
-				log.Error(err, "Unable to delete stale template in order to reconcile", "template", template)
+				imr.ll.Error(err, "Unable to delete stale template in order to reconcile", "template", template)
 			}
 		}
 	}
@@ -253,18 +253,18 @@ func (imr *IndexManagementRequest) removeCronJobsForMappings(mappings []apis.Ind
 		key := client.ObjectKey{Name: name, Namespace: imr.cluster.Namespace}
 		err := cronjob.Delete(context.TODO(), imr.client, key)
 		if err != nil && !apierrors.IsNotFound(err) {
-			log.Error(err, "failed to remove cronjob", "namespace", imr.cluster.Namespace, "name", name)
+			imr.ll.Error(err, "failed to remove cronjob", "namespace", imr.cluster.Namespace, "name", name)
 		}
 	}
 	return nil
 }
 
-func createOrUpdateCurationConfigmap(apiclient client.Client, cluster *apis.Elasticsearch) error {
+func createOrUpdateCurationConfigmap(log logr.Logger, apiclient client.Client, cluster *apis.Elasticsearch) error {
 	data := scriptMap
 	desired := configmap.New(indexManagementConfigmap, cluster.Namespace, imLabels, data)
 	cluster.AddOwnerRefTo(desired)
 
-	_, err := configmap.CreateOrUpdate(context.TODO(), apiclient, desired, configmap.DataEqual, configmap.MutateDataOnly)
+	_, err := configmap.CreateOrUpdate(context.TODO(), log, apiclient, desired, configmap.DataEqual, configmap.MutateDataOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update index management configmap",
 			"cluster", cluster.Name,
@@ -295,7 +295,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 
 	cluster.AddOwnerRefTo(role)
 
-	err := rbac.CreateOrUpdateRole(context.TODO(), client, role)
+	err := rbac.CreateOrUpdateRole(context.TODO(), imr.ll, client, role)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update index management role",
 			"cluster", cluster.Name,
@@ -317,7 +317,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 	)
 	cluster.AddOwnerRefTo(roleBinding)
 
-	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), client, roleBinding)
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), imr.ll, client, roleBinding)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update index management rolebinding",
 			"cluster", cluster.Name,
@@ -330,7 +330,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 
 func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.IndexManagementPolicySpec, mapping apis.IndexManagementPolicyMappingSpec, primaryShards int32, suspend bool) error {
 	if policy.Phases.Delete == nil && policy.Phases.Hot == nil {
-		log.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
+		imr.ll.V(1).Info("Skipping indexmanagement cronjob for policymapping; no phases are defined", "policymapping", mapping.Name)
 		return nil
 	}
 
@@ -374,7 +374,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, minAgeMillis/millisPerSecond)
 		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, namespaceCount)
 	} else {
-		log.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
+		imr.ll.V(1).Info("Skipping curation management for policymapping; delete phase not defined", "policymapping", mapping.Name)
 
 		metrics.SetIndexRetentionDocumentAge(true, mapping.Name, 0)
 		metrics.SetIndexRetentionDeleteNamespaceMetrics(mapping.Name, 0)
@@ -395,7 +395,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 			metrics.SetIndexRetentionDocumentAge(false, mapping.Name, maxAgeMillis/millisPerSecond)
 		}
 	} else {
-		log.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
+		imr.ll.V(1).Info("Skipping rollover management for policymapping; hot phase not defined", "policymapping", mapping.Name)
 
 		metrics.SetIndexRetentionDocumentAge(false, mapping.Name, 0)
 	}
@@ -412,7 +412,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 		imr.cluster.AddOwnerRefTo(desired)
 
-		err = cronjob.CreateOrUpdate(context.TODO(), imr.client, desired, areCronJobsSame, cronjob.Mutate)
+		err = cronjob.CreateOrUpdate(context.TODO(), imr.ll, imr.client, desired, areCronJobsSame, cronjob.Mutate)
 		if err != nil {
 			return kverrors.Wrap(err, "failed to create or update cronjob",
 				"cluster", desired.Name,
@@ -432,7 +432,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 	imr.cluster.AddOwnerRefTo(desired)
 
-	err = cronjob.CreateOrUpdate(context.TODO(), imr.client, desired, areCronJobsSame, cronjob.Mutate)
+	err = cronjob.CreateOrUpdate(context.TODO(), imr.ll, imr.client, desired, areCronJobsSame, cronjob.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update cronjob",
 			"cluster", desired.Name,

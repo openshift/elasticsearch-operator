@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,7 +17,7 @@ import (
 // if the clusterrolebinding exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateClusterRoleBinding(ctx context.Context, c client.Client, crb *rbacv1.ClusterRoleBinding) error {
+func CreateOrUpdateClusterRoleBinding(ctx context.Context, log logr.Logger, c client.Client, crb *rbacv1.ClusterRoleBinding) error {
 	current := &rbacv1.ClusterRoleBinding{}
 	key := client.ObjectKey{Name: crb.Name}
 	err := c.Get(ctx, key, current)

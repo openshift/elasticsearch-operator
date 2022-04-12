@@ -32,10 +32,7 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
-var (
-	scheme   = apiruntime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
+var scheme = apiruntime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -63,22 +60,26 @@ func main() {
 
 	flag.Parse()
 
-	log.MustInit("elasticsearch-operator")
-	log.Info("starting up...",
+	logger := log.NewLogger("elasticsearch-operator")
+	logger.Info("starting up...",
 		"operator_version", version.Version,
 		"go_version", runtime.Version(),
 		"go_os", runtime.GOOS,
 		"go_arch", runtime.GOARCH,
 	)
 
+	// Use main logger for controller-runtime
+	ctrl.SetLogger(logger)
+
 	namespace, err := getWatchNamespace()
 	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+		logger.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
 
-	ll := log.WithValues("namespace", namespace)
+	ll := logger.WithValues("namespace", namespace)
 
+	setupLog := logger.WithName("setup")
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Namespace:              namespace,
@@ -96,7 +97,7 @@ func main() {
 
 	if err = (&controllers.ElasticsearchReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Elasticsearch"),
+		Log:    logger.WithName("controllers").WithName("Elasticsearch"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Elasticsearch")
@@ -104,7 +105,7 @@ func main() {
 	}
 	if err = (&controllers.KibanaReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Kibana"),
+		Log:    logger.WithName("controllers").WithName("Kibana"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Kibana")
@@ -112,7 +113,7 @@ func main() {
 	}
 	if err = (&controllers.SecretReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Secret"),
+		Log:    logger.WithName("controllers").WithName("Secret"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
@@ -129,10 +130,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Registering custom metrics for Elasticsearch Operator.")
+	logger.Info("Registering custom metrics for Elasticsearch Operator.")
 	metrics.RegisterCustomMetrics()
 
-	log.Info("Registring profiling endpoints.")
+	logger.Info("Registering profiling endpoints.")
 	err = registerProfiler(mgr)
 	if err != nil {
 		ll.Error(err, "failed to register extra pprof handler")

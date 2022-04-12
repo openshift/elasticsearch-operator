@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/ViaQ/logerr/log"
 	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,7 @@ var _ = Describe("Index Management", func() {
 	defer GinkgoRecover()
 
 	var (
+		logger        = log.DefaultLogger()
 		primaryShards = int32(1)
 		apiclient     client.Client
 		cluster       *apis.Elasticsearch
@@ -97,7 +99,7 @@ var _ = Describe("Index Management", func() {
 		Describe("for invalid poll interval", func() {
 			It("should not create the cronjob and return the error", func() {
 				policy.PollInterval = "notavalue"
-				imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+				imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 				Expect(imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)).To(Not(Succeed()))
 			})
 		})
@@ -107,7 +109,7 @@ var _ = Describe("Index Management", func() {
 					policy.Phases.Delete = nil
 					policy.Phases.Hot = nil
 					apiclient = fake.NewFakeClient(cronjob)
-					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+					imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
@@ -116,7 +118,7 @@ var _ = Describe("Index Management", func() {
 				It("should return without error", func() {
 					policy.Phases.Delete = nil
 					apiclient = fake.NewFakeClient(cronjob)
-					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+					imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
@@ -125,7 +127,7 @@ var _ = Describe("Index Management", func() {
 				It("should return without error", func() {
 					policy.Phases.Hot = nil
 					apiclient = fake.NewFakeClient(cronjob)
-					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+					imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
@@ -133,14 +135,14 @@ var _ = Describe("Index Management", func() {
 			Context("and does not error", func() {
 				It("should return without error", func() {
 					apiclient = fake.NewFakeClient(cronjob)
-					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+					imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 				})
 			})
 			Context("and errors for reasons other then already existing", func() {
 				It("should return the error", func() {
-					imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+					imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 					err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 					Expect(err).To(BeNil())
 				})
@@ -151,7 +153,7 @@ var _ = Describe("Index Management", func() {
 						newSchedule := "*/5 10 * * * *"
 						cronjob.Spec.Schedule = newSchedule
 						apiclient = fake.NewFakeClient(cronjob)
-						imr := &IndexManagementRequest{client: apiclient, cluster: cluster}
+						imr := &IndexManagementRequest{ll: logger, client: apiclient, cluster: cluster}
 						err := imr.reconcileIndexManagementCronjob(policy, mapping, primaryShards, false)
 						Expect(err).To(BeNil(), fmt.Sprintf("Error: %v", err))
 						Expect(cronjob.Spec.Schedule).To(Equal(newSchedule), "Exp. to update the cronjob")

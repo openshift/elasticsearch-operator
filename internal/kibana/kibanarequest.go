@@ -5,12 +5,15 @@ import (
 
 	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
+
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type KibanaRequest struct {
+	log      logr.Logger
 	client   client.Client
 	cluster  *kibana.Kibana
 	esClient esclient.Client

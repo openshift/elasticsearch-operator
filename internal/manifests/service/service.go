@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +25,7 @@ type MutateFunc func(current, desired *corev1.Service)
 // if the service exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, svc *corev1.Service, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, svc *corev1.Service, equal EqualityFunc, mutate MutateFunc) error {
 	current := &corev1.Service{}
 	key := client.ObjectKey{Name: svc.Name, Namespace: svc.Namespace}
 	err := c.Get(ctx, key, current)

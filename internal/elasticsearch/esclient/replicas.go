@@ -54,7 +54,7 @@ func (ec *esClient) GetIndexReplicaCounts() (map[string]interface{}, error) {
 		URI:    "app-*,infra-*,audit-*/_settings/index.number_of_replicas",
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	return payload.ResponseBody, payload.Error
 }
@@ -97,7 +97,7 @@ func (ec *esClient) updateIndexReplicas(index string, replicaCount int32) (bool,
 		RequestBody: fmt.Sprintf("{%q:\"%d\"}}", "index.number_of_replicas", replicaCount),
 	}
 
-	ec.fnSendEsRequest(ec.cluster, ec.namespace, payload, ec.k8sClient)
+	ec.fnSendEsRequest(ec.log, ec.cluster, ec.namespace, payload, ec.k8sClient)
 
 	acknowledged := false
 	if acknowledgedBool, ok := payload.ResponseBody["acknowledged"].(bool); ok {
