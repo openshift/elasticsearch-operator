@@ -4,18 +4,18 @@ go 1.17
 
 require (
 	github.com/ViaQ/logerr v1.1.1
-	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/go-logr/logr v1.2.3
 	github.com/google/go-cmp v0.5.5
 	github.com/inhies/go-bytesize v0.0.0-20151001220322-5990f52c6ad6
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/openshift/api v0.0.0-20220124143425-d74727069f6f
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.55.1
 	github.com/prometheus/client_golang v1.12.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.5
 	k8s.io/apimachinery v0.23.5
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.23.5
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	sigs.k8s.io/controller-runtime v0.11.0
 )
@@ -73,5 +73,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace k8s.io/client-go => k8s.io/client-go v0.23.0 // Required by prometheus-operator
