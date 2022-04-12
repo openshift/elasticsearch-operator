@@ -8,55 +8,11 @@ import (
 	v1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/rbac"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	dpl := er.cluster
-
-	// metrics RBAC
-	metricsRole := rbac.NewRole(
-		"elasticsearch-metrics",
-		dpl.Namespace,
-		rbac.NewPolicyRules(
-			rbac.NewPolicyRule(
-				[]string{""},
-				[]string{"pods", "services", "endpoints"},
-				[]string{},
-				[]string{"list", "watch"},
-				[]string{},
-			),
-		),
-	)
-
-	err := rbac.CreateOrUpdateRole(context.TODO(), er.client, metricsRole)
-	if err != nil {
-		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
-			"cluster", dpl.Name,
-			"namespace", dpl.Namespace,
-		)
-	}
-
-	subject := rbac.NewSubject(
-		"ServiceAccount",
-		"prometheus-k8s",
-		"openshift-monitoring",
-	)
-	subject.APIGroup = ""
-
-	metricsRoleBinding := rbac.NewRoleBinding(
-		"elasticsearch-metrics",
-		dpl.Namespace,
-		"elasticsearch-metrics",
-		rbac.NewSubjects(subject),
-	)
-
-	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.client, metricsRoleBinding)
-	if err != nil {
-		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
-			"role_binding_name", metricsRoleBinding.Name,
-			"namespace", dpl.Namespace,
-		)
-	}
 
 	// proxy RBAC
 	proxyRole := rbac.NewClusterRole(
@@ -79,7 +35,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		),
 	)
 
-	err = rbac.CreateOrUpdateClusterRole(context.TODO(), er.ll, er.client, proxyRole)
+	err := rbac.CreateOrUpdateClusterRole(context.TODO(), er.ll, er.client, proxyRole)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch proxy clusterrole",
 			"cluster", dpl.Name,
@@ -95,7 +51,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 
 	subjects := []rbacv1.Subject{}
 	for _, es := range esList.Items {
-		subject = rbac.NewSubject(
+		subject := rbac.NewSubject(
 			"ServiceAccount",
 			es.Name,
 			es.Namespace,
@@ -151,6 +107,65 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch restricted rolebinding",
 			"role_binding_name", sccRoleBinding.Name,
 			"namespace", dpl.Namespace,
+		)
+	}
+
+	// metrics RBAC
+	metricsRole := rbac.NewRole(
+		"elasticsearch-metrics",
+		dpl.Namespace,
+		rbac.NewPolicyRules(
+			rbac.NewPolicyRule(
+				[]string{""},
+				[]string{"pods", "services", "endpoints"},
+				[]string{},
+				[]string{"list", "watch"},
+				[]string{},
+			),
+		),
+	)
+
+	err = rbac.CreateOrUpdateRole(context.TODO(), er.ll, er.client, metricsRole)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
+			"cluster", dpl.Name,
+			"namespace", dpl.Namespace,
+		)
+	}
+
+	err = rbac.DeleteClusterRole(context.TODO(), er.client, client.ObjectKey{Name: metricsRole.Name})
+	if err != nil {
+		return kverrors.Wrap(err, "failed to delete elasticsearch metrics clusterrole",
+			"cluster", dpl.Name,
+		)
+	}
+
+	subject := rbac.NewSubject(
+		"ServiceAccount",
+		"prometheus-k8s",
+		"openshift-monitoring",
+	)
+	subject.APIGroup = ""
+
+	metricsRoleBinding := rbac.NewRoleBinding(
+		"elasticsearch-metrics",
+		dpl.Namespace,
+		"elasticsearch-metrics",
+		rbac.NewSubjects(subject),
+	)
+
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.ll, er.client, metricsRoleBinding)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics rolebinding",
+			"role_binding_name", metricsRoleBinding.Name,
+			"namespace", dpl.Namespace,
+		)
+	}
+
+	err = rbac.DeleteClusterRoleBinding(context.TODO(), er.client, client.ObjectKey{Name: metricsRoleBinding.Name})
+	if err != nil {
+		return kverrors.Wrap(err, "failed to delete elasticsearch metrics clusterrolebinding",
+			"cluster", dpl.Name,
 		)
 	}
 
