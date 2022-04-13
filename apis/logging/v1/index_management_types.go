@@ -21,7 +21,7 @@ type IndexManagementSpec struct {
 
 // TimeUnit is a time unit like h,m,d
 //
-// +kubebuilder:validation:Pattern:="^([0-9]+)([yMwdhHms]{0,1})$"
+// +kubebuilder:validation:Pattern:="^([0-9]+)([wdhHms]{0,1})$"
 type TimeUnit string
 
 // IndexManagementPolicySpec is a definition of an index management policy

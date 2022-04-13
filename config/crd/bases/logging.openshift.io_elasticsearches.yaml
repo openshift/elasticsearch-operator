@@ -98,13 +98,15 @@ spec:
                               nullable: true
                               properties:
                                 diskThresholdPercent:
-                                  description: The threshold percentage of ES disk usage that when reached, old indices should be deleted (e.g. 75)
+                                  description: The threshold percentage of ES disk
+                                    usage that when reached, old indices should be
+                                    deleted (e.g. 75)
                                   format: int64
                                   type: integer
                                 minAge:
                                   description: The minimum age of an index before
                                     it should be deleted (e.g. 10d)
-                                  pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                                  pattern: ^([0-9]+)([wdhHms]{0,1})$
                                   type: string
                                 namespaceSpec:
                                   description: The per namespace specification to
@@ -115,7 +117,7 @@ spec:
                                         description: Delete the records matching the
                                           namespaces which are older than this MinAge
                                           (e.g. 1d)
-                                        pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                                        pattern: ^([0-9]+)([wdhHms]{0,1})$
                                         type: string
                                       namespace:
                                         description: Target Namespace to delete logs
@@ -130,7 +132,7 @@ spec:
                                 pruneNamespacesInterval:
                                   description: How often to run a new prune-namespaces
                                     job
-                                  pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                                  pattern: ^([0-9]+)([wdhHms]{0,1})$
                                   type: string
                               required:
                               - minAge
@@ -147,7 +149,7 @@ spec:
                                           description: The maximum age of an index
                                             before it should be rolled over (e.g.
                                             7d)
-                                          pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                                          pattern: ^([0-9]+)([wdhHms]{0,1})$
                                           type: string
                                       required:
                                       - maxAge
@@ -158,7 +160,7 @@ spec:
                         pollInterval:
                           description: How often to check an index meets the desired
                             criteria (e.g. 1m)
-                          pattern: ^([0-9]+)([yMwdhHms]{0,1})$
+                          pattern: ^([0-9]+)([wdhHms]{0,1})$
                           type: string
                       required:
                       - name
