@@ -62,3 +62,18 @@ func CreateOrUpdateClusterRole(ctx context.Context, log logr.Logger, c client.Cl
 	}
 	return nil
 }
+
+// DeleteClusterRole attempts to delete a k8s cluster role if existing or returns an error.
+func DeleteClusterRole(ctx context.Context, c client.Client, key client.ObjectKey) error {
+	cr := NewClusterRole(key.Name, []rbacv1.PolicyRule{})
+
+	if err := c.Delete(ctx, cr, &client.DeleteOptions{}); err != nil {
+		if !apierrors.IsNotFound(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to delete clusterrole",
+				"name", cr.Name,
+			)
+		}
+	}
+
+	return nil
+}
