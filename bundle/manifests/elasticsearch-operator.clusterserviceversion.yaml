@@ -457,7 +457,9 @@ spec:
           - watch
         serviceAccountName: elasticsearch-operator
       deployments:
-      - name: elasticsearch-operator
+      - label:
+          name: elasticsearch-operator
+        name: elasticsearch-operator
         spec:
           replicas: 1
           selector:
