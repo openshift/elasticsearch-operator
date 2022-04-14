@@ -7,7 +7,7 @@ import (
 	"github.com/ViaQ/logerr/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/servicemonitor"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,9 +25,11 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
 	labelsWithDefault["scrape-metrics"] = "enabled"
 
 	tlsConfig := monitoringv1.TLSConfig{
-		CAFile:     prometheusCAFile,
-		ServerName: fmt.Sprintf("%s-%s.%s.svc", dpl.Name, "metrics", dpl.Namespace),
-		// ServerName can be e.g. elasticsearch-metrics.openshift-logging.svc
+		SafeTLSConfig: monitoringv1.SafeTLSConfig{
+			// ServerName can be e.g. elasticsearch-metrics.openshift-logging.svc
+			ServerName: fmt.Sprintf("%s-%s.%s.svc", dpl.Name, "metrics", dpl.Namespace),
+		},
+		CAFile: prometheusCAFile,
 	}
 	endpoints := []monitoringv1.Endpoint{
 		{

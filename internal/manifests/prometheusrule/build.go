@@ -1,7 +1,7 @@
 package prometheusrule
 
 import (
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -13,7 +13,6 @@ func New(ruleName, namespace string, labels map[string]string, groups []monitori
 			Kind:       monitoringv1.PrometheusRuleKind,
 			APIVersion: monitoringv1.SchemeGroupVersion.String(),
 		},
-
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ruleName,
 			Namespace: namespace,
