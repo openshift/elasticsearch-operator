@@ -5,7 +5,7 @@ Operator uses [Operator Framework SDK](https://github.com/operator-framework/ope
 
 ## Why Use An Operator?
 
-Operator is designed to provide self-service for the Elasticsearch cluster operations, see [Operator Capability Levels](https://sdk.operatorframework.io/docs/advanced-topics/operator-capabilities/operator-capabilities/).
+Operator is designed to provide self-service for the Elasticsearch cluster operations, see [Operator Capability Levels](https://sdk.operatorframework.io/docs/overview/#operator-capability-level).
 
 - Elasticsearch operator ensures proper layout of the pods
 - Elasticsearch operator enables proper rolling cluster restarts
