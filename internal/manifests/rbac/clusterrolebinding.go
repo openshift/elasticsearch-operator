@@ -61,3 +61,18 @@ func CreateOrUpdateClusterRoleBinding(ctx context.Context, c client.Client, crb 
 	}
 	return nil
 }
+
+// DeleteClusterRoleBinding attempts to delete a k8s cluster role binding if existing or returns an error.
+func DeleteClusterRoleBinding(ctx context.Context, c client.Client, key client.ObjectKey) error {
+	crb := NewClusterRoleBinding(key.Name, "", []rbacv1.Subject{})
+
+	if err := c.Delete(ctx, crb, &client.DeleteOptions{}); err != nil {
+		if !apierrors.IsNotFound(kverrors.Root(err)) {
+			return kverrors.Wrap(err, "failed to delete clusterrolebinding",
+				"name", crb.Name,
+			)
+		}
+	}
+
+	return nil
+}
