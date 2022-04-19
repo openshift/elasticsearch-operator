@@ -112,7 +112,7 @@ type IndexBlocksSettings struct {
 }
 
 type IndexMapperSettings struct {
-	Dynamic bool `json:"dynamic"`
+	Dynamic bool `json:"dynamic,string"`
 }
 
 type IndexMappingSettings struct {
