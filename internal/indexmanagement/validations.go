@@ -8,7 +8,7 @@ import (
 	esapi "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 
-var reTimeUnit = regexp.MustCompile("^(?P<number>\\d+)(?P<unit>[yMwdhHms])$")
+var reTimeUnit = regexp.MustCompile("^(?P<number>\\d+)(?P<unit>[wdhHms])$")
 
 const (
 	pollIntervalFailMessage  = "The pollInterval is missing or requires a valid time unit (e.g. 3d)"
