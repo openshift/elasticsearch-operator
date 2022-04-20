@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,7 +20,8 @@ func GetElasticsearchCR(c client.Client, ns string) (*loggingv1.Elasticsearch, e
 		}
 
 		return nil, kverrors.Wrap(err, "unable to get elasticsearch instance",
-			"namespace", ns)
+			"namespace", ns,
+		)
 	}
 
 	if len(esl.Items) == 0 {

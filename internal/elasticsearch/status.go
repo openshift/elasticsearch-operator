@@ -9,9 +9,7 @@ import (
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -599,13 +597,19 @@ func (er *ElasticsearchRequest) updatePodNodeConditions(status *api.Elasticsearc
 
 			usage, percent, err := er.esClient.GetNodeDiskUsage(nodeName)
 			if err != nil {
-				ll.Info("Unable to get disk usage", "error", err)
+				ll.Error(err, "Unable to get disk usage")
 				continue
 			}
 
-			if exceedsLowWatermark(usage, percent) {
-				if exceedsHighWatermark(usage, percent) {
-					if exceedsFloodWatermark(usage, percent) {
+			quantity, err := resource.ParseQuantity(usage)
+			if err != nil {
+				ll.Error(err, "Unable to parse quantity", "value", usage)
+				continue
+			}
+
+			if exceedsLowWatermark(quantity, percent) {
+				if exceedsHighWatermark(quantity, percent) {
+					if exceedsFloodWatermark(quantity, percent) {
 						updatePodNodeStorageCondition(
 							nodeStatus,
 							"Disk Watermark Flood",
@@ -695,32 +699,25 @@ func (er *ElasticsearchRequest) refreshDiskWatermarkThresholds() {
 	}
 }
 
-func exceedsLowWatermark(usage string, percent float64) bool {
+func exceedsLowWatermark(usage resource.Quantity, percent float64) bool {
 	return exceedsWatermarks(usage, percent, DiskWatermarkLowAbs, DiskWatermarkLowPct)
 }
 
-func exceedsHighWatermark(usage string, percent float64) bool {
+func exceedsHighWatermark(usage resource.Quantity, percent float64) bool {
 	return exceedsWatermarks(usage, percent, DiskWatermarkHighAbs, DiskWatermarkHighPct)
 }
 
-func exceedsFloodWatermark(usage string, percent float64) bool {
+func exceedsFloodWatermark(usage resource.Quantity, percent float64) bool {
 	return exceedsWatermarks(usage, percent, DiskWatermarkFloodAbs, DiskWatermarkFloodPct)
 }
 
-func exceedsWatermarks(usage string, percent float64, watermarkUsage *resource.Quantity, watermarkPercent *float64) bool {
-	if usage == "" || percent < float64(0) {
-		return false
-	}
-
-	quantity, err := resource.ParseQuantity(usage)
-	if err != nil {
-		// TODO fix logger usage in helper function
-		log.DefaultLogger().Error(err, "Unable to parse quantity", "value", usage)
+func exceedsWatermarks(usage resource.Quantity, percent float64, watermarkUsage *resource.Quantity, watermarkPercent *float64) bool {
+	if percent < float64(0) {
 		return false
 	}
 
 	// if quantity is > watermarkUsage and is used
-	if watermarkUsage != nil && quantity.Cmp(*watermarkUsage) == 1 {
+	if watermarkUsage != nil && usage.Cmp(*watermarkUsage) == 1 {
 		return true
 	}
 
@@ -917,12 +914,13 @@ func updateESNodeCondition(status *api.ElasticsearchStatus, condition *api.Clust
 	return !isEqual
 }
 
-func updateConditionWithRetry(log logr.Logger, dpl *api.Elasticsearch, value v1.ConditionStatus,
+func updateConditionWithRetry(dpl *api.Elasticsearch, value v1.ConditionStatus,
 	executeUpdateCondition func(*api.ElasticsearchStatus, v1.ConditionStatus) bool, client client.Client) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(context.TODO(), types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}, dpl); err != nil {
-			log.Info("Could not get Elasticsearch", "cluster", dpl.Name, "error", err)
-			return err
+			return kverrors.Wrap(err, "failed to get elasticsearch",
+				"cluster", dpl.Name,
+			)
 		}
 
 		if changed := executeUpdateCondition(&dpl.Status, value); !changed {
@@ -930,7 +928,6 @@ func updateConditionWithRetry(log logr.Logger, dpl *api.Elasticsearch, value v1.
 		}
 
 		if err := client.Status().Update(context.TODO(), dpl); err != nil {
-			log.Info("Failed to update Elasticsearch status", "cluster", dpl.Name, "error", err)
 			return err
 		}
 		return nil
@@ -974,7 +971,7 @@ func updateInvalidDataCountCondition(status *api.ElasticsearchStatus, value v1.C
 	})
 }
 
-func updateInvalidUUIDChangeCondition(log logr.Logger, cluster *api.Elasticsearch, value v1.ConditionStatus, message string, client client.Client) error {
+func updateInvalidUUIDChangeCondition(cluster *api.Elasticsearch, value v1.ConditionStatus, message string, client client.Client) error {
 	var reason string
 	if value == v1.ConditionTrue {
 		reason = "Invalid Spec"
@@ -983,7 +980,6 @@ func updateInvalidUUIDChangeCondition(log logr.Logger, cluster *api.Elasticsearc
 	}
 
 	return updateConditionWithRetry(
-		log,
 		cluster,
 		value,
 		func(status *api.ElasticsearchStatus, value v1.ConditionStatus) bool {
@@ -1042,7 +1038,6 @@ func (er *ElasticsearchRequest) UpdateDegradedCondition(value bool, reason, mess
 	}
 
 	return updateConditionWithRetry(
-		er.ll,
 		cluster,
 		statusValue,
 		func(status *api.ElasticsearchStatus, statusValue v1.ConditionStatus) bool {

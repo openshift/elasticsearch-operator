@@ -3,8 +3,7 @@ package cronjob
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	batchv1beta1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,12 +24,12 @@ type MutateFunc func(current, desired *batchv1beta1.CronJob)
 // if the cronjob exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, cj *batchv1beta1.CronJob, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, c client.Client, cj *batchv1beta1.CronJob, equal EqualityFunc, mutate MutateFunc) error {
 	current := &batchv1beta1.CronJob{}
 	key := client.ObjectKey{Name: cj.Name, Namespace: cj.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, cj)
 
 			if err == nil {
@@ -52,13 +51,14 @@ func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, cj *b
 	if !equal(current, cj) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get cronjob", cj.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get cronjob",
+					"name", cj.Name,
+					"namespace", cj.Namespace,
+				)
 			}
 
 			mutate(current, cj)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update cronjob", cj.Name)
 				return err
 			}
 			return nil

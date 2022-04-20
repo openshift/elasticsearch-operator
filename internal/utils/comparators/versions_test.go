@@ -6,10 +6,10 @@ import (
 )
 
 func TestVersionsEqual(t *testing.T) {
-	lhs := "5.6.16"
-	rhs := "5.6.16"
+	lhs := []int{5, 6, 16}
+	rhs := []int{5, 6, 16}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -20,10 +20,10 @@ func TestVersionsEqual(t *testing.T) {
 }
 
 func TestLhsVersionNewer(t *testing.T) {
-	lhs := "6.8.1"
-	rhs := "5.6.16"
+	lhs := []int{6, 8, 1}
+	rhs := []int{5, 6, 16}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -34,10 +34,10 @@ func TestLhsVersionNewer(t *testing.T) {
 }
 
 func TestRhsVersionNewer(t *testing.T) {
-	lhs := "5.6.16"
-	rhs := "6.8.1"
+	lhs := []int{5, 6, 16}
+	rhs := []int{6, 8, 1}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -48,10 +48,10 @@ func TestRhsVersionNewer(t *testing.T) {
 }
 
 func TestRhsReleaseVersionMissing(t *testing.T) {
-	lhs := "6.8.1"
-	rhs := "6.8"
+	lhs := []int{6, 8, 1}
+	rhs := []int{6, 8}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -62,10 +62,10 @@ func TestRhsReleaseVersionMissing(t *testing.T) {
 }
 
 func TestRhsMinorVersionMissing(t *testing.T) {
-	lhs := "6.8.1"
-	rhs := "6"
+	lhs := []int{6, 8, 1}
+	rhs := []int{6}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -76,10 +76,10 @@ func TestRhsMinorVersionMissing(t *testing.T) {
 }
 
 func TestLhsReleaseVersionNewer(t *testing.T) {
-	lhs := "6.8.1"
-	rhs := "6.8.0"
+	lhs := []int{6, 8, 1}
+	rhs := []int{6, 8, 0}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -90,10 +90,10 @@ func TestLhsReleaseVersionNewer(t *testing.T) {
 }
 
 func TestLhsMinorVersionNewer(t *testing.T) {
-	lhs := "6.8.1"
-	rhs := "6.0"
+	lhs := []int{6, 8, 1}
+	rhs := []int{6, 0}
 
-	comparison := CompareVersions(lhs, rhs)
+	comparison := CompareVersionArrays(lhs, rhs)
 
 	// if lhs is newer we expect -1
 	// 0 if they're the same
@@ -104,10 +104,13 @@ func TestLhsMinorVersionNewer(t *testing.T) {
 }
 
 func TestValidVersionArray(t *testing.T) {
-	version := "6.8.1"
+	version := Version("6.8.1")
 	expectedArray := []int{6, 8, 1}
 
-	actualArray := buildVersionArray(version)
+	actualArray, err := version.ToArray()
+	if err != nil {
+		t.Errorf("Expected no error. Got %v", err)
+	}
 
 	if !reflect.DeepEqual(expectedArray, actualArray) {
 		t.Errorf("Expected: %v \nActual: %v", expectedArray, actualArray)
@@ -115,12 +118,15 @@ func TestValidVersionArray(t *testing.T) {
 }
 
 func TestInvalidVersionArray(t *testing.T) {
-	version := "6.8.a.0"
-	expectedArray := []int{6, 8}
+	version := Version("6.8.a.0")
 
-	actualArray := buildVersionArray(version)
+	actualArray, err := version.ToArray()
 
-	if !reflect.DeepEqual(expectedArray, actualArray) {
-		t.Errorf("Expected: %v \nActual: %v", expectedArray, actualArray)
+	if err == nil {
+		t.Error("Expected error. Got no error.")
+	}
+
+	if len(actualArray) != 0 {
+		t.Errorf("Expected empty array. Got: %v", actualArray)
 	}
 }

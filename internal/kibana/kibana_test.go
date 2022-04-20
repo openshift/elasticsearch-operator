@@ -3,7 +3,7 @@ package kibana
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -30,7 +30,7 @@ var _ = Describe("Reconciling", func() {
 	_ = loggingv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 
 	var (
-		logger  = log.DefaultLogger()
+		logger  = log.NewLogger("kibana-testing")
 		cluster = &loggingv1.Kibana{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kibana",

@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/console"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/route"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
@@ -62,7 +62,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 
 	utils.AddOwnerRefToObject(rt, getOwnerRef(cluster))
 
-	err = route.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, rt, route.RouteTLSConfigEqual, route.MutateTLSConfigOnly)
+	err = route.CreateOrUpdate(context.TODO(), clusterRequest.client, rt, route.RouteTLSConfigEqual, route.MutateTLSConfigOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update Kibana route for cluster",
 			"cluster", cluster.Name,
@@ -83,7 +83,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 
 	cl := console.NewConsoleLink(KibanaConsoleLinkName, kibanaURL, "Logging", icon, "Observability")
 
-	err = console.CreateOrUpdateConsoleLink(context.TODO(), clusterRequest.log, clusterRequest.client, cl, console.ConsoleLinksEqual, console.MutateConsoleLinkSpecOnly)
+	err = console.CreateOrUpdateConsoleLink(context.TODO(), clusterRequest.client, cl, console.ConsoleLinksEqual, console.MutateConsoleLinkSpecOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana console link CR for cluster",
 			"cluster", cluster.Name,
@@ -126,7 +126,6 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 
 	err = console.CreateOrUpdateConsoleExternalLogLink(
 		context.TODO(),
-		clusterRequest.log,
 		clusterRequest.client,
 		consoleExternalLogLink,
 		console.ConsoleExternalLogLinkEqual,

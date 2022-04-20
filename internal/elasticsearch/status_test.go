@@ -6,7 +6,7 @@ import (
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 	"github.com/google/go-cmp/cmp"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -301,7 +301,7 @@ func TestPruneMissingNodes(t *testing.T) {
 	for _, test := range tests {
 		test := test
 
-		logger := log.DefaultLogger()
+		logger := log.NewLogger("elasticsearch-status-testing")
 
 		// Populate fake client with api server objects
 		client := newFakeClient(test.pods, test.deployments, test.missingPods, test.missingDpl)
@@ -421,7 +421,7 @@ func TestUnschedulableNodesConditions(t *testing.T) {
 		},
 	}
 
-	logger := log.DefaultLogger()
+	logger := log.NewLogger("status-testing")
 	mockClient := fake.NewFakeClient(mockedPodList)
 	er := &ElasticsearchRequest{ll: logger, client: mockClient, cluster: testCluster}
 

@@ -5,15 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
 	"strings"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	configv1 "github.com/openshift/api/config/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,10 +23,8 @@ const (
 	LinuxValue        = "linux"
 )
 
-var logger = log.DefaultLogger()
-
 // EnsureLinuxNodeSelector takes given selector map and returns a selector map with linux node selector added into it.
-// If there is already a node type selector and is different from "linux" then it is overridden and warning is logged.
+// If there is already a node type selector and is different from "linux" then it is overridden.
 // See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#interlude-built-in-node-labels
 func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 	if selectors == nil {
@@ -38,10 +34,6 @@ func EnsureLinuxNodeSelector(selectors map[string]string) map[string]string {
 		if name == LinuxValue {
 			return selectors
 		}
-		// Selector is provided but is not "linux"
-		logger.Info("Overriding node selector value",
-			"from", fmt.Sprintf("%s=%s", OsNodeLabel, name),
-			"to", LinuxValue)
 	}
 	selectors[OsNodeLabel] = LinuxValue
 	return selectors

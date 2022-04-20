@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -71,12 +70,12 @@ func GetDataSHA256(ctx context.Context, c client.Client, key client.ObjectKey) s
 // if the secret exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, s *corev1.Secret, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, c client.Client, s *corev1.Secret, equal EqualityFunc, mutate MutateFunc) error {
 	current := &corev1.Secret{}
 	key := client.ObjectKey{Name: s.Name, Namespace: s.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, s)
 
 			if err == nil {
@@ -98,13 +97,14 @@ func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, s *co
 	if !equal(current, s) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get secret", s.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get secret",
+					"name", s.Name,
+					"namespace", s.Namespace,
+				)
 			}
 
 			mutate(current, s)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update secret", s.Name)
 				return err
 			}
 			return nil

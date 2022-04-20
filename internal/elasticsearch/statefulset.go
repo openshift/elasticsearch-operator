@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
@@ -174,7 +174,7 @@ func (n *statefulSetNode) setPartition(partitions int32) error {
 		current.Spec.UpdateStrategy.RollingUpdate.Partition = &partitions
 	}
 
-	err := statefulset.Update(context.TODO(), n.L(), n.client, &n.self, equalFunc, mutateFunc)
+	err := statefulset.Update(context.TODO(), n.client, &n.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node statefulset",
 			"node_statefulset_name", n.self.Name,
@@ -208,7 +208,7 @@ func (n *statefulSetNode) setReplicaCount(replicas int32) error {
 		current.Spec.Replicas = &replicas
 	}
 
-	err := statefulset.Update(context.TODO(), n.L(), n.client, &n.self, equalFunc, mutateFunc)
+	err := statefulset.Update(context.TODO(), n.client, &n.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node statefulset",
 			"node_statefulset_name", n.self.Name,
@@ -279,7 +279,7 @@ func (n *statefulSetNode) executeUpdate() error {
 		current.Spec.Template = createUpdatablePodTemplateSpec(current.Spec.Template, desired.Spec.Template)
 	}
 
-	err := statefulset.Update(context.TODO(), n.L(), n.client, &n.self, equalFunc, mutateFunc)
+	err := statefulset.Update(context.TODO(), n.client, &n.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node statefulset",
 			"node_statefulset_name", n.self.Name,

@@ -11,7 +11,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -131,7 +131,6 @@ func (node *deploymentNode) create() error {
 		if err != nil {
 			if !apierrors.IsAlreadyExists(kverrors.Root(err)) {
 				return kverrors.Wrap(err, "failed to create or update elasticsearch node deployment",
-
 					"cluster", node.clusterName,
 					"namespace", node.self.Namespace,
 				)
@@ -231,7 +230,7 @@ func (node *deploymentNode) setPaused(paused bool) error {
 	// we use pauseNode so that we don't revert any new changes that should be made and
 	// noticed in state()
 	pausedNode := node.self.DeepCopy()
-	err := deployment.Update(context.TODO(), node.log, node.client, pausedNode, equalFunc, mutateFunc)
+	err := deployment.Update(context.TODO(), node.client, pausedNode, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node deployment",
 			"cluster", node.clusterName,
@@ -255,7 +254,7 @@ func (node *deploymentNode) setReplicaCount(replicas int32) error {
 		current.Spec.Replicas = &replicas
 	}
 
-	err := deployment.Update(context.TODO(), node.log, node.client, &node.self, equalFunc, mutateFunc)
+	err := deployment.Update(context.TODO(), node.client, &node.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node deployment",
 			"cluster", node.clusterName,
@@ -318,7 +317,7 @@ func (node *deploymentNode) executeUpdate() error {
 		current.Spec.Template = createUpdatablePodTemplateSpec(current.Spec.Template, desired.Spec.Template)
 	}
 
-	err := deployment.Update(context.TODO(), node.log, node.client, &node.self, equalFunc, mutateFunc)
+	err := deployment.Update(context.TODO(), node.client, &node.self, equalFunc, mutateFunc)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to update elasticsearch node deployment",
 			"cluster", node.clusterName,

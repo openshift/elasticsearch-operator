@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/serviceaccount"
 )
 
@@ -14,7 +14,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceAccount() error {
 	sa := serviceaccount.New(dpl.Name, dpl.Namespace, map[string]string{})
 	er.cluster.AddOwnerRefTo(sa)
 
-	err := serviceaccount.CreateOrUpdate(context.TODO(), er.ll, er.client, sa, serviceaccount.AnnotationsEqual, serviceaccount.MutateAnnotationsOnly)
+	err := serviceaccount.CreateOrUpdate(context.TODO(), er.client, sa, serviceaccount.AnnotationsEqual, serviceaccount.MutateAnnotationsOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch serviceaccount",
 			"cluster", dpl.Name,

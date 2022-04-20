@@ -3,12 +3,11 @@ package esclient
 import (
 	"testing"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 )
 
-var logger = log.DefaultLogger()
-
 func TestHeaderGenEmptyToken(t *testing.T) {
+	logger := log.NewLogger("client-testing")
 	tokenFile := "../../../test/files/emptyToken"
 
 	_, ok := readSAToken(logger, tokenFile)
@@ -19,6 +18,7 @@ func TestHeaderGenEmptyToken(t *testing.T) {
 }
 
 func TestHeaderGenWithToken(t *testing.T) {
+	logger := log.NewLogger("client-testing")
 	tokenFile := "../../../test/files/testToken"
 
 	expected := "test\n"
@@ -35,6 +35,7 @@ func TestHeaderGenWithToken(t *testing.T) {
 }
 
 func TestHeaderGenWithNoToken(t *testing.T) {
+	logger := log.NewLogger("client-testing")
 	tokenFile := "../../../test/files/errorToken"
 
 	_, ok := readSAToken(logger, tokenFile)

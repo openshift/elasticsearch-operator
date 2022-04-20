@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/service"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -93,7 +93,7 @@ func (er *ElasticsearchRequest) createOrUpdateService(serviceName, namespace, cl
 
 	cluster.AddOwnerRefTo(svc)
 
-	err := service.CreateOrUpdate(context.TODO(), er.ll, client, svc, service.Equal, service.Mutate)
+	err := service.CreateOrUpdate(context.TODO(), client, svc, service.Equal, service.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch service",
 			"cluster", cluster.Name,

@@ -3,8 +3,8 @@ package helpers
 import (
 	"encoding/json"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/kverrors"
+	"github.com/ViaQ/logerr/v2/log"
 	"github.com/go-logr/logr"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,7 +99,7 @@ func (response *FakeElasticsearchResponse) BodyAsResponseBody() map[string]inter
 
 func NewFakeElasticsearchClient(cluster, namespace string, k8sClient client.Client, chatter *FakeElasticsearchChatter) esclient.Client {
 	sendFakeRequest := NewFakeSendRequestFn(chatter)
-	c := esclient.NewClient(log.DefaultLogger(), cluster, namespace, k8sClient)
+	c := esclient.NewClient(log.NewLogger("fake-cluster"), cluster, namespace, k8sClient)
 	c.SetSendRequestFn(sendFakeRequest)
 	return c
 }

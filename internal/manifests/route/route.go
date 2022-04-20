@@ -3,8 +3,7 @@ package route
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,12 +38,12 @@ func Get(ctx context.Context, c client.Client, key client.ObjectKey) (*routev1.R
 // if the route exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, r *routev1.Route, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, c client.Client, r *routev1.Route, equal EqualityFunc, mutate MutateFunc) error {
 	current := &routev1.Route{}
 	key := client.ObjectKey{Name: r.Name, Namespace: r.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, r)
 
 			if err == nil {
@@ -66,13 +65,14 @@ func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, r *ro
 	if !equal(current, r) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get route", r.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get route",
+					"name", r.Name,
+					"namespace", r.Namespace,
+				)
 			}
 
 			mutate(current, r)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update route", r.Name)
 				return err
 			}
 			return nil

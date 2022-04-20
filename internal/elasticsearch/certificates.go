@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 	v1 "k8s.io/api/core/v1"
@@ -201,7 +201,7 @@ func (cr *CertificateRequest) GenerateComponentCerts(secretName, cn string) {
 		componentCAName:   ca.cert,
 	}
 
-	if err := CreateOrUpdateSecretWithOwnerRef(cr.Log, secretName, cr.Namespace, componentSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
+	if err := CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, componentSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
 		cr.Log.Error(err, "Unable to create secret for component")
 		return
 	}
@@ -240,7 +240,7 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 		kibanaComponentCAName:   ca.cert,
 	}
 
-	if err = CreateOrUpdateSecretWithOwnerRef(cr.Log, kibanaSecretName, cr.Namespace, kibanaSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
+	if err = CreateOrUpdateSecretWithOwnerRef(kibanaSecretName, cr.Namespace, kibanaSecretData, cr.K8sClient, cr.OwnerRef); err != nil {
 		cr.Log.Error(err, "Unable to create secret for kibana component")
 		return
 	}
@@ -279,7 +279,7 @@ func (cr *CertificateRequest) GenerateKibanaCerts(componentName string) {
 		kibanaInternalKeyName:           kibanaProxyCert.key,
 	}
 
-	if err = CreateOrUpdateSecretWithOwnerRef(cr.Log, getKibanaProxySecretName(kibanaSecretName), cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
+	if err = CreateOrUpdateSecretWithOwnerRef(getKibanaProxySecretName(kibanaSecretName), cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
 		cr.Log.Error(err, "Unable to create secret for kibana-proxy")
 		return
 	}
@@ -345,7 +345,7 @@ func (cr *CertificateRequest) GenerateElasticsearchCerts(clusterName string) {
 		esAdminCAName:       ca.cert,
 	}
 
-	if err := CreateOrUpdateSecretWithOwnerRef(cr.Log, clusterName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
+	if err := CreateOrUpdateSecretWithOwnerRef(clusterName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef); err != nil {
 		cr.Log.Error(err, "Unable to create secret for elasticsearch component")
 		return
 	}
@@ -426,7 +426,7 @@ func (cr *CertificateRequest) persistCA(caCert *certCA) error {
 		esCASerialName: []byte(caCert.serial.Text(10)),
 	}
 
-	return CreateOrUpdateSecretWithOwnerRef(cr.Log, secretName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef)
+	return CreateOrUpdateSecretWithOwnerRef(secretName, cr.Namespace, secretData, cr.K8sClient, cr.OwnerRef)
 }
 
 func (cr *CertificateRequest) generateCert(componentName string, cert *certificate, ca *certCA) error {

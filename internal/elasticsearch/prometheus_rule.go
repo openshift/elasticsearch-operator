@@ -7,7 +7,7 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/prometheusrule"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
@@ -33,7 +33,7 @@ func (er *ElasticsearchRequest) CreateOrUpdatePrometheusRules() error {
 
 	dpl.AddOwnerRefTo(rule)
 
-	err = prometheusrule.CreateOrUpdate(context.TODO(), er.ll, er.client, rule)
+	err = prometheusrule.CreateOrUpdate(context.TODO(), er.client, rule)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch prometheusrule",
 			"cluster", er.cluster.Name,

@@ -6,7 +6,7 @@ import (
 	securityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/securitycontextconstraints"
 )
 
@@ -55,7 +55,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateSecurityContextConstraints() error
 
 	scc := builder.Build()
 
-	err := securitycontextconstraints.CreateOrUpdate(context.TODO(), er.ll, er.client, scc, securitycontextconstraints.Mutate)
+	err := securitycontextconstraints.CreateOrUpdate(context.TODO(), er.client, scc, securitycontextconstraints.Equal, securitycontextconstraints.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch securitycontextconstraints",
 			"cluster", dpl.Name,
