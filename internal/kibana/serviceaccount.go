@@ -3,7 +3,7 @@ package kibana
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/serviceaccount"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 )
@@ -14,7 +14,7 @@ func (clusterRequest *KibanaRequest) CreateOrUpdateServiceAccount(name string, a
 
 	utils.AddOwnerRefToObject(sa, getOwnerRef(clusterRequest.cluster))
 
-	err := serviceaccount.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, sa, serviceaccount.AnnotationsEqual, serviceaccount.MutateAnnotationsOnly)
+	err := serviceaccount.CreateOrUpdate(context.TODO(), clusterRequest.client, sa, serviceaccount.AnnotationsEqual, serviceaccount.MutateAnnotationsOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana serviceaccount",
 			"cluster", clusterRequest.cluster.Name,

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 )
@@ -258,16 +258,25 @@ func (ec *esClient) GetLowestClusterVersion() (string, error) {
 		return res.Nodes.Versions[0], nil
 	}
 
-	lowestVersion := res.Nodes.Versions[0]
-	for _, version := range res.Nodes.Versions {
-		comparison := comparators.CompareVersions(lowestVersion, version)
+	lowestVersion := comparators.Version(res.Nodes.Versions[0])
+	lowestVersionArray, err := lowestVersion.ToArray()
+	if err != nil {
+		return "", ec.errorCtx().Wrap(err, "failed to parse lowest version", "version", lowestVersion)
+	}
 
-		if comparison < 0 {
-			lowestVersion = version
+	for _, version := range res.Nodes.Versions {
+		compVersion := comparators.Version(version)
+		compVersionArray, err := compVersion.ToArray()
+		if err != nil {
+			return "", ec.errorCtx().Wrap(err, "failed to parse node version number", "version", version)
+		}
+
+		if comparators.CompareVersionArrays(lowestVersionArray, compVersionArray) < 0 {
+			lowestVersion = comparators.Version(version)
 		}
 	}
 
-	return lowestVersion, nil
+	return string(lowestVersion), nil
 }
 
 func (ec *esClient) IsNodeInCluster(nodeName string) (bool, error) {

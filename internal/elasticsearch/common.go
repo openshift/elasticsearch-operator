@@ -12,7 +12,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/pod"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -348,7 +348,7 @@ func newLabelSelector(clusterName, nodeName string, roleMap map[api.Elasticsearc
 	}
 }
 
-func newPodTemplateSpec(ctx context.Context, log logr.Logger, nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
+func newPodTemplateSpec(ctx context.Context, logger logr.Logger, nodeName, clusterName, namespace string, node api.ElasticsearchNode, commonSpec api.ElasticsearchNodeSpec, labels map[string]string, roleMap map[api.ElasticsearchNodeRole]bool, client client.Client, logConfig LogConfig) v1.PodTemplateSpec {
 	resourceRequirements := newESResourceRequirements(node.Resources, commonSpec.Resources)
 	proxyResourceRequirements := newESProxyResourceRequirements(node.ProxyResources, commonSpec.ProxyResources)
 
@@ -378,7 +378,7 @@ func newPodTemplateSpec(ctx context.Context, log logr.Logger, nodeName, clusterN
 		),
 	}
 
-	volumes := newVolumes(ctx, log, clusterName, nodeName, namespace, node, client)
+	volumes := newVolumes(ctx, logger, clusterName, nodeName, namespace, node, client)
 
 	podSpec := pod.NewSpec(clusterName, containers, volumes).
 		WithAffinity(newAffinity(roleMap)).
@@ -559,7 +559,7 @@ func newResourceRequirements(nodeResRequirements, commonResRequirements, default
 	}
 }
 
-func newVolumes(ctx context.Context, log logr.Logger, clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) []v1.Volume {
+func newVolumes(ctx context.Context, logger logr.Logger, clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) []v1.Volume {
 	return []v1.Volume{
 		{
 			Name: "elasticsearch-config",
@@ -573,7 +573,7 @@ func newVolumes(ctx context.Context, log logr.Logger, clusterName, nodeName, nam
 		},
 		{
 			Name:         "elasticsearch-storage",
-			VolumeSource: newVolumeSource(ctx, log, clusterName, nodeName, namespace, node, client),
+			VolumeSource: newVolumeSource(ctx, logger, clusterName, nodeName, namespace, node, client),
 		},
 		{
 			Name: "certificates",
@@ -594,7 +594,7 @@ func newVolumes(ctx context.Context, log logr.Logger, clusterName, nodeName, nam
 	}
 }
 
-func newVolumeSource(ctx context.Context, log logr.Logger, clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) v1.VolumeSource {
+func newVolumeSource(ctx context.Context, logger logr.Logger, clusterName, nodeName, namespace string, node api.ElasticsearchNode, client client.Client) v1.VolumeSource {
 	specVol := node.Storage
 	volSource := v1.VolumeSource{}
 
@@ -608,7 +608,6 @@ func newVolumeSource(ctx context.Context, log logr.Logger, clusterName, nodeName
 	// in the case where we do not have a size provided we need to
 	// fall back to using ephemeral storage since a pvc requires a size
 	if specVol.Size == nil {
-		log.Info("Storage size is required but was missing. Defaulting to EmptyDirVolume. Please adjust your CR accordingly.")
 		volSource.EmptyDir = &v1.EmptyDirVolumeSource{}
 		return volSource
 	}
@@ -635,11 +634,13 @@ func newVolumeSource(ctx context.Context, log logr.Logger, clusterName, nodeName
 		StorageClassName: specVol.StorageClassName,
 	}
 
-	err := persistentvolume.CreateOrUpdatePVC(ctx, log, client, pvc, persistentvolume.LabelsEqual, persistentvolume.MutateLabelsOnly)
+	// TODO: This create PVC functionality needs to move from being part of
+	// the template creation. It should idealy be in where the pod template
+	// (deployment/statefulset) is create or maintained.
+	err := persistentvolume.CreateOrUpdatePVC(ctx, client, pvc, persistentvolume.LabelsEqual, persistentvolume.MutateLabelsOnly)
 	if err != nil {
-		log.Error(err, "Unable to create PersistentVolumeClaim")
+		logger.Error(err, "Unable to create PersistentVolumeClaim")
 	}
-
 	return volSource
 }
 

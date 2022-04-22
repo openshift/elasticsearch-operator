@@ -3,8 +3,7 @@ package serviceaccount
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,12 +24,12 @@ type MutateFunc func(current, desired *corev1.ServiceAccount)
 // if the serviceaccount exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, sa *corev1.ServiceAccount, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, c client.Client, sa *corev1.ServiceAccount, equal EqualityFunc, mutate MutateFunc) error {
 	current := &corev1.ServiceAccount{}
 	key := client.ObjectKey{Name: sa.Name, Namespace: sa.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, sa)
 
 			if err == nil {
@@ -52,13 +51,14 @@ func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, sa *c
 	if !equal(current, sa) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get serviceaccount", sa.Name)
-				return err
+				return kverrors.Wrap(err, "failed to create serviceaccount",
+					"name", sa.Name,
+					"namespace", sa.Namespace,
+				)
 			}
 
 			mutate(current, sa)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update serviceaccount", sa.Name)
 				return err
 			}
 			return nil

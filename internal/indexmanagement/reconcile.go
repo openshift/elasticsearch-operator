@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -264,7 +264,7 @@ func createOrUpdateCurationConfigmap(log logr.Logger, apiclient client.Client, c
 	desired := configmap.New(indexManagementConfigmap, cluster.Namespace, imLabels, data)
 	cluster.AddOwnerRefTo(desired)
 
-	_, err := configmap.CreateOrUpdate(context.TODO(), log, apiclient, desired, configmap.DataEqual, configmap.MutateDataOnly)
+	_, err := configmap.CreateOrUpdate(context.TODO(), apiclient, desired, configmap.DataEqual, configmap.MutateDataOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update index management configmap",
 			"cluster", cluster.Name,
@@ -295,7 +295,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 
 	cluster.AddOwnerRefTo(role)
 
-	err := rbac.CreateOrUpdateRole(context.TODO(), imr.ll, client, role)
+	err := rbac.CreateOrUpdateRole(context.TODO(), client, role)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update index management role",
 			"cluster", cluster.Name,
@@ -317,7 +317,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagmentRbac() error {
 	)
 	cluster.AddOwnerRefTo(roleBinding)
 
-	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), imr.ll, client, roleBinding)
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), client, roleBinding)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update index management rolebinding",
 			"cluster", cluster.Name,
@@ -412,7 +412,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 		imr.cluster.AddOwnerRefTo(desired)
 
-		err = cronjob.CreateOrUpdate(context.TODO(), imr.ll, imr.client, desired, areCronJobsSame, cronjob.Mutate)
+		err = cronjob.CreateOrUpdate(context.TODO(), imr.client, desired, areCronJobsSame, cronjob.Mutate)
 		if err != nil {
 			return kverrors.Wrap(err, "failed to create or update cronjob",
 				"cluster", desired.Name,
@@ -432,7 +432,7 @@ func (imr *IndexManagementRequest) reconcileIndexManagementCronjob(policy apis.I
 
 	imr.cluster.AddOwnerRefTo(desired)
 
-	err = cronjob.CreateOrUpdate(context.TODO(), imr.ll, imr.client, desired, areCronJobsSame, cronjob.Mutate)
+	err = cronjob.CreateOrUpdate(context.TODO(), imr.client, desired, areCronJobsSame, cronjob.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update cronjob",
 			"cluster", desired.Name,

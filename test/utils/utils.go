@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +30,7 @@ import (
 func GetFileContents(filePath string) []byte {
 	contents, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.DefaultLogger().Error(err, "Unable to read file to get contents")
+		log.NewLogger("testing-utils").Error(err, "Unable to read file to get contents")
 		return nil
 	}
 
@@ -307,7 +307,7 @@ func GenerateUUID() string {
 func WaitForIndexTemplateReplicas(t *testing.T, kubeclient kubernetes.Interface, namespace, clusterName string, replicas int32, retryInterval, timeout time.Duration) error {
 	// mock out Secret response from client
 	mockClient := fake.NewFakeClient(getMockedSecret(clusterName, namespace))
-	esClient := esclient.NewClient(log.DefaultLogger(), clusterName, namespace, mockClient)
+	esClient := esclient.NewClient(log.NewLogger("testing-utils"), clusterName, namespace, mockClient)
 
 	stringReplicas := fmt.Sprintf("%d", replicas)
 
@@ -344,7 +344,7 @@ func WaitForIndexTemplateReplicas(t *testing.T, kubeclient kubernetes.Interface,
 func WaitForIndexReplicas(t *testing.T, kubeclient kubernetes.Interface, namespace, clusterName string, replicas int32, retryInterval, timeout time.Duration) error {
 	// mock out Secret response from client
 	mockClient := fake.NewFakeClient(getMockedSecret(clusterName, namespace))
-	esClient := esclient.NewClient(log.DefaultLogger(), clusterName, namespace, mockClient)
+	esClient := esclient.NewClient(log.NewLogger("testing-utils"), clusterName, namespace, mockClient)
 
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		// get all index replica count

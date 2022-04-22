@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -89,12 +88,12 @@ func Create(ctx context.Context, c client.Client, cm *corev1.ConfigMap) error {
 // if the configmap exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error. Returns true if the configmap was updated and false otherwise.
-func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, cm *corev1.ConfigMap, equal EqualityFunc, mutate MutateFunc) (bool, error) {
+func CreateOrUpdate(ctx context.Context, c client.Client, cm *corev1.ConfigMap, equal EqualityFunc, mutate MutateFunc) (bool, error) {
 	current := &corev1.ConfigMap{}
 	key := client.ObjectKey{Name: cm.Name, Namespace: cm.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			return false, Create(ctx, c, cm)
 		}
 
@@ -107,13 +106,14 @@ func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, cm *c
 	if !equal(current, cm) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get configmap", cm.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get configmap",
+					"name", cm.Name,
+					"namespace", cm.Namespace,
+				)
 			}
 
 			mutate(current, cm)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update configmap", cm.Name)
 				return err
 			}
 			return nil

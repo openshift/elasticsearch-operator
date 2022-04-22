@@ -8,20 +8,19 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/secret"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func CreateOrUpdateSecretWithOwnerRef(log logr.Logger, secretName, namespace string, data map[string][]byte, client client.Client, ownerRef metav1.OwnerReference) error {
+func CreateOrUpdateSecretWithOwnerRef(secretName, namespace string, data map[string][]byte, client client.Client, ownerRef metav1.OwnerReference) error {
 	s := secret.New(secretName, namespace, data)
 
 	// add owner ref to secret
 	s.OwnerReferences = append(s.OwnerReferences, ownerRef)
 
-	err := secret.CreateOrUpdate(context.TODO(), log, client, s, secret.DataEqual, secret.MutateDataOnly)
+	err := secret.CreateOrUpdate(context.TODO(), client, s, secret.DataEqual, secret.MutateDataOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch secret",
 			"owner_ref_name", ownerRef.Name,

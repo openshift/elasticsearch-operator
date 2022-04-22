@@ -8,7 +8,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/configmap"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

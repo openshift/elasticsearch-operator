@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 
 	v1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/rbac"
@@ -35,7 +35,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		),
 	)
 
-	err := rbac.CreateOrUpdateClusterRole(context.TODO(), er.ll, er.client, proxyRole)
+	err := rbac.CreateOrUpdateClusterRole(context.TODO(), er.client, proxyRole)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch proxy clusterrole",
 			"cluster", dpl.Name,
@@ -66,7 +66,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		subjects,
 	)
 
-	err = rbac.CreateOrUpdateClusterRoleBinding(context.TODO(), er.ll, er.client, proxyRoleBinding)
+	err = rbac.CreateOrUpdateClusterRoleBinding(context.TODO(), er.client, proxyRoleBinding)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch proxy clusterrolebinding",
 			"cluster_role_binding_name", proxyRoleBinding.Name,
@@ -87,7 +87,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		),
 	)
 
-	err = rbac.CreateOrUpdateRole(context.TODO(), er.ll, er.client, sccRole)
+	err = rbac.CreateOrUpdateRole(context.TODO(), er.client, sccRole)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch restricted role",
 			"cluster", dpl.Name,
@@ -102,7 +102,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		subjects,
 	)
 
-	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.ll, er.client, sccRoleBinding)
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.client, sccRoleBinding)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch restricted rolebinding",
 			"role_binding_name", sccRoleBinding.Name,
@@ -125,7 +125,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		),
 	)
 
-	err = rbac.CreateOrUpdateRole(context.TODO(), er.ll, er.client, metricsRole)
+	err = rbac.CreateOrUpdateRole(context.TODO(), er.client, metricsRole)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
 			"cluster", dpl.Name,
@@ -154,7 +154,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 		rbac.NewSubjects(subject),
 	)
 
-	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.ll, er.client, metricsRoleBinding)
+	err = rbac.CreateOrUpdateRoleBinding(context.TODO(), er.client, metricsRoleBinding)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics rolebinding",
 			"role_binding_name", metricsRoleBinding.Name,

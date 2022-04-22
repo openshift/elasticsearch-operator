@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/servicemonitor"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -61,7 +61,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
 
 	dpl.AddOwnerRefTo(monitor)
 
-	err := servicemonitor.CreateOrUpdate(context.TODO(), er.ll, er.client, monitor, servicemonitor.Equal, servicemonitor.Mutate)
+	err := servicemonitor.CreateOrUpdate(context.TODO(), er.client, monitor, servicemonitor.Equal, servicemonitor.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch servicemonitor",
 			"cluster", er.cluster.Name,

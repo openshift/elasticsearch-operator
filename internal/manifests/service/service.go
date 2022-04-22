@@ -3,8 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,12 +24,12 @@ type MutateFunc func(current, desired *corev1.Service)
 // if the service exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, svc *corev1.Service, equal EqualityFunc, mutate MutateFunc) error {
+func CreateOrUpdate(ctx context.Context, c client.Client, svc *corev1.Service, equal EqualityFunc, mutate MutateFunc) error {
 	current := &corev1.Service{}
 	key := client.ObjectKey{Name: svc.Name, Namespace: svc.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, svc)
 
 			if err == nil {
@@ -52,13 +51,14 @@ func CreateOrUpdate(ctx context.Context, log logr.Logger, c client.Client, svc *
 	if !equal(current, svc) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get service", svc.Name)
-				return err
+				return kverrors.Wrap(err, "failed to create service",
+					"name", svc.Name,
+					"namespace", svc.Namespace,
+				)
 			}
 
 			mutate(current, svc)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update service", svc.Name)
 				return err
 			}
 			return nil

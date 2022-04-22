@@ -3,8 +3,7 @@ package rbac
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,12 +16,12 @@ import (
 // if the role exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateRole(ctx context.Context, log logr.Logger, c client.Client, r *rbacv1.Role) error {
+func CreateOrUpdateRole(ctx context.Context, c client.Client, r *rbacv1.Role) error {
 	current := &rbacv1.Role{}
 	key := client.ObjectKey{Name: r.Name, Namespace: r.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, r)
 
 			if err == nil {
@@ -44,13 +43,14 @@ func CreateOrUpdateRole(ctx context.Context, log logr.Logger, c client.Client, r
 	if !equality.Semantic.DeepEqual(current, r) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get role", r.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get role",
+					"name", r.Name,
+					"namespace", r.Namespace,
+				)
 			}
 
 			current.Rules = r.Rules
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update role", r.Name)
 				return err
 			}
 			return nil

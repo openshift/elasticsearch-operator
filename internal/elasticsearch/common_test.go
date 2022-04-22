@@ -12,7 +12,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	v1 "k8s.io/api/core/v1"
@@ -557,7 +557,7 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 		},
 	}
 
-	podTemplateSpec := newPodTemplateSpec(context.Background(), log.DefaultLogger(), "test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
+	podTemplateSpec := newPodTemplateSpec(context.Background(), log.NewLogger("common-testing"), "test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
@@ -754,7 +754,7 @@ func TestNewVolumeSource(t *testing.T) {
 		test := test
 		client := fake.NewFakeClient()
 
-		vs := newVolumeSource(context.Background(), log.DefaultLogger(), clusterName, nodeName, namespace, test.node, client)
+		vs := newVolumeSource(context.Background(), log.NewLogger("common-testing"), clusterName, nodeName, namespace, test.node, client)
 		if diff := cmp.Diff(test.vs, vs); diff != "" {
 			t.Errorf("diff: %s", diff)
 		}
@@ -780,7 +780,7 @@ func TestNewVolumeSource(t *testing.T) {
 func preparePodTemplateSpecProvidingNodeSelectors(selectors map[string]string) v1.PodTemplateSpec {
 	return newPodTemplateSpec(
 		context.Background(),
-		log.DefaultLogger(),
+		log.NewLogger("common-testing"),
 		"test-node-name",
 		"test-cluster-name",
 		"test-namespace-name",

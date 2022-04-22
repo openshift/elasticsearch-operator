@@ -3,27 +3,39 @@ package comparators
 import (
 	"strconv"
 	"strings"
-
-	"github.com/ViaQ/logerr/log"
 )
 
-// CompareVersions will return one of:
+type Version string
+
+func (v Version) ToArray() ([]int, error) {
+	sections := strings.Split(string(v), ".")
+	versionNumbers := make([]int, len(sections))
+
+	for i, s := range sections {
+		vn, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, err
+		}
+		versionNumbers[i] = vn
+	}
+
+	return versionNumbers, nil
+}
+
+// CompareVersionArrays will return one of:
 // -1 : if lhs > rhs
 // 0  : if lhs == rhs
 // 1  : if rhs > lhs
-func CompareVersions(lhs, rhs string) int {
-	lVersions := buildVersionArray(lhs)
-	rVersions := buildVersionArray(rhs)
-
-	lLen := len(lVersions)
-	rLen := len(rVersions)
+func CompareVersionArrays(lhs, rhs []int) int {
+	lLen := len(lhs)
+	rLen := len(rhs)
 
 	for i := 0; i < lLen && i < rLen; i++ {
-		if lVersions[i] > rVersions[i] {
+		if lhs[i] > rhs[i] {
 			return -1
 		}
 
-		if lVersions[i] < rVersions[i] {
+		if lhs[i] < rhs[i] {
 			return 1
 		}
 	}
@@ -40,19 +52,4 @@ func CompareVersions(lhs, rhs string) int {
 
 	// versions are exactly the same
 	return 0
-}
-
-func buildVersionArray(version string) []int {
-	var versions []int
-	for _, v := range strings.Split(version, ".") {
-		i, err := strconv.Atoi(v)
-		if err != nil {
-			log.DefaultLogger().Error(err, "unable to build version array")
-			break
-		}
-
-		versions = append(versions, i)
-	}
-
-	return versions
 }

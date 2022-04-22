@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +20,7 @@ var _ = Describe("Index Management", func() {
 	defer GinkgoRecover()
 
 	var (
-		logger        = log.DefaultLogger()
+		logger        = log.NewLogger("index-management-reconciler-testing")
 		primaryShards = int32(1)
 		apiclient     client.Client
 		cluster       *apis.Elasticsearch

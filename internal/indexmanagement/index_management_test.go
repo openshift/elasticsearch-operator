@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 	elasticsearch "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
@@ -22,7 +22,7 @@ import (
 var _ = Describe("Index Management", func() {
 	defer GinkgoRecover()
 	var (
-		logger  = log.DefaultLogger()
+		logger  = log.NewLogger("index-management-testing")
 		chatter *helpers.FakeElasticsearchChatter
 		mapping = elasticsearch.IndexManagementPolicyMappingSpec{
 			Name:    "node.infra",

@@ -3,8 +3,7 @@ package persistentvolume
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,12 +24,12 @@ type MutatePVCFunc func(current, desired *corev1.PersistentVolumeClaim)
 // if the persistentvolumeclaim exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdatePVC(ctx context.Context, log logr.Logger, c client.Client, pvc *corev1.PersistentVolumeClaim, equal EqualityPVCFunc, mutate MutatePVCFunc) error {
+func CreateOrUpdatePVC(ctx context.Context, c client.Client, pvc *corev1.PersistentVolumeClaim, equal EqualityPVCFunc, mutate MutatePVCFunc) error {
 	current := &corev1.PersistentVolumeClaim{}
 	key := client.ObjectKey{Name: pvc.Name, Namespace: pvc.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, pvc)
 
 			if err == nil {
@@ -52,13 +51,14 @@ func CreateOrUpdatePVC(ctx context.Context, log logr.Logger, c client.Client, pv
 	if !equal(current, pvc) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get persistentvolumeclaim", pvc.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get persistentvolumeclaim",
+					"name", pvc.Name,
+					"namespace", pvc.Namespace,
+				)
 			}
 
 			mutate(current, pvc)
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update persistentvolumeclaim", pvc.Name)
 				return err
 			}
 			return nil

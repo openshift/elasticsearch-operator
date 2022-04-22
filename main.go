@@ -28,7 +28,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	"github.com/openshift/elasticsearch-operator/version"
 
-	"github.com/ViaQ/logerr/log"
+	"github.com/ViaQ/logerr/v2/log"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -15,7 +15,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/service"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	apps "k8s.io/api/apps/v1"
@@ -245,7 +245,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 
 	utils.AddOwnerRefToObject(kibanaDeployment, getOwnerRef(clusterRequest.cluster))
 
-	err = deployment.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, kibanaDeployment, compareDeployments, mutateDeployment)
+	err = deployment.CreateOrUpdate(context.TODO(), clusterRequest.client, kibanaDeployment, compareDeployments, mutateDeployment)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana deployment",
 			"cluster", clusterRequest.cluster.Name,
@@ -406,7 +406,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 
 	utils.AddOwnerRefToObject(svc, getOwnerRef(clusterRequest.cluster))
 
-	err := service.CreateOrUpdate(context.TODO(), clusterRequest.log, clusterRequest.client, svc, service.Equal, service.Mutate)
+	err := service.CreateOrUpdate(context.TODO(), clusterRequest.client, svc, service.Equal, service.Mutate)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update kibana service",
 			"cluster", clusterRequest.cluster.Name,

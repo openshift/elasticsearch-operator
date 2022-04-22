@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	testhelpers "github.com/openshift/elasticsearch-operator/test/helpers"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"

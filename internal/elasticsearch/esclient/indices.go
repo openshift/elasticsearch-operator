@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	estypes "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 )

@@ -3,8 +3,7 @@ package rbac
 import (
 	"context"
 
-	"github.com/ViaQ/logerr/kverrors"
-	"github.com/go-logr/logr"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,12 +16,12 @@ import (
 // if the rolebinding exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdateRoleBinding(ctx context.Context, log logr.Logger, c client.Client, rb *rbacv1.RoleBinding) error {
+func CreateOrUpdateRoleBinding(ctx context.Context, c client.Client, rb *rbacv1.RoleBinding) error {
 	current := &rbacv1.RoleBinding{}
 	key := client.ObjectKey{Name: rb.Name, Namespace: rb.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
-		if apierrors.IsNotFound(kverrors.Root(err)) {
+		if apierrors.IsNotFound(err) {
 			err = c.Create(ctx, rb)
 
 			if err == nil {
@@ -44,13 +43,14 @@ func CreateOrUpdateRoleBinding(ctx context.Context, log logr.Logger, c client.Cl
 	if !equality.Semantic.DeepEqual(current, rb) {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			if err := c.Get(ctx, key, current); err != nil {
-				log.Error(err, "failed to get rolebinding", rb.Name)
-				return err
+				return kverrors.Wrap(err, "failed to get rolebinding",
+					"name", rb.Name,
+					"namespace", rb.Namespace,
+				)
 			}
 
 			current.Subjects = rb.Subjects
 			if err := c.Update(ctx, current); err != nil {
-				log.Error(err, "failed to update rolebinding", rb.Name)
 				return err
 			}
 			return nil

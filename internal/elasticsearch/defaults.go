@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"fmt"
 
-	"github.com/ViaQ/logerr/kverrors"
+	"github.com/ViaQ/logerr/v2/kverrors"
 	api "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 )
 

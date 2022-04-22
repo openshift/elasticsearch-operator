@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 
@@ -121,10 +122,15 @@ func (er *ElasticsearchRequest) CreateOrUpdateElasticsearchCluster() error {
 			return er.UpdateClusterStatus()
 		}
 
-		comparison := comparators.CompareVersions(version, expectedMinVersion)
+		// Skip the error here. This version should have already been
+		// compared in `GetLowestClusterVersion`. So this should already
+		// be a valid version number.
+		versionArray, _ := comparators.Version(version).ToArray()
+		// Skip the error here. This is a controlled number. It should always pass.
+		minVersionArray, _ := comparators.Version(expectedMinVersion).ToArray()
 
 		// if it is < what we expect (6.0) then do full cluster update:
-		if comparison > 0 {
+		if comparators.CompareVersionArrays(versionArray, minVersionArray) > 0 {
 			// perform a full cluster update
 			if err := er.PerformFullClusterUpdate(scheduledNodes); err != nil {
 				er.ll.Error(err, "failed to perform full cluster update")
@@ -430,7 +436,14 @@ func (er *ElasticsearchRequest) isDiskUtilizationBelowFloodWatermark() bool {
 			er.ll.Info("Unable to get disk usage", "error", err)
 			continue
 		}
-		if exceedsFloodWatermark(usage, percent) {
+
+		quantity, err := resource.ParseQuantity(usage)
+		if err != nil {
+			er.ll.Error(err, "Unable to parse quantity", "value", usage)
+			continue
+		}
+
+		if exceedsFloodWatermark(quantity, percent) {
 			return false
 		}
 	}
