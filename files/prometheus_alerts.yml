@@ -157,7 +157,7 @@
 
   - "alert": ElasticsearchOperatorCSVNotSuccessful
     "annotations":
-      "message": "Elasticsearch Operator CSV has not reconciled succesfully."
+      "message": "Elasticsearch Operator CSV has not reconciled successfully."
       "summary": "Elasticsearch Operator CSV Not Successful"
     "expr": |
       csv_succeeded{name =~ "elasticsearch-operator.*"} == 0
