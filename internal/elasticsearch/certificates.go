@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -358,7 +359,7 @@ func (cr *CertificateRequest) EnsureCert(componentName string, cert *certificate
 	}
 
 	// validate that the cert isn't expired and is signed correctly
-	if !isValidCert(cert.x509Cert, cert.privKey, componentName) || !isSignedCorrectly {
+	if !isValidCert(cert.x509Cert, cert.privKey, componentName, true) || !isSignedCorrectly {
 		err := cr.generateCert(componentName, cert, ca)
 		if err != nil {
 			return err
@@ -588,7 +589,7 @@ func unmarshalCert(cert, key []byte, unmarshalledCert *certificate) error {
 	return nil
 }
 
-func isValidCert(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey, commonName string) bool {
+func isValidCert(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey, commonName string, isComponent bool) bool {
 	if x509Cert == nil {
 		return false
 	}
@@ -614,8 +615,22 @@ func isValidCert(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey, commonN
 		return false
 	}
 
-	if x509Cert.Subject.CommonName != commonName {
+	subject := x509Cert.Subject
+	if subject.CommonName != commonName {
 		return false
+	}
+
+	if isComponent {
+		// We currently only check these for the "component" certificates and not the CA.
+		// This is because only the DNs of the client certificates are used for authentication
+		// and also checking this for the CA would mean re-creating the whole PKI.
+		if !slices.Equal(subject.Organization, certOrganization) {
+			return false
+		}
+
+		if !slices.Equal(subject.OrganizationalUnit, componentOrganizationUnit) {
+			return false
+		}
 	}
 
 	return true
@@ -675,7 +690,7 @@ func genCA() (*certCA, error) {
 }
 
 func isValidCA(x509Cert *x509.Certificate, rsaPrivKey *rsa.PrivateKey) bool {
-	if !isValidCert(x509Cert, rsaPrivKey, caCN) {
+	if !isValidCert(x509Cert, rsaPrivKey, caCN, false) {
 		return false
 	}
 
