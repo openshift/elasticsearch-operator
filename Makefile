@@ -179,7 +179,6 @@ test-e2e-upgrade-ci:
 # IMAGE_ELASTICSEARCH6
 # IMAGE_ELASTICSEARCH_PROXY
 # IMAGE_LOGGING_KIBANA6
-# IMAGE_OAUTH_PROXY
 #
 # You must also set:
 # ELASTICSEARCH_OPERATOR_NAMESPACE (Default: openshift-operators-redhat)
