@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	configv1 "github.com/openshift/api/config/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
@@ -34,6 +35,9 @@ const (
 	expectedCLOName              = "instance"
 	expectedCLOKibana            = "kibana"
 	expectedCLONamespace         = "openshift-logging"
+	oauthProxyImageName          = "oauth-proxy"
+	oauthProxyNamespace          = "openshift"
+	oauthProxyTag                = "v4.4"
 )
 
 var kibanaServiceAccountAnnotations = map[string]string{
@@ -218,11 +222,17 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 		}
 	}
 
+	oauthProxyImage, err := getProxyImage(context.TODO(), clusterRequest.client)
+	if err != nil {
+		return kverrors.Wrap(err, "Failed to get oauth-proxy image")
+	}
+
 	kibanaPodSpec := newKibanaPodSpec(
 		clusterRequest,
 		fmt.Sprintf("%s.%s.svc", clusterName, clusterRequest.cluster.Namespace),
 		proxyConfig,
 		kibanaTrustBundle,
+		oauthProxyImage,
 	)
 
 	kibanaDeployment := NewDeployment(
@@ -420,12 +430,35 @@ func getImage() string {
 	return utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
 }
 
-func getProxyImage() string {
-	return utils.LookupEnvWithDefault("PROXY_IMAGE", kibanaProxyDefaultImage)
+func getProxyImage(ctx context.Context, c client.Client) (string, error) {
+	key := client.ObjectKey{Name: oauthProxyImageName, Namespace: oauthProxyNamespace}
+
+	is := &imagev1.ImageStream{}
+	if err := c.Get(ctx, key, is); err != nil {
+		return "", kverrors.Wrap(err, "failed to get imagestream",
+			"name", key.Name,
+			"namespace", key.Namespace,
+		)
+	}
+
+	if len(is.Status.Tags) == 0 {
+		return "", kverrors.New("proxy imageStream has no tags")
+	}
+
+	for _, tag := range is.Status.Tags {
+		if tag.Tag == oauthProxyTag {
+			if len(tag.Items) == 0 {
+				return "", kverrors.New("proxy imageStream tag has no images")
+			}
+			return fmt.Sprintf("%s@%s", is.Status.DockerImageRepository, tag.Items[0].Image), nil
+		}
+	}
+
+	return "", kverrors.New(fmt.Sprintf("proxy imagestream has no tags with tag %s", oauthProxyTag))
 }
 
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
-	trustedCABundleCM *v1.ConfigMap) v1.PodSpec {
+	trustedCABundleCM *v1.ConfigMap, oauthProxyImage string) v1.PodSpec {
 	visSpec := kibana.KibanaSpec{}
 	if cluster.cluster != nil {
 		visSpec = cluster.cluster.Spec
@@ -493,10 +526,9 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		}
 	}
 
-	proxyImage := getProxyImage()
 	kibanaProxyContainer := NewContainer(
 		"kibana-proxy",
-		proxyImage,
+		oauthProxyImage,
 		v1.PullIfNotPresent,
 		*kibanaProxyResources,
 	)

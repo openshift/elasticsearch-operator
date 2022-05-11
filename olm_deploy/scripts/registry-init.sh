@@ -12,7 +12,6 @@ sed -i "s,quay.io/openshift-logging/elasticsearch-operator:latest,${IMAGE_ELASTI
 sed -i "s,quay.io/openshift/origin-kube-rbac-proxy:latest,${IMAGE_KUBE_RBAC_PROXY}," /manifests/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift-logging/elasticsearch6:6.8.1,${IMAGE_ELASTICSEARCH6}," /manifests/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift-logging/elasticsearch-proxy:1.0,${IMAGE_ELASTICSEARCH_PROXY}," /manifests/*clusterserviceversion.yaml
-sed -i "s,quay.io/openshift/origin-oauth-proxy:latest,${IMAGE_OAUTH_PROXY}," /manifests/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift-logging/kibana6:6.8.1,${IMAGE_LOGGING_KIBANA6}," /manifests/*clusterserviceversion.yaml
 sed -i "s,quay.io/openshift-logging/curator5:5.8.1,${IMAGE_LOGGING_CURATOR5}," /manifests/*clusterserviceversion.yaml
 

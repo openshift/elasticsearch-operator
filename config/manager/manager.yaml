@@ -49,8 +49,6 @@ spec:
                 fieldPath: metadata.name
           - name: OPERATOR_NAME
             value: "elasticsearch-operator"
-          - name: PROXY_IMAGE
-            value: "quay.io/openshift/origin-oauth-proxy:latest"
           - name: ELASTICSEARCH_PROXY
             value: "quay.io/openshift-logging/elasticsearch-proxy:1.0"
           - name: ELASTICSEARCH_IMAGE
