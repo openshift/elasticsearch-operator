@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
@@ -27,6 +28,7 @@ var _ = Describe("Reconciling", func() {
 	_ = routev1.AddToScheme(scheme.Scheme)
 	_ = consolev1.AddToScheme(scheme.Scheme)
 	_ = loggingv1.SchemeBuilder.AddToScheme(scheme.Scheme)
+	_ = imagev1.AddToScheme(scheme.Scheme)
 
 	var (
 		cluster = &loggingv1.Kibana{
@@ -78,6 +80,25 @@ var _ = Describe("Reconciling", func() {
 			Spec: configv1.ProxySpec{
 				TrustedCA: configv1.ConfigMapNameReference{
 					Name: "custom-ca-bundle",
+				},
+			},
+		}
+		proxyImage = &imagev1.ImageStream{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "oauth-proxy",
+				Namespace: "openshift",
+			},
+			Status: imagev1.ImageStreamStatus{
+				DockerImageRepository: "image-registry",
+				Tags: []imagev1.NamedTagEventList{
+					{
+						Tag: "v4.4",
+						Items: []imagev1.TagEvent{
+							{
+								Image: "sha256:abcdef",
+							},
+						},
+					},
 				},
 			},
 		}
@@ -140,6 +161,7 @@ var _ = Describe("Reconciling", func() {
 					kibanaCABundle,
 					kibanaSecret,
 					kibanaProxySecret,
+					proxyImage,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
@@ -195,6 +217,7 @@ var _ = Describe("Reconciling", func() {
 					kibanaCABundle,
 					kibanaSecret,
 					kibanaProxySecret,
+					proxyImage,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})

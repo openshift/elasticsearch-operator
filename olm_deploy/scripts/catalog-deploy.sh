@@ -11,7 +11,6 @@ echo "elastic6: ${IMAGE_ELASTICSEARCH6}"
 echo "elasticsearch proxy: ${IMAGE_ELASTICSEARCH_PROXY}"
 echo "kibana: ${IMAGE_LOGGING_KIBANA6}"
 echo "curator5: ${IMAGE_LOGGING_CURATOR5}"
-echo "oauth proxy: ${IMAGE_OAUTH_PROXY}"
 
 echo "In namespace: ${ELASTICSEARCH_OPERATOR_NAMESPACE}"
 

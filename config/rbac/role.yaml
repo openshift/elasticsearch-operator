@@ -88,6 +88,14 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - image.openshift.io
+  resources:
+  - imagestreams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - logging.openshift.io
   resources:
   - '*'

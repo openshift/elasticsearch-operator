@@ -11,7 +11,6 @@ export LOGGING_IS=${LOGGING_IS:-openshift-logging}
 
 #openshift images
 export IMAGE_KUBE_RBAC_PROXY=${IMAGE_KUBE_RBAC_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:kube-rbac-proxy}
-export IMAGE_OAUTH_PROXY=${IMAGE_OAUTH_PROXY:-registry.ci.openshift.org/ocp/${OCP_VERSION}:oauth-proxy}
 
 #logging images
 IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY=${IMAGE_ELASTICSEARCH_OPERATOR_REGISTRY:-quay.io/${LOGGING_IS}/elasticsearch-operator-registry:${LOGGING_VERSION}}
