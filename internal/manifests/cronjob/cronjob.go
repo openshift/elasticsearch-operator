@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/v2/kverrors"
-	batchv1beta1 "k8s.io/api/batch/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -13,19 +13,19 @@ import (
 
 // EqualityFunc is the type for functions that compare two cronjobs.
 // Return true if two cronjobs are equal.
-type EqualityFunc func(current, desired *batchv1beta1.CronJob) bool
+type EqualityFunc func(current, desired *batchv1.CronJob) bool
 
 // MutateFunc is the type for functions that mutate the current cronjob
 // by applying the values from the desired cronjob.
-type MutateFunc func(current, desired *batchv1beta1.CronJob)
+type MutateFunc func(current, desired *batchv1.CronJob)
 
 // CreateOrUpdate attempts first to get the given cronjob. If the
 // cronjob does not exist, the cronjob will be created. Otherwise,
 // if the cronjob exists and the provided comparison func detects any changes
 // an update is attempted. Updates are retried with backoff (See retry.DefaultRetry).
 // Returns on failure an non-nil error.
-func CreateOrUpdate(ctx context.Context, c client.Client, cj *batchv1beta1.CronJob, equal EqualityFunc, mutate MutateFunc) error {
-	current := &batchv1beta1.CronJob{}
+func CreateOrUpdate(ctx context.Context, c client.Client, cj *batchv1.CronJob, equal EqualityFunc, mutate MutateFunc) error {
+	current := &batchv1.CronJob{}
 	key := client.ObjectKey{Name: cj.Name, Namespace: cj.Namespace}
 	err := c.Get(ctx, key, current)
 	if err != nil {
@@ -90,8 +90,8 @@ func Delete(ctx context.Context, c client.Client, key client.ObjectKey) error {
 }
 
 // List returns a list of deployments that match the given selector.
-func List(ctx context.Context, c client.Client, namespace string, selector map[string]string) ([]batchv1beta1.CronJob, error) {
-	list := &batchv1beta1.CronJobList{}
+func List(ctx context.Context, c client.Client, namespace string, selector map[string]string) ([]batchv1.CronJob, error) {
+	list := &batchv1.CronJobList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(selector),
@@ -106,12 +106,12 @@ func List(ctx context.Context, c client.Client, namespace string, selector map[s
 }
 
 // Equal return only true if the cronjob are equal
-func Equal(current, desired *batchv1beta1.CronJob) bool {
+func Equal(current, desired *batchv1.CronJob) bool {
 	return equality.Semantic.DeepEqual(current, desired)
 }
 
 // Mutate is a default mutation function for cronjobs
 // that copies only mutable fields from desired to current.
-func Mutate(current, desired *batchv1beta1.CronJob) {
+func Mutate(current, desired *batchv1.CronJob) {
 	current.Spec = desired.Spec
 }
