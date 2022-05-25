@@ -24,7 +24,7 @@ const (
 // +kubebuilder:printcolumn:name="Index Management",JSONPath=".status.indexManagement.State",type=string
 //
 // An Elasticsearch cluster instance
-// +operator-sdk:csv:customresourcedefinitions:displayName="Elasticsearch",resources={{Pod,v1},{Deployment,v1},{StatefulSet,v1},{ReplicaSet,v1},{ConfigMap,v1},{Service,v1},{Route,v1},{CronJob,v1beta1},{PrometheusRule,v1},{Role,v1},{RoleBinding,v1},{ServiceAccount,v1},{ServiceMonitor,v1},{persistentvolumeclaims,v1}}
+// +operator-sdk:csv:customresourcedefinitions:displayName="Elasticsearch",resources={{Pod,v1},{Deployment,v1},{StatefulSet,v1},{ReplicaSet,v1},{ConfigMap,v1},{Service,v1},{Route,v1},{CronJob,v1},{PrometheusRule,v1},{Role,v1},{RoleBinding,v1},{ServiceAccount,v1},{ServiceMonitor,v1},{persistentvolumeclaims,v1}}
 type Elasticsearch struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
