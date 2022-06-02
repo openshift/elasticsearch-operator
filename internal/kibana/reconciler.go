@@ -436,26 +436,50 @@ func getProxyImage(ctx context.Context, c client.Client) (string, error) {
 
 	is := &imagev1.ImageStream{}
 	if err := c.Get(ctx, key, is); err != nil {
-		return "", kverrors.Wrap(err, "failed to get imagestream",
+		return "", kverrors.Wrap(err, "failed to get ImageStream",
 			"name", key.Name,
 			"namespace", key.Namespace,
 		)
 	}
 
 	if len(is.Status.Tags) == 0 {
-		return "", kverrors.New("proxy imageStream has no tags")
+		return "", kverrors.New("ImageStream has no tags",
+			"name", key.Name,
+			"namespace", key.Namespace)
 	}
 
-	for _, tag := range is.Status.Tags {
-		if tag.Tag == oauthProxyTag {
-			if len(tag.Items) == 0 {
-				return "", kverrors.New("proxy imageStream tag has no images")
-			}
-			return fmt.Sprintf("%s@%s", is.Status.DockerImageRepository, tag.Items[0].Image), nil
+	tag := findImageStreamTag(is.Status.Tags, oauthProxyTag)
+	if tag == nil {
+		return "", kverrors.New("ImageStream tag not found",
+			"name", key.Name,
+			"namespace", key.Namespace,
+			"tag", oauthProxyTag)
+	}
+
+	if len(tag.Items) == 0 {
+		return "", kverrors.New("ImageStream tag contains no images",
+			"name", key.Name,
+			"namespace", key.Namespace,
+			"tag", oauthProxyTag)
+	}
+
+	tagItem := tag.Items[0]
+	if is.Status.DockerImageRepository == "" {
+		// Fall back to source image reference when there is no internal repository
+		return tagItem.DockerImageReference, nil
+	}
+
+	return fmt.Sprintf("%s@%s", is.Status.DockerImageRepository, tagItem.Image), nil
+}
+
+func findImageStreamTag(tags []imagev1.NamedTagEventList, name string) *imagev1.NamedTagEventList {
+	for _, t := range tags {
+		if t.Tag == name {
+			return &t
 		}
 	}
 
-	return "", kverrors.New(fmt.Sprintf("proxy imagestream has no tags with tag %s", oauthProxyTag))
+	return nil
 }
 
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
@@ -592,14 +616,16 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		[]v1.Container{kibanaContainer, kibanaProxyContainer},
 		[]v1.Volume{
 			{
-				Name: "kibana", VolumeSource: v1.VolumeSource{
+				Name: "kibana",
+				VolumeSource: v1.VolumeSource{
 					Secret: &v1.SecretVolumeSource{
 						SecretName: "kibana",
 					},
 				},
 			},
 			{
-				Name: "kibana-proxy", VolumeSource: v1.VolumeSource{
+				Name: "kibana-proxy",
+				VolumeSource: v1.VolumeSource{
 					Secret: &v1.SecretVolumeSource{
 						SecretName: "kibana-proxy",
 					},
