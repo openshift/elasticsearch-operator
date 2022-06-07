@@ -22,7 +22,9 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
 	serviceMonitorName := fmt.Sprintf("monitor-%s-%s", dpl.Name, "cluster")
 
 	labelsWithDefault := appendDefaultLabel(dpl.Name, dpl.Labels)
-	labelsWithDefault["scrape-metrics"] = "enabled"
+	labelsSelector := appendDefaultLabel(dpl.Name, map[string]string{
+		"scrape-metrics": "enabled",
+	})
 
 	tlsConfig := monitoringv1.TLSConfig{
 		CAFile:     prometheusCAFile,
@@ -49,7 +51,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceMonitors() error {
 	monitor := servicemonitor.New(serviceMonitorName, dpl.Namespace, labelsWithDefault).
 		WithJobLabel("monitor-elasticsearch").
 		WithSelector(metav1.LabelSelector{
-			MatchLabels: labelsWithDefault,
+			MatchLabels: labelsSelector,
 		}).
 		WithNamespaceSelector(monitoringv1.NamespaceSelector{
 			MatchNames: []string{dpl.Namespace},
