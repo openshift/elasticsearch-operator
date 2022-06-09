@@ -132,6 +132,33 @@ def updateWriteIndex(currentIndex, nextIndex, alias):
     sys.stdout = original_stdout
     return False
 
+def indexBelongsToAlias(index, alias):
+  original_stdout = sys.stdout
+  try:
+    es_client = getEsClient()
+    response = es_client.indices.get_alias(index=index)
+    writeIndexName = list(key for key, value in response[index]["aliases"].items() if '-write' in key)[0]
+    return alias+"-write" == writeIndexName
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')  
+    print (e)
+    sys.stdout = original_stdout
+    return False
+
+def isWriteIndex(index):
+  original_stdout = sys.stdout  
+  try:
+    es_client = getEsClient()
+    writeIndexName = index.rpartition('-')[0] + '-write'
+    indexInfo = es_client.indices.get(index=index, include_type_name=False)
+    isWriteIndex = indexInfo[index]['aliases'][writeIndexName].get('is_write_index')
+    return isWriteIndex
+  except Exception as e:
+    sys.stdout = open('/tmp/response.txt', 'w')
+    print (e)
+    sys.stdout = original_stdout
+    return False
+
 def getMaxAllowedSize(diskThreshold):
   # Returns the total disk space of all nodes combined multiplied by the pre-defined threshold
   original_stdout = sys.stdout
@@ -160,7 +187,7 @@ def getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indice
     if expectedSize < maxAllowedSize:
       sizeCounter = expectedSize
     else:
-      if index['index'].startswith(alias):
+      if indexBelongsToAlias(index['index'], alias):
         indices.append(index['index'])
     return indices, sizeCounter
   except Exception as e:
@@ -169,7 +196,7 @@ def getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indice
     sys.stdout = original_stdout
     return -1
 
-def deleteByPercentage(alias, writeIndex, diskThreshold):
+def deleteByPercentage(alias, diskThreshold):
   original_stdout = sys.stdout
   try:
     es_client = getEsClient()
@@ -180,7 +207,7 @@ def deleteByPercentage(alias, writeIndex, diskThreshold):
       return False
 
     indices = es_client.cat.indices(format="json",h="index,creation.date,store.size", s="creation.date", bytes="kb")
-    
+
     indicesToDelete = []
     indicesSizeCounter = 0
 
@@ -188,11 +215,13 @@ def deleteByPercentage(alias, writeIndex, diskThreshold):
       indicesToDelete, indicesSizeCounter = getDeletableIndices(index, alias, maxAllowedSize, indicesSizeCounter, indicesToDelete)
 
     for index in indicesToDelete:
-      if index == writeIndex:
-        print ("Cannot delete write index")
+      #check whether the current index in the list is a write-index
+      if isWriteIndex(index):
+        print ("Cannot delete write index ", index)
       else:
         es_client.indices.delete(index=index)
         print ("Index ", index, " deleted")
+    
     return True
     
   except Exception as e:
@@ -490,7 +519,7 @@ function delete() {
 
   # Delete indices based on disk usage
   if [ ! "$DISK_THRESHOLD" -eq "0" ]; then
-    if ! response=$(deleteByPercentage $policy $writeIndex 2 >>$ERRORS) ; then
+    if ! response=$(deleteByPercentage $policy 2 >>$ERRORS) ; then
       cat $ERRORS
       rm $ERRORS
       return 1
@@ -537,7 +566,7 @@ function delete() {
 function deleteByPercentage() {
   local alias=$1
 
-  python -c 'import indexManagementClient; print(indexManagementClient.deleteByPercentage("'$alias'", "'$writeIndex'", "'$DISK_THRESHOLD'"))'
+  python -c 'import indexManagementClient; print(indexManagementClient.deleteByPercentage("'$alias'", "'$DISK_THRESHOLD'"))'
 }
 
 function getAlias() {
