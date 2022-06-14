@@ -23,7 +23,7 @@ COPY ${REMOTE_SOURCE}/bundle bundle
 COPY ${REMOTE_SOURCE}/version version
 COPY ${REMOTE_SOURCE}/.bingo ./.bingo
 ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod ${REMOTE_SOURCE}/go.sum ./
-
+USER 0
 RUN make build
 
 #@follow_tag(registry.redhat.io/ubi8:latest)

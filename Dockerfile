@@ -1,6 +1,6 @@
 ### This is a generated file from Dockerfile.in ###
 #@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.17)
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10 AS builder
+FROM registry.redhat.io/ubi8/go-toolset:1.17.7 AS builder
 
 
 ENV BUILD_VERSION=${CI_CONTAINER_VERSION}
@@ -21,11 +21,11 @@ COPY ${REMOTE_SOURCE}/bundle bundle
 COPY ${REMOTE_SOURCE}/version version
 COPY ${REMOTE_SOURCE}/.bingo ./.bingo
 ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod ${REMOTE_SOURCE}/go.sum ./
-
+USER 0
 RUN make build
 
 #@follow_tag(registry.redhat.io/ubi8:latest)
-FROM registry.ci.openshift.org/ocp/4.8:base
+FROM registry.redhat.io/ubi8:8.5
 LABEL \
         io.k8s.display-name="OpenShift elasticsearch-operator" \
         io.k8s.description="This is the component that manages an Elasticsearch cluster on a kubernetes based platform" \
