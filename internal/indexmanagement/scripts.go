@@ -440,9 +440,9 @@ function rollover() {
   if [ "$responseRollover" == False ] ; then
     # already in bad state
     echo "Calculating next write index based on current write index..."
-
-    indexGeneration="$(echo $writeIndex | cut -d'-' -f2)"
-    writeBase="$(echo $writeIndex | cut -d'-' -f1)"
+    
+    indexGeneration="$(echo ${writeIndex##*-})"
+    writeBase="$(echo ${writeIndex%-*})"
 
     # if we don't strip off the leading 0s it does math wrong...
     generation="$(echo $indexGeneration | sed 's/^0*//')"
