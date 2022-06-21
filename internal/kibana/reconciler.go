@@ -417,11 +417,11 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 }
 
 func getImage() string {
-	return utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
+	return utils.LookupEnvWithDefault("RELATED_IMAGE_KIBANA", kibanaDefaultImage)
 }
 
 func getProxyImage() string {
-	return utils.LookupEnvWithDefault("PROXY_IMAGE", kibanaProxyDefaultImage)
+	return utils.LookupEnvWithDefault("RELATED_IMAGE_OAUTH_PROXY", kibanaProxyDefaultImage)
 }
 
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,

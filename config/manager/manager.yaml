@@ -49,13 +49,13 @@ spec:
                 fieldPath: metadata.name
           - name: OPERATOR_NAME
             value: "elasticsearch-operator"
-          - name: PROXY_IMAGE
+          - name: RELATED_IMAGE_OAUTH_PROXY
             value: "quay.io/openshift/origin-oauth-proxy:latest"
-          - name: ELASTICSEARCH_PROXY
+          - name: RELATED_IMAGE_ELASTICSEARCH_PROXY
             value: "quay.io/openshift-logging/elasticsearch-proxy:1.0"
-          - name: ELASTICSEARCH_IMAGE
+          - name: RELATED_IMAGE_ELASTICSEARCH
             value: "quay.io/openshift-logging/elasticsearch6:6.8.1"
-          - name: KIBANA_IMAGE
+          - name: RELATED_IMAGE_KIBANA
             value: "quay.io/openshift-logging/kibana6:6.8.1"
-          - name: CURATOR_IMAGE
+          - name: RELATED_IMAGE_CURATOR
             value: "quay.io/openshift-logging/curator5:5.8.1"

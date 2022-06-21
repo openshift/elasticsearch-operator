@@ -27,7 +27,7 @@ const (
 
 var (
 	ReconcileForGlobalProxyList = []string{KibanaTrustedCAName}
-	packagedCuratorImage        = utils.LookupEnvWithDefault("CURATOR_IMAGE", CuratorDefaultImage)
+	packagedCuratorImage        = utils.LookupEnvWithDefault("RELATED_IMAGE_CURATOR", CuratorDefaultImage)
 	ExpectedSecretKeys          = []string{
 		"admin-ca",
 		"admin-cert",
