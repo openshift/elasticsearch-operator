@@ -48,11 +48,11 @@ var defaultResources = map[string]v1.ResourceRequirements{
 }
 
 func getESImage() string {
-	return utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
+	return utils.LookupEnvWithDefault("RELATED_IMAGE_ELASTICSEARCH", constants.ElasticsearchDefaultImage)
 }
 
 func getESProxyImage() string {
-	return utils.LookupEnvWithDefault("ELASTICSEARCH_PROXY", constants.ProxyDefaultImage)
+	return utils.LookupEnvWithDefault("RELATED_IMAGE_ELASTICSEARCH_PROXY", constants.ProxyDefaultImage)
 }
 
 func getNodeRoleMap(node api.ElasticsearchNode) map[api.ElasticsearchNodeRole]bool {

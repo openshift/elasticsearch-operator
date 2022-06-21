@@ -428,7 +428,7 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaService() error {
 }
 
 func getImage() string {
-	return utils.LookupEnvWithDefault("KIBANA_IMAGE", kibanaDefaultImage)
+	return utils.LookupEnvWithDefault("RELATED_IMAGE_KIBANA", kibanaDefaultImage)
 }
 
 func getProxyImage(ctx context.Context, c client.Client) (string, error) {
