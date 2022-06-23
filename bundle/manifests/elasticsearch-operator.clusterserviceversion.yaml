@@ -515,13 +515,13 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: elasticsearch-operator
-                - name: ELASTICSEARCH_PROXY
+                - name: RELATED_IMAGE_ELASTICSEARCH_PROXY
                   value: quay.io/openshift-logging/elasticsearch-proxy:1.0
-                - name: ELASTICSEARCH_IMAGE
+                - name: RELATED_IMAGE_ELASTICSEARCH
                   value: quay.io/openshift-logging/elasticsearch6:6.8.1
-                - name: KIBANA_IMAGE
+                - name: RELATED_IMAGE_KIBANA
                   value: quay.io/openshift-logging/kibana6:6.8.1
-                - name: CURATOR_IMAGE
+                - name: RELATED_IMAGE_CURATOR
                   value: quay.io/openshift-logging/curator5:5.8.1
                 image: quay.io/openshift-logging/elasticsearch-operator:latest
                 imagePullPolicy: IfNotPresent
@@ -578,4 +578,13 @@ spec:
   minKubeVersion: 1.18.3
   provider:
     name: Red Hat
+  relatedImages:
+  - image: quay.io/openshift-logging/elasticsearch-proxy:1.0
+    name: elasticsearch-proxy
+  - image: quay.io/openshift-logging/elasticsearch6:6.8.1
+    name: elasticsearch
+  - image: quay.io/openshift-logging/kibana6:6.8.1
+    name: kibana
+  - image: quay.io/openshift-logging/curator5:5.8.1
+    name: curator
   version: 5.5.0
