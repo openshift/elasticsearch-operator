@@ -154,8 +154,13 @@ func Reconcile(log logr.Logger, requestCluster *elasticsearchv1.Elasticsearch, r
 	}
 
 	// Ensure existence of servicesaccount
-	if err := elasticsearchRequest.CreateOrUpdateServiceAccount(); err != nil {
+	if err := elasticsearchRequest.CreateOrUpdateServiceAccounts(); err != nil {
 		return kverrors.Wrap(err, "Failed to reconcile ServiceAccount for Elasticsearch cluster")
+	}
+
+	// Ensure existence of serviceaccount token secret
+	if err := elasticsearchRequest.CreateOrUpdateServiceAccountTokenSecret(); err != nil {
+		return kverrors.Wrap(err, "Failed to reconcile ServiceAccount Token Secret for Elasticsearch cluster metrics")
 	}
 
 	// Ensure existence of roles, rolebindings, clusterroles and clusterrolebindings

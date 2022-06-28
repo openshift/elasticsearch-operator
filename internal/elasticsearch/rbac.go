@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/v2/kverrors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/manifests/rbac"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
@@ -112,15 +112,15 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 
 	// metrics RBAC
 	metricsRole := rbac.NewRole(
-		"elasticsearch-metrics",
+		serviceMonitorServiceAccountName(dpl.Name),
 		dpl.Namespace,
 		rbac.NewPolicyRules(
 			rbac.NewPolicyRule(
-				[]string{""},
-				[]string{"pods", "services", "endpoints"},
-				[]string{},
-				[]string{"list", "watch"},
-				[]string{},
+				[]string{"elasticsearch.openshift.io"},
+				[]string{"metrics"},
+				nil,
+				[]string{"get"},
+				nil,
 			),
 		),
 	)
@@ -129,7 +129,6 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch metrics role",
 			"cluster", dpl.Name,
-			"namespace", dpl.Namespace,
 		)
 	}
 
@@ -142,15 +141,15 @@ func (er *ElasticsearchRequest) CreateOrUpdateRBAC() error {
 
 	subject := rbac.NewSubject(
 		"ServiceAccount",
-		"prometheus-k8s",
-		"openshift-monitoring",
+		serviceMonitorServiceAccountName(dpl.Name),
+		dpl.Namespace,
 	)
 	subject.APIGroup = ""
 
 	metricsRoleBinding := rbac.NewRoleBinding(
-		"elasticsearch-metrics",
+		serviceMonitorServiceAccountName(dpl.Name),
 		dpl.Namespace,
-		"elasticsearch-metrics",
+		serviceMonitorServiceAccountName(dpl.Name),
 		rbac.NewSubjects(subject),
 	)
 
