@@ -88,6 +88,19 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() error {
 		}
 	}
 
+	cm = configmap.New(serviceCABundleName(dpl.Name), dpl.Namespace, dpl.Labels, nil)
+	cm.Annotations = map[string]string{
+		"service.beta.openshift.io/inject-cabundle": "true",
+	}
+
+	_, err = configmap.CreateOrUpdate(context.TODO(), er.client, cm, configmap.AnnotationsEqual, configmap.MutateAnnotationsOnly)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to create or update elasticsearch ca-bundle configmap",
+			"cluster", er.cluster.Name,
+			"namespace", er.cluster.Namespace,
+		)
+	}
+
 	return nil
 }
 

@@ -150,9 +150,21 @@ func DataEqual(current, desired *corev1.ConfigMap) bool {
 	return equality.Semantic.DeepEqual(current.Data, desired.Data)
 }
 
+// DataEqual return only true if the configmaps have equal annotations sections only.
+func AnnotationsEqual(current, desired *corev1.ConfigMap) bool {
+	return equality.Semantic.DeepEqual(current.Annotations, desired.Annotations)
+}
+
 // MutateDataOnly is a default mutate function implementation
 // that copies only the data section from desired to current
 // configmap.
 func MutateDataOnly(current, desired *corev1.ConfigMap) {
 	current.Data = desired.Data
+}
+
+// MutateAnnotationsOnly is a default mutate function implementation
+// that copies only the annotations section from desired to current
+// configmap.
+func MutateAnnotationsOnly(current, desired *corev1.ConfigMap) {
+	current.Annotations = desired.Annotations
 }

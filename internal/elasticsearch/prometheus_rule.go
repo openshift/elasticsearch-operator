@@ -13,7 +13,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/utils"
 	k8sYAML "k8s.io/apimachinery/pkg/util/yaml"
 
-	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
 const (
