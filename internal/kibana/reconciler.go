@@ -473,12 +473,22 @@ func getProxyImage(ctx context.Context, c client.Client) (string, error) {
 			"tag", oauthProxyTag)
 	}
 
-	if policy.Type == imagev1.SourceTagReferencePolicy || is.Status.DockerImageRepository == "" {
-		// Use source image reference when 'source' policy is chosen or when there is no internal repository.
-		return tagItem.DockerImageReference, nil
+	var image string
+
+	switch policy.Type {
+	case imagev1.SourceTagReferencePolicy:
+		image = tagItem.DockerImageReference
+	case imagev1.LocalTagReferencePolicy:
+		image = fmt.Sprintf("%s@%s", is.Status.DockerImageRepository, tagItem.Image)
+	default:
+		return "", kverrors.New("Unknown TagReferencePolicy type",
+			"name", key.Name,
+			"namespace", key.Namespace,
+			"policy", policy.Type,
+			"tag", oauthProxyTag)
 	}
 
-	return fmt.Sprintf("%s@%s", is.Status.DockerImageRepository, tagItem.Image), nil
+	return image, nil
 }
 
 func findImageStreamStatusTag(tags []imagev1.NamedTagEventList, name string) *imagev1.NamedTagEventList {
