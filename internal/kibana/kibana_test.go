@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -305,18 +304,18 @@ var _ = Describe("Reconciling", func() {
 				Expect(dpl.Spec.Template.Spec.Containers[1].VolumeMounts).To(ContainElement(trustedCABundleVolumeMount))
 			})
 
-			It("should create a deployment with the correct kibana proxy image", func() {
+			It("should create a deployment with the source kibana proxy image", func() {
 				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				key := types.NamespacedName{Name: "kibana", Namespace: cluster.GetNamespace()}
-				depl := &v1.Deployment{}
+				depl := &appsv1.Deployment{}
 
 				err := client.Get(context.TODO(), key, depl)
 				Expect(err).To(BeNil())
 				Expect(depl.Spec.Template.Spec.Containers[1].Image).To(Equal(proxySourceImage.Status.Tags[0].Items[0].DockerImageReference))
 			})
 
-			It("should create a deployment with the correct kibana proxy image", func() {
+			It("should create a deployment with the local kibana proxy image", func() {
 				client = fake.NewFakeClient(
 					cluster,
 					kibanaCABundle,
@@ -329,7 +328,7 @@ var _ = Describe("Reconciling", func() {
 				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				key := types.NamespacedName{Name: "kibana", Namespace: cluster.GetNamespace()}
-				depl := &v1.Deployment{}
+				depl := &appsv1.Deployment{}
 
 				err := client.Get(context.TODO(), key, depl)
 				Expect(err).To(BeNil())
