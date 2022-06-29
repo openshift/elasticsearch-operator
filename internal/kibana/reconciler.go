@@ -448,7 +448,7 @@ func getProxyImage(ctx context.Context, c client.Client) (string, error) {
 			"namespace", key.Namespace)
 	}
 
-	tag := findImageStreamTag(is.Status.Tags, oauthProxyTag)
+	tag := findImageStreamStatusTag(is.Status.Tags, oauthProxyTag)
 	if tag == nil {
 		return "", kverrors.New("ImageStream tag not found",
 			"name", key.Name,
@@ -464,18 +464,37 @@ func getProxyImage(ctx context.Context, c client.Client) (string, error) {
 	}
 
 	tagItem := tag.Items[0]
-	if is.Status.DockerImageRepository == "" {
-		// Fall back to source image reference when there is no internal repository
+
+	policy := findTagReferencePolicy(is.Spec.Tags, oauthProxyTag)
+	if policy == nil {
+		return "", kverrors.New("ImageStream TagReferencePolicy not found",
+			"name", key.Name,
+			"namespace", key.Namespace,
+			"tag", oauthProxyTag)
+	}
+
+	if policy.Type == imagev1.SourceTagReferencePolicy || is.Status.DockerImageRepository == "" {
+		// Use source image reference when 'source' policy is chosen or when there is no internal repository.
 		return tagItem.DockerImageReference, nil
 	}
 
 	return fmt.Sprintf("%s@%s", is.Status.DockerImageRepository, tagItem.Image), nil
 }
 
-func findImageStreamTag(tags []imagev1.NamedTagEventList, name string) *imagev1.NamedTagEventList {
+func findImageStreamStatusTag(tags []imagev1.NamedTagEventList, name string) *imagev1.NamedTagEventList {
 	for _, t := range tags {
 		if t.Tag == name {
 			return &t
+		}
+	}
+
+	return nil
+}
+
+func findTagReferencePolicy(tags []imagev1.TagReference, name string) *imagev1.TagReferencePolicy {
+	for _, t := range tags {
+		if t.Name == name {
+			return &t.ReferencePolicy
 		}
 	}
 

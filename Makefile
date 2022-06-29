@@ -228,6 +228,16 @@ deploy-image: image ## Push operator image to cluster registry.
 deploy-example: # Create an example Elasticsearch custom resource.
 	@oc create -n $(DEPLOYMENT_NAMESPACE) -f hack/cr.yaml
 
+.PHONY: deploy-kibana
+deploy-kibana: # Create an example Kibana custom resource.
+	@oc create -n $(DEPLOYMENT_NAMESPACE) -f hack/kibana-cr.yaml
+
+.PHONY: deploy-all
+deploy-all:
+	$(MAKE) deploy
+	$(MAKE) deploy-example
+	$(MAKE) deploy-kibana
+
 .PHONY: scale-cvo
 scale-cvo:
 	@oc -n openshift-cluster-version scale deployment/cluster-version-operator --replicas=$(REPLICAS)
