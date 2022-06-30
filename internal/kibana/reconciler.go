@@ -466,14 +466,8 @@ func getProxyImage(ctx context.Context, c client.Client) (string, error) {
 	tagItem := tag.Items[0]
 
 	policy := findTagReferencePolicy(is.Spec.Tags, oauthProxyTag)
-	if policy == nil {
-		return "", kverrors.New("ImageStream TagReferencePolicy not found",
-			"name", key.Name,
-			"namespace", key.Namespace,
-			"tag", oauthProxyTag)
-	}
 
-	switch policy.Type {
+	switch policy {
 	case imagev1.SourceTagReferencePolicy:
 		return tagItem.DockerImageReference, nil
 	case imagev1.LocalTagReferencePolicy:
@@ -482,7 +476,7 @@ func getProxyImage(ctx context.Context, c client.Client) (string, error) {
 		return "", kverrors.New("Unknown TagReferencePolicy type",
 			"name", key.Name,
 			"namespace", key.Namespace,
-			"policy", policy.Type,
+			"policy", policy,
 			"tag", oauthProxyTag)
 	}
 }
@@ -497,14 +491,14 @@ func findImageStreamStatusTag(tags []imagev1.NamedTagEventList, name string) *im
 	return nil
 }
 
-func findTagReferencePolicy(tags []imagev1.TagReference, name string) *imagev1.TagReferencePolicy {
+func findTagReferencePolicy(tags []imagev1.TagReference, name string) imagev1.TagReferencePolicyType {
 	for _, t := range tags {
 		if t.Name == name {
-			return &t.ReferencePolicy
+			return t.ReferencePolicy.Type
 		}
 	}
 
-	return nil
+	return ""
 }
 
 func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
