@@ -234,9 +234,7 @@ deploy-kibana: # Create an example Kibana custom resource.
 
 .PHONY: deploy-all
 deploy-all:
-	$(MAKE) deploy
-	$(MAKE) deploy-example
-	$(MAKE) deploy-kibana
+	$(MAKE) deploy deploy-example deploy-kibana
 
 .PHONY: scale-cvo
 scale-cvo:
