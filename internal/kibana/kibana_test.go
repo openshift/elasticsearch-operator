@@ -2,6 +2,7 @@ package kibana
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ViaQ/logerr/v2/log"
 	. "github.com/onsi/ginkgo"
@@ -85,10 +86,44 @@ var _ = Describe("Reconciling", func() {
 				},
 			},
 		}
-		proxyImage = &imagev1.ImageStream{
+		proxySourceImage = &imagev1.ImageStream{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "oauth-proxy",
 				Namespace: "openshift",
+			},
+			Spec: imagev1.ImageStreamSpec{
+				Tags: []imagev1.TagReference{
+					{
+						Name:            "v4.4",
+						ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.SourceTagReferencePolicy},
+					},
+				},
+			},
+			Status: imagev1.ImageStreamStatus{
+				Tags: []imagev1.NamedTagEventList{
+					{
+						Tag: "v4.4",
+						Items: []imagev1.TagEvent{
+							{
+								DockerImageReference: "image-ref",
+							},
+						},
+					},
+				},
+			},
+		}
+		proxyLocalImage = &imagev1.ImageStream{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "oauth-proxy",
+				Namespace: "openshift",
+			},
+			Spec: imagev1.ImageStreamSpec{
+				Tags: []imagev1.TagReference{
+					{
+						Name:            "v4.4",
+						ReferencePolicy: imagev1.TagReferencePolicy{Type: imagev1.LocalTagReferencePolicy},
+					},
+				},
 			},
 			Status: imagev1.ImageStreamStatus{
 				DockerImageRepository: "image-registry",
@@ -163,7 +198,7 @@ var _ = Describe("Reconciling", func() {
 					kibanaCABundle,
 					kibanaSecret,
 					kibanaProxySecret,
-					proxyImage,
+					proxySourceImage,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
@@ -219,7 +254,7 @@ var _ = Describe("Reconciling", func() {
 					kibanaCABundle,
 					kibanaSecret,
 					kibanaProxySecret,
-					proxyImage,
+					proxySourceImage,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
@@ -268,6 +303,38 @@ var _ = Describe("Reconciling", func() {
 				Expect(dpl.Spec.Template.Spec.Volumes).To(ContainElement(trustedCABundleVolume))
 				Expect(dpl.Spec.Template.Spec.Containers[1].VolumeMounts).To(ContainElement(trustedCABundleVolumeMount))
 			})
+
+			It("should create a deployment with the source kibana proxy image", func() {
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+
+				key := types.NamespacedName{Name: "kibana", Namespace: cluster.GetNamespace()}
+				depl := &appsv1.Deployment{}
+
+				err := client.Get(context.TODO(), key, depl)
+				Expect(err).To(BeNil())
+				Expect(depl.Spec.Template.Spec.Containers[1].Image).To(Equal(proxySourceImage.Status.Tags[0].Items[0].DockerImageReference))
+			})
+
+			It("should create a deployment with the local kibana proxy image", func() {
+				client = fake.NewFakeClient(
+					cluster,
+					kibanaCABundle,
+					kibanaSecret,
+					kibanaProxySecret,
+					proxyLocalImage,
+				)
+				esClient = newFakeEsClient(client, fakeResponses)
+
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+
+				key := types.NamespacedName{Name: "kibana", Namespace: cluster.GetNamespace()}
+				depl := &appsv1.Deployment{}
+
+				err := client.Get(context.TODO(), key, depl)
+				Expect(err).To(BeNil())
+				Expect(depl.Spec.Template.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("%s@%s", proxyLocalImage.Status.DockerImageRepository, proxyLocalImage.Status.Tags[0].Items[0].Image)))
+			})
+
 		})
 	})
 })
