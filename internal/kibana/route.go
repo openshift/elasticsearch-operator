@@ -56,8 +56,9 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 		WithTLSConfig(&routev1.TLSConfig{
 			Termination:                   routev1.TLSTerminationReencrypt,
 			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
+			DestinationCACertificate:      string(caCert),
 		}).
-		WithCA(caCert).
+		//WithCA(caCert).
 		Build()
 
 	utils.AddOwnerRefToObject(rt, getOwnerRef(cluster))
