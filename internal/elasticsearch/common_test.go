@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -561,6 +562,47 @@ func TestPodSpecHasTaintTolerations(t *testing.T) {
 
 	if !reflect.DeepEqual(podTemplateSpec.Spec.Tolerations, expectedTolerations) {
 		t.Errorf("Exp. the tolerations to be %v but was %v", expectedTolerations, podTemplateSpec.Spec.Tolerations)
+	}
+}
+
+func TestElasticSearchSecurityContext(t *testing.T) {
+	podTemplate := newPodTemplateSpec(context.Background(), log.NewLogger("common-testing"), "test-node-name", "test-cluster-name", "test-namespace-name", api.ElasticsearchNode{}, api.ElasticsearchNodeSpec{}, map[string]string{}, map[api.ElasticsearchNodeRole]bool{}, nil, LogConfig{})
+
+	expectedPod := &v1.PodSecurityContext{
+		RunAsNonRoot: pointer.Bool(true),
+	}
+
+	if diff := cmp.Diff(podTemplate.Spec.SecurityContext, expectedPod); diff != "" {
+		t.Errorf("ES pod SecurityContext error: %s", diff)
+	}
+
+	expectedES := &v1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		Capabilities: &v1.Capabilities{
+			Drop: []v1.Capability{"ALL"},
+		},
+	}
+
+	expectedProxy := &v1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
+		Capabilities: &v1.Capabilities{
+			Drop: []v1.Capability{"ALL"},
+		},
+	}
+
+	for _, c := range podTemplate.Spec.Containers {
+		if c.Name == "proxy" {
+			if diff := cmp.Diff(c.SecurityContext, expectedProxy); diff != "" {
+				t.Errorf("proxy container SecurityContext error: %s", diff)
+			}
+		}
+
+		if c.Name == "elasticsearch" {
+			if diff := cmp.Diff(c.SecurityContext, expectedES); diff != "" {
+				t.Errorf("elasticsearch container SecurityContext error: %s", diff)
+			}
+		}
 	}
 }
 

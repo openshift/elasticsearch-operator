@@ -334,7 +334,6 @@ var _ = Describe("Reconciling", func() {
 				Expect(err).To(BeNil())
 				Expect(depl.Spec.Template.Spec.Containers[1].Image).To(Equal(fmt.Sprintf("%s@%s", proxyLocalImage.Status.DockerImageRepository, proxyLocalImage.Status.Tags[0].Items[0].Image)))
 			})
-
 		})
 	})
 })

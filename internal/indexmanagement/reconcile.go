@@ -29,6 +29,7 @@ import (
 	"github.com/openshift/elasticsearch-operator/internal/manifests/rbac"
 	"github.com/openshift/elasticsearch-operator/internal/metrics"
 	esapi "github.com/openshift/elasticsearch-operator/internal/types/elasticsearch"
+	"github.com/openshift/elasticsearch-operator/internal/utils"
 	"github.com/openshift/elasticsearch-operator/internal/utils/comparators"
 )
 
@@ -532,6 +533,7 @@ func newContainer(clusterName, name, image, scriptPath string, envvars []corev1.
 			{Name: "certs", ReadOnly: true, MountPath: "/etc/indexmanagement/keys"},
 			{Name: "scripts", ReadOnly: false, MountPath: workingDir},
 		},
+		SecurityContext: utils.ContainerSecurityContext(),
 	}
 
 	return container
@@ -570,6 +572,7 @@ func newCronJob(clusterName, namespace, name, schedule, script string, nodeSelec
 		WithRestartPolicy(corev1.RestartPolicyNever).
 		WithRestartPolicy(corev1.RestartPolicyNever).
 		WithTerminationGracePeriodSeconds(300 * time.Second).
+		WithSecurityContext(utils.PodSecurityContext()).
 		Build()
 
 	return cronjob.New(name, namespace, imLabels).

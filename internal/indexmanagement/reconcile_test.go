@@ -10,6 +10,7 @@ import (
 	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -52,6 +53,25 @@ var _ = Describe("Index Management", func() {
 		tolerations := []core.Toleration{}
 		name := fmt.Sprintf("%s-im-%s", cluster.Name, mapping.Name)
 		cronjob = newCronJob(cluster.Name, cluster.Namespace, name, "*/5 * * * *", "", selector, tolerations, []core.EnvVar{}, false)
+	})
+	Describe("#newCronJobSecurityContext", func() {
+		Context("when cronjob is created", func() {
+			It("should have the correct security contexts", func() {
+				expectedPod := &core.PodSecurityContext{
+					RunAsNonRoot: pointer.Bool(true),
+				}
+				Expect(cronjob.Spec.JobTemplate.Spec.Template.Spec.SecurityContext).To(Equal(expectedPod))
+				expected := &core.SecurityContext{
+					AllowPrivilegeEscalation: pointer.Bool(false),
+					Capabilities: &core.Capabilities{
+						Drop: []core.Capability{"ALL"},
+					},
+				}
+				for _, c := range cronjob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					Expect(c.SecurityContext).To(Equal(expected))
+				}
+			})
+		})
 	})
 	Describe("#formatCmd", func() {
 		Context("with no policies", func() {
