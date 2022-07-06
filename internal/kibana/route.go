@@ -58,7 +58,6 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 			DestinationCACertificate:      string(caCert),
 		}).
-		//WithCA(caCert).
 		Build()
 
 	utils.AddOwnerRefToObject(rt, getOwnerRef(cluster))
