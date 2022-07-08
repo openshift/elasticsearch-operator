@@ -655,6 +655,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 	).
 		WithNodeSelectors(visSpec.NodeSelector).
 		WithTolerations(visSpec.Tolerations...).
+		WithSecurityContext(utils.PodSecurityContext()).
 		Build()
 
 	if addTrustedCAVolume {
@@ -719,5 +720,6 @@ func NewContainer(containerName string, imageName string, pullPolicy v1.PullPoli
 		Image:           imageName,
 		ImagePullPolicy: pullPolicy,
 		Resources:       resources,
+		SecurityContext: utils.ContainerSecurityContext(),
 	}
 }

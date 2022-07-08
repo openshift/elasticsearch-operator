@@ -184,10 +184,8 @@ func newElasticsearchContainer(imageName string, envVars []v1.EnvVar, resourceRe
 				MountPath: elasticsearchCertsPath,
 			},
 		},
-		Resources: resourceRequirements,
-		SecurityContext: &v1.SecurityContext{
-			AllowPrivilegeEscalation: pointer.BoolPtr(false),
-		},
+		Resources:       resourceRequirements,
+		SecurityContext: utils.ContainerSecurityContext(),
 	}
 }
 
@@ -248,12 +246,12 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 			"--auth-admin-role=admin_reader",
 			"--auth-default-role=project_user",
 		},
-		Resources: resourceRequirements,
-		SecurityContext: &v1.SecurityContext{
-			ReadOnlyRootFilesystem:   pointer.BoolPtr(true),
-			AllowPrivilegeEscalation: pointer.BoolPtr(false),
-		},
+		Resources:       resourceRequirements,
+		SecurityContext: utils.ContainerSecurityContext(),
 	}
+
+	container.SecurityContext.ReadOnlyRootFilesystem = pointer.BoolPtr(true)
+
 	return container
 }
 
@@ -384,6 +382,7 @@ func newPodTemplateSpec(ctx context.Context, logger logr.Logger, nodeName, clust
 		WithAffinity(newAffinity(roleMap)).
 		WithNodeSelectors(selectors).
 		WithTolerations(tolerations...).
+		WithSecurityContext(utils.PodSecurityContext()).
 		Build()
 
 	return v1.PodTemplateSpec{

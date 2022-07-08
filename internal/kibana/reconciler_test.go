@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -15,6 +16,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 func TestNewKibanaPodSpecSetsProxyToUseServiceAccountAsOAuthClient(t *testing.T) {
@@ -415,6 +417,40 @@ func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 	mutateDeployment(lhsDeployment, rhsDeployment)
 	if !reflect.DeepEqual(lhsDeployment, rhsDeployment) {
 		t.Errorf("Exp. the lhs container to be updated to match rhs container")
+	}
+}
+
+func TestKibanaSecurityContext(t *testing.T) {
+	clusterRequest := &KibanaRequest{
+		client: nil,
+		cluster: &kibana.Kibana{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "test-namespace",
+			},
+			Spec: kibana.KibanaSpec{},
+		},
+	}
+
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	expectedPod := &v1.PodSecurityContext{
+		RunAsNonRoot: pointer.Bool(true),
+	}
+
+	if diff := cmp.Diff(podSpec.SecurityContext, expectedPod); diff != "" {
+		t.Errorf("Kibana pod SecurityContext error: %s", diff)
+	}
+
+	expectedContainer := &v1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		Capabilities: &v1.Capabilities{
+			Drop: []v1.Capability{"ALL"},
+		},
+	}
+
+	for _, c := range podSpec.Containers {
+		if diff := cmp.Diff(c.SecurityContext, expectedContainer); diff != "" {
+			t.Errorf("%s container SecurityContext error: %s", c.Name, diff)
+		}
 	}
 }
 

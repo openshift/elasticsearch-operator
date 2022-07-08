@@ -13,8 +13,9 @@ import (
 
 	"github.com/ViaQ/logerr/v2/kverrors"
 	configv1 "github.com/openshift/api/config/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 const (
@@ -83,7 +84,7 @@ func AreMapsSame(lhs, rhs map[string]string) bool {
 	return reflect.DeepEqual(lhs, rhs)
 }
 
-func AreTolerationsSame(lhs, rhs []v1.Toleration) bool {
+func AreTolerationsSame(lhs, rhs []corev1.Toleration) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}
@@ -97,7 +98,7 @@ func AreTolerationsSame(lhs, rhs []v1.Toleration) bool {
 	return true
 }
 
-func containsToleration(toleration v1.Toleration, tolerations []v1.Toleration) bool {
+func containsToleration(toleration corev1.Toleration, tolerations []corev1.Toleration) bool {
 	for _, t := range tolerations {
 		if isTolerationSame(t, toleration) {
 			return true
@@ -107,7 +108,7 @@ func containsToleration(toleration v1.Toleration, tolerations []v1.Toleration) b
 	return false
 }
 
-func isTolerationSame(lhs, rhs v1.Toleration) bool {
+func isTolerationSame(lhs, rhs corev1.Toleration) bool {
 	tolerationSecondsBool := false
 	// check that both are either null or not null
 	if (lhs.TolerationSeconds == nil) == (rhs.TolerationSeconds == nil) {
@@ -184,7 +185,7 @@ Notes:
 - reflect.DeepEqual does not return expected results if the to-be-compared value is a pointer.
 - needs to adjust with k8s.io/api/core/v#/types.go when the types are updated.
 **/
-func EnvValueEqual(env1, env2 []v1.EnvVar) bool {
+func EnvValueEqual(env1, env2 []corev1.EnvVar) bool {
 	var found bool
 	if len(env1) != len(env2) {
 		return false
@@ -215,7 +216,7 @@ func EnvValueEqual(env1, env2 []v1.EnvVar) bool {
 	return true
 }
 
-func EnvVarSourceEqual(esource1, esource2 v1.EnvVarSource) bool {
+func EnvVarSourceEqual(esource1, esource2 corev1.EnvVarSource) bool {
 	if (esource1.FieldRef != nil && esource2.FieldRef == nil) ||
 		(esource1.FieldRef == nil && esource2.FieldRef != nil) ||
 		(esource1.ResourceFieldRef != nil && esource2.ResourceFieldRef == nil) ||
@@ -250,43 +251,43 @@ func EnvVarSourceEqual(esource1, esource2 v1.EnvVarSource) bool {
 	return true
 }
 
-func EnvVarResourceFieldSelectorEqual(resource1, resource2 v1.ResourceFieldSelector) bool {
+func EnvVarResourceFieldSelectorEqual(resource1, resource2 corev1.ResourceFieldSelector) bool {
 	return resource1.ContainerName == resource2.ContainerName &&
 		resource1.Resource == resource2.Resource &&
 		resource1.Divisor.Cmp(resource2.Divisor) == 0
 }
 
-func SetProxyEnvVars(proxyConfig *configv1.Proxy) []v1.EnvVar {
-	envVars := []v1.EnvVar{}
+func SetProxyEnvVars(proxyConfig *configv1.Proxy) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{}
 	if proxyConfig == nil {
 		return envVars
 	}
 	if len(proxyConfig.Status.HTTPSProxy) != 0 {
-		envVars = append(envVars, v1.EnvVar{
+		envVars = append(envVars, corev1.EnvVar{
 			Name:  "HTTPS_PROXY",
 			Value: proxyConfig.Status.HTTPSProxy,
 		},
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  "https_proxy",
 				Value: proxyConfig.Status.HTTPSProxy,
 			})
 	}
 	if len(proxyConfig.Status.HTTPProxy) != 0 {
-		envVars = append(envVars, v1.EnvVar{
+		envVars = append(envVars, corev1.EnvVar{
 			Name:  "HTTP_PROXY",
 			Value: proxyConfig.Status.HTTPProxy,
 		},
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  "http_proxy",
 				Value: proxyConfig.Status.HTTPProxy,
 			})
 	}
 	if len(proxyConfig.Status.NoProxy) != 0 {
-		envVars = append(envVars, v1.EnvVar{
+		envVars = append(envVars, corev1.EnvVar{
 			Name:  "NO_PROXY",
 			Value: proxyConfig.Status.NoProxy,
 		},
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  "no_proxy",
 				Value: proxyConfig.Status.NoProxy,
 			})
@@ -307,4 +308,19 @@ func Contains(list []string, s string) bool {
 func GetMajorVersion(v string) string {
 	ver := strings.Split(v, ".")
 	return ver[0]
+}
+
+func ContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: pointer.Bool(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+}
+
+func PodSecurityContext() corev1.PodSecurityContext {
+	return corev1.PodSecurityContext{
+		RunAsNonRoot: pointer.Bool(true),
+	}
 }

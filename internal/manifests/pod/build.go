@@ -61,3 +61,9 @@ func (b *Builder) WithTerminationGracePeriodSeconds(p time.Duration) *Builder {
 	b.spec.TerminationGracePeriodSeconds = &d
 	return b
 }
+
+// WithSecurityContext sets the security context for the podspec
+func (b *Builder) WithSecurityContext(sc corev1.PodSecurityContext) *Builder {
+	b.spec.SecurityContext = &sc
+	return b
+}
