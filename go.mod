@@ -16,6 +16,7 @@ require (
 	github.com/openshift/api v0.0.0-20200602204738-768b7001fe69
 	github.com/prometheus/client_golang v1.12.1
 	go.uber.org/zap v1.16.0 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
