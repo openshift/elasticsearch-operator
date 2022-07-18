@@ -28,6 +28,9 @@ spec:
         resources: {}
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
         livenessProbe:
           httpGet:
             path: /healthz
@@ -59,3 +62,5 @@ spec:
             value: "quay.io/openshift-logging/kibana6:6.8.1"
           - name: RELATED_IMAGE_CURATOR
             value: "quay.io/openshift-logging/curator5:5.8.1"
+      securityContext:
+        runAsNonRoot: true

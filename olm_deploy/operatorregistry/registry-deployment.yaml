@@ -21,6 +21,11 @@ spec:
         - sh
         args:
         - /scripts/registry-init.sh
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - name: workdir
           mountPath: /bundle
@@ -64,8 +69,15 @@ spec:
           requests:
             cpu: 10m
             memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
+      securityContext:
+        runAsNonRoot: true
       volumes:
       - name: workdir
         emptyDir: {}

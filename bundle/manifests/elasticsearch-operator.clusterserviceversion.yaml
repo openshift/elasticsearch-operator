@@ -496,6 +496,11 @@ spec:
                   name: https
                   protocol: TCP
                 resources: {}
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
                 volumeMounts:
                 - mountPath: /var/run/secrets/serving-cert
                   name: elasticsearch-operator-metrics-cert
@@ -544,8 +549,13 @@ spec:
                 resources: {}
                 securityContext:
                   allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
               nodeSelector:
                 kubernetes.io/os: linux
+              securityContext:
+                runAsNonRoot: true
               serviceAccountName: elasticsearch-operator
               volumes:
               - name: elasticsearch-operator-metrics-cert

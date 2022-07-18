@@ -25,6 +25,11 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/serving-cert
           name: elasticsearch-operator-metrics-cert
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
       - name: elasticsearch-operator
         args:
         - "--health-probe-bind-address=:8081"
