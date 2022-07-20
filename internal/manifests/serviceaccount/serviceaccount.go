@@ -19,6 +19,20 @@ type EqualityFunc func(current, desired *corev1.ServiceAccount) bool
 // by applying the values from the desired serviceaccount.
 type MutateFunc func(current, desired *corev1.ServiceAccount)
 
+// Get returns the k8s serviceacount for the given object key or an error.
+func Get(ctx context.Context, c client.Client, key client.ObjectKey) (*corev1.ServiceAccount, error) {
+	s := New(key.Name, key.Namespace, map[string]string{})
+
+	if err := c.Get(ctx, key, s); err != nil {
+		return s, kverrors.Wrap(err, "failed to get serviceaccount",
+			"name", s.Name,
+			"namespace", s.Namespace,
+		)
+	}
+
+	return s, nil
+}
+
 // CreateOrUpdate attempts first to get the given serviceaccount. If the
 // serviceaccount does not exist, the serviceaccount will be created. Otherwise,
 // if the serviceaccount exists and the provided comparison func detects any changes
