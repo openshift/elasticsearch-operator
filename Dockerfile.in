@@ -1,4 +1,4 @@
-#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.17)
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.18)
 FROM registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:v1.17.5-202202101345.el8.gb1a57e0 AS builder
 
 

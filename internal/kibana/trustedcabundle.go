@@ -75,7 +75,6 @@ func calcTrustedCAHashValue(configMap *corev1.ConfigMap) (string, error) {
 	if !ok {
 		return "", kverrors.New("expected key does not exist in configmap",
 			"key", constants.TrustedCABundleKey,
-			"cluster", configMap.ClusterName,
 			"configmap", configMap.Name)
 	}
 
