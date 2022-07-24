@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
-	mathRand "math/rand"
 	"net"
 	"regexp"
 	"sync"
@@ -557,8 +556,15 @@ func ensureSessionSecret(secretLength int, runes []rune, session *sessionSecret)
 
 	// otherwise its different, regenerate it
 	b := make([]rune, secretLength)
+	bigRuneCount := big.NewInt(int64(len(runes)))
+
 	for i := range b {
-		b[i] = runes[mathRand.Intn(len(runes))]
+		bigIndex, err := rand.Int(rand.Reader, bigRuneCount)
+		if err != nil {
+			return err
+		}
+
+		b[i] = runes[int(bigIndex.Int64())]
 	}
 
 	session.secret = []byte(string(b))

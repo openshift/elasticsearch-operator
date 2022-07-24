@@ -339,6 +339,7 @@ func getTLSClient(log logr.Logger, clusterName, namespace string, client k8sclie
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
+				MinVersion:         tls.VersionTLS12,
 				RootCAs:            getRootCA(log, clusterName, namespace),
 			},
 		},
@@ -366,6 +367,7 @@ func getMTlsClient(log logr.Logger, clusterName, namespace string, client k8scli
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: false,
+				MinVersion:         tls.VersionTLS12,
 				RootCAs:            getRootCA(log, clusterName, namespace),
 				Certificates:       getClientCertificates(clusterName, namespace),
 			},

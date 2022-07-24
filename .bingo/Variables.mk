@@ -17,17 +17,17 @@ GO     ?= $(shell which go)
 #	@echo "Running bingo"
 #	@$(BINGO) <flags/args..>
 #
-BINGO := $(GOBIN)/bingo-v0.5.2
+BINGO := $(GOBIN)/bingo-v0.6.0
 $(BINGO): $(BINGO_DIR)/bingo.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/bingo-v0.5.2"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.5.2 "github.com/bwplotka/bingo"
+	@echo "(re)installing $(GOBIN)/bingo-v0.6.0"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.6.0 "github.com/bwplotka/bingo"
 
-CONTROLLER_GEN := $(GOBIN)/controller-gen-v0.8.0
+CONTROLLER_GEN := $(GOBIN)/controller-gen-v0.9.0
 $(CONTROLLER_GEN): $(BINGO_DIR)/controller-gen.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/controller-gen-v0.8.0"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=controller-gen.mod -o=$(GOBIN)/controller-gen-v0.8.0 "sigs.k8s.io/controller-tools/cmd/controller-gen"
+	@echo "(re)installing $(GOBIN)/controller-gen-v0.9.0"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=controller-gen.mod -o=$(GOBIN)/controller-gen-v0.9.0 "sigs.k8s.io/controller-tools/cmd/controller-gen"
 
 GO_JUNIT_REPORT := $(GOBIN)/go-junit-report-v0.9.1
 $(GO_JUNIT_REPORT): $(BINGO_DIR)/go-junit-report.mod
@@ -41,11 +41,11 @@ $(GOFUMPORTS): $(BINGO_DIR)/gofumports.mod
 	@echo "(re)installing $(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6"
 	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=gofumports.mod -o=$(GOBIN)/gofumports-v0.0.0-20201027171050-85d5401eb0f6 "mvdan.cc/gofumpt/gofumports"
 
-GOLANGCI_LINT := $(GOBIN)/golangci-lint-v1.27.0
+GOLANGCI_LINT := $(GOBIN)/golangci-lint-v1.47.2
 $(GOLANGCI_LINT): $(BINGO_DIR)/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/golangci-lint-v1.27.0"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.27.0 "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	@echo "(re)installing $(GOBIN)/golangci-lint-v1.47.2"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.47.2 "github.com/golangci/golangci-lint/cmd/golangci-lint"
 
 JUNITMERGE := $(GOBIN)/junitmerge-v0.0.0-20201103150245-a5287ef1495b
 $(JUNITMERGE): $(BINGO_DIR)/junitmerge.mod
@@ -65,17 +65,17 @@ $(KUSTOMIZE): $(BINGO_DIR)/kustomize.mod
 	@echo "(re)installing $(GOBIN)/kustomize-v3.8.7"
 	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=kustomize.mod -o=$(GOBIN)/kustomize-v3.8.7 "sigs.k8s.io/kustomize/kustomize/v3"
 
-OPERATOR_SDK := $(GOBIN)/operator-sdk-v1.19.1
+OPERATOR_SDK := $(GOBIN)/operator-sdk-v1.22.2
 $(OPERATOR_SDK): $(BINGO_DIR)/operator-sdk.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/operator-sdk-v1.19.1"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v1.19.1 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
+	@echo "(re)installing $(GOBIN)/operator-sdk-v1.22.2"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=operator-sdk.mod -o=$(GOBIN)/operator-sdk-v1.22.2 "github.com/operator-framework/operator-sdk/cmd/operator-sdk"
 
-OPM := $(GOBIN)/opm-v1.17.5
+OPM := $(GOBIN)/opm-v1.23.0
 $(OPM): $(BINGO_DIR)/opm.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/opm-v1.17.5"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.17.5 "github.com/operator-framework/operator-registry/cmd/opm"
+	@echo "(re)installing $(GOBIN)/opm-v1.23.0"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=opm.mod -o=$(GOBIN)/opm-v1.23.0 "github.com/operator-framework/operator-registry/cmd/opm"
 
 PROMTOOL := $(GOBIN)/promtool-v1.8.2-0.20200522113006-f4dd45609a05
 $(PROMTOOL): $(BINGO_DIR)/promtool.mod
