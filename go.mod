@@ -9,7 +9,7 @@ require (
 	github.com/inhies/go-bytesize v0.0.0-20151001220322-5990f52c6ad6
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
-	github.com/openshift/api v0.0.0-20220124143425-d74727069f6f
+	github.com/openshift/api v0.0.0-20220712151050-2647eb31dee7 // Corresponds to release-4.11
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.55.1
 	github.com/prometheus/client_golang v1.12.1
 	gopkg.in/yaml.v2 v2.4.0
