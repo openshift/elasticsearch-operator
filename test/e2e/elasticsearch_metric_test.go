@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -73,12 +72,12 @@ func operatorMetricsTest(t *testing.T) {
 	}
 
 	// create two service accounts
-	authorizedSA, err := newServiceAccount(t, k8sClient, operatorNamespace, authorizedSaName)
+	authorizedSA, authorizedSASecret, err := newServiceAccount(t, k8sClient, operatorNamespace, authorizedSaName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	unauthorizedSA, err := newServiceAccount(t, k8sClient, operatorNamespace, unauthorizedSaName)
+	unauthorizedSA, unauthorizedSASecret, err := newServiceAccount(t, k8sClient, operatorNamespace, unauthorizedSaName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,33 +92,21 @@ func operatorMetricsTest(t *testing.T) {
 	bindClusterRoleWithSA(t, k8sClient, "system:basic-user", "view-"+clusterRoleName+"-unauth", unauthorizedSA)
 
 	// get serviceAccount token
-	var getSaToken func(saName string) string
-	getSaToken = func(saName string) string {
-		sa := &corev1.ServiceAccount{}
-		key := client.ObjectKey{Name: saName, Namespace: operatorNamespace}
-		if err := k8sClient.Get(context.TODO(), key, sa); err != nil {
-			t.Errorf("can not get sa %s", saName)
-		}
+	var getSaToken func(secret *corev1.Secret) string
+	getSaToken = func(secret *corev1.Secret) string {
+		s := &corev1.Secret{}
+		key := client.ObjectKeyFromObject(secret)
 
-		secret := &corev1.Secret{}
-		for _, se := range sa.Secrets {
-			if strings.Index(se.DeepCopy().Name, saName+"-token") >= 0 {
-				key := client.ObjectKey{Name: se.Name, Namespace: operatorNamespace}
-				if err := k8sClient.Get(context.TODO(), key, secret); err != nil {
-					t.Errorf("cannot get secret %s", se.Name)
-				}
-				break
-			}
-		}
-		if secret == nil {
+		err := k8sClient.Get(context.TODO(), key, s)
+		if err != nil {
 			return ""
 		}
-		token := string(secret.Data["token"])
-		return token
+
+		return string(s.Data["token"])
 	}
 
 	podName := pods.Items[0].GetName()
-	token := getSaToken(authorizedSaName)
+	token := getSaToken(authorizedSASecret)
 	if token == "" {
 		t.Errorf("secret token not exist for %s", authorizedSaName)
 	}
@@ -128,7 +115,7 @@ func operatorMetricsTest(t *testing.T) {
 	if code != "200" {
 		t.Error("Authorized service account should have access to es metrics", "error", err)
 	}
-	token = getSaToken(unauthorizedSaName)
+	token = getSaToken(unauthorizedSASecret)
 	if token == "" {
 		t.Errorf("secret token not exist for %s", unauthorizedSaName)
 	}
@@ -140,7 +127,7 @@ func operatorMetricsTest(t *testing.T) {
 
 	// cleanup
 	cleanupEsTest(t, k8sClient, operatorNamespace, esUUID)
-	// Delete authorizedSA, unauthorizedSA, 3 clusterRoleName
+	// Delete authorizedSA, authorizedSAToken, unauthorizedSA, unauthorizedSAToken, 3 clusterRoleName
 	cleanupSaRoles(t, k8sClient, operatorNamespace, esUUID)
 	t.Log("Finished successfully")
 }
@@ -164,18 +151,27 @@ func cleanupSaRoles(t *testing.T, cli client.Client, namespace string, esUUID st
 		t.Errorf("cannot remove ClusterRole: %v", err)
 	}
 
-	// remove service accounts
 	for _, saName := range []string{authorizedSaName, unauthorizedSaName} {
+		// remove service account
 		sa := &corev1.ServiceAccount{}
 		key = types.NamespacedName{Name: saName, Namespace: operatorNamespace}
 		err := waitForDeleteObject(t, cli, key, sa, retryInterval, timeout)
 		if err != nil {
 			t.Errorf("cannot remove service account %s: %v", saName, err)
 		}
+
+		// remove service account token secret
+		s := &corev1.Secret{}
+		name := fmt.Sprintf("%s-token", saName)
+		key := client.ObjectKey{Name: name, Namespace: operatorNamespace}
+		err = waitForDeleteObject(t, cli, key, s, retryInterval, timeout)
+		if err != nil {
+			t.Errorf("cannot remove service account token secret %s: %v", name, err)
+		}
 	}
 }
 
-func newServiceAccount(t *testing.T, client client.Client, namespace, name string) (*corev1.ServiceAccount, error) {
+func newServiceAccount(t *testing.T, c client.Client, namespace, name string) (*corev1.ServiceAccount, *corev1.Secret, error) {
 	sa := &corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceAccount",
@@ -187,12 +183,39 @@ func newServiceAccount(t *testing.T, client client.Client, namespace, name strin
 		},
 	}
 
-	err := client.Create(context.TODO(), sa)
+	err := c.Create(context.TODO(), sa)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return sa, nil
+	key := client.ObjectKeyFromObject(sa)
+	err = c.Get(context.TODO(), key, sa)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	saTokenSecret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-token", name),
+			Namespace: namespace,
+			Annotations: map[string]string{
+				corev1.ServiceAccountNameKey: sa.Name,
+				corev1.ServiceAccountUIDKey:  string(sa.UID),
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+
+	err = c.Create(context.TODO(), saTokenSecret)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return sa, saTokenSecret, nil
 }
 
 func newClusterRole(t *testing.T, client client.Client, name string) {
