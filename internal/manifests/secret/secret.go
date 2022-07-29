@@ -122,12 +122,40 @@ func CreateOrUpdate(ctx context.Context, c client.Client, s *corev1.Secret, equa
 	return nil
 }
 
+// Delete attempts to delete a k8s secret if existing or returns an error.
+func Delete(ctx context.Context, c client.Client, key client.ObjectKey) error {
+	s := New(key.Name, key.Namespace, nil)
+
+	if err := c.Delete(ctx, s, &client.DeleteOptions{}); err != nil {
+		return kverrors.Wrap(err, "failed to delete secret",
+			"name", s.Name,
+			"namespace", s.Namespace,
+		)
+	}
+
+	return nil
+}
+
+// AnnotationsAndDataEqual returns true if the annotations and data of the current
+// and desired are exactly same.
+func AnnotationsAndDataEqual(current, desired *corev1.Secret) bool {
+	return equality.Semantic.DeepEqual(current.Annotations, desired.Annotations) &&
+		equality.Semantic.DeepEqual(current.Data, desired.Data)
+}
+
 // DataEqual returns true only if the data of current and desird are exactly same.
 func DataEqual(current, desired *corev1.Secret) bool {
 	return equality.Semantic.DeepEqual(current.Data, desired.Data)
 }
 
-// MutateDataOnly is a default mutation function for services
+// MutateDataOnly is a  mutation function for secrets that copies
+// the annoations and data fields from desired to current.
+func MutateAnnotationsAndDataOnly(current, desired *corev1.Secret) {
+	current.Annotations = desired.Annotations
+	current.Data = desired.Data
+}
+
+// MutateDataOnly is a default mutation function for secrets
 // that copies only the data field from desired to current.
 func MutateDataOnly(current, desired *corev1.Secret) {
 	current.Data = desired.Data

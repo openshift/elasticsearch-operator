@@ -49,6 +49,18 @@ var defaultResources = map[string]v1.ResourceRequirements{
 	},
 }
 
+func serviceMonitorServiceAccountName(dplName string) string {
+	return fmt.Sprintf("%s-metrics", dplName)
+}
+
+func serviceMonitorServiceAccountTokenName(dplName string) string {
+	return fmt.Sprintf("%s-token", serviceMonitorServiceAccountName(dplName))
+}
+
+func serviceCABundleName(dplName string) string {
+	return fmt.Sprintf("%s-ca-bundle", dplName)
+}
+
 func getESImage() string {
 	return utils.LookupEnvWithDefault("ELASTICSEARCH_IMAGE", constants.ElasticsearchDefaultImage)
 }
@@ -243,7 +255,7 @@ func newProxyContainer(imageName, clusterName, namespace string, logConfig LogCo
 			"--upstream-ca=/etc/proxy/elasticsearch/admin-ca",
 			"--cache-expiry=60s",
 			`--auth-backend-role=admin_reader={"namespace": "default", "verb": "get", "resource": "pods/log"}`,
-			`--auth-backend-role=prometheus={"verb": "get", "resource": "/metrics"}`,
+			fmt.Sprintf(`--auth-backend-role=prometheus={"namespace":"%s", "verb": "get", "resource": "metrics", "resourceAPIGroup": "elasticsearch.openshift.io"}`, namespace),
 			`--auth-backend-role=jaeger={"verb": "get", "resource": "/jaeger", "resourceAPIGroup": "elasticsearch.jaegertracing.io"}`,
 			`--auth-backend-role=elasticsearch-operator={"namespace": "*", "verb": "*", "resource": "*", "resourceAPIGroup": "logging.openshift.io"}`,
 			fmt.Sprintf("--auth-backend-role=index-management={\"namespace\":\"%s\", \"verb\": \"*\", \"resource\": \"indices\", \"resourceAPIGroup\": \"elasticsearch.openshift.io\"}", namespace),

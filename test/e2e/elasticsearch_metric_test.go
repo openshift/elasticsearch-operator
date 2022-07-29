@@ -206,8 +206,9 @@ func newClusterRole(t *testing.T, client client.Client, name string) {
 		},
 		Rules: []rbac.PolicyRule{
 			{
-				NonResourceURLs: []string{"/metrics"},
-				Verbs:           []string{"get"},
+				APIGroups: []string{"elasticsearch.openshift.io"},
+				Resources: []string{"metrics"},
+				Verbs:     []string{"get"},
 			},
 		},
 	}
