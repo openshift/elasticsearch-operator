@@ -207,6 +207,10 @@ func (node *deploymentNode) checkPodSpecMatches(labels map[string]string) bool {
 		if !pod.ArePodSpecEqual(p.Spec, node.self.Spec.Template.Spec, false) {
 			return false
 		}
+
+		if !containsContainersReadyCondition(p.Status.Conditions) {
+			return false
+		}
 	}
 
 	return true
@@ -382,4 +386,14 @@ func (node *deploymentNode) isChanged() bool {
 	}
 
 	return !pod.ArePodTemplateSpecEqual(current.Spec.Template, node.self.Spec.Template)
+}
+
+func containsContainersReadyCondition(conditions []v1.PodCondition) bool {
+	for _, c := range conditions {
+		if c.Type == v1.ContainersReady {
+			return c.Status == v1.ConditionTrue
+		}
+	}
+
+	return false
 }
