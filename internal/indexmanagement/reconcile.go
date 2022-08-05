@@ -56,9 +56,13 @@ var (
 	fullExecMode int32 = 0o777
 
 	imLabels = map[string]string{
-		"provider":      "openshift",
-		"component":     "indexManagement",
-		"logging-infra": "indexManagement",
+		"provider":                     "openshift",
+		"component":                    "indexManagement",
+		"logging-infra":                "indexManagement",
+		"app.kubernetes.io/name":       "indexManagement",
+		"app.kubernetes.io/component":  "indexManagement",
+		"app.kubernetes.io/created-by": "elasticsearch-operator",
+		"app.kubernetes.io/managed-by": "elasticsearch-operator",
 	}
 )
 

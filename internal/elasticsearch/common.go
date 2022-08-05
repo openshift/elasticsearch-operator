@@ -339,12 +339,16 @@ func newEnvVars(nodeName, clusterName, instanceRAM string, roleMap map[api.Elast
 // TODO: add isChanged check for labels and label selector
 func newLabels(clusterName, nodeName string, roleMap map[api.ElasticsearchNodeRole]bool) map[string]string {
 	return map[string]string{
-		"es-node-client": strconv.FormatBool(roleMap[api.ElasticsearchRoleClient]),
-		"es-node-data":   strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
-		"es-node-master": strconv.FormatBool(roleMap[api.ElasticsearchRoleMaster]),
-		"cluster-name":   clusterName,
-		"component":      "elasticsearch",
-		"node-name":      nodeName,
+		"es-node-client":               strconv.FormatBool(roleMap[api.ElasticsearchRoleClient]),
+		"es-node-data":                 strconv.FormatBool(roleMap[api.ElasticsearchRoleData]),
+		"es-node-master":               strconv.FormatBool(roleMap[api.ElasticsearchRoleMaster]),
+		"cluster-name":                 clusterName,
+		"component":                    "elasticsearch",
+		"node-name":                    nodeName,
+		"app.kubernetes.io/name":       nodeName,
+		"app.kubernetes.io/component":  "elasticsearch",
+		"app.kubernetes.io/created-by": "elasticsearch-operator",
+		"app.kubernetes.io/managed-by": "elasticsearch-operator",
 	}
 }
 
