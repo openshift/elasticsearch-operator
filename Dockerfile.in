@@ -1,5 +1,5 @@
-#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.16)
-FROM registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:v1.16.6-202107291435.el8.git.83c4106 AS builder
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_8_golang_1.17)
+FROM registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:v1.17.12-202207291741.el8.g01211db AS builder
 
 
 ENV BUILD_VERSION=${CI_CONTAINER_VERSION}
