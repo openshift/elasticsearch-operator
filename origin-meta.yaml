@@ -1,6 +1,6 @@
 from:
 - source: registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder\:v(?:[\.0-9\-]*).*
-  target: registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.16-openshift-4.8 AS builder
+  target: registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10 AS builder
 - source: registry.redhat.io/ubi8:8.(\d)-([\.0-9])*
   target: registry.ci.openshift.org/ocp/4.8:base
 env:
