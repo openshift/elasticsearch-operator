@@ -27,6 +27,7 @@ import (
 
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/console"
 
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
@@ -67,6 +68,9 @@ func (r *KibanaReconciler) Reconcile(ctx context.Context, request ctrl.Request) 
 		if errors.IsNotFound(err) {
 			// the CR no longer exists, since it will be cleaned up by the scheduler we don't want to trigger an event for it
 			unregisterKibanaNamespacedName(r.Log, request)
+			if err := console.DeleteConsoleExternalLogLink(context.TODO(), r.Client); err != nil {
+				r.Log.Error(err, "failed to delete consoleexternalloglink")
+			}
 			return reconcile.Result{}, nil
 		}
 

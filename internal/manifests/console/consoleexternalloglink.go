@@ -18,6 +18,8 @@ type ConsoleExternalLogLinkEqualityFunc func(current, desired *consolev1.Console
 // by applying the values from the desired consoleexternalloglink.
 type MutateConsoleExternalLogLinkFunc func(current, desired *consolev1.ConsoleExternalLogLink)
 
+const ConsoleExternalLogLinkName = "kibana"
+
 // CreateOrUpdateConsoleExternalLogLink attempts first to get the given consoleexternalloglink. If the
 // consoleexternalloglink does not exist, the consoleexternalloglink will be created. Otherwise,
 // if the consoleexternalloglink exists and the provided comparison func detects any changes
@@ -88,4 +90,25 @@ func ConsoleExternalLogLinkEqual(current, desired *consolev1.ConsoleExternalLogL
 func MutateConsoleExternalLogLink(current, desired *consolev1.ConsoleExternalLogLink) {
 	current.Spec.HrefTemplate = desired.Spec.HrefTemplate
 	current.Spec.Text = desired.Spec.Text
+}
+
+func DeleteConsoleExternalLogLink(ctx context.Context, c client.Client) error {
+	current := &consolev1.ConsoleExternalLogLink{}
+	key := client.ObjectKey{Name: ConsoleExternalLogLinkName}
+	err := c.Get(ctx, key, current)
+	if err != nil {
+		return kverrors.Wrap(err, "failed to get consoleexternalloglink",
+			"name", ConsoleExternalLogLinkName,
+		)
+	}
+
+	if err := c.Delete(ctx, current); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return kverrors.Wrap(err, "failed to delete consoleexternalloglink",
+				"name", ConsoleExternalLogLinkName,
+			)
+		}
+	}
+
+	return nil
 }
