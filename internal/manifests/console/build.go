@@ -27,14 +27,14 @@ func NewConsoleLink(name, href, text, icon, section string) *consolev1.ConsoleLi
 }
 
 // NewConsoleExternalLogLink returns a new opensnfhit api ConsoleExternalLogLink
-func NewConsoleExternalLogLink(resourceName, consoleText, hrefTemplate string, labels map[string]string) *consolev1.ConsoleExternalLogLink {
+func NewConsoleExternalLogLink(consoleText, hrefTemplate string, labels map[string]string) *consolev1.ConsoleExternalLogLink {
 	return &consolev1.ConsoleExternalLogLink{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConsoleExternalLogLink",
 			APIVersion: consolev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   resourceName,
+			Name:   consoleExternalLogLinkName,
 			Labels: labels,
 		},
 		Spec: consolev1.ConsoleExternalLogLinkSpec{
