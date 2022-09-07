@@ -6,6 +6,7 @@ import (
 	"github.com/ViaQ/logerr/v2/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -93,13 +94,10 @@ func MutateConsoleExternalLogLink(current, desired *consolev1.ConsoleExternalLog
 }
 
 func DeleteConsoleExternalLogLink(ctx context.Context, c client.Client) error {
-	current := &consolev1.ConsoleExternalLogLink{}
-	key := client.ObjectKey{Name: ConsoleExternalLogLinkName}
-	err := c.Get(ctx, key, current)
-	if err != nil {
-		return kverrors.Wrap(err, "failed to get consoleexternalloglink",
-			"name", ConsoleExternalLogLinkName,
-		)
+	current := &consolev1.ConsoleExternalLogLink{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ConsoleExternalLogLinkName,
+		},
 	}
 
 	if err := c.Delete(ctx, current); err != nil {
