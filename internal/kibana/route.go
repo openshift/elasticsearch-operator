@@ -108,7 +108,6 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink(
 	}
 
 	consoleExternalLogLink := console.NewConsoleExternalLogLink(
-		"kibana",
 		"Show in Kibana",
 		strings.Join([]string{
 			kibanaURL,
