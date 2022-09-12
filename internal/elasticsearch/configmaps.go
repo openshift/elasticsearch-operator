@@ -93,6 +93,8 @@ func (er *ElasticsearchRequest) CreateOrUpdateConfigMaps() error {
 		"service.beta.openshift.io/inject-cabundle": "true",
 	}
 
+	dpl.AddOwnerRefTo(cm)
+
 	_, err = configmap.CreateOrUpdate(context.TODO(), er.client, cm, configmap.AnnotationsEqual, configmap.MutateAnnotationsOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update elasticsearch ca-bundle configmap",
