@@ -20,6 +20,7 @@ var (
 )
 
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks;consoleexternalloglinks,verbs=get;create;update;delete
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=logging.openshift.io,resources=*,verbs=*
 // +kubebuilder:rbac:groups=core,resources=pods;pods/exec;services;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts;services/finalizers,verbs=*
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs="*"
