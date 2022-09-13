@@ -10,6 +10,7 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -37,6 +38,8 @@ var scheme = apiruntime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
+	utilruntime.Must(apiextensions.AddToScheme(scheme))
 
 	utilruntime.Must(loggingv1.AddToScheme(scheme))
 

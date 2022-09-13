@@ -34,7 +34,7 @@ func NewConsoleExternalLogLink(consoleText, hrefTemplate string, labels map[stri
 			APIVersion: consolev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   consoleExternalLogLinkName,
+			Name:   ExternalLogLinkName,
 			Labels: labels,
 		},
 		Spec: consolev1.ConsoleExternalLogLinkSpec{

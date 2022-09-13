@@ -14,9 +14,11 @@ import (
 	loggingv1 "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 	"github.com/openshift/elasticsearch-operator/internal/constants"
 	"github.com/openshift/elasticsearch-operator/internal/elasticsearch/esclient"
+	"github.com/openshift/elasticsearch-operator/internal/manifests/console"
 	"github.com/openshift/elasticsearch-operator/test/helpers"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -31,6 +33,7 @@ var _ = Describe("Reconciling", func() {
 	_ = consolev1.AddToScheme(scheme.Scheme)
 	_ = loggingv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 	_ = imagev1.AddToScheme(scheme.Scheme)
+	_ = apiextensions.AddToScheme(scheme.Scheme)
 
 	var (
 		logger  = log.NewLogger("kibana-testing")
@@ -139,6 +142,16 @@ var _ = Describe("Reconciling", func() {
 				},
 			},
 		}
+		consoleLinkCRD = &apiextensions.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "consolelinks.console.openshift.io",
+			},
+		}
+		consoleExternalLogLinkCRD = &apiextensions.CustomResourceDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "consoleexternalloglinks.console.openshift.io",
+			},
+		}
 	)
 
 	Describe("Kibana", func() {
@@ -165,6 +178,26 @@ var _ = Describe("Reconciling", func() {
 						Section:  "Observability",
 						ImageURL: icon,
 					},
+				},
+			}
+
+			consoleExternalLogLink = &consolev1.ConsoleExternalLogLink{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConsoleExternalLogLink",
+					APIVersion: "console.openshift.io/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            console.ExternalLogLinkName,
+					ResourceVersion: "1",
+					Labels: map[string]string{
+						"component":     "support",
+						"logging-infra": "support",
+						"provider":      "openshift",
+					},
+				},
+				Spec: consolev1.ConsoleExternalLogLinkSpec{
+					Text:         "Show in Kibana",
+					HrefTemplate: "https:///app/kibana#/discover?_g=(time:(from:now-1w,mode:relative,to:now))&_a=(columns:!(kubernetes.container_name,message),query:(query_string:(analyze_wildcard:!t,query:'kubernetes.pod_name:\"${resourceName}\" AND kubernetes.namespace_name:\"${resourceNamespace}\" AND kubernetes.container_name.raw:\"${containerName}\"')),sort:!('@timestamp',desc))",
 				},
 			}
 
@@ -199,6 +232,8 @@ var _ = Describe("Reconciling", func() {
 					kibanaSecret,
 					kibanaProxySecret,
 					proxySourceImage,
+					consoleLinkCRD,
+					consoleExternalLogLinkCRD,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
@@ -207,11 +242,49 @@ var _ = Describe("Reconciling", func() {
 				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
 
 				key := types.NamespacedName{Name: KibanaConsoleLinkName}
-				got := &consolev1.ConsoleLink{}
+				cl := &consolev1.ConsoleLink{}
 
-				err := client.Get(context.TODO(), key, got)
+				err := client.Get(context.TODO(), key, cl)
 				Expect(err).To(BeNil())
-				Expect(got).To(Equal(consoleLink))
+				Expect(cl).To(Equal(consoleLink))
+
+				key = types.NamespacedName{Name: console.ExternalLogLinkName}
+				cel := &consolev1.ConsoleExternalLogLink{}
+
+				err = client.Get(context.TODO(), key, cel)
+				Expect(err).To(BeNil())
+				Expect(cel).To(Equal(consoleExternalLogLink))
+			})
+		})
+
+		Context("when creating Kibana for the first time on a new cluster with no console", func() {
+			BeforeEach(func() {
+				client = fake.NewFakeClient(
+					cluster,
+					kibanaCABundle,
+					kibanaSecret,
+					kibanaProxySecret,
+					proxySourceImage,
+				)
+				esClient = newFakeEsClient(client, fakeResponses)
+			})
+
+			It("should not create any console links for the Kibana route", func() {
+				Expect(Reconcile(logger, cluster, client, esClient, proxy, false, metav1.OwnerReference{})).Should(Succeed())
+
+				key := types.NamespacedName{Name: KibanaConsoleLinkName}
+				cl := &consolev1.ConsoleLink{}
+
+				err := client.Get(context.TODO(), key, cl)
+				Expect(err).To(Not(BeNil()))
+				Expect(cl).To(Equal(&consolev1.ConsoleLink{}))
+
+				key = types.NamespacedName{Name: console.ExternalLogLinkName}
+				cel := &consolev1.ConsoleExternalLogLink{}
+
+				err = client.Get(context.TODO(), key, cel)
+				Expect(err).To(Not(BeNil()))
+				Expect(cel).To(Equal(&consolev1.ConsoleExternalLogLink{}))
 			})
 		})
 
