@@ -6,6 +6,7 @@ import (
 	"github.com/ViaQ/logerr/v2/kverrors"
 	consolev1 "github.com/openshift/api/console/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -17,6 +18,8 @@ type ConsoleExternalLogLinkEqualityFunc func(current, desired *consolev1.Console
 // MutateFunc is the type for functions that mutate the current consoleexternalloglink
 // by applying the values from the desired consoleexternalloglink.
 type MutateConsoleExternalLogLinkFunc func(current, desired *consolev1.ConsoleExternalLogLink)
+
+const consoleExternalLogLinkName = "kibana"
 
 // CreateOrUpdateConsoleExternalLogLink attempts first to get the given consoleexternalloglink. If the
 // consoleexternalloglink does not exist, the consoleexternalloglink will be created. Otherwise,
@@ -88,4 +91,22 @@ func ConsoleExternalLogLinkEqual(current, desired *consolev1.ConsoleExternalLogL
 func MutateConsoleExternalLogLink(current, desired *consolev1.ConsoleExternalLogLink) {
 	current.Spec.HrefTemplate = desired.Spec.HrefTemplate
 	current.Spec.Text = desired.Spec.Text
+}
+
+func DeleteConsoleExternalLogLink(ctx context.Context, c client.Client) error {
+	current := &consolev1.ConsoleExternalLogLink{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: consoleExternalLogLinkName,
+		},
+	}
+
+	if err := c.Delete(ctx, current); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return kverrors.Wrap(err, "failed to delete consoleexternalloglink",
+				"name", consoleExternalLogLinkName,
+			)
+		}
+	}
+
+	return nil
 }
