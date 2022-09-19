@@ -6,8 +6,8 @@ import (
 	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metaerrors "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -97,8 +97,8 @@ func MutateConsoleExternalLogLink(current, desired *consolev1.ConsoleExternalLog
 }
 
 func DeleteConsoleExternalLogLink(ctx context.Context, c client.Client, log logr.Logger) error {
-	if !ConsoleExternalLogLinkEnabled(c, log) {
-		log.Info("Console CRD is not found, skipping consoleexternalloglink deletion")
+	if !ConsoleExternalLogLinkEnabled(c) {
+		log.Info("ConsoleExternalLogLink kind is not found, skipping consoleexternalloglink deletion")
 		return nil
 	}
 
@@ -119,11 +119,10 @@ func DeleteConsoleExternalLogLink(ctx context.Context, c client.Client, log logr
 	return nil
 }
 
-func ConsoleExternalLogLinkEnabled(client client.Client, log logr.Logger) bool {
-	consoleLinkCRD := apiextensions.CustomResourceDefinition{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: "consoleexternalloglinks.console.openshift.io"}, &consoleLinkCRD)
+func ConsoleExternalLogLinkEnabled(client client.Client) bool {
+	current := &consolev1.ConsoleExternalLogLink{}
+	key := types.NamespacedName{Name: ExternalLogLinkName}
+	err := client.Get(context.TODO(), key, current)
 
-	//log.Error(err, "ConsoleExternalLogLinkEnabled")
-
-	return err == nil
+	return err == nil || !metaerrors.IsNoMatchError(err)
 }
