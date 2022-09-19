@@ -4,8 +4,11 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/v2/kverrors"
+	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metaerrors "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -72,7 +75,12 @@ func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *console
 	return nil
 }
 
-func DeleteKibanaConsoleLink(ctx context.Context, c client.Client) error {
+func DeleteKibanaConsoleLink(ctx context.Context, c client.Client, log logr.Logger) error {
+	if !ConsoleLinkEnabled(c) {
+		log.Info("ConsoleLink kind is not found, skipping console link deletion")
+		return nil
+	}
+
 	current := NewConsoleLink(KibanaConsoleLinkName, "", "", "", "")
 
 	if err := c.Delete(ctx, current); err != nil {
@@ -115,4 +123,12 @@ func ConsoleLinksEqual(current, desired *consolev1.ConsoleLink) bool {
 // only the spec from desired to current consolelink.
 func MutateConsoleLinkSpecOnly(current, desired *consolev1.ConsoleLink) {
 	current.Spec = desired.Spec
+}
+
+func ConsoleLinkEnabled(client client.Client) bool {
+	current := &consolev1.ConsoleLink{}
+	key := types.NamespacedName{Name: KibanaConsoleLinkName}
+	err := client.Get(context.TODO(), key, current)
+
+	return err == nil || !metaerrors.IsNoMatchError(err)
 }

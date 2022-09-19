@@ -1,0 +1,62 @@
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  namespace: openshift-cluster-version
+  name: version
+spec:
+  overrides:
+    - kind: Deployment
+      name: console-operator
+      namespace: openshift-console-operator
+      unmanaged: true
+      group: apps
+    - kind: ClusterRole
+      name: console-operator
+      namespace: ""
+      unmanaged: true
+      group: rbac.authorization.k8s.io
+    - kind: CustomResourceDefinition
+      name: consoleclidownloads.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consoleexternalloglinks.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consolelinks.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consolenotifications.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consoleplugins.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consolequickstarts.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consoles.config.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consoles.operator.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
+    - kind: CustomResourceDefinition
+      name: consoleyamlsamples.console.openshift.io
+      namespace: ""
+      unmanaged: true
+      group: apiextensions.k8s.io
