@@ -6,8 +6,8 @@ import (
 	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metaerrors "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,8 +76,8 @@ func CreateOrUpdateConsoleLink(ctx context.Context, c client.Client, cl *console
 }
 
 func DeleteKibanaConsoleLink(ctx context.Context, c client.Client, log logr.Logger) error {
-	if !ConsoleLinkEnabled(c, log) {
-		log.Info("Console CRD is not found, skipping console link deletion")
+	if !ConsoleLinkEnabled(c) {
+		log.Info("ConsoleLink kind is not found, skipping console link deletion")
 		return nil
 	}
 
@@ -125,11 +125,10 @@ func MutateConsoleLinkSpecOnly(current, desired *consolev1.ConsoleLink) {
 	current.Spec = desired.Spec
 }
 
-func ConsoleLinkEnabled(client client.Client, log logr.Logger) bool {
-	consoleLinkCRD := apiextensions.CustomResourceDefinition{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: "consolelinks.console.openshift.io"}, &consoleLinkCRD)
+func ConsoleLinkEnabled(client client.Client) bool {
+	current := &consolev1.ConsoleLink{}
+	key := types.NamespacedName{Name: KibanaConsoleLinkName}
+	err := client.Get(context.TODO(), key, current)
 
-	//log.Error(err, "ConsoleLinkEnabled")
-
-	return err == nil
+	return err == nil || !metaerrors.IsNoMatchError(err)
 }

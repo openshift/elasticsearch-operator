@@ -74,12 +74,12 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
-	if !console.ConsoleLinkEnabled(clusterRequest.client, clusterRequest.log) {
-		clusterRequest.log.Info("Console CRD is not found, skipping console link creation")
+	cluster := clusterRequest.cluster
+
+	if !console.ConsoleLinkEnabled(clusterRequest.client) {
+		clusterRequest.log.Info("ConsoleLink kind is not found, skipping console link creation")
 		return nil
 	}
-
-	cluster := clusterRequest.cluster
 
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
@@ -99,12 +99,12 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 }
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink() (err error) {
-	if !console.ConsoleExternalLogLinkEnabled(clusterRequest.client, clusterRequest.log) {
-		clusterRequest.log.Info("Console CRD is not found, skipping console external log link creation")
+	cluster := clusterRequest.cluster
+
+	if !console.ConsoleExternalLogLinkEnabled(clusterRequest.client) {
+		clusterRequest.log.Info("ConsoleExternalLogLink kind is not found, skipping console external log link creation")
 		return nil
 	}
-
-	cluster := clusterRequest.cluster
 
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
