@@ -76,6 +76,11 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaRoute() error {
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 	cluster := clusterRequest.cluster
 
+	if !console.ConsoleLinkEnabled(clusterRequest.client) {
+		clusterRequest.log.Info("ConsoleLink kind is not found, skipping console link creation")
+		return nil
+	}
+
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
 		return kverrors.Wrap(err, "failed to get route URL for kibana")
@@ -95,6 +100,11 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleLink() error {
 
 func (clusterRequest *KibanaRequest) createOrUpdateKibanaConsoleExternalLogLink() (err error) {
 	cluster := clusterRequest.cluster
+
+	if !console.ConsoleExternalLogLinkEnabled(clusterRequest.client) {
+		clusterRequest.log.Info("ConsoleExternalLogLink kind is not found, skipping console external log link creation")
+		return nil
+	}
 
 	kibanaURL, err := clusterRequest.GetRouteURL("kibana")
 	if err != nil {
