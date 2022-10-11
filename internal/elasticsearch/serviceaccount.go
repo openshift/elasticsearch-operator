@@ -94,7 +94,7 @@ func (er *ElasticsearchRequest) CreateOrUpdateServiceAccountTokenSecret() error 
 		}
 	}
 
-	err = secret.CreateOrUpdate(context.TODO(), er.client, s, secret.AnnotationsAndDataEqual, secret.MutateAnnotationsAndDataOnly)
+	err = secret.CreateOrUpdate(context.TODO(), er.client, s, secret.AnnotationsEqual, secret.MutateAnnotationsOnly)
 	if err != nil {
 		return kverrors.Wrap(err, "failed to create or update serviceacccount token secret for service monitor serviceaccount",
 			"cluster", dpl.Name,
