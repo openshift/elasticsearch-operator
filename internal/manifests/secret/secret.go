@@ -135,23 +135,20 @@ func Delete(ctx context.Context, c client.Client, key client.ObjectKey) error {
 	return nil
 }
 
-// AnnotationsAndDataEqual returns true if the annotations and data of the current
-// and desired are exactly same.
-func AnnotationsAndDataEqual(current, desired *corev1.Secret) bool {
-	return equality.Semantic.DeepEqual(current.Annotations, desired.Annotations) &&
-		equality.Semantic.DeepEqual(current.Data, desired.Data)
+// AnnotationsEqual returns true if the annotations of the two resources are the same.
+func AnnotationsEqual(current, desired *corev1.Secret) bool {
+	return equality.Semantic.DeepEqual(current.Annotations, desired.Annotations)
 }
 
-// DataEqual returns true only if the data of current and desird are exactly same.
+// DataEqual returns true only if the data of current and desired are exactly same.
 func DataEqual(current, desired *corev1.Secret) bool {
 	return equality.Semantic.DeepEqual(current.Data, desired.Data)
 }
 
-// MutateDataOnly is a  mutation function for secrets that copies
-// the annoations and data fields from desired to current.
-func MutateAnnotationsAndDataOnly(current, desired *corev1.Secret) {
+// MutateAnnotationsOnly is a mutation function for secrets that
+// only copies the annotations from desired to current.
+func MutateAnnotationsOnly(current, desired *corev1.Secret) {
 	current.Annotations = desired.Annotations
-	current.Data = desired.Data
 }
 
 // MutateDataOnly is a default mutation function for secrets
