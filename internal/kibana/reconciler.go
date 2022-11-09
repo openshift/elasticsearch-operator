@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/ViaQ/logerr/kverrors"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +39,7 @@ const (
 	oauthProxyImageName          = "oauth-proxy"
 	oauthProxyNamespace          = "openshift"
 	oauthProxyTag                = "v4.4"
+	oauthTimeout                 = 24 * time.Hour
 )
 
 var kibanaServiceAccountAnnotations = map[string]string{
@@ -100,6 +102,19 @@ func Reconcile(requestCluster *kibana.Kibana, requestClient client.Client, esCli
 	}
 
 	return clusterKibanaRequest.UpdateStatus()
+}
+
+func getOAuthConfig(r client.Client) (*configv1.OAuth, error) {
+	oauthNamespacedName := types.NamespacedName{Name: constants.OAuthName}
+	oauthConfig := &configv1.OAuth{}
+	if err := r.Get(context.TODO(), oauthNamespacedName, oauthConfig); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return nil, kverrors.Wrap(err, "encountered unexpected error getting oauth",
+				"oauth", oauthNamespacedName,
+			)
+		}
+	}
+	return oauthConfig, nil
 }
 
 func GetProxyConfig(r client.Client) (*configv1.Proxy, error) {
@@ -227,10 +242,21 @@ func (clusterRequest *KibanaRequest) createOrUpdateKibanaDeployment(proxyConfig 
 		return kverrors.Wrap(err, "Failed to get oauth-proxy image")
 	}
 
+	oauthConfig, err := getOAuthConfig(clusterRequest.client)
+	if err != nil {
+		return kverrors.Wrap(err, "Failed to get oauth config")
+	}
+
+	cookieTimeout := oauthTimeout
+	if oauthConfig != nil && oauthConfig.Spec.TokenConfig.AccessTokenInactivityTimeout != nil {
+		cookieTimeout = oauthConfig.Spec.TokenConfig.AccessTokenInactivityTimeout.Duration
+	}
+
 	kibanaPodSpec := newKibanaPodSpec(
 		clusterRequest,
 		fmt.Sprintf("%s.%s.svc", clusterName, clusterRequest.cluster.Namespace),
 		proxyConfig,
+		cookieTimeout,
 		kibanaTrustBundle,
 		oauthProxyImage,
 	)
@@ -500,7 +526,7 @@ func findTagReferencePolicy(tags []imagev1.TagReference, name string) imagev1.Ta
 	return ""
 }
 
-func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy,
+func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyConfig *configv1.Proxy, oauthTimeout time.Duration,
 	trustedCABundleCM *v1.ConfigMap, oauthProxyImage string) v1.PodSpec {
 	visSpec := kibana.KibanaSpec{}
 	if cluster.cluster != nil {
@@ -583,7 +609,7 @@ func newKibanaPodSpec(cluster *KibanaRequest, elasticsearchName string, proxyCon
 		fmt.Sprintf("-client-id=system:serviceaccount:%s:kibana", cluster.cluster.Namespace),
 		"-client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token",
 		"-cookie-secret-file=/secret/session-secret",
-		"-cookie-expire=24h",
+		fmt.Sprintf("-cookie-expire=%s", oauthTimeout),
 		"-skip-provider-button",
 		"-upstream=http://localhost:5601",
 		"-scope=user:info user:check-access user:list-projects",

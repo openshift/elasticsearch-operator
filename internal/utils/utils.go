@@ -186,12 +186,14 @@ func RemoveString(slice []string, s string) (result []string) {
 	return
 }
 
-/**
+/*
+*
 EnvValueEqual - check if 2 EnvValues are equal or not
 Notes:
 - reflect.DeepEqual does not return expected results if the to-be-compared value is a pointer.
 - needs to adjust with k8s.io/api/core/v#/types.go when the types are updated.
-**/
+*
+*/
 func EnvValueEqual(env1, env2 []v1.EnvVar) bool {
 	var found bool
 	if len(env1) != len(env2) {
