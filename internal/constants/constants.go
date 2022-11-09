@@ -4,6 +4,7 @@ import "github.com/openshift/elasticsearch-operator/internal/utils"
 
 const (
 	ProxyName                   = "cluster"
+	OAuthName                   = "cluster"
 	TrustedCABundleKey          = "ca-bundle.crt"
 	TrustedCABundleMountDir     = "/etc/pki/ca-trust/extracted/pem/"
 	TrustedCABundleMountFile    = "tls-ca-bundle.pem"
