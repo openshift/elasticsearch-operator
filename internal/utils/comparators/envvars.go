@@ -6,12 +6,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-/**
+/*
+*
 EnvValueEqual - check if 2 EnvValues are equal or not
 Notes:
 - reflect.DeepEqual does not return expected results if the to-be-compared value is a pointer.
 - needs to adjust with k8s.io/api/core/v#/types.go when the types are updated.
-**/
+*
+*/
 func EnvValueEqual(lhs, rhs []v1.EnvVar) bool {
 	if len(lhs) != len(rhs) {
 		return false

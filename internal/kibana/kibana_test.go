@@ -32,6 +32,7 @@ var _ = Describe("Reconciling", func() {
 	_ = consolev1.AddToScheme(scheme.Scheme)
 	_ = loggingv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 	_ = imagev1.AddToScheme(scheme.Scheme)
+	_ = configv1.AddToScheme(scheme.Scheme)
 
 	var (
 		logger  = log.NewLogger("kibana-testing")
@@ -140,6 +141,7 @@ var _ = Describe("Reconciling", func() {
 				},
 			},
 		}
+		oauth = &configv1.OAuth{}
 	)
 
 	Describe("Kibana", func() {
@@ -220,6 +222,7 @@ var _ = Describe("Reconciling", func() {
 					kibanaSecret,
 					kibanaProxySecret,
 					proxySourceImage,
+					oauth,
 				)
 				esClient = newFakeEsClient(client, fakeResponses)
 			})
