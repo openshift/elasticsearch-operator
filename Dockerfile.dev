@@ -24,7 +24,7 @@ ADD ${REMOTE_SOURCE}/Makefile ${REMOTE_SOURCE}/main.go ${REMOTE_SOURCE}/go.mod $
 RUN make build
 
 #@follow_tag(registry.redhat.io/ubi8:latest)
-FROM docker.io/centos:8 AS centos
+FROM registry.redhat.io/ubi8/ubi:8.7-929
 LABEL \
         io.k8s.display-name="OpenShift elasticsearch-operator" \
         io.k8s.description="This is the component that manages an Elasticsearch cluster on a kubernetes based platform" \
