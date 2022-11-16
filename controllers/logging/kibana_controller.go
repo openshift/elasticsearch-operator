@@ -295,6 +295,14 @@ func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
+	// Watch for updates to the global oauth config only
+	oauthPred := predicate.Funcs{
+		UpdateFunc:  func(e event.UpdateEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
+		CreateFunc:  func(e event.CreateEvent) bool { return true },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+
 	// TODO: replace the watches with For and Own
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("kibana-controller").
@@ -308,5 +316,6 @@ func (r *KibanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			IsController: true,
 		}, builder.WithPredicates(routePred)).
 		Watches(&source.Kind{Type: &imagev1.ImageStream{}}, globalMapHandler, builder.WithPredicates(isPred)).
+		Watches(&source.Kind{Type: &configv1.OAuth{}}, globalMapHandler, builder.WithPredicates(oauthPred)).
 		Complete(r)
 }
