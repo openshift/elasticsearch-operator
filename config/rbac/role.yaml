@@ -49,6 +49,7 @@ rules:
 - apiGroups:
   - config.openshift.io
   resources:
+  - oauths
   - proxies
   verbs:
   - get

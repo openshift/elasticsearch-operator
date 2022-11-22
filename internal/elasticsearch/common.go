@@ -661,19 +661,22 @@ func newVolumeSource(clusterName, nodeName, namespace string, node api.Elasticse
 kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: restricted-es-access
+
+	name: restricted-es-access
+
 spec:
-  podSelector:
-    matchLabels:
-      component: elasticsearch
-  ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          name: elasticsearch-operator
-    ports:
-    - protocol: TCP
-      port: 9200
+
+	podSelector:
+	  matchLabels:
+	    component: elasticsearch
+	ingress:
+	- from:
+	  - podSelector:
+	      matchLabels:
+	        name: elasticsearch-operator
+	  ports:
+	  - protocol: TCP
+	    port: 9200
 */
 func newNetworkPolicy(namespace string) networking.NetworkPolicy {
 	protocol := v1.ProtocolTCP

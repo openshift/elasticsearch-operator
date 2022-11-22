@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	kibana "github.com/openshift/elasticsearch-operator/apis/logging/v1"
 
@@ -25,7 +26,7 @@ func TestNewKibanaPodSpecSetsProxyToUseServiceAccountAsOAuthClient(t *testing.T)
 			},
 		},
 	}
-	spec := newKibanaPodSpec(cluster, "kibana", nil, nil, "")
+	spec := newKibanaPodSpec(cluster, "kibana", nil, oauthTimeout, nil, "")
 	for _, arg := range spec.Containers[1].Args {
 		keyValue := strings.Split(arg, "=")
 		if len(keyValue) >= 2 && keyValue[0] == "-client-id" {
@@ -49,7 +50,7 @@ func TestNewKibanaPodSpecWhenFieldsAreUndefined(t *testing.T) {
 			},
 		},
 	}
-	podSpec := newKibanaPodSpec(cluster, "test-app-name", nil, nil, "")
+	podSpec := newKibanaPodSpec(cluster, "test-app-name", nil, oauthTimeout, nil, "")
 
 	if len(podSpec.Containers) != 2 {
 		t.Error("Exp. there to be 2 container")
@@ -99,7 +100,7 @@ func TestNewKibanaPodSpecWhenResourcesAreDefined(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 
 	limitMemory := resource.MustParse("100Gi")
 	requestMemory := resource.MustParse("120Gi")
@@ -154,7 +155,7 @@ func TestNewKibanaPodSpecWhenNodeSelectorIsDefined(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 
 	// check kibana
 	if !reflect.DeepEqual(podSpec.NodeSelector, expSelector) {
@@ -175,7 +176,7 @@ func TestNewKibanaPodNoTolerations(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 	tolerations := podSpec.Tolerations
 
 	if !utils.AreTolerationsSame(tolerations, expTolerations) {
@@ -204,7 +205,7 @@ func TestNewKibanaPodWithTolerations(t *testing.T) {
 		},
 	}
 
-	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	podSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 	tolerations := podSpec.Tolerations
 
 	if !utils.AreTolerationsSame(tolerations, expTolerations) {
@@ -244,6 +245,7 @@ func TestNewKibanaPodSpecWhenProxyConfigExists(t *testing.T) {
 				NoProxy:    noproxy,
 			},
 		},
+		1*time.Hour,
 		&v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "openshift-logging",
@@ -259,6 +261,8 @@ func TestNewKibanaPodSpecWhenProxyConfigExists(t *testing.T) {
 	if len(podSpec.Containers) != 2 {
 		t.Error("Exp. there to be 2 kibana container")
 	}
+
+	checkKibanaCookieExpire(t, podSpec, "-cookie-expire=1h0m0s")
 
 	checkKibanaProxyEnvVar(t, podSpec, "HTTP_PROXY", httpproxy)
 	checkKibanaProxyEnvVar(t, podSpec, "HTTPS_PROXY", httpproxy)
@@ -279,7 +283,7 @@ func TestDeploymentDifferentWithKibanaEnvVar(t *testing.T) {
 		},
 	}
 
-	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 
 	lhsDeployment := NewDeployment(
 		"kibana",
@@ -290,7 +294,7 @@ func TestDeploymentDifferentWithKibanaEnvVar(t *testing.T) {
 		lhsPodSpec,
 	)
 
-	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 
 	index := -1
 	for k, v := range rhsPodSpec.Containers {
@@ -335,7 +339,7 @@ func TestDeploymentDifferentWithKibanaReplicas(t *testing.T) {
 			},
 		},
 	}
-	lhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil, "")
+	lhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 	lhsDeployment := NewDeployment(
 		"kibana",
 		ClusterRequest.cluster.Namespace,
@@ -346,7 +350,7 @@ func TestDeploymentDifferentWithKibanaReplicas(t *testing.T) {
 	)
 
 	newReplicas := int32(2)
-	rhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, nil, "")
+	rhsPodSpec := newKibanaPodSpec(ClusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 	rhsDeployment := NewDeployment(
 		"kibana",
 		ClusterRequest.cluster.Namespace,
@@ -374,7 +378,7 @@ func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 		},
 	}
 
-	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	lhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 
 	lhsDeployment := NewDeployment(
 		"kibana",
@@ -385,7 +389,7 @@ func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 		lhsPodSpec,
 	)
 
-	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, nil, "")
+	rhsPodSpec := newKibanaPodSpec(clusterRequest, "test-app-name", nil, oauthTimeout, nil, "")
 
 	index := -1
 	for k, v := range rhsPodSpec.Containers {
@@ -416,6 +420,17 @@ func TestDeploymentDifferentWithProxyEnvVar(t *testing.T) {
 	if !reflect.DeepEqual(lhsDeployment, rhsDeployment) {
 		t.Errorf("Exp. the lhs container to be updated to match rhs container")
 	}
+}
+
+func checkKibanaCookieExpire(t *testing.T, podSpec v1.PodSpec, cookieArg string) {
+	args := podSpec.Containers[1].Args
+	for _, arg := range args {
+		if arg == cookieArg {
+			return
+		}
+	}
+
+	t.Errorf("Cookie arg %q not found", cookieArg)
 }
 
 func checkKibanaProxyEnvVar(t *testing.T, podSpec v1.PodSpec, name string, value string) {
