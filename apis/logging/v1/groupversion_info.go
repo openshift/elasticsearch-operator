@@ -32,7 +32,7 @@ var (
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews;subjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=*
-// +kubebuilder:rbac:groups=config.openshift.io,resources=proxies,verbs=get;list;watch
+// +kubebuilder:rbac:groups=config.openshift.io,resources=proxies;oauths,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=create;delete
 // +kubebuilder:rbac:groups=apps,resourceNames=elasticsearch-operator,resources=deployments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;create;update
