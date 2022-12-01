@@ -1,9 +1,9 @@
 packageName: elasticsearch-operator
 defaultChannel: "stable"
 channels:
-- name: "5.6"
-  currentCSV: elasticsearch-operator.v5.6.0
+- name: "5.7"
+  currentCSV: elasticsearch-operator.v5.7.0
 - name: "stable"
-  currentCSV: elasticsearch-operator.v5.6.0
-- name: "stable-5.6"
-  currentCSV: elasticsearch-operator.v5.6.0
+  currentCSV: elasticsearch-operator.v5.7.0
+- name: "stable-5.7"
+  currentCSV: elasticsearch-operator.v5.7.0
