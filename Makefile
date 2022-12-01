@@ -10,6 +10,7 @@ export GOFLAGS=
 export GO111MODULE=on
 
 export LOGGING_VERSION=5.6
+DEPLOY_CHANNEL?=$LOGGING_VERSION
 
 export APP_NAME=elasticsearch-operator
 
