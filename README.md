@@ -13,3 +13,4 @@ Operator is designed to provide self-service for the Elasticsearch cluster opera
 - Elasticsearch operator provides kubectl interface to monitor your Elasticsearch cluster
 
 To experiment or contribute to the development of elasticsearch-operator, see [HACKING.md](./docs/HACKING.md) and [REVIEW.md](./docs/REVIEW.md)
+
