@@ -26,6 +26,8 @@ spec:
           capabilities:
             drop:
             - ALL
+          seccompProfile:
+            type: "RuntimeDefault"
         volumeMounts:
         - name: workdir
           mountPath: /bundle
@@ -74,6 +76,8 @@ spec:
           capabilities:
             drop:
             - ALL
+          seccompProfile:
+            type: "RuntimeDefault"
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       securityContext:
