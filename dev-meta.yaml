@@ -1,8 +1,8 @@
 from:
 - source: registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder\:v(?:[\.0-9\-]*).*
-  target: registry.ci.openshift.org/openshift/release:rhel-8-release-golang-1.19-openshift-4.12 AS builder
-- source: registry.redhat.io/ubi8:8.(\d)-([\.0-9])*
-  target: docker.io/centos:8 AS centos
+  target: registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.20-openshift-4.14 AS builder
+- source: registry.redhat.io/ubi9:9.(\d)-([\.0-9])*
+  target: docker.io/centos:9 AS centos
 env:
 - source: RUNBOOK_BASE_URL=.*
   target: RUNBOOK_BASE_URL="https://github.com/openshift/elasticsearch-operator/blob/master/docs/alerts.md"
