@@ -149,7 +149,7 @@ prometheus:
   query.metrics: true
 
 # increase the max header size above 8kb default
-http.max_header_size: 128kb
+http.max_header_size: 512kb
 
 opendistro_security:
   authcz.admin_dn:
