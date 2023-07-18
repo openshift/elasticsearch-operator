@@ -742,9 +742,6 @@ func validateCASecret(secret *v1.Secret) (*certCA, error) {
 		return nil, err
 	}
 
-	if !isValidCA(x509Cert, rsaKey) {
-		return nil, fmt.Errorf("invalid CA")
-	}
 	return &certCA{
 		certificate{
 			certBytes,
