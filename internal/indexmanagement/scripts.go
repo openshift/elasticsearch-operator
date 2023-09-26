@@ -92,6 +92,14 @@ def catWriteAliases(policy):
   except:
     return ""
 
+def docsCountInIndex(alias):
+  try:
+    es_client = getEsClient()
+    docs_count = es_client.cat.count(index=alias, h="count")
+    return docs_count
+  except:
+    return "-1"
+
 def rolloverForPolicy(alias, decoded):
   original_stdout = sys.stdout
   try:
@@ -432,6 +440,17 @@ function rollover() {
 
   echo "Current write index for ${policy}-write: $writeIndex"
 
+  # do not rollover if index is empty
+  echo "Checking if $writeIndex is empty"
+  docs_count="$(docsCountInIndex "$writeIndex")"
+  if [[ $docs_count -eq 0 ]] ; then
+    echo "Skipping rollover because index is empty"
+    return 0
+  elif [[ $docs_count -eq -1 ]] ; then
+    echo "There was an error calculating the number of documents"
+    return 1
+  fi
+
   # try to rollover
   responseRollover="$(rolloverForPolicy "${policy}-write" "$decoded")"
 
@@ -610,6 +629,12 @@ function catWriteAliases() {
   local policy="$1"
 
   python -c 'import indexManagementClient; print(indexManagementClient.catWriteAliases("'$policy'"))'
+}
+
+function docsCountInIndex() {
+  local policy="$1"
+
+  python -c 'import indexManagementClient; print(indexManagementClient.docsCountInIndex("'$policy'"))'
 }
 
 function rolloverForPolicy() {
