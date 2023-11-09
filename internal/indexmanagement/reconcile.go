@@ -117,6 +117,12 @@ func (imr *IndexManagementRequest) createOrUpdateIndexManagement() error {
 		imr.cullIndexManagement(spec.Mappings, policies)
 		for _, mapping := range spec.Mappings {
 			ll := imr.ll.WithValues("mapping", mapping.Name)
+
+			if err := imr.initializeInitialIndexAlias(mapping); err != nil {
+				ll.Error(err, "Failed to initialize first index alias for mapping", "name", mapping.Name)
+				return err
+			}
+
 			// create or update template
 			if err := imr.createOrUpdateIndexTemplate(mapping); err != nil {
 				ll.Error(err, "failed to create index template")
@@ -175,6 +181,31 @@ func (imr *IndexManagementRequest) cullIndexManagement(mappings []apis.IndexMana
 			}
 		}
 	}
+}
+
+func (imr *IndexManagementRequest) initializeInitialIndexAlias(mapping apis.IndexManagementPolicyMappingSpec) error {
+	indices, err := imr.esClient.ListIndicesForAlias(mapping.Name)
+	if err != nil {
+		return err
+	}
+
+	if len(indices) != 0 {
+		return nil
+	}
+
+	indexName := fmt.Sprintf("%s-000001", mapping.Name)
+
+	imr.ll.Info("initialize the mapping name alias for the initial index", "mapping", mapping.Name, "index", indexName)
+
+	actions := esapi.AliasActions{
+		Actions: []esapi.AliasAction{
+			{
+				Add: &esapi.AddAliasAction{Index: indexName, Alias: mapping.Name},
+			},
+		},
+	}
+
+	return imr.esClient.UpdateAlias(actions)
 }
 
 func (imr *IndexManagementRequest) initializeIndexIfNeeded(mapping apis.IndexManagementPolicyMappingSpec) error {
