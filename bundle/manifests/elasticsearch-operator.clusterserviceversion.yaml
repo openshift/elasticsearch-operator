@@ -98,7 +98,7 @@ metadata:
         }
       ]
     capabilities: Full Lifecycle
-    categories: OpenShift Optional, Logging & Tracing
+    categories: OpenShift Optional, Logging & Tracing, Observability
     certified: "false"
     containerImage: quay.io/openshift-logging/elasticsearch-operator:latest
     createdAt: "2023-12-06T07:03:48Z"
