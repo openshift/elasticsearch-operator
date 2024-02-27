@@ -90,7 +90,7 @@ def catWriteAliases(policy):
     response_list = list(response.split("\n"))
     return " ".join(sorted(set(response_list)))
   except:
-    return ""
+    return "error"
 
 def docsCountInIndex(alias):
   try:
@@ -415,7 +415,7 @@ function getWriteAliases() {
   # "_cat/aliases/${policy}*-write?h=alias" | uniq
   aliasResponse="$(catWriteAliases "$policy")"
 
-  if [ -z "$aliasResponse" ]; then
+  if [[ "$aliasResponse" == "error" ]]; then
     echo "Received an empty response from elasticsearch -- server may not be ready"
     return 1
   fi
@@ -668,6 +668,11 @@ decoded=$(echo $PAYLOAD | base64 -d)
 # need to get a list of all mappings under ${POLICY_MAPPING}, drop suffix '-write' iterate over
 writeAliases="$(getWriteAliases "$POLICY_MAPPING")"
 
+if [ -z "$writeAliases" ]; then
+  echo "No indices found. Skipping rollover."
+  exit 0
+fi
+
 for aliasBase in $writeAliases; do
   alias="$(echo $aliasBase | sed 's/-write$//g')"
   if ! rollover "$alias" "$decoded" ; then
@@ -684,8 +689,12 @@ source /tmp/scripts/indexManagement
 # need to get a list of all mappings under ${POLICY_MAPPING}, drop suffix '-write' iterate over
 writeAliases="$(getWriteAliases "$POLICY_MAPPING")"
 
-for aliasBase in $writeAliases; do
+if [ -z "$writeAliases" ]; then
+  echo "No indices found. Skipping delete."
+  exit 0
+fi
 
+for aliasBase in $writeAliases; do
   alias="$(echo $aliasBase | sed 's/-write$//g')"
   if ! delete "$alias" ; then
     exit 1
