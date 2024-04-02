@@ -4,7 +4,7 @@ metadata:
   creationTimestamp: null
   labels:
     name: elasticsearch-operator
-  name: metrics-reader
+  name: elasticsearch-operator-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
