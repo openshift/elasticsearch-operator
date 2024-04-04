@@ -8,14 +8,21 @@ metadata:
   name: elasticsearch-operator-metrics-monitor
 spec:
   endpoints:
-    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    - authorization:
+        type: bearer
+        credentials:
+          key: token
+          name: elasticsearch-operator-metrics-token
       path: /metrics
       targetPort: 8443
       scheme: https
       interval: 30s
       scrapeTimeout: 10s
       tlsConfig:
-        caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+        ca:
+          secret:
+            key: service-ca.crt
+            name: elasticsearch-operator-metrics-token
         serverName: elasticsearch-operator-metrics.openshift-operators-redhat.svc
   selector:
     matchLabels:
