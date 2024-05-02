@@ -1,5 +1,5 @@
-#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.20)
-FROM registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:v1.20.3-202306041558.el9.gee76e36 AS builder
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.21)
+FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.21-openshift-4.16 AS builder
 
 ENV BUILD_VERSION=${CI_CONTAINER_VERSION}
 ENV OS_GIT_MAJOR=${CI_X_VERSION}
@@ -34,7 +34,7 @@ LABEL \
         com.redhat.delivery.appregistry="false" \
         License="Apache-2.0" \
         maintainer="AOS Logging <aos-logging@redhat.com>" \
-        name="openshift-logging/elasticsearch-rhel8-operator" \
+        name="openshift-logging/elasticsearch-rhel9-operator" \
         com.redhat.component="elasticsearch-operator-container" \
         io.openshift.maintainer.product="OpenShift Container Platform" \
         io.openshift.build.commit.id=${CI_ELASTICSEARCH_OPERATOR_UPSTREAM_COMMIT} \
