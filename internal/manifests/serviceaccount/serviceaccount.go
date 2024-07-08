@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ViaQ/logerr/v2/kverrors"
+	"github.com/imdario/mergo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +18,7 @@ type EqualityFunc func(current, desired *corev1.ServiceAccount) bool
 
 // MutateFunc is the type for functions that mutate the current serviceaccount
 // by applying the values from the desired serviceaccount.
-type MutateFunc func(current, desired *corev1.ServiceAccount)
+type MutateFunc func(current, desired *corev1.ServiceAccount) error
 
 // Get returns the k8s serviceacount for the given object key or an error.
 func Get(ctx context.Context, c client.Client, key client.ObjectKey) (*corev1.ServiceAccount, error) {
@@ -71,7 +72,9 @@ func CreateOrUpdate(ctx context.Context, c client.Client, sa *corev1.ServiceAcco
 				)
 			}
 
-			mutate(current, sa)
+			if err := mutate(current, sa); err != nil {
+				return err
+			}
 			if err := c.Update(ctx, current); err != nil {
 				return err
 			}
@@ -96,6 +99,14 @@ func AnnotationsEqual(current, desired *corev1.ServiceAccount) bool {
 
 // MutateAnnotationsOnly is a default mutate implementation that replaces
 // current serviceaccount's annotations with the desired annotations.
-func MutateAnnotationsOnly(current, desired *corev1.ServiceAccount) {
-	current.Annotations = desired.Annotations
+func MutateAnnotationsOnly(current, desired *corev1.ServiceAccount) error {
+	currentAnnotations := current.GetAnnotations()
+
+	if err := mergo.Merge(&currentAnnotations, desired.GetAnnotations(), mergo.WithOverride); err != nil {
+		return err
+	}
+
+	current.SetAnnotations(currentAnnotations)
+
+	return nil
 }
