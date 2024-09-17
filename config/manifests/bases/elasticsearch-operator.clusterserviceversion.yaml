@@ -274,17 +274,17 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podStatuses
       version: v1
-  description: "### ONLY FOR OCP 4.16 \n\nELASTICSEARCH IS ONLY SUPPORTED FOR **SERVICEMESH,
-    TRACING, AND KIALI**, AND THIS OPERATOR **WILL BE REMOVED FROM THE OPENSHIFT OPERATOR
-    CATALOG IN NOVEMBER 2025**.  ELASTICSEARCH IS **NO LONGER SUPPORTED FOR LOG STORAGE**.
-    **KIBANA IS NO LONGER SUPPORTED** IN OCP 4.16 AND FORWARD. \n\n### About \n\nThe
-    Elasticsearch Operator for OCP provides a means for configuring and managing an
-    Elasticsearch cluster for use in tracing \nand cluster logging as well as a Kibana
-    instance to connect to it.\nThis operator only supports OCP Cluster Logging and
-    Jaeger.  It is tightly coupled to each and is not currently capable of\nbeing
-    used as a general purpose manager of Elasticsearch clusters running on OCP.\n\nPlease
-    note: For a general purpose Elasticsearch operator, please use Elastic's Elasticsearch
-    (ECK) Operator [here](https://catalog.redhat.com/software/containers/elastic/eck-operator/5fabf6d1ecb52450895164be?container-tabs=gti)\n\nIt
+  description: "### IN OCP 4.16 AND FORWARD \n\nELASTICSEARCH IS ONLY SUPPORTED FOR
+    **SERVICEMESH, TRACING, AND KIALI**, AND THIS OPERATOR **WILL BE REMOVED FROM
+    THE OPENSHIFT OPERATOR CATALOG IN NOVEMBER 2025**.  ELASTICSEARCH IS **NO LONGER
+    SUPPORTED FOR LOG STORAGE**. **KIBANA IS NO LONGER SUPPORTED** IN OCP 4.16 AND
+    FORWARD. \n\n### About \n\nThe Elasticsearch Operator for OCP provides a means
+    for configuring and managing an Elasticsearch cluster for use in tracing \nand
+    cluster logging as well as a Kibana instance to connect to it.\nThis operator
+    only supports OCP Cluster Logging and Jaeger.  It is tightly coupled to each and
+    is not currently capable of\nbeing used as a general purpose manager of Elasticsearch
+    clusters running on OCP.\n\nPlease note: For a general purpose Elasticsearch operator,
+    please use Elastic's Elasticsearch (ECK) Operator [here](https://catalog.redhat.com/software/containers/elastic/eck-operator/5fabf6d1ecb52450895164be?container-tabs=gti)\n\nIt
     is recommended that this operator be installed in the `openshift-operators-redhat`
     namespace to \nproperly support the Cluster Logging and Jaeger use cases.\n\nOnce
     installed, the operator provides the following features for **Elasticsearch**:\n*
