@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    name: elasticsearch-operator
+  name: elasticsearch-operator-alerts
+spec:
+  groups:
+  - name: elasticsearch_operator.alerts
+    rules:
+    - alert: ElasticsearchOperatorRemovalWarning
+      annotations:
+        message: Elasticsearch Operator is deprecated and will be removed from the
+          catalog on November 2025.
+        summary: In OCP 4.16 and forward, Elasticsearch is only supported for ServiceMesh,
+          Tracing and Kiali, and this operator will be removed from the OpenShift
+          Operator Catalog in November 2025. Elasticsearch is no longer supported
+          for log storage. Kibana is no longer supported in OCP 4.16 and forward.
+      expr: |
+        last_over_time((max by(version) (csv_succeeded{exported_namespace="openshift-operators-redhat", name=~"elasticsearch-operator.*", version=~"5.8.*"}) * on() group_left() group(cluster_version{version=~"4.1[6-9].*", type="current"}))[5m:]) > 0
+      for: 1m
+      labels:
+        namespace: openshift-operators-redhat
+        severity: warning
