@@ -124,22 +124,13 @@ fmt: $(GOFUMPORTS) ## Run gofumpt against code.
 	@$(GOFUMPORTS) -l -w $(shell find internal apis controllers test version -name '*.go') ./*.go
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT) fmt lint-prom lint-dockerfile ## Run golangci-lint against code.
+lint: $(GOLANGCI_LINT) fmt lint-prom ## Run golangci-lint against code.
 	@GOLANGCI_LINT_CACHE="$(CURDIR)/.cache" $(GOLANGCI_LINT) run -c golangci.yaml
 
 .PHONY: lint-prom
 lint-prom: $(PROMTOOL) ## Run promtool check against recording rules and alerts.
 	@$(PROMTOOL) check rules ./files/prometheus_recording_rules.yml
 	@$(PROMTOOL) check rules ./files/prometheus_alerts.yml
-
-.PHONY: gen-dockerfiles
-gen-dockerfiles: ## Generate dockerfile from midstream contents.
-	./hack/generate-dockerfile-from-midstream > Dockerfile && \
-	./hack/generate-dockerfile-from-midstream Dockerfile.in dev-meta.yaml > Dockerfile.dev
-
-.PHONY: lint-dockerfile
-lint-dockerfile: ## Lint for upstream/downstream dockerfile changes.
-	@hack/lint-dockerfile
 
 .PHONY: image
 image: .output/image ## Build operator container image.
