@@ -1,6 +1,8 @@
 module github.com/openshift/elasticsearch-operator
 
-go 1.22
+go 1.22.0
+
+toolchain go1.22.5
 
 require (
 	github.com/ViaQ/logerr/v2 v2.0.0
