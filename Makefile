@@ -134,8 +134,8 @@ lint-prom: $(PROMTOOL) ## Run promtool check against recording rules and alerts.
 
 .PHONY: image
 image: .output/image ## Build operator container image.
-.output/image: gen-dockerfiles $(GO_FILES) $(BUNDLE_FILES) $(OTHER_FILES)
-	podman build -f Dockerfile.dev -t $(IMAGE_TAG) .
+.output/image: $(GO_FILES) $(BUNDLE_FILES) $(OTHER_FILES)
+	podman build -f Dockerfile -t $(IMAGE_TAG) .
 	@touch $@
 
 ##@ Testing
